@@ -1,0 +1,21 @@
+[
+ {
+  "creation": "2013-07-31 18:52:01", 
+  "docstatus": 0, 
+  "modified": "2013-11-06 14:42:49", 
+  "modified_by": "Administrator", 
+  "owner": "Administrator"
+ }, 
+ {
+  "doctype": "Report", 
+  "is_standard": "No", 
+  "name": "__common__", 
+  "ref_doctype": "Stock Entry Detail", 
+  "report_name": "Stock Valuation", 
+  "report_type": "Script Report"
+ }, 
+ {
+  "doctype": "Report", 
+  "name": "Stock Valuation"
+ }
+]

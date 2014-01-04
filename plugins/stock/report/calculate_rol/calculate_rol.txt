@@ -1,0 +1,23 @@
+[
+ {
+  "creation": "2013-02-28 08:47:44", 
+  "docstatus": 0, 
+  "modified": "2013-11-06 14:42:49", 
+  "modified_by": "Administrator", 
+  "owner": "Administrator"
+ }, 
+ {
+  "disabled": 0, 
+  "doctype": "Report", 
+  "is_standard": "No", 
+  "name": "__common__", 
+  "query": "select\n `tabStock Ledger Entry`.posting_date as \"Date:Date:100\",\n `tabStock Ledger Entry`.item_code as \"Item:Link/Item:150\",\n `tabStock Ledger Entry`.warehouse as \"Warehouse:Link/Warehouse:100\",\n `tabStock Ledger Entry`.actual_qty as \"Qty:Float:70\",\n `tabStock Ledger Entry`.qty_after_transaction as \"Balance:Float:70\",\n `tabStock Ledger Entry`.voucher_type as \"Voucher Type::150\",\n `tabStock Ledger Entry`.voucher_no as \"Voucher No::150\",\n `tabStock Ledger Entry`.name as \"Name::100\",\n `tabItem`.re_order_level as \"ROL::70\"\n \n from\n`tabItem` left join `tabStock Ledger Entry` on (`tabItem`.name = `tabStock Ledger Entry`.item_code)\n\nwhere\n`tabStock Ledger Entry`.item_code != \"\"\nand `tabStock Ledger Entry`.item_code = `tabItem`.name\nand `tabStock Ledger Entry`.item_code REGEXP '^RH'\n\nORDER BY\n`tabStock Ledger Entry`.item_code asc, `tabStock Ledger Entry`.name asc", 
+  "ref_doctype": "Stock Ledger Entry", 
+  "report_name": "Calculate ROL", 
+  "report_type": "Script Report"
+ }, 
+ {
+  "doctype": "Report", 
+  "name": "Calculate ROL"
+ }
+]
