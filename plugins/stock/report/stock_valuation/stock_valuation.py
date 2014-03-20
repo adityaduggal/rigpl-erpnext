@@ -119,7 +119,7 @@ def get_pl_map(filters):
 	else:
 		webnotes.msgprint("Please select a Price List for Valuation Purposes", raise_exception=1)
 	
-	pl_map_int = webnotes.conn.sql ("""SELECT it.name, p.price_list_name, p.ref_rate
+	pl_map_int = webnotes.conn.sql ("""SELECT it.name, p.price_list, p.ref_rate
 		FROM `tabItem` it, `tabItem Price` p
 		WHERE p.parent = it.name %s
 		ORDER BY it.name""" % conditions, as_dict=1)

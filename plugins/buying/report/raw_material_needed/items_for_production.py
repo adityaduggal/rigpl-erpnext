@@ -52,43 +52,43 @@ def get_items(filters):
 	if(sum(bn.ordered_qty)=0,NULL,sum(bn.ordered_qty)),
 	if(sum(bn.planned_qty)=0,NULL,sum(bn.planned_qty)),
 	
-	if(min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="DEL20A" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="DEL20A" THEN bn.actual_qty end)),
 
 	if(min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)),
 
 	it.description, it.d1, it.l1,ifnull(it.is_rm,"No"),
 
-	if(min(case WHEN bn.warehouse="RG-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="RG-BGH655 - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="RG-BGH655" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="RG-BGH655" THEN bn.actual_qty end)),
 
-	if(min(case WHEN bn.warehouse="HT-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="HT-BGH655 - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="HT-BGH655" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="HT-BGH655" THEN bn.actual_qty end)),
 
-	if(min(case WHEN bn.warehouse="FG-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="FG-BGH655 - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="FG-BGH655" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="FG-BGH655" THEN bn.actual_qty end)),
 
-	if(min(case WHEN bn.warehouse="SLIT-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="SLIT-DEL20A - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="SLIT-DEL20A" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="SLIT-DEL20A" THEN bn.actual_qty end)),
 
-	if(min(case WHEN bn.warehouse="RG-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="RG-DEL20A - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="RG-DEL20A" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="RG-DEL20A" THEN bn.actual_qty end)),
 
-	if(min(case WHEN bn.warehouse="FG-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="FG-DEL20A - RIGPL" THEN bn.actual_qty end)) ,
+	if(min(case WHEN bn.warehouse="FG-DEL20A" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="FG-DEL20A" THEN bn.actual_qty end)) ,
 
-	if(min(case WHEN bn.warehouse="TEST-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="TEST-DEL20A - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="TEST-DEL20A" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="TEST-DEL20A" THEN bn.actual_qty end)),
 
-	if(min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)) ,
+	if(min(case WHEN bn.warehouse="RM-DEL20A" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="RM-DEL20A" THEN bn.actual_qty end)) ,
 
-	if(min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="RM-BGH655" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="RM-BGH655" THEN bn.actual_qty end)),
 
-	if(min(case WHEN bn.warehouse="REJ-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="REJ-DEL20A - RIGPL" THEN bn.actual_qty end)),
+	if(min(case WHEN bn.warehouse="REJ-DEL20A" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="REJ-DEL20A" THEN bn.actual_qty end)),
 	
 	it.pl_item,
 	it.stock_maintained
