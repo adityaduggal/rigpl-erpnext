@@ -21,13 +21,13 @@ wn.query_reports["Calculate ROL"] = {
 			"fieldname":"is_rm",
 			"label": "Is RM",
 			"fieldtype": "Select",
-			"options": "Yes\nNo"
+			"options": "\nYes\nNo"
 		},
 		{
 			"fieldname":"base_material",
 			"label": "Base Material",
 			"fieldtype": "Select",
-			"options": "HSS\nCarbide"
+			"options": "\nCarbide\nHSS"
 		},
 		{
 			"fieldname":"tool_type",
