@@ -87,36 +87,18 @@ def get_data(filters):
 	
 	elif filters.get("doc_type") == "Customer":
 		if filters.get("sales_person"):
-			if filters.get("status"):
-				data = webnotes.conn.sql("""
-					SELECT cu.name, ifnull(cu.customer_rating,"OK") , ifnull(cu.requirement,0), 
-					ifnull(cu.territory,"-"), ifnull(cu.next_contact_date,'1900-01-01'), st.sales_person
-					FROM `tabCustomer` cu, `tabSales Team` st
-					WHERE cu.docstatus =0 AND st.parent = cu.name %s """ %conditions_cust,as_list=1)
-			else:
-				data = webnotes.conn.sql("""
-					SELECT cu.name, ifnull(cu.customer_rating,"OK") , ifnull(cu.requirement,0), 
-					ifnull(cu.territory,"-"), ifnull(cu.next_contact_date,'1900-01-01'), st.sales_person
-					FROM `tabCustomer` cu, `tabSales Team` st
-					WHERE cu.docstatus =0 AND st.parent = cu.name 
-					AND cu.customer_rating != 'Black Listed' or 'Changed Business' or 'Through Dealer' %s """ %conditions_cust,as_list=1)
+			data = webnotes.conn.sql("""
+				SELECT cu.name, ifnull(cu.customer_rating,"OK") , ifnull(cu.requirement,0), 
+				ifnull(cu.territory,"-"), ifnull(cu.next_contact_date,'1900-01-01'), st.sales_person
+				FROM `tabCustomer` cu, `tabSales Team` st
+				WHERE cu.docstatus =0 AND st.parent = cu.name %s """ %conditions_cust,as_list=1)
+					
 		else:
-			if filters.get("status"):
-				data = webnotes.conn.sql("""
-					SELECT cu.name, ifnull(cu.customer_rating,"OK") , ifnull(cu.requirement,0), 
-					ifnull(cu.territory,"-"), ifnull(cu.next_contact_date,'1900-01-01')
-					FROM `tabCustomer` cu
-					WHERE cu.docstatus =0 %s """ %conditions_cust,as_list=1)
-			else:
-				data = webnotes.conn.sql("""
-					SELECT cu.name, ifnull(cu.customer_rating,"OK") , ifnull(cu.requirement,0), 
-					ifnull(cu.territory,"-"), ifnull(cu.next_contact_date,'1900-01-01')
-					FROM `tabCustomer` cu
-					WHERE cu.docstatus =0 
-					AND cu.customer_rating != 'Black Listed' 
-					AND cu.customer_rating != 'Changed Business'
-					AND cu.customer_rating != 'Through Dealer' 
-					OR cu.customer_rating is NULL %s """ %conditions_cust,as_list=1)
+			data = webnotes.conn.sql("""
+				SELECT cu.name, ifnull(cu.customer_rating,"OK") , ifnull(cu.requirement,0), 
+				ifnull(cu.territory,"-"), ifnull(cu.next_contact_date,'1900-01-01')
+				FROM `tabCustomer` cu
+				WHERE cu.docstatus =0 %s """ %conditions_cust,as_list=1)
 
 		
 		con = webnotes.conn.sql("""
@@ -168,20 +150,20 @@ def get_data(filters):
 				i.insert(9,"-") #comm medium
 				i.insert(10,"-") #link to the communication
 		
-		salesteam = webnotes.conn.sql("""SELECT st.sales_person, st.parenttype, st.parent
-			FROM `tabSales Team` st
-			WHERE st.parenttype = 'Customer' %s 
-			GROUP BY st.parent""" %conditions_st, as_list=1)
-		
-		for i in data:
-			if any(i[0] in s for s in salesteam):				
-				for j in salesteam:
-					if i[0] == j[2]:
-						i.insert(11, j[0]) #Add Sales Person
-			else:
-				i.insert(11,"-") #Add sales person if no sales person assigned.
+		if filters.get("sales_person") is None:
+			salesteam = webnotes.conn.sql("""SELECT st.sales_person, st.parenttype, st.parent
+				FROM `tabSales Team` st
+				WHERE st.parenttype = 'Customer' %s 
+				GROUP BY st.parent""" %conditions_st, as_list=1)
 			
-			
+			for i in data:
+				if any(i[0] in s for s in salesteam):				
+					for j in salesteam:
+						if i[0] == j[2]:
+							i.insert(11, j[0]) #Add Sales Person
+				else:
+					i.insert(11,"-") #Add sales person if no sales person assigned.
+					
 	return data
 
 	

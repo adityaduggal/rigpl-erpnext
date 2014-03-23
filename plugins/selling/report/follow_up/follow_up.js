@@ -20,11 +20,11 @@ wn.query_reports["Follow Up"] = {
 		},
 		{
 			"fieldname":"status",
-			"label": "Status or Rating of Lead or Customer",
+			"label": "Status of Lead OR Customer",
 			"fieldtype": "Select",
 			"options": "\n----Lead Related----\nHot\nCold\nQuotation Sent\nConverted\nLost\n \
 			----Commom----\nTrial Passed\nTrial Failed\n \
-			----Customer Related----\nBlack Listed\nChanged Business\nThrough Dealer\nTrial In Progress"
+			----Customer Related----\nOK\nBlack Listed\nChanged Business\nThrough Dealer\nTrial In Progress"
 		},
 		{
 			"fieldname":"sales_person",
