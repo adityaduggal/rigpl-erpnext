@@ -10,7 +10,7 @@
   "doctype": "Report", 
   "is_standard": "No", 
   "name": "__common__", 
-  "ref_doctype": "Lead", 
+  "ref_doctype": "Customer", 
   "report_name": "Follow Up", 
   "report_type": "Script Report"
  }, 

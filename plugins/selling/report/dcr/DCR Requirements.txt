@@ -1,0 +1,12 @@
+Filter requirements
+1. Sales Person
+2. Date Range x 2
+
+Column Requirements
+1. Customer (Link)
+2. Lead Company
+3. Date of Communication
+4. Medium
+5. Comm Link
+6. Subject
+7. Lead Link

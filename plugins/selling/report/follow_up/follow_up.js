@@ -7,18 +7,6 @@ wn.query_reports["Follow Up"] = {
 			"options": "\nLead\nCustomer"
 		},
 		{
-			"fieldname":"sales_person",
-			"label": "Sales Person",
-			"fieldtype": "Link",
-			"options": "Sales Person"
-		},
-		{
-			"fieldname":"territory",
-			"label": "Territory",
-			"fieldtype": "Link",
-			"options": "Territory"
-		},
-		{
 			"fieldname":"owner",
 			"label": "Lead Owner",
 			"fieldtype": "Link",
@@ -29,6 +17,26 @@ wn.query_reports["Follow Up"] = {
 			"label": "Lead Next Contact",
 			"fieldtype": "Link",
 			"options": "Profile"
+		},
+		{
+			"fieldname":"status",
+			"label": "Status or Rating of Lead or Customer",
+			"fieldtype": "Select",
+			"options": "\n----Lead Related----\nHot\nCold\nQuotation Sent\nConverted\nLost\n \
+			----Commom----\nTrial Passed\nTrial Failed\n \
+			----Customer Related----\nBlack Listed\nChanged Business\nThrough Dealer\nTrial In Progress"
+		},
+		{
+			"fieldname":"sales_person",
+			"label": "Sales Person",
+			"fieldtype": "Link",
+			"options": "Sales Person"
+		},
+		{
+			"fieldname":"territory",
+			"label": "Territory",
+			"fieldtype": "Link",
+			"options": "Territory"
 		}
 	]
 }
