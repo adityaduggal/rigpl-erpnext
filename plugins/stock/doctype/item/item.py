@@ -49,6 +49,12 @@ class CustomDocType(DocType):
 		#Code to generate the letter based on Special Treatment
 		#====================		
 	def fn_special_treatment(self,treatment):
+		if self.doc.is_rm == 'Yes':
+			if treatment != "Hard" and treatment != "None":
+				webnotes.msgprint("Treatment Selected is not Permitted for RM", raise_exception=1)
+		else:
+			if treatment == "Hard":
+				webnotes.msgprint("Treatment Selected is not Permitted", raise_exception=1)
 		return {
 			"TiAlN": '1',
 			"TiN": '2',
@@ -64,16 +70,6 @@ class CustomDocType(DocType):
 		return {
 			"Yes": 'R',
 		}.get(is_rm,"")
-				
-		#Code to generate the letter based on BRAND
-		#====================
-	def fn_brand(self,brand):
-		return {
-			"Rohit": 'R',
-			"Anubis": 'A',
-			"Export": 'E',
-			"Groz": 'G',
-		}.get(brand,"")
 		
 		#Code to Check the numeric fields
 		#====================		
@@ -81,7 +77,7 @@ class CustomDocType(DocType):
 		if not float:
 			float = 0
 		else:
-			if float > 999:
+			if float >= 1000:
 				webnotes.msgprint("Number entered should be less than 1000", 
 					raise_exception=1)
 			elif float < 0:
@@ -90,19 +86,19 @@ class CustomDocType(DocType):
 	
 	def fn_check_flutes (self,z):
 		if z == "":
-			webnotes.msgprint("Flutes Cannot less than 1", raise_exception=1)
+			webnotes.msgprint("Flutes Cannot be less than 1", raise_exception=1)
 		elif z <1:
-			webnotes.msgprint("Flutes Cannot less than 1", raise_exception=1)
-		elif z>10:
-			webnotes.msgprint("Flutes cannot be more than 10", raise_exception=1)
+			webnotes.msgprint("Flutes Cannot be less than 1", raise_exception=1)
+		elif z>20:
+			webnotes.msgprint("Flutes cannot be more than 20", raise_exception=1)
 	
 	def fn_d1_d2 (self,d1,d2):
 		if d1 < d2:
 			if self.doc.tool_type != "SQEM" and self.doc.base_material != "HSS":
 				webnotes.msgprint("D or H/D should be greater than W or D1", raise_exception=1)
-		elif d1 != d2:
-			if self.doc.tool_type == "Square":
-				webnotes.msgprint("H/D and W should be equal for Square Tools", raise_exception=1)
+		elif d1 == d2:
+			if self.doc.tool_type != "Square" or self.doc.tool_type != "Mandrels":
+				webnotes.msgprint("H/D and W equal only for Square Tools and Mandrels", raise_exception=1)
 	
 	def fn_length(self,l):
 		if self.doc.is_rm == "Yes" and self.doc.base_material== "HSS":
@@ -133,7 +129,7 @@ class CustomDocType(DocType):
 			
 			# Count of Tool Type==4 below
 		elif tt=="Rectangular" or tt=="Mandrels" or tt=="Parting":
-			self.fn_d1_d2(self.doc.height_dia, self.doc.width)
+			self.fn_d1_d2(self.doc.width, self.doc.height_dia)
 			self.fn_length(self.doc.length)
 			self.fn_a1(self.doc.a1)
 

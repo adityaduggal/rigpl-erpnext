@@ -34,13 +34,13 @@ def get_columns(filters):
 		
 	if filters.get("doc_type") == "Lead":
 		return [
-			"Lead:Link/Lead:100", "Company::250", "Contact::120", "Mobile #::100","Status::100",
+			"Lead:Link/Lead:100", "Company::250", "Contact::120", "Mobile #::100","Email::100", "Status::100",
 			"Requirement:Currency:100", "Territory::100", "Last Date:Date:80", "Next Date:Date:80", 
 			"Medium::100", "Link Comm:Link/Communication:150", "Lead Owner::120", "Next Contact By::120"
 		]
 	elif filters.get("doc_type") =="Customer":
 		return [
-			"Customer ID:Link/Customer:150", "Contact::120", "Mobile #::100",
+			"Customer ID:Link/Customer:150", "Contact::120", "Mobile #::100", "Email::100", 
 			"Status::100", "Days Since SO:Int:50", "Requirement:Currency:100", "Territory::100", 
 			"Last Date:Date:80", "Next Date:Date:80", "Medium::100",
 			"Link Comm:Link/Communication:120","Sales Person:Link/Sales Person:120"
@@ -53,8 +53,8 @@ def get_data(filters):
 	if filters.get("doc_type") == "Lead":
 		if filters.get("status") is None:
 			data = webnotes.conn.sql("""SELECT ld.name, ld.company_name, ld.lead_name, ifnull(ld.mobile_no,"-"), 
-			ld.custom_status, ld.requirement, ifnull(ld.territory,"-"), ifnull(ld.contact_date,'1900-01-01'), 
-			ifnull(ld.lead_owner,"-"), ifnull(ld.contact_by,"-")
+			ifnull(ld.email_id,"-"), ld.custom_status, ld.requirement, ifnull(ld.territory,"-"),
+			ifnull(ld.contact_date,'1900-01-01'), ifnull(ld.lead_owner,"-"), ifnull(ld.contact_by,"-")
 			FROM `tabLead` ld
 			WHERE ld.docstatus=0 AND ld.custom_status != 'Lost' AND ld.custom_status != 'Converted' %s 
 			ORDER BY ld.name""" %conditions_lead , as_list=1)
@@ -76,13 +76,13 @@ def get_data(filters):
 			if any (i[0] in s for s in comm):
 				for j in comm:
 					if i[0] == j[2]:
-						i.insert(7,'1900-01-01' if j[4] is None else j[4]) #Actual communication date
-						i.insert(9,"-" if j[5] is None else j[5]) #comm medium
-						i.insert(10,"-" if j[0] is None else j[0]) #link to the communication
+						i.insert(8,'1900-01-01' if j[4] is None else j[4]) #Actual communication date
+						i.insert(10,"-" if j[5] is None else j[5]) #comm medium
+						i.insert(11,"-" if j[0] is None else j[0]) #link to the communication
 			else:
-				i.insert(7,'1900-01-01') #Actual communication date
-				i.insert(9,"-") #comm medium
-				i.insert(10,"-") #link to the communication
+				i.insert(8,'1900-01-01') #Actual communication date
+				i.insert(10,"-") #comm medium
+				i.insert(11,"-") #link to the communication
 	
 	
 	elif filters.get("doc_type") == "Customer":
@@ -103,7 +103,7 @@ def get_data(filters):
 		
 		con = webnotes.conn.sql("""
 			SELECT co.name, co.first_name, co.last_name,
-			ifnull(co.mobile_no,"-"), co.customer
+			ifnull(co.mobile_no,"-"), ifnull(co.email_id,"-"), co.customer
 			FROM `tabContact` co
 			WHERE co.docstatus =0 AND co.customer is not Null
 			GROUP BY co.customer""",as_list=1)
@@ -111,15 +111,17 @@ def get_data(filters):
 		for i in data:
 			if any (i[0] in s for s in con):
 				for j in con:
-					if i[0] == j[4]:
+					if i[0] == j[5]:
 						if j[2] is None:
 							j[2]=""
 						lst = [j[1], " ", j[2]]
 						i.insert(1, "-" if j[1] is None else ''.join(lst)) #Add contact name
 						i.insert(2, "-" if j[3] is None else j[3]) #Add mobile number
+						i.insert(3, "-" if j[4] is None else j[4]) #Add email id
 			else:
 				i.insert(1, "~No Contact") #Add contact name
-				i.insert(2, "~No Contact") #Add contact name
+				i.insert(2, "~No Contact") #Add mobile #
+				i.insert(3, "~No Contact") #Add email id
 		
 		last_so = webnotes.conn.sql("""select so.customer, max(so.transaction_date), so.name
 			FROM `tabSales Order` so WHERE so.docstatus = 1 GROUP BY so.customer""", as_list=1)
@@ -128,9 +130,9 @@ def get_data(filters):
 			if any(i[0] in s for s in last_so):
 				for j in last_so:
 					if i[0] == j[0]:
-						i.insert(4, (datetime.date.today() - getdate(j[1])).days) #insert days
+						i.insert(5, (datetime.date.today() - getdate(j[1])).days) #insert days
 			else:
-				i.insert(4,(datetime.date.today() - getdate('1900-01-01')).days)
+				i.insert(5,(datetime.date.today() - getdate('1900-01-01')).days)
 		
 		comm = webnotes.conn.sql("""SELECT com.name, com.owner, com.parent, com.parenttype,
 			ifnull(DATE(com.communication_date),'1900-01-01'), ifnull(com.communication_medium,"-")
@@ -142,13 +144,13 @@ def get_data(filters):
 			if any (i[0] in s for s in comm):
 				for j in comm:
 					if i[0] == j[2]:
-						i.insert(7,'1900-01-01' if j[4] is None else j[4]) #Actual communication date
-						i.insert(9,"-" if j[5] is None else j[5]) #comm medium
-						i.insert(10,"-" if j[0] is None else j[0]) #link to the communication
+						i.insert(8,'1900-01-01' if j[4] is None else j[4]) #Actual communication date
+						i.insert(10,"-" if j[5] is None else j[5]) #comm medium
+						i.insert(11,"-" if j[0] is None else j[0]) #link to the communication
 			else:
-				i.insert(7,'1900-01-01') #Actual communication date
-				i.insert(9,"-") #comm medium
-				i.insert(10,"-") #link to the communication
+				i.insert(8,'1900-01-01') #Actual communication date
+				i.insert(10,"-") #comm medium
+				i.insert(11,"-") #link to the communication
 		
 		if filters.get("sales_person") is None:
 			salesteam = webnotes.conn.sql("""SELECT st.sales_person, st.parenttype, st.parent
@@ -160,9 +162,9 @@ def get_data(filters):
 				if any(i[0] in s for s in salesteam):				
 					for j in salesteam:
 						if i[0] == j[2]:
-							i.insert(11, j[0]) #Add Sales Person
+							i.insert(12, j[0]) #Add Sales Person
 				else:
-					i.insert(11,"-") #Add sales person if no sales person assigned.
+					i.insert(12,"-") #Add sales person if no sales person assigned.
 					
 	return data
 
