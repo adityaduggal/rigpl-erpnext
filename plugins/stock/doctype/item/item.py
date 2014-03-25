@@ -97,7 +97,7 @@ class CustomDocType(DocType):
 			if self.doc.tool_type != "SQEM" and self.doc.base_material != "HSS":
 				webnotes.msgprint("D or H/D should be greater than W or D1", raise_exception=1)
 		elif d1 == d2:
-			if self.doc.tool_type != "Square" or self.doc.tool_type != "Mandrels":
+			if self.doc.tool_type == "Rectangular" or self.doc.tool_type == "Parting":
 				webnotes.msgprint("H/D and W equal only for Square Tools and Mandrels", raise_exception=1)
 	
 	def fn_length(self,l):
