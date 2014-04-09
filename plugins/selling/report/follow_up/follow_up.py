@@ -27,11 +27,11 @@ def execute(filters=None):
 	data = get_data(filters)
 
 	return columns, data
-	
+
 def get_columns(filters):
 	if not filters.get("doc_type"):
 		webnotes.msgprint("Please select the Type of Follow Up first", raise_exception=1)
-		
+
 	if filters.get("doc_type") == "Lead":
 		return [
 			"Lead:Link/Lead:100", "Company::250", "Contact::120", "Mobile #::100","Email::100", "Status::100",
@@ -49,7 +49,7 @@ def get_data(filters):
 	conditions_cust = get_conditions_cust(filters)
 	conditions_lead = get_conditions_lead(filters)
 	conditions_st = get_conditions_st(filters)
-	
+
 	if filters.get("doc_type") == "Lead":
 		if filters.get("status") is None:
 			data = webnotes.conn.sql("""SELECT ld.name, ld.company_name, ld.lead_name, ifnull(ld.mobile_no,"-"), 
@@ -65,13 +65,13 @@ def get_data(filters):
 			FROM `tabLead` ld
 			WHERE ld.docstatus=0 %s 
 			ORDER BY ld.name""" %conditions_lead , as_list=1)
-		
+
 		comm = webnotes.conn.sql("""SELECT com.name, com.owner, com.parent, com.parenttype,
-			ifnull(DATE(com.communication_date),'1900-01-01'), ifnull(com.communication_medium,"-")
+			ifnull(MAX(DATE(com.communication_date)),'1900-01-01'), ifnull(com.communication_medium,"-")
 			FROM `tabCommunication` com
 			WHERE com.parenttype = '%s' 
 			GROUP BY com.parent""" %filters["doc_type"], as_list=1)
-		
+
 		for i in data:
 			if any (i[0] in s for s in comm):
 				for j in comm:
@@ -83,8 +83,8 @@ def get_data(filters):
 				i.insert(8,'1900-01-01') #Actual communication date
 				i.insert(10,"-") #comm medium
 				i.insert(11,"-") #link to the communication
-	
-	
+
+
 	elif filters.get("doc_type") == "Customer":
 		if filters.get("sales_person"):
 			data = webnotes.conn.sql("""
@@ -92,7 +92,7 @@ def get_data(filters):
 				ifnull(cu.territory,"-"), ifnull(cu.next_contact_date,'1900-01-01'), st.sales_person
 				FROM `tabCustomer` cu, `tabSales Team` st
 				WHERE cu.docstatus =0 AND st.parent = cu.name %s """ %conditions_cust,as_list=1)
-					
+
 		else:
 			data = webnotes.conn.sql("""
 				SELECT cu.name, ifnull(cu.customer_rating,"OK") , ifnull(cu.requirement,0), 
@@ -100,14 +100,14 @@ def get_data(filters):
 				FROM `tabCustomer` cu
 				WHERE cu.docstatus =0 %s """ %conditions_cust,as_list=1)
 
-		
+
 		con = webnotes.conn.sql("""
 			SELECT co.name, co.first_name, co.last_name,
 			ifnull(co.mobile_no,"-"), ifnull(co.email_id,"-"), co.customer
 			FROM `tabContact` co
 			WHERE co.docstatus =0 AND co.customer is not Null
 			GROUP BY co.customer""",as_list=1)
-		
+
 		for i in data:
 			if any (i[0] in s for s in con):
 				for j in con:
@@ -122,10 +122,10 @@ def get_data(filters):
 				i.insert(1, "~No Contact") #Add contact name
 				i.insert(2, "~No Contact") #Add mobile #
 				i.insert(3, "~No Contact") #Add email id
-		
+
 		last_so = webnotes.conn.sql("""select so.customer, max(so.transaction_date), so.name
 			FROM `tabSales Order` so WHERE so.docstatus = 1 GROUP BY so.customer""", as_list=1)
-		
+
 		for i in data:
 			if any(i[0] in s for s in last_so):
 				for j in last_so:
@@ -133,13 +133,13 @@ def get_data(filters):
 						i.insert(5, (datetime.date.today() - getdate(j[1])).days) #insert days
 			else:
 				i.insert(5,(datetime.date.today() - getdate('1900-01-01')).days)
-		
+
 		comm = webnotes.conn.sql("""SELECT com.name, com.owner, com.parent, com.parenttype,
-			ifnull(DATE(com.communication_date),'1900-01-01'), ifnull(com.communication_medium,"-")
+			ifnull(MAX(DATE(com.communication_date)),'1900-01-01'), ifnull(com.communication_medium,"-")
 			FROM `tabCommunication` com
 			WHERE com.parenttype = '%s' 
 			GROUP BY com.parent""" %filters["doc_type"], as_list=1)
-		
+
 		for i in data:
 			if any (i[0] in s for s in comm):
 				for j in comm:
@@ -151,13 +151,13 @@ def get_data(filters):
 				i.insert(8,'1900-01-01') #Actual communication date
 				i.insert(10,"-") #comm medium
 				i.insert(11,"-") #link to the communication
-		
+
 		if filters.get("sales_person") is None:
 			salesteam = webnotes.conn.sql("""SELECT st.sales_person, st.parenttype, st.parent
 				FROM `tabSales Team` st
 				WHERE st.parenttype = 'Customer' %s 
 				GROUP BY st.parent""" %conditions_st, as_list=1)
-			
+
 			for i in data:
 				if any(i[0] in s for s in salesteam):				
 					for j in salesteam:
@@ -165,42 +165,42 @@ def get_data(filters):
 							i.insert(12, j[0]) #Add Sales Person
 				else:
 					i.insert(12,"-") #Add sales person if no sales person assigned.
-					
+
 	return data
 
-	
+
 def get_conditions_cust(filters):	
 	conditions_cust = ""
-	
+
 	if filters.get("territory"):
 		conditions_cust += " and cu.territory = '%s'" % filters["territory"]
-		
+
 	if filters.get("sales_person"):
 		conditions_cust += " and st.sales_person = '%s'" % filters["sales_person"]
-	
+
 	if filters.get("status"):
 		conditions_cust += " AND cu.customer_rating = '%s'" % filters["status"]
-		
+
 	return conditions_cust
 
 def get_conditions_lead(filters):	
 	conditions_lead = ""
-	
+
 	if filters.get("owner"):
 		conditions_lead += " AND ld.lead_owner = '%s'" % filters["owner"]
-		
+
 	if filters.get("next_contact"):
 		conditions_lead += " AND ld.contact_by = '%s'" % filters["next_contact"]
-		
+
 	if filters.get("status"):
 		conditions_lead += " AND ld.custom_status = '%s'" % filters["status"]
-		
+
 	return conditions_lead
-	
+
 def get_conditions_st(filters):	
 	conditions_st = ""
-	
+
 	if filters.get("sales_person"):
 		conditions_st += " AND st.sales_person = '%s'" % filters["sales_person"]
-		
+
 	return conditions_st
