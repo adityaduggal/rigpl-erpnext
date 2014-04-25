@@ -20,18 +20,18 @@ cur_frm.cscript.custom_onload = function () {
 	var inch_fd_chk = ["h", "w", "l", "d1", "l1", "d2", "l2"];
 	for (var i in inch_fds){
 			cur_frm.toggle_display(inch_fds[i]+"_inch", cur_frm.doc.tool_type=="");
-		}	
+		}
 }
 
 //Custom refresh function would make the entered fields DISABLED so that no one can change the defining fields.
-cur_frm.cscript.custom_refresh = function() {
+cur_frm.cscript.custom_refresh = function(doc, cdt, cdn) {
     // Disable defining fields of saved items only not applicable for unsaved items data
     cur_frm.toggle_enable(["description", "tool_type","brand", "base_material", "quality", "is_rm", 
 		"height_dia", "height_dia_inch", "inch_h", "width", "width_inch", "inch_w", "length", "length_inch", "inch_l", 
 		"a1", "d1", "d1_inch", "inch_d1", "l1", "l1_inch", "inch_l1", "a2", "d2", "d2_inch", "inch_d2", 
 		"l2", "l2_inch", "inch_l2", "r1", "no_of_flutes", "drill_type", "special_treatment", "a3"], cur_frm.doc.__islocal);
 	cur_frm.toggle_enable("description",cur_frm.doc.tool_type =="Others")
-	cur_frm.cscript.tool_type();
+	cur_frm.cscript.tool_type(doc, cdt, cdn);
 }
 
 //Custom query to get the Quality as per Base Material and Is RM selected
@@ -62,9 +62,7 @@ return repl('SELECT DISTINCT `tabQuality`.`name`, base_material, is_rm, code FRO
 //*************************************************************************************************
 
 cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
-
 	cur_frm.cscript.custom_onload();
-	
 	var tt = cur_frm.doc.tool_type;
 	switch (tt)
 	{
@@ -76,7 +74,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","length", "d1", "l1"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1", "no_of_flutes"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -90,7 +87,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1", "a2", "no_of_flutes"];
 		var df = ["drill_type"];
-
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -105,7 +101,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1", "a2", "no_of_flutes"];
 		var df = ["drill_type"];
-
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -118,7 +113,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","length", "d1", "l1"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1", "a2", "r1", "no_of_flutes"];
-
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -131,7 +125,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1", "no_of_flutes"];
 		var df = ["drill_type"];
-
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -144,7 +137,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","width","length"];
 		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
 		var df1 =["a1"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -156,7 +148,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","width","length"];
 		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
 		var df1 =["a1"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -168,7 +159,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","length", "d1", "l1", "d2", "l2"];
 		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_d2", "inch_l2"]; //please keep this in same order as df2.
 		var df1 =["a1", "a2"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -180,7 +170,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","length", "d1", "l1"];
 		var df21 = ["inch_h", "inch_l", "inch_d1"]; //please keep this in same order as df2.
 		var df1 =["a1"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -192,7 +181,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","length", "d1", "l1"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1", "no_of_flutes"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -204,7 +192,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","width","length"];
 		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
 		var df1 =["a1"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -216,7 +203,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia", "length"];
 		var df21 = ["inch_h", "inch_l"]; //please keep this in same order as df2.
 		var df1 =["a1"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -228,7 +214,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","length", "d1", "l1"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1", "no_of_flutes"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -240,7 +225,6 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		var df2 = ["height_dia","width","length"];
 		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
 		var df1 =["a1"];
-		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
@@ -248,8 +232,8 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 	default:
 		hide_all();
-		cur_frm.toggle_display("item_code",tt);
-		cur_frm.toggle_reqd("item_code", tt);
+		cur_frm.toggle_display("item_code",true);
+		cur_frm.toggle_reqd("item_code", true);
 	}
 }
 
@@ -304,8 +288,8 @@ function change_label(doc, cdt, cdn, tt){
 	}
 	for(fieldname in labels[tt]) {
 	// change the labels
-	alert(fieldname);
-	alert(labels[tt][fieldname]);
+	//alert(fieldname);
+	//alert(labels[tt][fieldname]);
 	$('[data-grid-fieldname="Item-' + fieldname + '"]').html(labels[tt][fieldname]);
 	}
 }
