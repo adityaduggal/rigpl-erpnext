@@ -165,7 +165,7 @@ cur_frm.cscript.tool_type = function() {
 	case "Punch Step3":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1", "d2", "l2"];
-		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_d2", "inch_l2"]; //please keep this in same order as df2.
+		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1", "inch_d2", "inch_l2"]; //please keep this in same order as df2.
 		var df1 =["a1", "a2"];
 		
 		hide_all();
@@ -177,13 +177,13 @@ cur_frm.cscript.tool_type = function() {
 	case "Punches":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h", "inch_l", "inch_d1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1"];
 		
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
-		sm1(df1,tt);
+		sm1(df1, tt);
 		break;
 		
 	case "Reamer":
@@ -238,7 +238,7 @@ cur_frm.cscript.tool_type = function() {
 		var fd_def = ["brand", "is_rm", "base_material", "quality", "special_treatment"]; 
 		var df2 = ["height_dia","width","length"];
 		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
-		var df1 =["a1"];
+		var df1 = ["a1"];
 		
 		hide_all();
 		sm1(fd_def,tt);
@@ -257,8 +257,8 @@ cur_frm.cscript.tool_type = function() {
 //This function would unhide 1 field and make mandatory
 function sm1(fd,tt){
 	for (var i in fd){
-		cur_frm.toggle_display(fd[i],true);
-		cur_frm.toggle_reqd(fd[i],true);
+		cur_frm.toggle_display(fd[i],tt);
+		cur_frm.toggle_reqd(fd[i],tt);
 	}
 }
 
@@ -411,5 +411,3 @@ function inch_check(mmfield, inchfield, check){
 //*********************************************************
 //FUNCTIONS PERTAINING TO INCH FIELDS ENDS ABOVE THIS LINE
 //*********************************************************
-
-n
