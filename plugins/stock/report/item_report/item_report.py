@@ -29,10 +29,10 @@ def execute(filters=None):
 def get_columns():
 	return [
 		"Item:Link/Item:130", "Brand::80", "TT::80", "BM::60", "QLT::60",
-		"Zn:Float:60", "SPL Treat::60", "D:Float:50", "D In::50", "D1:Float:50", 
-		"D1 In::50", "W:Float:50","W In::50", "L:Float:50", "L In::50",
-		"L1:Float:50","L1 In::50", "D2:Float:5","D2 In::50","L2:Float:50", 
-		"L2 In:Float:50","A1:Int:30","A2:Int:30", "A3:Int:30", "R1:Float:30",
+		"Zn:Float:60", "SPL Treat::60", "D:Float/3:50", "D In::50", "D1:Float/3:50", 
+		"D1 In::50", "W:Float/3:50","W In::50", "L:Float/3:50", "L In::50",
+		"L1:Float/3:50","L1 In::50", "D2:Float/3:5","D2 In::50","L2:Float/3:50", 
+		"L2 In:Float/3:50","A1:Int:30","A2:Int:30", "A3:Int:30", "R1:Float/3:30",
 		"DType::40","DI::30","D1I::30","WI::30","LI::30","L1I::30", "D2I::30",
 		"L2I::30", "Description::300", "Item Group:Link/Item Group:250", "RM::60",
 		"PL::60", "TOD::30", "EOL:Date:30", "Item Name::300","Show in Web::60", "Web WH::80", 
