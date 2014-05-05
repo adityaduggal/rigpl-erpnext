@@ -290,7 +290,8 @@ function change_label(doc, cdt, cdn, tt){
 	// change the labels
 	//alert(fieldname);
 	//alert(labels[tt][fieldname]);
-	$('[data-grid-fieldname="Item-' + fieldname + '"]').html(labels[tt][fieldname]);
+	//$('[data-grid-fieldname="Item-' + fieldname + '"]').html(labels[tt][fieldname]);
+	cur_frm.set_df_property(label[i], "label", "My Label")
 	}
 }
 
@@ -351,9 +352,8 @@ cur_frm.cscript.l2_inch = function(doc) {
 
 function inch_mm(mmfd, inchfd){
 	cur_frm.set_value(mmfd,"");
-	cal = Math.round(eval(inchfd) *25400/1000);
+	cal = Math.round(eval(inchfd) * 25400)/1000;
 	if (cal >0){
-
 		cur_frm.set_value(mmfd, cal);
 	}
 	else{
