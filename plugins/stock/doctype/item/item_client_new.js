@@ -157,7 +157,7 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	case "Punch Step3":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1", "d2", "l2"];
-		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_d2", "inch_l2"]; //please keep this in same order as df2.
+		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1","inch_d2", "inch_l2"]; //please keep this in same order as df2.
 		var df1 =["a1", "a2"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -168,7 +168,7 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	case "Punches":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h", "inch_l", "inch_d1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -232,8 +232,8 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 	default:
 		hide_all();
-		cur_frm.toggle_display("item_code",true);
-		cur_frm.toggle_reqd("item_code", true);
+		cur_frm.toggle_display("item_code",tt);
+		cur_frm.toggle_reqd("item_code", tt);
 	}
 }
 
