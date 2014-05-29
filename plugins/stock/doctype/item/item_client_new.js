@@ -1,35 +1,46 @@
 //Reset the default fields since these fields are not applicable for new items
 cur_frm.cscript.custom_onload = function () {
     if (cur_frm.doc.__islocal) {
-    	var fields = ["min_order_qty", "end_of_life", "re_order_level", "show_in_website", "brand",
-			"base_material", "quality", "special_treatment", "is_rm", 
-			"height_dia", "height_dia_inch", "inch_h", "width", "widht_inch", "inch_w", 
-			"length", "length_inch", "inch_l", "a1", "d1", "d1_inch", "inch_d1", 
-			"l1", "l1_inch", "inch_l1", "a2", "d2", "d2_inch", "inch_d2", "l2", "l2_inch", "inch_l2", 
-			"r1", "a3", "no_of_flutes", "drill_type"];
+    	var fields = ["min_order_qty", "end_of_life", "re_order_level", 
+			"show_in_website", "brand","base_material", "quality", 
+			"special_treatment", "is_rm", "height_dia", 
+			"height_dia_inch", "inch_h", "width", "widht_inch", 
+			"inch_w", "length", "length_inch", "inch_l", "a1", 
+			"d1", "d1_inch", "inch_d1", "l1", "l1_inch", "inch_l1", 
+			"a2", "d2", "d2_inch", "inch_d2", "l2", "l2_inch", 
+			"inch_l2", "r1", "a3", "no_of_flutes", "drill_type"];
 		for (var i in fields) {
 			cur_frm.set_value(fields[i], "");
 		}
-	var inch_fds = ["height_dia", "width", "length", "d1", "l1", "d2", "l2"];
+	var inch_fds = ["height_dia", "width", "length", "d1", "l1", "d2", 
+			"l2"];
 	var inch_fd_chk = ["h", "w", "l", "d1", "l1", "d2", "l2"];
 	for (var i in inch_fds){
-			cur_frm.toggle_display(inch_fds[i]+"_inch", cur_frm.doc.tool_type!="");
+			cur_frm.toggle_display(inch_fds[i]+"_inch", 
+				cur_frm.doc.tool_type!="");
 		}			
 	}
-	var inch_fds = ["height_dia", "width", "length", "d1", "l1", "d2", "l2"];
+	var inch_fds = ["height_dia", "width", "length", "d1", "l1", "d2", 
+			"l2"];
 	var inch_fd_chk = ["h", "w", "l", "d1", "l1", "d2", "l2"];
 	for (var i in inch_fds){
-			cur_frm.toggle_display(inch_fds[i]+"_inch", cur_frm.doc.tool_type=="");
+			cur_frm.toggle_display(inch_fds[i]+"_inch", 
+				cur_frm.doc.tool_type=="");
 		}
 }
 
-//Custom refresh function would make the entered fields DISABLED so that no one can change the defining fields.
+//Custom refresh function would make the entered fields DISABLED 
+//so that no one can change the defining fields.
 cur_frm.cscript.custom_refresh = function(doc, cdt, cdn) {
-    // Disable defining fields of saved items only not applicable for unsaved items data
-    cur_frm.toggle_enable(["description", "tool_type","brand", "base_material", "quality", "is_rm", 
-		"height_dia", "height_dia_inch", "inch_h", "width", "width_inch", "inch_w", "length", "length_inch", "inch_l", 
-		"a1", "d1", "d1_inch", "inch_d1", "l1", "l1_inch", "inch_l1", "a2", "d2", "d2_inch", "inch_d2", 
-		"l2", "l2_inch", "inch_l2", "r1", "no_of_flutes", "drill_type", "special_treatment", "a3"], cur_frm.doc.__islocal);
+    // Disable defining fields of saved items only not applicable 
+    //for unsaved items data
+    cur_frm.toggle_enable(["description", "tool_type","brand", "base_material", 
+		"quality", "is_rm", "height_dia", "height_dia_inch", "inch_h", 
+		"width", "width_inch", "inch_w", "length", "length_inch", 
+		"inch_l", "a1", "d1", "d1_inch", "inch_d1", "l1", "l1_inch", 
+		"inch_l1", "a2", "d2", "d2_inch", "inch_d2", "l2", "l2_inch", 
+		"inch_l2", "r1", "no_of_flutes", "drill_type", 
+		"special_treatment", "a3"], cur_frm.doc.__islocal);
 	cur_frm.toggle_enable("description",cur_frm.doc.tool_type =="Others")
 	cur_frm.cscript.tool_type(doc, cdt, cdn);
 }
@@ -40,10 +51,12 @@ doc = cur_frm.doc;
 var cond = '';
 
 if(doc.base_material!="" && doc.is_rm!=""){
-	cond = '`tabQuality`.base_material = "'+doc.base_material+'" and `tabQuality`.is_rm = "'+doc.is_rm+'" and' ;
+	cond = '`tabQuality`.base_material = "'+doc.base_material+
+		'" and `tabQuality`.is_rm = "'+doc.is_rm+'" and' ;
 	}
 else if (doc.is_rm == "" && doc.base_material != ""){
-	cond = '`tabQuality`.base_material = "'+doc.base_material+'" and `tabQuality`.is_rm = "No" and' ;
+	cond = '`tabQuality`.base_material = "'+doc.base_material+
+		'" and `tabQuality`.is_rm = "No" and' ;
 	}
 else if (doc.is_rm != "" && doc.base_material == ""){
 	cond = '`tabQuality`.is_rm = "'+doc.is_rm+'" and' ;
@@ -51,40 +64,47 @@ else if (doc.is_rm != "" && doc.base_material == ""){
 
 
 
-return repl('SELECT DISTINCT `tabQuality`.`name`, base_material, is_rm, code FROM `tabQuality` \
-            WHERE %(cond)s `tabQuality`.%(key)s LIKE "%s" \
-            ORDER BY `tabQuality`.`name` DESC LIMIT 50', {company:doc.company,cond:cond})
+return repl('SELECT DISTINCT `tabQuality`.`name`, base_material, is_rm, code \
+	FROM `tabQuality` WHERE %(cond)s `tabQuality`.%(key)s LIKE "%s" \
+	ORDER BY `tabQuality`.`name` DESC LIMIT 50', 
+	{company:doc.company,cond:cond})
 }
 
 
-//*************************************************************************************************
-//FUNCTION PERTAINING TO HIDING AND MAKING REQUISITE FIELDS MANDATORY AS PER TOOL TYPE SELECTED
-//*************************************************************************************************
+//****************************************************************************
+//FUNCTION PERTAINING TO HIDING AND MAKING REQUISITE FIELDS MANDATORY AS PER 
+//TOOL TYPE SELECTED
+//****************************************************************************
 
 cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	cur_frm.cscript.custom_onload();
 	var tt = cur_frm.doc.tool_type;
 	switch (tt)
 	{
-	//fd_def are defining fields which are needed to be unhidden when a Tool Type is selected
-	//df2 are Dimensional fields which are needed to be unhidden but along with them there is another field to be unhidden
+	//fd_def are defining fields which are needed to be unhidden when a 
+	//Tool Type is selected
+	//df2 are Dimensional fields which are needed to be unhidden but along 
+	//with them there is another field to be unhidden
 	//df1 are Dimensional fields which are only needed to be unhidden.
 	case "Ball Nose":
-		var fd_def = ["brand","base_material", "quality", "special_treatment"]; 
+		var fd_def = ["brand","base_material", "quality", 
+			"special_treatment"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; 
+		//please keep the above line same order as df2.
 		var df1 =["a1", "no_of_flutes"];
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
-		change_label(doc, cdt, cdn, tt);
+		//change_label(doc, cdt, cdn, tt);
 		break;
 
 	case "Centre Drill Type A":
 		var fd_def = ["brand","base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; 
+		//please keep the above line same order as df2.
 		var df1 =["a1", "a2", "no_of_flutes"];
 		var df = ["drill_type"];
 		hide_all();
@@ -98,7 +118,8 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	case "Centre Drill Type B":
 		var fd_def = ["brand","base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
+		//please keep the above line same order as df2.
 		var df1 =["a1", "a2", "no_of_flutes"];
 		var df = ["drill_type"];
 		hide_all();
@@ -111,7 +132,8 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	case "Centre Drill Type R":
 		var fd_def = ["brand","base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
+		//please keep the above line same order as df2.
 		var df1 =["a1", "a2", "r1", "no_of_flutes"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -120,9 +142,11 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 
 	case "Drill":
-		var fd_def = ["brand","base_material", "quality", "special_treatment"]; 
+		var fd_def = ["brand","base_material", "quality", 
+			"special_treatment"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
+		//please keep the above line same order as df2.
 		var df1 =["a1", "no_of_flutes"];
 		var df = ["drill_type"];
 		hide_all();
@@ -135,7 +159,8 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	case "Mandrels":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","width","length"];
-		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_w","inch_l"];
+		//please keep the above line same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -144,9 +169,11 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 	
 	case "Parting":
-		var fd_def = ["brand", "base_material", "quality", "special_treatment"]; 
+		var fd_def = ["brand", "base_material", "quality", 
+				"special_treatment"]; 
 		var df2 = ["height_dia","width","length"];
-		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_w","inch_l"];
+		//please keep the above line same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -157,7 +184,9 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	case "Punch Step3":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1", "d2", "l2"];
-		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1","inch_d2", "inch_l2"]; //please keep this in same order as df2.
+		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1","inch_d2", 
+				"inch_l2"];
+		//please keep the above line same order as df2.
 		var df1 =["a1", "a2"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -168,7 +197,8 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	case "Punches":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1"];
+		//please keep the above line same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -177,9 +207,11 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 		
 	case "Reamer":
-		var fd_def = ["brand","base_material", "quality", "special_treatment"]; 
+		var fd_def = ["brand","base_material", "quality", 
+			"special_treatment"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
+		//please keep the above line same order as df2.
 		var df1 =["a1", "no_of_flutes"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -188,9 +220,11 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 
 	case "Rectangular":
-		var fd_def = ["brand", "is_rm", "base_material", "quality", "special_treatment"]; 
+		var fd_def = ["brand", "is_rm", "base_material", "quality", 
+			"special_treatment"]; 
 		var df2 = ["height_dia","width","length"];
-		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_w","inch_l"];
+		//please keep the above line same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -199,9 +233,11 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 		
 	case "Round":
-		var fd_def = ["brand", "is_rm", "base_material", "quality", "special_treatment"]; 
+		var fd_def = ["brand", "is_rm", "base_material", "quality", 
+			"special_treatment"]; 
 		var df2 = ["height_dia", "length"];
-		var df21 = ["inch_h", "inch_l"]; //please keep this in same order as df2.
+		var df21 = ["inch_h", "inch_l"];
+		//please keep the above line same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -210,9 +246,11 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 		
 	case "SQEM":
-		var fd_def = ["brand","base_material", "quality", "special_treatment"]; 
+		var fd_def = ["brand","base_material", "quality", 
+			"special_treatment"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
+		//please keep the above line same order as df2.
 		var df1 =["a1", "no_of_flutes"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -221,9 +259,11 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		break;
 		
 	case "Square":
-		var fd_def = ["brand", "is_rm", "base_material", "quality", "special_treatment"]; 
+		var fd_def = ["brand", "is_rm", "base_material", "quality", 
+			"special_treatment"]; 
 		var df2 = ["height_dia","width","length"];
-		var df21 = ["inch_h","inch_w","inch_l"]; //please keep this in same order as df2.
+		var df21 = ["inch_h","inch_w","inch_l"];
+		//please keep the above line same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
@@ -247,7 +287,8 @@ function sm1(fd,tt){
 	}
 }
 
-//This function would unhide 2 fields and make mandatory the first field (use in case of inch mm sizes)
+//This function would unhide 2 fields and make mandatory the first field 
+//(use in case of inch mm sizes)
 function sm2(fd1,fd2,tt){
 	for (var i in fd1){
 		cur_frm.toggle_display(fd1[i],tt);
@@ -264,7 +305,8 @@ function show(fd,tt){
 }
 
 function hide_all(){
-	var hide = ["brand", "is_rm", "base_material", "quality", "special_treatment",
+	var hide = ["brand", "is_rm", "base_material", "quality", 
+	"special_treatment",
 	"height_dia","inch_h", "height_dia_inch", 
 	"width", "inch_w", "width_inch", 
 	"length","inch_l","length_inch", 
@@ -287,17 +329,14 @@ function change_label(doc, cdt, cdn, tt){
 		}
 	}
 	for(fieldname in labels[tt]) {
-	// change the labels
-	//alert(fieldname);
-	//alert(labels[tt][fieldname]);
-	//$('[data-grid-fieldname="Item-' + fieldname + '"]').html(labels[tt][fieldname]);
 	cur_frm.set_df_property(label[i], "label", "My Label")
 	}
 }
 
-//**********************************************************************************************************************
-//FUNCTION PERTAINING TO HIDING AND MAKING REQUISITE FIELDS MANDATORY AS PER TOOL TYPE SELECTED ENDS ABOVE THIS LINE
-//**********************************************************************************************************************
+//****************************************************************************
+//FUNCTION PERTAINING TO HIDING AND MAKING REQUISITE FIELDS MANDATORY AS PER 
+//TOOL TYPE SELECTED ENDS ABOVE THIS LINE
+//****************************************************************************
 
 
 //*************************************************
@@ -357,7 +396,9 @@ function inch_mm(mmfd, inchfd){
 		cur_frm.set_value(mmfd, cal);
 	}
 	else{
-		alert("Enter valid fraction in field, if you want to add inches greater than 1 then use 1+3/4 for 1.75 inch instead of 1-3/4");
+		alert("Enter valid fraction in field, if you want to add \
+			inches greater than 1 then use 1+3/4 for 1.75 \
+			inch instead of 1-3/4");
 		system.exit();
 	}
 }
