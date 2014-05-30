@@ -1,4 +1,5 @@
 //Reset the default fields since these fields are not applicable for new items
+//##############################################################################
 cur_frm.cscript.custom_onload = function () {
     if (cur_frm.doc.__islocal) {
     	var fields = ["min_order_qty", "end_of_life", "re_order_level", 
@@ -31,6 +32,7 @@ cur_frm.cscript.custom_onload = function () {
 
 //Custom refresh function would make the entered fields DISABLED 
 //so that no one can change the defining fields.
+//##############################################################################
 cur_frm.cscript.custom_refresh = function(doc, cdt, cdn) {
     // Disable defining fields of saved items only not applicable 
     //for unsaved items data
@@ -46,6 +48,7 @@ cur_frm.cscript.custom_refresh = function(doc, cdt, cdn) {
 }
 
 //Custom query to get the Quality as per Base Material and Is RM selected
+//##############################################################################
 cur_frm.fields_dict['quality'].get_query = function(doc) {
 doc = cur_frm.doc;
 var cond = '';
@@ -71,11 +74,10 @@ return repl('SELECT DISTINCT `tabQuality`.`name`, base_material, is_rm, code \
 }
 
 
-//****************************************************************************
+//##############################################################################
 //FUNCTION PERTAINING TO HIDING AND MAKING REQUISITE FIELDS MANDATORY AS PER 
 //TOOL TYPE SELECTED
-//****************************************************************************
-
+//##############################################################################
 cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	cur_frm.cscript.custom_onload();
 	var tt = cur_frm.doc.tool_type;
@@ -88,21 +90,25 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 	//df1 are Dimensional fields which are only needed to be unhidden.
 	case "Ball Nose":
 		var fd_def = ["brand","base_material", "quality", 
-			"special_treatment"]; 
+			"special_treatment"];
 		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; 
+		var df2_lbl = ["ShankØ (mm)","OAL (mm)", "FluteØ (mm)", 
+			"Flute Length (mm)"];
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
 		//please keep the above line same order as df2.
 		var df1 =["a1", "no_of_flutes"];
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
-		//change_label(doc, cdt, cdn, tt);
+		change_label(df2, df2_lbl);
 		break;
 
 	case "Centre Drill Type A":
 		var fd_def = ["brand","base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
+		var df2_lbl = ["ShankØ (mm)","OAL (mm)", "PilotØ (mm)", 
+			"Pilot Length (mm)"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"]; 
 		//please keep the above line same order as df2.
 		var df1 =["a1", "a2", "no_of_flutes"];
@@ -112,12 +118,14 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
 		show(df,tt);
-		
+		change_label(df2, df2_lbl);
 		break;
 
 	case "Centre Drill Type B":
 		var fd_def = ["brand","base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
+		var df2_lbl = ["ShankØ (mm)","OAL (mm)", "PilotØ (mm)", 
+			"Pilot Length (mm)"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
 		//please keep the above line same order as df2.
 		var df1 =["a1", "a2", "no_of_flutes"];
@@ -127,24 +135,31 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
 		show(df,tt);
+		change_label(df2, df2_lbl);
 		break;
 
 	case "Centre Drill Type R":
 		var fd_def = ["brand","base_material", "quality"]; 
-		var df2 = ["height_dia","length", "d1", "l1"];
-		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
+		var df2 = ["height_dia","length", "d1", "l1", "d2", "l2"];
+		var df2_lbl = ["ShankØ (mm)","OAL (mm)", "PilotØ (mm)", 
+			"Pilot Length (mm)", "D2 (mm)", "L2 (mm)"];
+		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1", "inch_d2", 
+			"inch_l2"];
 		//please keep the above line same order as df2.
 		var df1 =["a1", "a2", "r1", "no_of_flutes"];
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 
 	case "Drill":
 		var fd_def = ["brand","base_material", "quality", 
 			"special_treatment"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
+		var df2_lbl = ["ShankØ (mm)","OAL (mm)", "FluteØ (mm)", 
+			"Flute Length (mm)"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
 		//please keep the above line same order as df2.
 		var df1 =["a1", "no_of_flutes"];
@@ -154,11 +169,13 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
 		show(df,tt);
+		change_label(df2, df2_lbl);
 		break;
 
 	case "Mandrels":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","width","length"];
+		var df2_lbl = ["Height (mm)","Width (mm)", "Length (mm)"];
 		var df21 = ["inch_h","inch_w","inch_l"];
 		//please keep the above line same order as df2.
 		var df1 =["a1"];
@@ -166,12 +183,14 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 	
 	case "Parting":
 		var fd_def = ["brand", "base_material", "quality", 
 				"special_treatment"]; 
 		var df2 = ["height_dia","width","length"];
+		var df2_lbl = ["Height (mm)","Width (mm)", "Length (mm)"];
 		var df21 = ["inch_h","inch_w","inch_l"];
 		//please keep the above line same order as df2.
 		var df1 =["a1"];
@@ -179,11 +198,14 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 
 	case "Punch Step3":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1", "d2", "l2"];
+		var df2_lbl = ["HeadØ (mm)","OAL (mm)", "MidØ (mm)", 
+			"Head Length (mm)", "FrontØ (mm)", "Mid Length (mm)"];
 		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1","inch_d2", 
 				"inch_l2"];
 		//please keep the above line same order as df2.
@@ -192,18 +214,22 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 
 	case "Punches":
 		var fd_def = ["brand", "base_material", "quality"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
 		var df21 = ["inch_h", "inch_l", "inch_d1", "inch_l1"];
+		var df2_lbl = ["HeadØ (mm)","OAL (mm)", "BodyØ (mm)", 
+			"Head Length (mm)"];
 		//please keep the above line same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 		
 	case "Reamer":
@@ -211,12 +237,15 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 			"special_treatment"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
+		var df2_lbl = ["ShankØ (mm)","OAL (mm)", "FluteØ (mm)", 
+			"Flute Length (mm)"];
 		//please keep the above line same order as df2.
 		var df1 =["a1", "no_of_flutes"];
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 
 	case "Rectangular":
@@ -224,18 +253,21 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 			"special_treatment"]; 
 		var df2 = ["height_dia","width","length"];
 		var df21 = ["inch_h","inch_w","inch_l"];
+		var df2_lbl = ["Height (mm)","Width (mm)", "Length (mm)"];
 		//please keep the above line same order as df2.
 		var df1 =["a1"];
 		hide_all();
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 		
 	case "Round":
 		var fd_def = ["brand", "is_rm", "base_material", "quality", 
 			"special_treatment"]; 
 		var df2 = ["height_dia", "length"];
+		var df2_lbl = ["DiaØ (mm)","OAL (mm)"];
 		var df21 = ["inch_h", "inch_l"];
 		//please keep the above line same order as df2.
 		var df1 =["a1"];
@@ -243,12 +275,15 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 		
 	case "SQEM":
 		var fd_def = ["brand","base_material", "quality", 
 			"special_treatment"]; 
 		var df2 = ["height_dia","length", "d1", "l1"];
+		var df2_lbl = ["ShankØ (mm)","OAL (mm)", "FluteØ (mm)", 
+			"Flute Length (mm)"];
 		var df21 = ["inch_h","inch_l", "inch_d1", "inch_l1"];
 		//please keep the above line same order as df2.
 		var df1 =["a1", "no_of_flutes"];
@@ -256,12 +291,14 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 		
 	case "Square":
 		var fd_def = ["brand", "is_rm", "base_material", "quality", 
 			"special_treatment"]; 
 		var df2 = ["height_dia","width","length"];
+		var df2_lbl = ["Height (mm)","Width (mm)", "Length (mm)"];
 		var df21 = ["inch_h","inch_w","inch_l"];
 		//please keep the above line same order as df2.
 		var df1 =["a1"];
@@ -269,6 +306,7 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		sm1(fd_def,tt);
 		sm2(df2, df21, tt);
 		sm1(df1,tt);
+		change_label(df2, df2_lbl);
 		break;
 	default:
 		hide_all();
@@ -276,9 +314,16 @@ cur_frm.cscript.tool_type = function(doc, cdt, cdn) {
 		cur_frm.toggle_reqd("item_code", tt);
 	}
 }
-
-
-
+//##############################################################################
+//Function to change the labels
+//##############################################################################
+function change_label(fd, fd_lbl){
+	for (var i in fd){
+		//cur_frm.set_df_property("fieldname", "label", "My Label")
+		cur_frm.set_df_property(fd[i], "label", fd_lbl[i]);
+	}
+}
+//##############################################################################
 //This function would unhide 1 field and make mandatory
 function sm1(fd,tt){
 	for (var i in fd){
@@ -286,7 +331,7 @@ function sm1(fd,tt){
 		cur_frm.toggle_reqd(fd[i],true);
 	}
 }
-
+//##############################################################################
 //This function would unhide 2 fields and make mandatory the first field 
 //(use in case of inch mm sizes)
 function sm2(fd1,fd2,tt){
@@ -296,14 +341,15 @@ function sm2(fd1,fd2,tt){
 		cur_frm.toggle_display(fd2[i],tt);
 	}
 }
-
-//This function is only for unhiding a field and making it mandatory
+//##############################################################################
+//This function is only for unhiding a field and NOT MAKE MANDATORY
 function show(fd,tt){
 	for (var i in fd){
 		cur_frm.toggle_display(fd[i],tt);
 	}
 }
-
+//##############################################################################
+//Function to HIDE ALL FIELDS & REMOVE MANDATORY
 function hide_all(){
 	var hide = ["brand", "is_rm", "base_material", "quality", 
 	"special_treatment",
@@ -318,35 +364,16 @@ function hide_all(){
 	"r1", "no_of_flutes", "drill_type"]
 	for (var i in hide){
 		cur_frm.toggle_display(hide[i], false)
+		cur_frm.toggle_reqd(hide[i],false);
 	}
 }
-
-function change_label(doc, cdt, cdn, tt){
-	var labels = {
-		"Ball Nose": {
-			"height_dia": "Shank Dia (mm)",
-			"height_dia_inch": "Shank Dia (inch)"
-		}
-	}
-	for(fieldname in labels[tt]) {
-	cur_frm.set_df_property(label[i], "label", "My Label")
-	}
-}
-
-//****************************************************************************
+//##############################################################################
 //FUNCTION PERTAINING TO HIDING AND MAKING REQUISITE FIELDS MANDATORY AS PER 
 //TOOL TYPE SELECTED ENDS ABOVE THIS LINE
-//****************************************************************************
-
-
-//*************************************************
+//##############################################################################
 //FUNCTIONS PERTAINING TO INCH FIELDS
-//*************************************************
-
-//*************************************************
 //Code to change inch to mm in fields.
-//*************************************************
-
+//##############################################################################
 cur_frm.cscript.height_dia_inch = function(doc) {
 	var mmfd = "height_dia";
 	var inchfd = doc.height_dia_inch
@@ -402,11 +429,9 @@ function inch_mm(mmfd, inchfd){
 		system.exit();
 	}
 }
-
-//**********************************************************
+//##############################################################################
 //Code to change inch to mm in fields ENDS BEFORE THIS LINE
-//**********************************************************
-
+//##############################################################################
 //Code runs when we click Inch_h button
 cur_frm.cscript.inch_h = function() {
 	inch_check("height_dia", "height_dia_inch", cur_frm.doc.inch_h);
@@ -448,8 +473,7 @@ function inch_check(mmfield, inchfield, check){
 	cur_frm.set_value(inchfield, "");
 	cur_frm.toggle_reqd(inchfield, check==1);
 }
-
-//*********************************************************
+//##############################################################################
 //FUNCTIONS PERTAINING TO INCH FIELDS ENDS ABOVE THIS LINE
-//*********************************************************
+//##############################################################################
 
