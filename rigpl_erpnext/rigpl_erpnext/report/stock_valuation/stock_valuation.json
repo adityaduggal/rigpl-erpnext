@@ -1,0 +1,15 @@
+{
+ "apply_user_permissions": 1, 
+ "creation": "2013-07-31 18:52:01", 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "is_standard": "Yes", 
+ "modified": "2014-06-05 17:10:02.367955", 
+ "modified_by": "Administrator", 
+ "module": "Rigpl Erpnext", 
+ "name": "Stock Valuation", 
+ "owner": "Administrator", 
+ "ref_doctype": "Stock Entry Detail", 
+ "report_name": "Stock Valuation", 
+ "report_type": "Script Report"
+}

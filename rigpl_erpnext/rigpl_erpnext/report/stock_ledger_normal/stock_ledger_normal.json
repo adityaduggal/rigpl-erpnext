@@ -1,0 +1,15 @@
+{
+ "apply_user_permissions": 1, 
+ "creation": "2013-05-27 04:04:20", 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "is_standard": "Yes", 
+ "modified": "2014-06-05 17:09:14.118612", 
+ "modified_by": "Administrator", 
+ "module": "Rigpl Erpnext", 
+ "name": "Stock Ledger Normal", 
+ "owner": "Administrator", 
+ "ref_doctype": "Stock Ledger Entry", 
+ "report_name": "Stock Ledger Normal", 
+ "report_type": "Script Report"
+}

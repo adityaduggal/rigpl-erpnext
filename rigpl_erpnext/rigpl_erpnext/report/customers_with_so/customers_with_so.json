@@ -1,0 +1,15 @@
+{
+ "apply_user_permissions": 1, 
+ "creation": "2013-05-28 23:55:29", 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "is_standard": "Yes", 
+ "modified": "2014-06-05 17:00:56.364959", 
+ "modified_by": "Administrator", 
+ "module": "Rigpl Erpnext", 
+ "name": "Customers with SO", 
+ "owner": "Administrator", 
+ "ref_doctype": "Campaign", 
+ "report_name": "Customers with SO", 
+ "report_type": "Script Report"
+}

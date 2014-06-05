@@ -1,0 +1,15 @@
+{
+ "apply_user_permissions": 1, 
+ "creation": "2013-07-06 15:31:50", 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "is_standard": "Yes", 
+ "modified": "2014-06-05 17:12:25.161013", 
+ "modified_by": "Administrator", 
+ "module": "Rigpl Erpnext", 
+ "name": "Trial Tracking", 
+ "owner": "Administrator", 
+ "ref_doctype": "Sales Order", 
+ "report_name": "Trial Tracking", 
+ "report_type": "Script Report"
+}
