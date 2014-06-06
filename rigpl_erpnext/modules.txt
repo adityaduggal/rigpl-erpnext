@@ -1,1 +1,1 @@
-rigpl_erpnext
+RIGPL ERPNext
