@@ -15,4 +15,5 @@ recursive-include rigpl_erpnext *.png
 recursive-include rigpl_erpnext *.py
 recursive-include rigpl_erpnext *.svg
 recursive-include rigpl_erpnext *.txt
+recursive-include rigpl_erpnext/public *
 recursive-exclude rigpl_erpnext *.pyc
