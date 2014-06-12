@@ -15,21 +15,9 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Modified Purchase Register",
-					"doctype": "Purchase Invoice",
-				},
-				{
-					"type": "report",
-					"is_query_report": True,
 					"name": "PR to be Billed",
 					"doctype": "Purchase Invoice",
-				},
-				{
-					"type": "report",
-					"is_query_report": True,
-					"name": "Modified Sales Register",
-					"doctype": "Sales Invoice",
-				},
+				}
 			]
 		}
 	]
