@@ -16,7 +16,7 @@ def get_columns():
 		"DN #:Link/Delivery Note:120", "Customer:Link/Customer:200" ,"Date:Date:100",
 		"Item Code:Link/Item:130","Description::350", "DN Qty:Float/2:70",
 		"DN Price:Currency:70", "DN Amount:Currency:80", "SO #:Link/Sales Order:140",
-		"Unbilled Qty:Currency:80", "Unbilled Amount:Currency:80", "Order Type::150"
+		"Unbilled Qty:Currency:80", "Unbilled Amount:Currency:80"
 	]
 
 def get_dn_entries(filters):
@@ -25,23 +25,35 @@ def get_dn_entries(filters):
 	dn = frappe.db.sql("""select
     dn.name, dn.customer, dn.posting_date,
 	dni.item_code, dni.description, dni.qty, dni.export_rate,
-	dni.export_amount, dni.prevdoc_docname,
-	(dni.qty - ifnull((select sum(sid.qty) from `tabSales Invoice Item` sid
+	dni.export_amount, dni.against_sales_order,
+
+	(dni.qty - ifnull((select sum(sid.qty) from `tabSales Invoice Item` sid, `tabSales Invoice` si
 	    where sid.delivery_note = dn.name and
+		sid.parent = si.name and
+		si.docstatus <> 2 and
 	    sid.dn_detail = dni.name), 0)),
-	(dni.amount - ifnull((select sum(sid.amount) from `tabSales Invoice Item` sid
+
+	(dni.amount - ifnull((select sum(sid.amount) from `tabSales Invoice Item` sid, `tabSales Invoice` si
         where sid.delivery_note = dn.name and
+		sid.parent = si.name and
+		si.docstatus <> 2 and
         sid.dn_detail = dni.name), 0)),
+
 	dni.item_name, dni.description
 	from `tabDelivery Note` dn, `tabDelivery Note Item` dni
 	where
     dn.docstatus = 1
     AND dn.name = dni.parent
-    AND (dni.qty - ifnull((select sum(sid.qty) from `tabSales Invoice Item` sid
+    AND (dni.qty - ifnull((select sum(sid.qty) from `tabSales Invoice Item` sid, `tabSales Invoice` si
         where sid.delivery_note = dn.name and
+		sid.parent = si.name and
+		si.docstatus <> 2 and
         sid.dn_detail = dni.name), 0)>=1)
-	AND (dni.amount - ifnull((select sum(sid.amount) from `tabSales Invoice Item` sid
+
+	AND (dni.amount - ifnull((select sum(sid.amount) from `tabSales Invoice Item` sid, `tabSales Invoice` si
         where sid.delivery_note = dn.name and
+		sid.parent = si.name and
+		si.docstatus <> 2 and
         sid.dn_detail = dni.name), 0)>=1) %s
 	order by dn.posting_date asc """ % conditions ,as_list=1)
 

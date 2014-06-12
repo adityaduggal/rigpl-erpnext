@@ -15,6 +15,12 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
+					"name": "Item Report",
+					"doctype": "Item",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
 					"name": "Stock Ledger Normal",
 					"doctype": "Stock Ledger Entry",
 				},

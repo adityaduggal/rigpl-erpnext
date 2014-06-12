@@ -6,7 +6,7 @@
  "is_standard": "Yes", 
  "modified": "2014-06-05 17:00:56.364959", 
  "modified_by": "Administrator", 
- "module": "Rigpl Erpnext", 
+ "module": "RIGPL ERPNext", 
  "name": "Customers with SO", 
  "owner": "Administrator", 
  "ref_doctype": "Campaign", 

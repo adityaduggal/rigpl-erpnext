@@ -7,9 +7,9 @@
  "modified": "2014-06-05 17:04:40.895327",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
- "name": "Items For Production",
+ "name": "Item Report",
  "owner": "aditya@rigpl.com",
- "ref_doctype": "Production Order",
- "report_name": "Items For Production",
+ "ref_doctype": "Item",
+ "report_name": "Item Report",
  "report_type": "Script Report"
 }

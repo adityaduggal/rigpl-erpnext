@@ -15,6 +15,12 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
+					"name": "Follow Up",
+					"doctype": "Customer",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
 					"name": "Sales Partner SO Analysis",
 					"doctype": "Sales Order",
 				},

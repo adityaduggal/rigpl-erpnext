@@ -7,7 +7,7 @@
  "is_standard": "Yes", 
  "modified": "2014-06-05 17:07:47.008705", 
  "modified_by": "Administrator", 
- "module": "Rigpl Erpnext", 
+ "module": "RIGPL ERPNext", 
  "name": "PR to be Billed", 
  "owner": "Administrator", 
  "ref_doctype": "Purchase Invoice", 
