@@ -442,7 +442,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 	ic_CD = fn_check_digit(doc, ic_inter)
 	ic_code = '{0}{1}'.format(ic_inter, ic_CD)
 
-	if (doc.item_code):
+	if (doc.item_code and d.item_code != "dummy"):
 		ic_existing = doc.item_code[:(len(doc.item_code)-4)]
 		#frappe.msgprint(ic_existing)
 		if ic_existing != ic_check:
