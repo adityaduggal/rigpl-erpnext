@@ -65,7 +65,7 @@ doc_events = {
 		"validate": "rigpl_erpnext.rigpl_erpnext.item.validate"
 	},
 	"Quality": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.quality.autoname"
+		"autoname": "rigpl_erpnext.rigpl_erpnext.quality.autoname"
 	}
 }
 

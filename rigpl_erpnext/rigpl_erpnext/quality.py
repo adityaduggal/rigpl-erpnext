@@ -15,9 +15,8 @@ def fn_is_rm(doc, is_rm):
 	}.get(is_rm,"")
 
 def autoname(doc, method=None):
-	if doc.get("__islocal"):
-		RM = fn_is_rm(doc, doc.is_rm)
-		BM = fn_base_metal(doc, doc.base_material)
-		QLT = doc.material
-		name_inter = '{0}{1}{2}{3}'.format(RM, BM, "-", QLT)
-		doc.name = name_inter
+	RM = fn_is_rm(doc, doc.is_rm)
+	BM = fn_base_metal(doc, doc.base_material)
+	QLT = doc.material
+	name_inter = '{0}{1}{2}{3}'.format(RM, BM, "-", QLT)
+	doc.name = name_inter
