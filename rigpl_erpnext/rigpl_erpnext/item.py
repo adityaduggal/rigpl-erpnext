@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 
-def validate(doc):
+def validate(doc, method):
 	#Below fields are for the unique fields which would be used to check
 	#if an item is not getting created again.
 	#unique0 is the field which is used for DEFINING ITEM IN ITEM CODE.
@@ -442,7 +442,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 	ic_CD = fn_check_digit(doc, ic_inter)
 	ic_code = '{0}{1}'.format(ic_inter, ic_CD)
 
-	if (doc.item_code and d.item_code != "dummy"):
+	if (doc.item_code and doc.item_code != "dummy"):
 		ic_existing = doc.item_code[:(len(doc.item_code)-4)]
 		#frappe.msgprint(ic_existing)
 		if ic_existing != ic_check:
