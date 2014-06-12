@@ -1,17 +1,552 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
+from frappe import msgprint
 
-#This part of the code generates the alphanumeric series which
-#does not include 0,I, O (includes 1-9 and A-Z)
-#==============================
-def next_string(doc,s):
+def validate(doc):
+	#Below fields are for the unique fields which would be used to check
+	#if an item is not getting created again.
+	#unique0 is the field which is used for DEFINING ITEM IN ITEM CODE.
+
+	unique0 = ["RM","BM","QLT","TT","ZN","SPL","BR"]
+	uniquel0 = [doc.height_dia, doc.width, doc.length]
+	uniquel1 = [doc.a1, doc.d1, doc.l1, doc.a2,
+		doc.d2,doc.l2, doc.r1, doc.a3]
+	if (doc.tool_type != "Others"):
+		if (doc.tool_type == "Ball Nose"):
+				#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.d1,"Flute \xd8",1,25,doc.d1_inch,
+					doc.inch_d1,"F\xd8:"," ","Length", "Yes"],
+				[doc.l1,"Flute Length",3,200,doc.l1_inch,
+					doc.inch_l1," FL:"," ","Length","Yes"],
+				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+					doc.inch_h," S\xd8:"," ","Length","Yes"],
+				[doc.length,"OAL",25,350,doc.length_inch,
+					doc.inch_l," OAL:"," ","Length","Yes"],
+				[doc.no_of_flutes,"No of Flutes",2,7,"",""," Z=","",
+					"Integer","Yes"],
+				[doc.a1, "Angle",0,180.001,"","","","\xb0","Angle","No"]]
+				#fields and their limits along with the labels
+			spl_trt = ["ACX", "None", "TiN", "TiAlN"] #allowed special treatment
+			#FL shud be less than OAL.
+			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
+
+
+		elif (doc.tool_type == "Centre Drill Type A"):
+			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+			#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+			#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.d1,"Pilot \xd8",1,25,doc.d1_inch,
+					doc.inch_d1,"P\xd8:"," ","Length","Yes"],
+				[doc.l1,"Pilot Length",3,200,doc.l1_inch,
+					doc.inch_l1," PL:"," ","Length","Yes"],
+				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+					doc.inch_h," S\xd8:"," ","Length","Yes"],
+				[doc.length,"OAL",25,350,doc.length_inch,
+					doc.inch_l," OAL:"," ","Length","Yes"],
+				[doc.no_of_flutes,"No of Flutes",2,3,"","",
+					" Z=","","Integer","Yes"],
+				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"]
+				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"]]
+			spl_trt = [] #allowed special treatment
+			 #FL shud be less than OAL.
+			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
+			#Pilot Dia less than Shank Dia
+			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[1])
+
+		elif (doc.tool_type == "Centre Drill Type B"):
+			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+			#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+			#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.d1,"Pilot \xd8",1,25,doc.d1_inch,
+					doc.inch_d1,"P\xd8:"," ","Length","Yes"],
+				[doc.l1,"Pilot Length",3,200,doc.l1_inch,
+					doc.inch_l1," PL:"," ","Length","Yes"],
+				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+					doc.inch_h," S\xd8:"," ","Length","Yes"],
+				[doc.length,"OAL",25,350,doc.length_inch,
+					doc.inch_l," OAL:"," ","Length","Yes"],
+				[doc.no_of_flutes,"No of Flutes",2,3,"","","Z=","",
+					"Integer","Yes"],
+				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"]
+				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"]
+				[doc.a3, "Angle",120,120.001,"","","","\xb0","Angle","No"]]
+			spl_trt = [] #allowed special treaftment
+			#FL shud be less than OAL.
+			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
+			#Pilot Dia less than Shank Dia
+			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[1])
+
+		elif (doc.tool_type == "Drill"):
+			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.d1,"Flute \xd8",1,25,doc.d1_inch,
+					doc.inch_d1,"F\xd8:"," ","Length","Yes"],
+				[doc.l1,"Flute Length",3,200,doc.l1_inch,
+					doc.inch_l1," FL:"," ","Length","Yes"],
+				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+					doc.inch_h," S\xd8:"," ","Length","Yes"],
+				[doc.length,"OAL",25,350,doc.length_inch,
+					doc.inch_l," OAL:"," ","Length","Yes"],
+				[doc.no_of_flutes,"No of Flutes",2,3,"","","Z=","",
+					"Integer","Yes"],
+				[doc.a1, "Angle",0,180.001,"","","Pt Angle:","\xb0 ","Angle","Yes"]]
+			spl_trt = ["ACX", "None", "TiN", "TiAlN"] #allowed special treatment
+			 #FL shud be less than OAL.
+			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
+
+		elif (doc.tool_type == "Mandrels"):
+			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.height_dia,"Height",0.5,55,doc.height_dia_inch,
+					doc.inch_h,"","x","Length","Yes"],
+				[doc.width,"Width",1.5,55,doc.width_inch,
+					doc.inch_w,"","x","Length","Yes"],
+				[doc.length,"OAL",25,550,doc.length_inch,
+					doc.inch_l,"","","Length","Yes"],
+				[doc.a1, "Bevel Angle",0,31,"",""," Bevel:","\xb0","Angle","Yes"]]
+			spl_trt = [] #allowed special treatment
+			 #H<W check (10x20 and NOT 20x10)
+			fn_two_nos_compare(doc, "greater-equal", dim_fields[1], dim_fields[0])
+
+		elif (doc.tool_type == "Parting"):
+			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.height_dia,"Height",1,55,doc.height_dia_inch,
+					doc.inch_h,"","x","Length","Yes"],
+				[doc.width,"Width",4,55,doc.width_inch,
+					doc.inch_w,"","x","Length","Yes"],
+				[doc.length,"OAL",25,300,doc.length_inch,
+					doc.inch_l,"","","Length","Yes"],
+				[doc.a1, "Bevel Angle",0,31,"",""," Bevel:","\xb0","Angle","Yes"]]
+			spl_trt = ["CRY","None"] #allowed special treatment
+			#H<W check (1/8 x 3/4 and NOT 3/4 x 1/8)
+			fn_two_nos_compare(doc, "greater", dim_fields[1], dim_fields[0])
+
+		elif (doc.tool_type == "Punch Step3"):
+			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.height_dia,"Head \xd8",3,26,doc.height_dia_inch,
+					doc.inch_h,"H\xd8:"," ","Length","Yes"],
+				[doc.l1,"Head Length",2,101,doc.l1_inch,
+					doc.inch_l1," HL:"," ","Length","Yes"],
+				[doc.d1,"Mid \xd8",2,26,doc.d1_inch,
+					doc.inch_d1," M\xd8:"," ","Length","Yes"],
+				[doc.l2,"Mid Length",6,101,doc.l2_inch,
+					doc.inch_l2," ML:"," ","Length","Yes"],
+				[doc.d2,"Front \xd8",1,26,doc.d2_inch,
+					doc.inch_d1," F\xd8:"," ","Length","Yes"],
+				[doc.length,"OAL",25,300,doc.length_inch,
+					doc.inch_l," OAL:","","Length","Yes"],
+				[doc.a1, "Angle",0,61,"","","","\xb0","Angle","No"],
+				[doc.a2, "Angle",0,61,"","","","\xb0","Angle","No"]]
+			spl_trt = [] #allowed special treatment
+			#Head Dia > Mid Dia
+			fn_two_nos_compare(doc, "greater", dim_fields[0], dim_fields[2])
+			#Mid Dia > Front Dia
+			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[4])
+			#OAL > Sum of Mid Length and Head Length + 5
+			if dim_fields[5][0] < (dim_fields[3][0] + dim_fields[1][0] + 5):
+				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(
+				dim_fields[5][1], " should be greater than sum of ",
+				dim_fields[3][1], " & ", dim_fields[1][1], " by 5mm."),
+				raise_exception=1)
+
+		elif (doc.tool_type == "Punches"):
+			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.height_dia,"Head \xd8",3,26,doc.height_dia_inch,
+					doc.inch_h,"H\xd8:"," ","Length","Yes"],
+				[doc.l1,"Head Length",2,101,doc.l1_inch,
+					doc.inch_l1," HL:"," ","Length","Yes"],
+				[doc.d1,"Body \xd8",1,26,doc.d1_inch,
+					doc.inch_d1," B\xd8:"," ","Length","Yes"],
+				[doc.length,"OAL",25,300,doc.length_inch,
+					doc.inch_l," OAL:"," ","Length","Yes"],
+				[doc.a1, "Angle",0,61,"","","","\xb0","Angle","No"]]
+			spl_trt = [] #allowed special treatment
+			#Head Dia > Body Dia
+			fn_two_nos_compare(doc, "greater", dim_fields[0], dim_fields[2])
+			#OAL > HL
+			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
+
+		elif (doc.tool_type == "Reamer"):
+			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.d1,"Flute \xd8",3,25,doc.d1_inch,
+					doc.inch_d1,"F\xd8:"," ","Length","Yes"],
+				[doc.l1,"Flute Length",3,200,doc.l1_inch,
+					doc.inch_l1,"FL:"," ","Length","Yes"],
+				[doc.height_dia,"Shank \xd8",3,25,doc.height_dia_inch,
+					doc.inch_h,"S\xd8:"," ","Length","Yes"],
+				[doc.length,"OAL",25,350,doc.length_inch,
+					doc.inch_l,"OAL:"," ","Length","Yes"],
+				[doc.no_of_flutes,"No of Flutes",4,9,"","","Z=","",
+					"Integer","Yes"],
+				[doc.a1, "Angle",0,60.001,"","","","\xb0","Angle","Yes"]]
+			spl_trt = ["ACX", "None", "TiN", "TiAlN"] #allowed special treatment
+			 #FL shud be less than OAL.
+			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
+
+		elif (doc.tool_type == "Rectangular"):
+			if (doc.is_rm == "No"):
+				#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+				dim_fields = [
+					[doc.height_dia,"Height",0.5,55,
+						doc.height_dia_inch,doc.inch_h,"","x",
+						"Length","Yes"],
+					[doc.width,"Width",1.5,55,doc.width_inch,
+						doc.inch_w,"","x","Length","Yes"],
+					[doc.length,"OAL",25,550,doc.length_inch,
+						doc.inch_l,"","","Length","Yes"],
+					[doc.a1, "Bevel Angle",0,31,"","","","\xb0",
+						"Angle","Yes"]]
+				spl_trt = ["CRY", "None"] #allowed special treatment
+			if (doc.is_rm == "Yes"):
+				if (doc.base_material == "HSS"):
+					spl_trt = ["Hard", "None"] #allowed special treatment
+					dim_fields = [
+						[doc.height_dia,"Height",6,150,
+							doc.height_dia_inch,doc.inch_h,"","x",
+							"Length","Yes"],
+						[doc.width,"Width",6,150,doc.width_inch,
+							doc.inch_w,"","","Length","Yes"],
+						[doc.length,"OAL",0,0.001,doc.length_inch,
+							doc.inch_l,"","","Length","Yes"],
+						[doc.a1, "Bevel Angle",0,0.001,"","","","",
+							"Angle","Yes"]]
+				elif (doc.base_material == "Carbide"):
+					spl_trt = ["None"] #allowed special treatment
+					dim_fields = [
+						[doc.height_dia,"Height",2.5,30,
+							doc.height_dia_inch,doc.inch_h,"","x",
+							"Length","Yes"],
+						[doc.width,"Width",2.5,30,doc.width_inch,
+							doc.inch_w,"","x","Length","Yes"],
+						[doc.length,"OAL",10,331,doc.length_inch,
+							doc.inch_l,"","","Length","Yes"],
+						[doc.a1, "Bevel Angle",0,0.001,"","","","",
+							"Angle","Yes"]]
+			#H>W check
+			fn_two_nos_compare(doc, "greater", dim_fields[1], dim_fields[0])
+
+		elif (doc.tool_type == "Round"):
+			if (doc.is_rm == "No"):
+				#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+				dim_fields = [
+					[doc.height_dia,"Dia \xd8",0.5,55,
+						doc.height_dia_inch,doc.inch_h,"\xd8","x",
+						"Length","Yes"],
+					[doc.length,"OAL",25,550,doc.length_inch,
+						doc.inch_l,"","","Length","Yes"],
+					[doc.a1, "Bevel Angle",0,0.001,"",""," Bevel:","\xb0",
+						"Angle","Yes"]]
+				spl_trt = ["CRY", "None"] #allowed special treatment
+			if (doc.is_rm == "Yes"):
+				if (doc.base_material == "HSS"):
+					spl_trt = ["Hard", "None"] #allowed special treatment
+					dim_fields = [
+						[doc.height_dia,"Dia \xd8",2,151,
+							doc.height_dia_inch,doc.inch_h,"\xd8"," ",
+							"Length","Yes"],
+						[doc.length,"OAL",0,0.001,doc.length_inch,
+							doc.inch_l,"","","Length","Yes"],
+						[doc.a1, "Bevel Angle",0,0.001,"","","","\xb0",
+							"Angle","No"]]
+				elif (doc.base_material == "Carbide"):
+					spl_trt = ["None"] #allowed special treatment
+					dim_fields = [
+						[doc.height_dia,"Dia \xd8",3,33,
+							doc.height_dia_inch,doc.inch_h,"\xd8","x",
+							"Length","Yes"],
+						[doc.length,"OAL",10,331,doc.length_inch,
+							doc.inch_l,"","","Length","Yes"],
+						[doc.a1, "Bevel Angle",0,0.001,"",""," Bevel:","\xb0",
+							"Angle","No"]]
+
+		elif (doc.tool_type == "SQEM"):
+				#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+			dim_fields = [
+				[doc.d1,"Flute \xd8",1,25,doc.d1_inch,
+					doc.inch_d1,"F\xd8:"," ","Length", "Yes"],
+				[doc.l1,"Flute Length",3,200,doc.l1_inch,
+					doc.inch_l1,"FL:"," ","Length","Yes"],
+				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+					doc.inch_h,"S\xd8:"," ","Length","Yes"],
+				[doc.length,"OAL",25,350,doc.length_inch,
+					doc.inch_l,"OAL:"," ","Length","Yes"],
+				[doc.no_of_flutes,"No of Flutes",2,7,"","","Z=","",
+					"Integer","Yes"],
+				[doc.a1, "Angle",0,180.001,"","","","\xb0","Angle","No"]]
+				#fields and their limits along with the labels
+			spl_trt = ["ACX", "None", "TiN", "TiAlN"] #allowed special treatment
+			#FL shud be less than OAL.
+			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
+
+		elif (doc.tool_type == "Square"):
+			if (doc.is_rm == "No"):
+				#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
+				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
+				#9.Type, 10.In Desc
+				dim_fields = [
+					[doc.height_dia,"Height",1.5,55,
+						doc.height_dia_inch,doc.inch_h,"","x",
+						"Length","Yes"],
+					[doc.width,"Width",1.5,55,doc.width_inch,
+						doc.inch_w,"","x","Length","Yes"],
+					[doc.length,"OAL",25,550,doc.length_inch,
+						doc.inch_l,"","","Length","Yes"],
+					[doc.a1, "Bevel Angle",0,31,"","","","\xb0",
+						"Angle","Yes"]]
+				spl_trt = ["TiN", "CRY", "None"] #allowed special treatment
+			if (doc.is_rm == "Yes"):
+				if (doc.base_material == "HSS"):
+					spl_trt = ["Hard", "None"] #allowed special treatment
+					dim_fields = [
+						[doc.height_dia,"Height",2.5,150,
+							doc.height_dia_inch,doc.inch_h,"","x",
+							"Length","Yes"],
+						[doc.width,"Width",2.5,150,doc.width_inch,
+							doc.inch_w,"","","Length","Yes"],
+						[doc.length,"OAL",0,0.001,doc.length_inch,
+							doc.inch_l,"","","Length","Yes"],
+						[doc.a1, "Bevel Angle",0,0.001,"","","","",
+							"Angle","Yes"]]
+				elif (doc.base_material == "Carbide"):
+					spl_trt = ["None"] #allowed special treatment
+					dim_fields = [
+						[doc.height_dia,"Height",2.5,50,
+							doc.height_dia_inch,doc.inch_h,"","x",
+							"Length","Yes"],
+						[doc.width,"Width",2.5,50,doc.width_inch,
+							doc.inch_w,"","x","Length","Yes"],
+						[doc.length,"OAL",0,400,doc.length_inch,
+							doc.inch_l,"","","Length","Yes"],
+						[doc.a1, "Bevel Angle",0,0.001,"","","","",
+							"Angle","Yes"]]
+			#H=W check
+			fn_two_nos_compare(doc, "equal", dim_fields[0], dim_fields[1])
+
+		else:
+			frappe.msgprint('{0}{1}{2}'.format("Tool Type Selected =",
+				doc.tool_type, ", is not covered. Kindly contact \
+				aditya@rigpl.com or Mr Aditya Duggal for further information"),
+				raise_exception=1)
+
+		fn_common_check(doc)
+		fn_integer_check(doc, dim_fields) #limit check
+		#Make Description, Web Description, Item Code, Concat, Concat1,
+		#Item Name (in the above order only)
+		doc.description,doc.web_long_description,doc.item_code,doc.concat,doc.concat1,doc.item_name = fn_gen_description(doc, dim_fields, spl_trt, uniquel0, uniquel1)
+################################################################################
+def fn_gen_description(doc, fds,trt,ul0, ul1):
+	#This function generates the following:
+	#Item Code, Description, Website Description, Web Specs,
+	#Item Uniqueness check fields
+
+	#ic_RM, ic_BM, ic_QLT, ic_TT, ic_ZN, ic_SP, ic_BR, ic_SN, ic_CD
+	#D_RM, D_BM, D_BR, D_QLT, D_SPL, D_DT, D_TT, D_SZ, DZN
+	#S1_RM
+
+	if doc.is_rm == "Yes":
+		ic_RM = "R"
+		D_RM = "RM "
+		Dw_RM = "Raw Material "
+	else:
+		ic_RM = ""
+		D_RM = ""
+		Dw_RM = ""
+
+	if doc.base_material == "HSS":
+		ic_BM = "H"
+		D_BM = "HSS "
+		Dw_BM = "High Speed Steel "
+	elif doc.base_material == "Carbide":
+		ic_BM = "C"
+		D_BM = "Carb "
+		Dw_BM = "Solid Carbide "
+	else:
+		msgprint("Please enter base material", raise_exception=1)
+
+	ic_QLT = frappe.db.get_value("Quality", doc.quality , "code")
+	D_QLT = frappe.db.get_value("Quality", doc.quality,
+		"description") + " "
+	Dw_QLT = frappe.db.get_value("Quality", doc.quality,
+		"website_description") + " "
+
+	ic_TT = frappe.db.get_value("Tool Type", doc.tool_type ,
+		 "code")
+	D_TT = frappe.db.get_value("Tool Type", doc.tool_type,
+		"description") + " "
+	Dw_TT = frappe.db.get_value("Tool Type", doc.tool_type,
+		"website_description") + " "
+
+	ic_ZN = fn_flutes(doc, doc.no_of_flutes)
+
+	ic_SP = fn_special_trt_check(doc, trt)
+	SPL = doc.special_treatment
+	if SPL == 'CRY':
+		if doc.quality == "H-3X":
+			D_SPL = '{0}'.format("EC500 ")
+			Dw_SPL = D_SPL
+		else:
+			D_SPL = SPL + " "
+			Dw_SPL = "Cryogenically Treated "
+	elif SPL == 'ACX' or SPL == 'Hard' or SPL == 'TiAlN' or SPL == 'TiN':
+		D_SPL = '{0}{1}'.format(doc.special_treatment, " ")
+		Dw_SPL = D_SPL
+	else:
+		D_SPL = '{0}'.format("")
+		Dw_SPL = D_SPL
+
+	ic_BR = frappe.db.get_value("Brand", doc.brand, "code")
+	if ic_BR == "X": ic_BR = ""
+	D_BR = '{0}{1}'.format(frappe.db.get_value("Brand", doc.brand,
+		 "item_desc"), " ")
+	Dw_BR = D_BR
+	#old Serial no from Item Group
+	#ic_SN =  frappe.db.get_value("Item Group", "Carbide Tools" ,
+	#	"serial_number")
+
+	#new serial no from tool Type
+	ic_SN = frappe.db.get_value("Tool Type", doc.tool_type ,
+		"serial_number")
+
+	ic_check = '{0}{1}{2}{3}{4}{5}{6}'.format(ic_RM, ic_BM,
+		ic_QLT, ic_TT, ic_ZN, ic_SP, ic_BR)
+	ic_inter = '{0}{1}{2}{3}{4}{5}{6}{7}'.format(ic_RM, ic_BM,
+		ic_QLT, ic_TT, ic_ZN, ic_SP, ic_BR, ic_SN)
+	ic_CD = fn_check_digit(doc, ic_inter)
+	ic_code = '{0}{1}'.format(ic_inter, ic_CD)
+
+	if (doc.item_code):
+		ic_existing = doc.item_code[:(len(doc.item_code)-4)]
+		#frappe.msgprint(ic_existing)
+		if ic_existing != ic_check:
+			frappe.msgprint("Change NOT ALLOWED since this would change \
+				Item Code which is NOT POSSIBLE.\nKindly contact \
+				Aditya Duggal for further details",
+				raise_exception = 1)
+
+	if doc.drill_type is None:
+		D_DT = '{0}'.format("")
+		Dw_DT = D_DT
+	else:
+		D_DT = '{0}{1}'.format(doc.drill_type, " ")
+		Dw_DT = D_DT
+
+	D_SZ = ""
+	Dw_SZ = ""
+      ######################################################################
+		#Size Description Generation
+      ######################################################################
+	for i in range(0,len(fds)):
+		if fds[i][9] == "Yes": #Check if field is to be used in desc
+			if fds[i][8] == "Length": #Check type of field
+				if fds[i][0] != 0 :
+					if fds[i][5]==1: #Check if Inch box checked
+						D_SZ += '{0}{1}{2}{3}'.format(fds[i][6],fds[i][4],
+							'"',fds[i][7])
+						Dw_SZ +=  '{0}{1}{2}{3}'.format(fds[i][6],fds[i][4],
+						'"',fds[i][7])
+					else:
+						D_SZ += '{0}{1:.4g}{2}'.format(fds[i][6],fds[i][0],
+							fds[i][7])
+						Dw_SZ += '{0}{1:.4g}{2}{3}'.format(fds[i][6],
+							fds[i][0],'mm',fds[i][7])
+			elif fds[i][8] == "Angle":
+				if fds[i][0] != 0 :
+					D_SZ += '{0}{1}{2}'.format(" ", fds[i][0], fds[i][7])
+					Dw_SZ += '{0}{1}{2}{3}{4}'.format(" ", fds[i][1],":",
+						fds[i][0], fds[i][7])
+			elif fds[i][8] == "Integer":
+				if fds[i][0] != 0 :
+					D_SZ += '{0}{1}{2}{3}'.format(" ", fds[i][6], fds[i][0],
+						 fds[i][7])
+					Dw_SZ += '{0}{1}{2}{3}'.format(" ", fds[i][6],fds[i][0],
+						 fds[i][7])
+
+	if (doc.no_of_flutes):
+		D_ZN = '{0}{1}'.format(" Z= ", doc.no_of_flutes)
+		Dw_ZN = '{0}{1}'.format(" Flutes= ", doc.no_of_flutes)
+	else:
+		D_ZN = '{0}'.format("")
+		Dw_ZN = '{0}'.format("")
+
+	D_Desc = '{0}{1}{2}{3}{4}{5}{6}{7}'.format(D_RM, D_BM, D_BR, D_QLT,
+		 D_SPL, D_DT, D_TT, D_SZ)
+	Dw_Desc = '{0}{1}{2}{3}{4}{5}{6}{7}'.format(Dw_RM, Dw_BM, Dw_BR,
+		 Dw_QLT, Dw_SPL, Dw_DT, Dw_TT, Dw_SZ)
+
+	it_name = '{0}{1}{2}{3}{4}{5}{6}{7}'.format(Dw_RM, Dw_BM, Dw_BR,
+		 Dw_QLT, Dw_SPL, Dw_DT, Dw_TT, Dw_SZ)
+
+	it_name = (it_name[:140]+ '...') if len(it_name)>140 else it_name
+
+    ####################################################################
+		#Unique Fields list which are in numbers
+    #######################################################################
+	uc_c0 = '{0}{1}{2}{3}{4}{5}{6}'.format(ic_RM, ic_BM, ic_QLT, ic_TT,
+		 ic_ZN, ic_SP, ic_BR)
+	for i in range(0,len(ul0)):
+		if (ul0[i]):
+			if ul0[i] == 0:
+				uc_c0 += '{0:.4f}'.format(0.0000)
+			else:
+				uc_c0 += '{0:.4f}'.format(ul0[i])
+		else:
+			uc_c0 += '{0:.4f}'.format(0.0000)
+
+	uc_c1 = ""
+	for i in range(0,len(ul1)):
+		if (ul1[i]):
+			if ul1[i] == 0:
+				uc_c1 += '{0:.4f}'.format(0.0000)
+			else:
+				uc_c1 += '{0:.4f}'.format(ul1[i])
+		else:
+			uc_c1 += '{0:.4f}'.format(0.0000)
+	########################################################################
+	#Update the IMAGE From TOOL TYPE
+	########################################################################
+	doc.dim_image_list = frappe.db.get_value("File Data",
+	    {"attached_to_doctype": "Tool Type", "attached_to_name":
+	    doc.tool_type}, "file_url")
+
+	return (D_Desc, Dw_Desc, ic_code, uc_c0, uc_c1, it_name)
+################################################################################
+def fn_next_string(doc,s):
+	#This function would increase the serial number by One following the
+	#alpha-numeric rules as well
 	if len(s) == 0:
 		return '1'
 	head = s[0:-1]
 	tail = s[-1]
 	if tail == 'Z':
-		return next_string(doc, head) + '0'
+		return fn_next_string(doc, head) + '0'
 	if tail == '9':
 		return head+'A'
 	if tail == 'H':
@@ -19,17 +554,74 @@ def next_string(doc,s):
 	if tail == 'N':
 		return head+'P'
 	return head + chr(ord(tail)+1)
+################################################################################
+def fn_integer_check(doc,float):
+	for i in range(0,len(float)):
+		if not float[i][0]:
+			float[i][0] = 0
+			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
+				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(float[i][1],
+				" entered should be between ", float[i][2],
+				" (including) and ",float[i][3], " (excluding)"),
+				raise_exception=1)
+		else:
+			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
+				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(float[i][1],
+				" entered should be between ", float[i][2],
+				" (including) and ",float[i][3], " (excluding)"),
+				raise_exception=1)
+################################################################################
+def fn_common_check(doc):
+		#Check if the BRAND selected is in unison with RM
+	if (doc.is_rm):
+		if doc.is_rm != frappe.db.get_value ("Brand", doc.brand, "is_rm"):
+			frappe.msgprint("Brand Selected is NOT ALLOWED", raise_exception=1)
 
-	#Code to generate the letter based on Base Metal
-	#====================
-def fn_base_metal(doc, base_material):
+		#Check if the base material selected is in unison with the quality
+	if doc.base_material != frappe.db.get_value("Quality", doc.quality, "base_material"):
+		frappe.msgprint("Base Material and Quality Combo is WRONG", raise_exception=1)
+
+		#Check if the IS RM selected is in unison with the quality
+	if (doc.is_rm):
+		if doc.is_rm != frappe.db.get_value("Quality", doc.quality, "is_rm"):
+			 frappe.msgprint("RM-Quality Combo is WRONG", raise_exception=1)
+################################################################################
+def fn_two_nos_compare(doc,type, d1, d2):
+	if type == "equal":
+		if d1[0] != d2[0]:
+			frappe.msgprint('{0}{1}{2}'.format(d1[1],
+			" should be equal to ", d2[1]), raise_exception=1)
+	elif type == "greater":
+		if d1[0] <= d2[0]:
+			frappe.msgprint('{0}{1}{2}'.format(d1[1],
+			" should be greater than ", d2[1]), raise_exception=1)
+	else:
+		if d1[0] < d2[0]:
+			frappe.msgprint('{0}{1}{2}'.format(d1[1],
+			" should be greater than or equal to ", d2[1]),
+			raise_exception=1)
+################################################################################
+def fn_special_trt_check(doc, spl):
+	if not spl:
+		if (doc.special_treatment) :
+			frappe.msgprint('{0}{1}{2}'.format("Special Treatment- ",
+		doc.special_treatment, " selected is not allowed"),
+		raise_exception=1)
+	else:
+		if doc.special_treatment not in spl:
+			frappe.msgprint('{0}{1}{2}'.format("Special Treatment- ",
+			doc.special_treatment, " selected is not allowed"),
+			raise_exception=1)
 	return {
-		"HSS": 'H',
-		"Carbide": 'C',
-	}.get(base_material,"")
-
-	#Code to generate the letter based on Flutes
-	#====================
+		"TiAlN": '1',
+		"TiN": '2',
+		"ACX": '3',
+		"CRY": '4',
+		"ALDURA": '5',
+		"Hard": 'H',
+	}.get(doc.special_treatment,"")
+##############~Code to generate the letter based on Flutes~#####################
+################################################################################
 def fn_flutes(doc,flutes):
 	return {
 		1:1,
@@ -44,292 +636,8 @@ def fn_flutes(doc,flutes):
 		10:'A',
 	}.get(flutes,"")
 
-	#Code to generate the letter based on Special Treatment
-	#====================
-def fn_special_treatment(doc,treatment):
-	return {
-		"TiAlN": '1',
-		"TiN": '2',
-		"ACX": '3',
-		"CRY": '4',
-		"ALDURA": '5',
-		"Hard": 'H',
-	}.get(treatment,"")
-
-	#Code to generate the letter based on RM
-	#====================
-def fn_isrm(doc,is_rm):
-	return {
-		"Yes": 'R',
-	}.get(is_rm,"")
-
-	#Code to generate the letter based on BRAND
-	#====================
-def fn_brand(doc,brand):
-	return {
-		"Rohit": 'R',
-		"Anubis": 'A',
-		"Export": 'E',
-		"Groz": 'G',
-	}.get(brand,"")
-
-	#Code to Check the numeric fields
-	#====================
-def fn_float_check(doc,float):
-	if not float:
-		float = 0
-	else:
-		if float > 999:
-			frappe.msgprint("Number entered should be less than 1000",
-				raise_exception=1)
-		elif float < 0:
-			frappe.msgprint("Number entered should be more than Zero",
-				raise_exception=1)
-
-def fn_check_flutes (doc,z):
-	if z == "":
-		frappe.msgprint("Flutes Cannot less than 1", raise_exception=1)
-	elif z <1:
-		frappe.msgprint("Flutes Cannot less than 1", raise_exception=1)
-	elif z>10:
-		frappe.msgprint("Flutes cannot be more than 10", raise_exception=1)
-
-def fn_d1_d2 (doc,d1,d2):
-	if d1 < d2:
-		if doc.tool_type != "SQEM" and doc.base_material != "HSS":
-			frappe.msgprint("D or H/D should be greater than W or D1", raise_exception=1)
-	elif d1 != d2:
-		if doc.tool_type == "Square":
-			frappe.msgprint("H/D and W should be equal for Square Tools", raise_exception=1)
-
-def fn_length(doc,l):
-	if doc.is_rm == "Yes" and doc.base_material== "HSS":
-		if l !=0:
-			frappe.msgprint("Length of HSS RM should be ZERO", raise_exception=1)
-	else:
-		if l ==0:
-			frappe.msgprint("Length cannot be ZERO", raise_exception=1)
-
-def fn_a1(doc, a1):
-	if a1 == "" :
-		frappe.msgprint("Some mandatory field missing", raise_exception=1)
-
-def fn_l1 (doc,L,L1):
-	if L <= L1:
-		frappe.msgprint("L1 should be less than L", raise_exception=1)
-
-def fn_l1_l2(doc,L,L1,L2):
-	if L <= (L1 + L2):
-		frappe.msgprint("L1+L2 should be less than L", raise_exception=1)
-
-def fn_ttbased_check(doc, tt):
-		# Count of Tool Type==1 below
-	if tt == "Square":
-		fn_d1_d2(doc, doc.height_dia, doc.width)
-		fn_length(doc, doc.length)
-		fn_a1(doc, doc.a1)
-
-		# Count of Tool Type==4 below
-	elif tt=="Rectangular" or tt=="Mandrels" or tt=="Parting":
-		fn_d1_d2(doc, doc.height_dia, doc.width)
-		fn_length(doc, doc.length)
-		fn_a1(doc, doc.a1)
-
-		# Count of Tool Type==8 below
-	elif tt=="Ball Nose" or tt=="Drill" or tt=="Reamer" or tt=="SQEM" :
-		fn_d1_d2(doc, doc.height_dia, doc.d1)
-		fn_a1(doc, doc.a1)
-		fn_length(doc, doc.length)
-		fn_length(doc, doc.l1)
-		fn_l1(doc, doc.length, doc.l1)
-		fn_check_flutes(doc, doc.no_of_flutes)
-
-		# Count of Tool Type==9 below
-	elif tt=="Punches" :
-		fn_d1_d2(doc, doc.height_dia, doc.d1)
-		fn_a1(doc, doc.a1)
-		fn_length(doc, doc.length)
-		fn_length(doc, doc.l1)
-		fn_l1(doc, doc.length, doc.l1)
-
-		# Count of Tool Type==10 below
-	elif tt=="Centre Drill Type A":
-		fn_d1_d2(doc, doc.height_dia, doc.d1)
-		fn_length(doc, doc.length)
-		fn_length(doc, doc.l1)
-		fn_a1(doc, doc.a1)
-		fn_l1(doc, doc.length, doc.l1)
-		fn_check_flutes(doc, doc.no_of_flutes)
-
-		# Count of Tool Type==11 below
-	elif tt=="Centre Drill Type B":
-		fn_d1_d2(doc, doc.height_dia, doc.d1)
-		fn_d1_d2(doc, doc.d1, doc.d2)
-		fn_length(doc, doc.length)
-		fn_length(doc, doc.l1)
-		fn_length(doc, doc.l2)
-		fn_a1(doc, doc.a1)
-		fn_a1(doc, doc.a2)
-		fn_a1(doc, doc.a3)
-		fn_l1(doc, doc.length, doc.l1)
-		fn_check_flutes(doc, doc.no_of_flutes)
-
-		# Count of Tool Type==12 below
-	elif tt=="Centre Drill Type R":
-		fn_d1_d2(doc, doc.height_dia, doc.d1)
-		fn_d1_d2(doc, doc.d1, doc.d2)
-		fn_length(doc, doc.length)
-		fn_a1(doc, doc.a1)
-		fn_a1(doc, doc.a2)
-		fn_a1(doc, doc.a3)
-		fn_a1(doc, doc.r1)
-		fn_l1(doc, doc.length, doc.l1)
-		fn_check_flutes(doc, doc.no_of_flutes)
-
-		# Count of Tool Type==13 below
-	elif tt=="Punch Step3":
-		fn_d1_d2(doc, doc.height_dia, doc.d1)
-		fn_length(doc, doc.length)
-		fn_a1(doc, doc.a1)
-		fn_a1(doc, doc.a2)
-		fn_l1(doc, doc.length, doc.l1)
-		fn_l1_l2(doc, doc.length, doc.l1, doc.l2)
-
-		# Count of Tool Type==14 below
-	elif tt=="Round":
-		fn_length(doc, doc.length)
-		fn_a1(doc, doc.a1)
-
-	#This function converts inch size
-def fn_inch_size(doc, s):
-	if (s):
-		t = '{0}{1}'.format(s, '"')
-	else:
-		t = '{0}'.format("")
-	return(t)
-
-def fn_mm_size(doc,s):
-	if (s):
-		t = '{0:.4g}'.format(s)
-		tw = '{0:.4g}{1}'.format(s,"mm")
-	else:
-		t = '{0}'.format("")
-		tw = '{0}'.format("")
-	return (t, tw)
-
-	#Code to generate the Size Description based on the Tool Type
-def fn_size_desc(doc,tooltype):
-	if doc.inch_h==1:
-		D = fn_inch_size(doc, doc.height_dia_inch)
-		Dweb = fn_inch_size(doc, doc.height_dia_inch)
-	else:
-		D = fn_mm_size(doc, doc.height_dia)[0]
-		Dweb = fn_mm_size(doc, doc.height_dia)[1]
-
-
-	if doc.inch_w==1:
-		W = fn_inch_size(doc, doc.width_inch)
-		Wweb = fn_inch_size(doc, doc.width_inch)
-	else:
-		W = fn_mm_size(doc, doc.width)[0]
-		Wweb = fn_mm_size(doc, doc.width)[1]
-
-	if doc.inch_l==1:
-		L = fn_inch_size(doc, doc.length_inch)
-	else:
-		L = fn_mm_size(doc, doc.length)[0]
-
-	if doc.inch_d1==1:
-		D1 = fn_inch_size(doc, doc.d1_inch)
-	else:
-		D1 = fn_mm_size(doc, doc.d1)[0]
-
-	if doc.inch_l1==1:
-		L1 = fn_inch_size(doc, doc.l1_inch)
-	else:
-		L1 = fn_mm_size(doc, doc.l1)[0]
-
-	if doc.inch_d2==1:
-		D2 = fn_inch_size(doc, doc.d2_inch)
-	else:
-		D2 = fn_mm_size(doc, doc.d2)[0]
-
-	if doc.inch_l2==1:
-		L2 = fn_inch_size(doc, doc.l2_inch)
-	else:
-		L2 = fn_mm_size(doc, doc.l2)[0]
-
-	if not doc.a1:
-		A1 = '{0}'.format("")
-	else:
-		A1 = '{0}{1}{2}'.format(" ",doc.a1,"\xb0")
-
-	if not doc.a2:
-		A2 = '{0}'.format("")
-	else:
-		A2 = '{0}{1}{2}'.format(" ",doc.a2,"\xb0")
-
-	if not doc.a3:
-		A3 = '{0}'.format("")
-	else:
-		A3 = '{0}{1}{2}'.format(" ",doc.a3,"\xb0")
-
-	R1 = fn_mm_size(doc, doc.r1)[0]
-
-	if tooltype == "Ball Nose" or tooltype == "SQEM" or tooltype == "Reamer":
-		if D1 != D:
-			SizeDesc = '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}{11}'.format("\xd8",D1, "x", L1,
-				"x\xd8", D, "x", L, A1, A2,A3 ," ")
-		else:
-			SizeDesc = '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}'.format("\xd8",D1, "x", L1,
-				"x", L, A1, A2,A3 ," ")
-	elif tooltype == "Drill":
-		if D1 != D:
-			SizeDesc = '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}{11}{12}'.format("\xd8",D1, "x", L1,
-				"x\xd8", D, "x", L, " PA:", A1, A2,A3 ," ")
-		else:
-			SizeDesc = '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}'.format("\xd8",D1, "x", L1,
-				"x", L, " PA:", A1, A2,A3 ," ")
-
-	elif tooltype == "Centre Drill Type A" or tooltype == "Centre Drill Type B" or tooltype == "Centre Drill Type R" :
-		SizeDesc = '{0}{1}{2}{3}{4}{5}{6}{7}{8}'.format("\xd8",D1, " SH:\xd8", D, " PA:",A1, A2, A3, R1, " ")
-
-	elif tooltype == "Square" or tooltype == "Rectangular" or tooltype == "Mandrels" or tooltype == "Parting" :
-		if doc.length >0:
-			SizeDesc = '{0}{1}{2}{3}{4}{5}{6}'.format(D, "x", W, "x", L, A1, " ")
-			SizeDweb = '{0}{1}{2}{3}{4}{5}{6}'.format(Dweb, "x", Wweb, "x", L, A1, " ")
-		else:
-			SizeDesc = '{0}{1}{2}{3}'.format(D, "x", W, " ")
-
-	elif tooltype == "Round" :
-		if doc.length >0:
-			SizeDesc = '{0}{1}{2}{3}{4}{5}'.format("\xd8", D, "x", L, A1, " ")
-		else:
-			SizeDesc = '{0}{1}{2}'.format("\xd8", D, " ")
-
-	elif tooltype == "Punches" :
-		SizeDesc = '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}'.format("\xd8", D, "x", L1,"  \xd8", D1, "x", L, A1, " ")
-
-	elif tooltype == "Punch Step3" :
-		SizeDesc = '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}{11}{12}{13}{14}'.format("\xd8", D, "x", L1, " \xd8", D1,
-			"x", L2, " \xd8", D2, "x", L, A1, A2, " ")
-
-	else:
-		frappe.msgprint("Unable to generate Size Description")
-	return (SizeDesc)
-
-def fn_unique_float(doc,s):
-	if (s):
-		if s == 0:
-			t = '{0:.4f}'.format(0.0000)
-		else:
-			t = '{0:.4f}'.format(s)
-	else:
-		t = '{0:.4f}'.format(0.0000)
-	return (t)
-
-	#Code to generate the CHECK DIGIT
-	#====================
+###############~Code to generate the CHECK DIGIT~###############################
+################################################################################
 def fn_check_digit(doc,id_without_check):
 
 	# allowable characters within identifier
@@ -356,7 +664,7 @@ def fn_check_digit(doc,id_without_check):
 			if (n % 2 == 0):
 
 					# for alternating digits starting with the rightmost, we
-					# use our formula this is the same as multiplying x 2 and
+					# use our formula this is the same as multiplying x 2 &
 					# adding digits together for values 0 to 9.  Using the
 					# following formula allows us to gracefully calculate a
 					# weight for non-numeric "digits" as well (from their
@@ -378,177 +686,21 @@ def fn_check_digit(doc,id_without_check):
 	# divisible by ten. Return an integer
 	return int((10 - (sum % 10)) % 10)
 
-def fn_add_item_website_specifications(doc):
-	web_specs = [d.label for d in doc.get("item_website_specifications")]
-	if "H" not in web_specs:
-		doc.append("item_website_specifications", {
-			"label": "H",
-			"description": doc.height_dia
-		})
+def autoname(doc, method):
+	validate(doc)
+	#New Serial No from Tool Type
+	sn = frappe.db.get_value("Tool Type", doc.tool_type ,
+		"serial_number")
+	nxt_sn = fn_next_string(doc, sn)
+	frappe.db.set_value("Tool Type", doc.tool_type,
+		"serial_number", nxt_sn)
 
-	#Validation based on various rules
-	#====================
-def validate(doc, method):
-	if doc.tool_type != "Others":
-		Check = fn_float_check(doc, doc.height_dia)
-		Check = fn_float_check(doc, doc.width)
-		Check = fn_float_check(doc, doc.length)
-		Check = fn_float_check(doc, doc.a1)
-		Check = fn_float_check(doc, doc.d1)
-		Check = fn_float_check(doc, doc.l1)
-		Check = fn_float_check(doc, doc.a2)
-		Check = fn_float_check(doc, doc.d2)
-		Check = fn_float_check(doc, doc.l2)
-		Check = fn_float_check(doc, doc.a3)
-		Check = fn_float_check(doc, doc.r1)
+	#old Serial No from Item Group
 
-			#Check values based on the tool type
-			#================================================================
-		Check = fn_ttbased_check (doc, doc.tool_type)
+	#sn = frappe.db.get_value("Item Group", "Carbide Tools" ,
+	#	"serial_number")
+	#nxt_sn = self.fn_next_string(sn)
+	#frappe.db.set_value("Item Group", "Carbide Tools",
+	#	"serial_number", nxt_sn)
 
-			#Check if the BRAND selected is in unison with RM
-			#============================
-		if (doc.is_rm):
-			if doc.is_rm != frappe.db.get_value ("Brand", doc.brand, "is_rm"):
-				frappe.msgprint("Brand Selected is NOT ALLOWED", raise_exception=1)
-
-			#Check if the base material selected is in unison with the quality
-			#============================
-		if doc.base_material != frappe.db.get_value("Quality", doc.quality, "base_material"):
-			frappe.msgprint("Base Material and Quality Combo is WRONG", raise_exception=1)
-
-			#Check if the IS RM selected is in unison with the quality
-			#============================
-		if (doc.is_rm):
-			if doc.is_rm != frappe.db.get_value("Quality", doc.quality, "is_rm"):
-				frappe.msgprint("Is RM and Quality Combo is WRONG", raise_exception=1)
-
-			#Check for HEIGHT should always be less than WIDTH
-			#============================
-		if doc.width >0:
-			if doc.height_dia > doc.width:
-				frappe.msgprint("HEIGHT cannot be more than WIDTH", raise_exception=1)
-
-			#Check Dia Field
-
-			#Check No of Flutes
-			#============================
-		if (doc.no_of_flutes) and doc.no_of_flutes >10:
-			frappe.msgprint("No of Flutes cannot be more than 10", raise_exception=1)
-
-
-			#Check Overall Length and Other Lengths
-			#============================
-		if doc.length == 0 and doc.is_rm != "Yes":
-			frappe.msgprint("Overall Length cannot be ZERO", raise_exception=1)
-
-		if doc.is_rm == "Yes":
-			if doc.a1 >0:
-				frappe.msgprint("α1 Should be Zero in case of RM", raise_exception=1)
-			if doc.special_treatment != "None" and doc.special_treatment != "Hard":
-				frappe.msgprint("Special Treatment has to be NONE or HARD in case of RM", raise_exception=1)
-			if doc.length >0 and doc.base_material != "Carbide" :
-				frappe.msgprint ("Lenght has to be ZERO for HSS RM", raise_exception = 1)
-
-		fn_add_item_website_specifications(doc)
-		generate_item_code(doc)
-
-def generate_item_code(doc, method=None):
-	if doc.tool_type != "Others":
-		#Code to generate automatic item code & description
-		#============================
-		BM = fn_base_metal(doc, doc.base_material)
-		BMDesc = doc.base_material
-		serial_no = frappe.db.get_value("Item Group", "Carbide Tools" , "serial_number")
-		QLT = frappe.db.get_value("Quality", doc.quality , "code")
-		QLTDesc = " " + frappe.db.get_value("Quality", doc.quality, "description") + " "
-		QTLWebD = " " + frappe.db.get_value("Quality", doc.quality, "website_description") + " "
-		TT = frappe.db.get_value("Tool Type", doc.tool_type, "code")
-		TTDesc = frappe.db.get_value("Tool Type", doc.tool_type, "description") + " "
-		TTWebD = frappe.db.get_value("Tool Type", doc.tool_type, "website_description") + " "
-		Zn = fn_flutes(doc, doc.no_of_flutes)
-
-		if (doc.no_of_flutes):
-			ZnDesc = '{0}{1}'.format(" Z= ", doc.no_of_flutes)
-			ZnWebD = '{0}{1}'.format(" Flutes= ", doc.no_of_flutes)
-		else:
-			ZnDesc = '{0}'.format("")
-			ZnWebD = '{0}'.format("")
-
-
-		SPL = fn_special_treatment(doc, doc.special_treatment)
-		if SPL == '4':
-			if doc.quality == "H-3X":
-				SPLDesc = '{0}'.format(" EC500 ")
-			else:
-				SPLDesc = '{0}'.format(" Cryo ")
-		elif SPL == '3' or SPL == '2' or SPL == '1' or SPL == '5' or SPL== 'H':
-			SPLDesc = '{0}{1}{2}'.format(" ", doc.special_treatment, " ")
-		else:
-			SPLDesc = '{0}'.format("")
-
-		RM = fn_isrm(doc, doc.is_rm)
-		if doc.is_rm =="Yes":
-			RMDesc = "RM "
-		else:
-			RMDesc = ""
-
-		BRAND = frappe.db.get_value("Brand", doc.brand, "code")
-		if BRAND =="X":
-			BRAND = ""
-
-		BRANDDesc = '{0}{1}'.format(" ", frappe.db.get_value("Brand", doc.brand, "item_desc"))
-
-		if doc.drill_type is None:
-			DTDesc = '{0}'.format("")
-		else:
-			DTDesc = '{0}{1}'.format(doc.drill_type, " ")
-
-		SizeDesc =	fn_size_desc(doc, doc.tool_type)
-		SizeDweb =	fn_size_desc(doc, doc.tool_type)
-
-		desc_inter = '{0}{1}{2}{3}{4}{5}{6}{7}{8}'.format(RMDesc, BMDesc, BRANDDesc , QLTDesc,
-			SPLDesc, DTDesc, TTDesc, SizeDesc, ZnDesc)
-		desc_web = '{0}{1}{2}{3}{4}{5}{6}{7}{8}'.format(RMDesc, BMDesc, BRANDDesc , QTLWebD,
-			SPLDesc, DTDesc, TTWebD, SizeDweb, ZnWebD)
-
-		item_code_intermediate = '{0}{1}{2}{3}{4}{5}{6}{7}'.format(RM, BM, QLT, TT, Zn, SPL,
-			BRAND, serial_no)
-
-		CD = fn_check_digit(doc, item_code_intermediate)
-
-			#below field concat is going to be used to check the integrity of data so that no one makes 2 codes for
-			#1 item.
-		Du = fn_unique_float(doc, doc.height_dia)
-		Wu = fn_unique_float(doc, doc.width)
-		Lu = fn_unique_float(doc, doc.length)
-		A1u = fn_unique_float(doc, doc.a1)
-		R1u = fn_unique_float(doc, doc.R1)
-		D1u = fn_unique_float(doc, doc.d1)
-		L1u = fn_unique_float(doc, doc.l1)
-		D2u = fn_unique_float(doc, doc.d2)
-		L2u = fn_unique_float(doc, doc.l2)
-		A2u = fn_unique_float(doc, doc.a2)
-		A3u = fn_unique_float(doc, doc.a3)
-
-		doc.concat = '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}'.format(RM, BM, QLT, TT, Zn, SPL, BRAND, Du, Wu , Lu)
-		doc.concat1 = '{0}{1}{2}{3}{4}{5}{6}{7}'.format(A1u, D1u, L1u, A2u, D2u, L2u, R1u, A3u)
-		doc.concat2= ""
-		doc.item_name=doc.item_code
-			#update the image of the item
-		doc.dim_image_list = frappe.db.get_value("File Data", {"attached_to_doctype": "Tool Type",
-			"attached_to_name": doc.tool_type}, "file_url")
-		doc.description = desc_inter
-		doc.web_long_description = desc_web
-
-		# update incremented serial_no in item group
-
-		# islocal check not required as this function will be called only in autoname
-		if doc.get("__islocal"):
-			doc.item_code = '{0}{1}'.format(item_code_intermediate, CD)
-			doc.item_name = '{0}{1}'.format(item_code_intermediate, CD)
-			doc.name = doc.item_code
-				#increment serial_no value and assign to item_code
-			next_serial_no = next_string(doc, serial_no)
-			frappe.db.set_value("Item Group", "Carbide Tools", "serial_number", next_serial_no)		#This part of the code generates the alphanumeric series which does not include 0,I, O (includes 1-9 and A-Z)
-
+	doc.autoname()

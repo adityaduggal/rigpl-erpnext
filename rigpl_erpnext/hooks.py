@@ -62,7 +62,8 @@ hide_in_installer = True
 
 doc_events = {
 	"Item": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.item.validate"
+		"validate": "rigpl_erpnext.rigpl_erpnext.item.validate",
+		"autoname": "rigpl_erpnext.rigpl_erpnext.item.autoname"
 	},
 	"Quality": {
 		"autoname": "rigpl_erpnext.rigpl_erpnext.quality.autoname"
