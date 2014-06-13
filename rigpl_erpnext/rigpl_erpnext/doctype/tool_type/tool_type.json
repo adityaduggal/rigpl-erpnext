@@ -1,0 +1,101 @@
+{
+ "allow_attach": 1, 
+ "allow_copy": 1, 
+ "allow_email": 1, 
+ "allow_print": 1, 
+ "autoname": "field:tool_type", 
+ "creation": "2013-04-30 00:07:34", 
+ "custom": 0, 
+ "docstatus": 0, 
+ "doctype": "DocType", 
+ "document_type": "Master", 
+ "fields": [
+  {
+   "fieldname": "tool_type", 
+   "fieldtype": "Data", 
+   "in_list_view": 1, 
+   "label": "Tool Type", 
+   "permlevel": 0, 
+   "reqd": 1
+  }, 
+  {
+   "description": "Enter only 2 UNIQUE CAPITAL LETTERS or NUMERALS (OH and EYE are excluded) (MIN=2, MAX=2)", 
+   "fieldname": "code", 
+   "fieldtype": "Data", 
+   "in_list_view": 1, 
+   "label": "Code", 
+   "permlevel": 0, 
+   "reqd": 1
+  }, 
+  {
+   "fieldname": "cb", 
+   "fieldtype": "Column Break", 
+   "permlevel": 0
+  }, 
+  {
+   "fieldname": "description", 
+   "fieldtype": "Data", 
+   "in_list_view": 1, 
+   "label": "Description", 
+   "permlevel": 0, 
+   "reqd": 1
+  }, 
+  {
+   "fieldname": "section_break", 
+   "fieldtype": "Section Break", 
+   "label": "Photo", 
+   "permlevel": 0
+  }, 
+  {
+   "fieldname": "image", 
+   "fieldtype": "Image", 
+   "label": "Image", 
+   "permlevel": 0
+  }
+ ], 
+ "max_attachments": 1, 
+ "modified": "2014-06-13 12:48:20.572499", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "Tool Type", 
+ "name_case": "Title Case", 
+ "owner": "Administrator", 
+ "permissions": [
+  {
+   "amend": 0, 
+   "cancel": 0, 
+   "create": 1, 
+   "delete": 0, 
+   "permlevel": 0, 
+   "read": 1, 
+   "report": 1, 
+   "role": "System Manager", 
+   "write": 1
+  }, 
+  {
+   "cancel": 0, 
+   "delete": 0, 
+   "permlevel": 1, 
+   "read": 1, 
+   "role": "System Manager", 
+   "write": 0
+  }, 
+  {
+   "cancel": 0, 
+   "delete": 0, 
+   "permlevel": 0, 
+   "read": 1, 
+   "role": "Material Master Manager"
+  }, 
+  {
+   "cancel": 0, 
+   "delete": 0, 
+   "permlevel": 0, 
+   "read": 1, 
+   "role": "Production Inventory User"
+  }
+ ], 
+ "sort_field": "modified", 
+ "sort_order": "DESC", 
+ "version": 2
+}
