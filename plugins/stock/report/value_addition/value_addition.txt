@@ -1,0 +1,22 @@
+[
+ {
+  "creation": "2013-06-14 21:05:20", 
+  "docstatus": 0, 
+  "modified": "2014-01-01 12:17:56", 
+  "modified_by": "Administrator", 
+  "owner": "Administrator"
+ }, 
+ {
+  "add_total_row": 0, 
+  "doctype": "Report", 
+  "is_standard": "No", 
+  "name": "__common__", 
+  "ref_doctype": "Tool Type", 
+  "report_name": "Value Addition", 
+  "report_type": "Script Report"
+ }, 
+ {
+  "doctype": "Report", 
+  "name": "Value Addition"
+ }
+]

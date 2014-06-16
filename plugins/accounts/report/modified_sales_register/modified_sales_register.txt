@@ -1,0 +1,21 @@
+[
+ {
+  "creation": "2013-07-08 20:15:04", 
+  "docstatus": 0, 
+  "modified": "2013-11-06 14:42:46", 
+  "modified_by": "Administrator", 
+  "owner": "Administrator"
+ }, 
+ {
+  "doctype": "Report", 
+  "is_standard": "No", 
+  "name": "__common__", 
+  "ref_doctype": "Sales Invoice", 
+  "report_name": "Modified Sales Register", 
+  "report_type": "Script Report"
+ }, 
+ {
+  "doctype": "Report", 
+  "name": "Modified Sales Register"
+ }
+]
