@@ -1,0 +1,15 @@
+{
+ "apply_user_permissions": 1,
+ "creation": "2013-07-06 09:48:39",
+ "docstatus": 0,
+ "doctype": "Report",
+ "is_standard": "Yes",
+ "modified": "2014-06-05 17:02:25.838823",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Follow Up",
+ "owner": "Administrator",
+ "ref_doctype": "Customer",
+ "report_name": "Follow Up",
+ "report_type": "Script Report"
+}

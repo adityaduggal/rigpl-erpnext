@@ -1,0 +1,16 @@
+{
+ "add_total_row": 1, 
+ "apply_user_permissions": 1, 
+ "creation": "2013-11-23 17:14:49", 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "is_standard": "Yes", 
+ "modified": "2014-06-05 17:07:47.008705", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "PR to be Billed", 
+ "owner": "Administrator", 
+ "ref_doctype": "Purchase Invoice", 
+ "report_name": "PR to be Billed", 
+ "report_type": "Script Report"
+}

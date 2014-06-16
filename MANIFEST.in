@@ -1,0 +1,19 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include rigpl_erpnext *.css
+recursive-include rigpl_erpnext *.csv
+recursive-include rigpl_erpnext *.html
+recursive-include rigpl_erpnext *.ico
+recursive-include rigpl_erpnext *.js
+recursive-include rigpl_erpnext *.json
+recursive-include rigpl_erpnext *.md
+recursive-include rigpl_erpnext *.png
+recursive-include rigpl_erpnext *.py
+recursive-include rigpl_erpnext *.svg
+recursive-include rigpl_erpnext *.txt
+recursive-include rigpl_erpnext/public *
+recursive-exclude rigpl_erpnext *.pyc

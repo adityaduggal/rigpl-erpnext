@@ -1,0 +1,15 @@
+{
+ "apply_user_permissions": 1,
+ "creation": "2013-01-11 11:55:39",
+ "docstatus": 0,
+ "doctype": "Report",
+ "is_standard": "Yes",
+ "modified": "2014-06-05 17:04:40.895327",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Item Report",
+ "owner": "aditya@rigpl.com",
+ "ref_doctype": "Item",
+ "report_name": "Item Report",
+ "report_type": "Script Report"
+}
