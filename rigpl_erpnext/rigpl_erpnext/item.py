@@ -687,7 +687,7 @@ def fn_check_digit(doc,id_without_check):
 	return int((10 - (sum % 10)) % 10)
 
 def autoname(doc, method):
-	validate(doc. method)
+	validate(doc, method)
 	#New Serial No from Tool Type
 	sn = frappe.db.get_value("Tool Type", doc.tool_type ,
 		"serial_number")
