@@ -87,7 +87,7 @@ def get_items(filters):
 	AND it.item_code NOT REGEXP '^JC'
 	AND it.item_code NOT REGEXP '^JH'
 	AND it.item_code != 'SCRAP'
-	AND it.end_of_life IS NULL %s
+	AND ifnull(it.end_of_life, '0000-00-00')='0000-00-00' %s
 
 	group by bn.item_code
 
