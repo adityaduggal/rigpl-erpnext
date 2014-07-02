@@ -43,7 +43,7 @@ def get_items(filters):
 		ifnull(t.pl_item,"-"), ifnull(t.stock_maintained,"-"), ifnull(t.end_of_life,'9999-12-31'),
 		ifnull(t.item_name,"--"), ifnull(t.show_in_website,2),ifnull(t.website_warehouse,"--"),
 		ifnull(t.weightage,0), ifnull(t.website_image,"--"), ifnull(web_long_description,"--")
-		FROM `tabItem` t where t.end_of_life IS NULL %s
+		FROM `tabItem` t where ifnull(t.end_of_life, '0000-00-00')='0000-00-00' %s
 		ORDER BY
 		t.is_rm, t.base_material, t.quality, t.tool_type, t.no_of_flutes, t.special_treatment,
 		t.d1, t.l1, t.height_dia, t.width, t.length, t.d2, t.l2""" % conditions, as_list=1)
