@@ -50,7 +50,7 @@ def validate(doc, method):
 					doc.inch_l," OAL:"," ","Length","Yes"],
 				[doc.no_of_flutes,"No of Flutes",2,3,"","",
 					" Z=","","Integer","Yes"],
-				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"]
+				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"],
 				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"]]
 			spl_trt = [] #allowed special treatment
 			 #FL shud be less than OAL.
@@ -73,8 +73,8 @@ def validate(doc, method):
 					doc.inch_l," OAL:"," ","Length","Yes"],
 				[doc.no_of_flutes,"No of Flutes",2,3,"","","Z=","",
 					"Integer","Yes"],
-				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"]
-				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"]
+				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"],
+				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"],
 				[doc.a3, "Angle",120,120.001,"","","","\xb0","Angle","No"]]
 			spl_trt = [] #allowed special treaftment
 			#FL shud be less than OAL.
