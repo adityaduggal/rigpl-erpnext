@@ -18,11 +18,11 @@ def validate(doc, method):
 				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
 				#9.Type, 10.In Desc
 			dim_fields = [
-				[doc.d1,"Flute \xd8",1,25,doc.d1_inch,
+				[doc.d1,"Flute \xd8",1,26,doc.d1_inch,
 					doc.inch_d1,"F\xd8:"," ","Length", "Yes"],
 				[doc.l1,"Flute Length",3,200,doc.l1_inch,
 					doc.inch_l1," FL:"," ","Length","Yes"],
-				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+				[doc.height_dia,"Shank \xd8",1,26,doc.height_dia_inch,
 					doc.inch_h," S\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,350,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
@@ -50,7 +50,7 @@ def validate(doc, method):
 					doc.inch_l," OAL:"," ","Length","Yes"],
 				[doc.no_of_flutes,"No of Flutes",2,3,"","",
 					" Z=","","Integer","Yes"],
-				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"]
+				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"],
 				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"]]
 			spl_trt = [] #allowed special treatment
 			 #FL shud be less than OAL.
@@ -73,8 +73,8 @@ def validate(doc, method):
 					doc.inch_l," OAL:"," ","Length","Yes"],
 				[doc.no_of_flutes,"No of Flutes",2,3,"","","Z=","",
 					"Integer","Yes"],
-				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"]
-				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"]
+				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"],
+				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"],
 				[doc.a3, "Angle",120,120.001,"","","","\xb0","Angle","No"]]
 			spl_trt = [] #allowed special treaftment
 			#FL shud be less than OAL.
@@ -107,9 +107,9 @@ def validate(doc, method):
 				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
 				#9.Type, 10.In Desc
 			dim_fields = [
-				[doc.height_dia,"Height",0.5,55,doc.height_dia_inch,
+				[doc.height_dia,"Height",2,100,doc.height_dia_inch,
 					doc.inch_h,"","x","Length","Yes"],
-				[doc.width,"Width",1.5,55,doc.width_inch,
+				[doc.width,"Width",3,100,doc.width_inch,
 					doc.inch_w,"","x","Length","Yes"],
 				[doc.length,"OAL",25,550,doc.length_inch,
 					doc.inch_l,"","","Length","Yes"],
@@ -141,7 +141,7 @@ def validate(doc, method):
 			dim_fields = [
 				[doc.height_dia,"Head \xd8",3,26,doc.height_dia_inch,
 					doc.inch_h,"H\xd8:"," ","Length","Yes"],
-				[doc.l1,"Head Length",2,101,doc.l1_inch,
+				[doc.l1,"Head Length",2,33,doc.l1_inch,
 					doc.inch_l1," HL:"," ","Length","Yes"],
 				[doc.d1,"Mid \xd8",2,26,doc.d1_inch,
 					doc.inch_d1," M\xd8:"," ","Length","Yes"],
@@ -172,7 +172,7 @@ def validate(doc, method):
 			dim_fields = [
 				[doc.height_dia,"Head \xd8",3,26,doc.height_dia_inch,
 					doc.inch_h,"H\xd8:"," ","Length","Yes"],
-				[doc.l1,"Head Length",2,101,doc.l1_inch,
+				[doc.l1,"Head Length",2,33,doc.l1_inch,
 					doc.inch_l1," HL:"," ","Length","Yes"],
 				[doc.d1,"Body \xd8",1,26,doc.d1_inch,
 					doc.inch_d1," B\xd8:"," ","Length","Yes"],
@@ -190,11 +190,11 @@ def validate(doc, method):
 				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
 				#9.Type, 10.In Desc
 			dim_fields = [
-				[doc.d1,"Flute \xd8",3,25,doc.d1_inch,
+				[doc.d1,"Flute \xd8",3,26,doc.d1_inch,
 					doc.inch_d1,"F\xd8:"," ","Length","Yes"],
 				[doc.l1,"Flute Length",3,200,doc.l1_inch,
 					doc.inch_l1,"FL:"," ","Length","Yes"],
-				[doc.height_dia,"Shank \xd8",3,25,doc.height_dia_inch,
+				[doc.height_dia,"Shank \xd8",3,26,doc.height_dia_inch,
 					doc.inch_h,"S\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,350,doc.length_inch,
 					doc.inch_l,"OAL:"," ","Length","Yes"],
@@ -290,11 +290,11 @@ def validate(doc, method):
 				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
 				#9.Type, 10.In Desc
 			dim_fields = [
-				[doc.d1,"Flute \xd8",1,25,doc.d1_inch,
+				[doc.d1,"Flute \xd8",1,26,doc.d1_inch,
 					doc.inch_d1,"F\xd8:"," ","Length", "Yes"],
 				[doc.l1,"Flute Length",3,200,doc.l1_inch,
 					doc.inch_l1,"FL:"," ","Length","Yes"],
-				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+				[doc.height_dia,"Shank \xd8",1,26,doc.height_dia_inch,
 					doc.inch_h,"S\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,350,doc.length_inch,
 					doc.inch_l,"OAL:"," ","Length","Yes"],
