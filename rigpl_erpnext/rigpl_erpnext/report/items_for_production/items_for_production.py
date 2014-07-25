@@ -18,7 +18,7 @@ def get_columns():
 		"RO:Int:40", "SO:Int:40", "PO:Int:40",
 		"PL:Float/1:40","DE:Int:40", "BG:Int:40",
 		"Description::300", "D1:Float/3:35", "L1:Float/3:35", "RM::30",
-		"BRG:Int:50", "BHT:Int:50", "BFG:Int:50",
+		"BRG:Int:50", "BHT:Int:50", "BFG:Int:50", "BTS:Int:50",
 		"DSL:Int:50", "DRG:Int:50", "DFG:Int:50", "DTS:Int:50",
 		"DRM:Float/2:55", "BRM:Float/2:55",
 		"DRJ:Int:50", "PList::30", "TOD::30"
@@ -52,6 +52,9 @@ def get_items(filters):
 
 	if(min(case WHEN bn.warehouse="FG-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="FG-BGH655 - RIGPL" THEN bn.actual_qty end)),
+
+	if(min(case WHEN bn.warehouse="TEST-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="TEST-BGH655 - RIGPL" THEN bn.actual_qty end)),
 
 	if(min(case WHEN bn.warehouse="SLIT-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="SLIT-DEL20A - RIGPL" THEN bn.actual_qty end)),
@@ -147,36 +150,41 @@ def get_items(filters):
 			BFG = data[i][18]
 
 		if data[i][19] is None:
-			DSL=0
+			BTS=0
 		else:
-			DSL = data[i][19]
+			BTS = data[i][19]
 
 		if data[i][20] is None:
-			DRG=0
+			DSL=0
 		else:
-			DRG = data[i][20]
+			DSL = data[i][20]
 
 		if data[i][21] is None:
-			DFG=0
+			DRG=0
 		else:
-			DFG = data[i][21]
+			DRG = data[i][21]
 
 		if data[i][22] is None:
-			DTEST=0
+			DFG=0
 		else:
-			DTEST = data[i][22]
+			DFG = data[i][22]
 
 		if data[i][23] is None:
-			DRM=0
+			DTEST=0
 		else:
-			DRM = data[i][23]
+			DTEST = data[i][23]
 
 		if data[i][24] is None:
+			DRM=0
+		else:
+			DRM = data[i][24]
+
+		if data[i][25] is None:
 			BRM=0
 		else:
-			BRM = data[i][24]
+			BRM = data[i][25]
 
-		total = (DEL + BGH + BRG + BHT + BFG
+		total = (DEL + BGH + BRG + BHT + BFG + BTS
 		+ DSL + DRG + DFG + DTEST + DRM + BRM
 		+ PLAN + PO)
 
