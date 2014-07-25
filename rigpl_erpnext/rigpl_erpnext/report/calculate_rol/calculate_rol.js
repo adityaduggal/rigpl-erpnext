@@ -21,7 +21,7 @@ frappe.query_reports["Calculate ROL"] = {
 			"fieldname":"is_rm",
 			"label": "Is RM",
 			"fieldtype": "Select",
-			"options": "Yes\nNo"
+			"options": "\nYes"
 		},
 		{
 			"fieldname":"base_material",

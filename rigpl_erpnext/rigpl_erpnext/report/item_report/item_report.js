@@ -30,8 +30,7 @@ frappe.query_reports["Item Report"] = {
 			"fieldname":"is_rm",
 			"label": "Is RM",
 			"fieldtype": "Select",
-			"options": "\nYes\nNo",
-			"default": "No"
+			"options": "\nYes",
 		},
 		{
 			"fieldname":"show_in_website",
@@ -46,7 +45,7 @@ frappe.query_reports["Item Report"] = {
 		},
 		{
 			"fieldname":"special",
-			"label": "",
+			"label": "Check this to Bypass Validation",
 			"fieldtype": "Check"
 		}
 	]
