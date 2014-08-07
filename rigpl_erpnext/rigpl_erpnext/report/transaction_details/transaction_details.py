@@ -37,7 +37,7 @@ def get_entries(filters):
 			where dt.name = dt_item.parent and dt.docstatus = 1 %s order by dt.customer, dt.name desc""" % 
 			(date_field, filters["doc_type"], filters["doc_type"],conditions), as_list=1)
 	elif filters.get("based_on")=="Master":
-		msgprint(_("WIP"), raise_exception=1)
+		msgprint(_("WIP2"), raise_exception=1)
 
 	return entries
 
