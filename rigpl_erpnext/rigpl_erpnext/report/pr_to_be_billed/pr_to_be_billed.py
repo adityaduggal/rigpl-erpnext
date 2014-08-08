@@ -26,18 +26,20 @@ def get_pr_entries(filters):
 
 	pr = frappe.db.sql("""select
     pr.name, pr.supplier, pr.posting_date,
-	pri.item_code, pri.description, pri.qty, pri.import_rate,
-	pri.import_amount, pri.prevdoc_docname,
+	pri.item_code, pri.description, pri.qty, pri.base_rate,
+	pri.base_amount, pri.prevdoc_docname,
 
 	(pri.qty - ifnull((select sum(pid.qty) from `tabPurchase Invoice Item` pid, `tabPurchase Invoice` pi
 	    where pid.purchase_receipt = pr.name and
 		pid.parent = pi.name and
-		pi.docstatus<>2 and
+		pi.docstatus=1 and
 	    pid.pr_detail = pri.name), 0)),
 
-	(pri.amount - ifnull((select sum(pid.amount) from `tabPurchase Invoice Item` pid
-        where pid.purchase_receipt = pr.name and
-        pid.pr_detail = pri.name), 0))
+	(pri.qty - ifnull((select sum(pid.qty) from `tabPurchase Invoice Item` pid, `tabPurchase Invoice` pi
+	    where pid.purchase_receipt = pr.name and
+		pid.parent = pi.name and
+		pi.docstatus=1 and
+	    pid.pr_detail = pri.name), 0)) * pri.base_rate
 
 	from `tabPurchase Receipt` pr, `tabPurchase Receipt Item` pri
 	where
@@ -46,12 +48,12 @@ def get_pr_entries(filters):
     AND (pri.qty - ifnull((select sum(pid.qty) from `tabPurchase Invoice Item` pid, `tabPurchase Invoice` pi
         where pid.purchase_receipt = pr.name and
 		pid.parent = pi.name and
-		pi.docstatus <> 2 and
+		pi.docstatus =1 and
         pid.pr_detail = pri.name), 0)>=1)
-	AND (pri.amount - ifnull((select sum(pid.amount) from `tabPurchase Invoice Item` pid, `tabPurchase Invoice` pi
+	AND (pri.base_amount - ifnull((select sum(pid.base_amount) from `tabPurchase Invoice Item` pid, `tabPurchase Invoice` pi
         where pid.purchase_receipt = pr.name and
 		pid.parent = pi.name and
-		pi.docstatus <> 2 and
+		pi.docstatus = 1 and
         pid.pr_detail = pri.name), 0)>=1) %s
 	order by pr.posting_date asc """ % conditions ,as_list=1)
 
