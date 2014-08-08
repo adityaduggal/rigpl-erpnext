@@ -81,11 +81,11 @@ def get_item_warehouse_map(filters):
 				"opening_qty": 0.0, "in_qty": 0.0, "out_qty": 0.0, "bal_qty": 0.0, "val_rate":0.0, "value":0.0
 			}))
 		qty_dict = iwb_map[d.item_code][d.warehouse]
-		if d.posting_date < filters["date"]:
+		if d.posting_date <= filters["date"]:
 			qty_dict.opening_qty += flt(d.actual_qty)
 			qty_dict.val_rate = flt(d.valuation_rate)
 			qty_dict.value = flt(d.stock_value)
-		elif d.posting_date >= filters["date"]:
+		elif d.posting_date > filters["date"]:
 			if flt(d.actual_qty) > 0:
 				qty_dict.in_qty += flt(d.actual_qty)
 			else:
