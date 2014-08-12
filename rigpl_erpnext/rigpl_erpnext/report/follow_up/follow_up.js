@@ -10,13 +10,13 @@ frappe.query_reports["Follow Up"] = {
 			"fieldname":"owner",
 			"label": "Lead Owner",
 			"fieldtype": "Link",
-			"options": "Profile"
+			"options": "User"
 		},
 		{
 			"fieldname":"next_contact",
 			"label": "Lead Next Contact",
 			"fieldtype": "Link",
-			"options": "Profile"
+			"options": "User"
 		},
 		{
 			"fieldname":"status",
