@@ -42,9 +42,9 @@ def validate(doc, method):
 			dim_fields = [
 				[doc.d1,"Pilot \xd8",1,25,doc.d1_inch,
 					doc.inch_d1,"P\xd8:"," ","Length","Yes"],
-				[doc.l1,"Pilot Length",3,200,doc.l1_inch,
+				[doc.l1,"Pilot Length",1.1,25,doc.l1_inch,
 					doc.inch_l1," PL:"," ","Length","Yes"],
-				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+				[doc.height_dia,"Shank \xd8",2,25,doc.height_dia_inch,
 					doc.inch_h," S\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,350,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
@@ -65,9 +65,9 @@ def validate(doc, method):
 			dim_fields = [
 				[doc.d1,"Pilot \xd8",1,25,doc.d1_inch,
 					doc.inch_d1,"P\xd8:"," ","Length","Yes"],
-				[doc.l1,"Pilot Length",3,200,doc.l1_inch,
+				[doc.l1,"Pilot Length",3,25,doc.l1_inch,
 					doc.inch_l1," PL:"," ","Length","Yes"],
-				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+				[doc.height_dia,"Shank \xd8",3,25,doc.height_dia_inch,
 					doc.inch_h," S\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,350,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
@@ -358,9 +358,10 @@ def validate(doc, method):
 
 		fn_common_check(doc)
 		fn_integer_check(doc, dim_fields) #limit check
-		#Make Description, Web Description, Item Code, Concat, Concat1,
+		#Make Description, Web Description, Item Name, Concat, Concat1,
 		#Item Name (in the above order only)
-		doc.description,doc.web_long_description,doc.item_code,doc.concat,doc.concat1,doc.item_name = fn_gen_description(doc, dim_fields, spl_trt, uniquel0, uniquel1)
+		doc.description,doc.web_long_description, doc.name, doc.concat,doc.concat1,doc.item_name = fn_gen_description(doc, dim_fields, spl_trt, uniquel0, uniquel1)
+		doc.item_code = doc.name
 ################################################################################
 def fn_gen_description(doc, fds,trt,ul0, ul1):
 	#This function generates the following:
