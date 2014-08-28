@@ -26,8 +26,8 @@ def get_va_entries(filters):
 	conditions = get_conditions(filters)
 
 	dn = frappe.db.sql("""select dn.posting_date, dn.name, dn.customer,
-		dni.item_code, dni.description, dni.qty, dni.adj_rate, dni.export_rate,
-		dni.export_amount, dn.status from `tabDelivery Note` dn , `tabDelivery Note Item` dni
+		dni.item_code, dni.description, dni.qty, dni.discount_percentage, dni.base_rate,
+		dni.base_amount, dn.status from `tabDelivery Note` dn , `tabDelivery Note Item` dni
 		where dni.parent = dn.name and dn.status = "Submitted" %s
 		order by posting_date asc, name asc, dni.item_code asc, dni.description asc"""
 		% conditions, as_list=1)
