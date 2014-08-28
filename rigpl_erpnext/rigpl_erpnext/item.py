@@ -517,7 +517,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 			if ul0[i] == 0:
 				uc_c0 += '{0:.4f}'.format(0.0000)
 			else:
-				uc_c0 += '{0:.4f}'.format(ul0[i])
+				uc_c0 += '{0:.4f}'.format(float(ul0[i]))
 		else:
 			uc_c0 += '{0:.4f}'.format(0.0000)
 
@@ -527,7 +527,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 			if ul1[i] == 0:
 				uc_c1 += '{0:.4f}'.format(0.0000)
 			else:
-				uc_c1 += '{0:.4f}'.format(ul1[i])
+				uc_c1 += '{0:.4f}'.format(float(ul1[i]))
 		else:
 			uc_c1 += '{0:.4f}'.format(0.0000)
 	########################################################################
@@ -556,20 +556,20 @@ def fn_next_string(doc,s):
 		return head+'P'
 	return head + chr(ord(tail)+1)
 ################################################################################
-def fn_integer_check(doc,float):
-	for i in range(0,len(float)):
-		if not float[i][0]:
-			float[i][0] = 0
-			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
-				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(float[i][1],
-				" entered should be between ", float[i][2],
-				" (including) and ",float[i][3], " (excluding)"),
+def fn_integer_check(doc,dimension):
+	for i in range(0,len(dimension)):
+		if not dimension[i][0]:
+			dimension[i][0] = 0
+			if dimension[i][0] < dimension[i][2] or dimension[i][0] >= dimension[i][3]:
+				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(dimension[i][1],
+				" entered should be between ", dimension[i][2],
+				" (including) and ",dimension[i][3], " (excluding)"),
 				raise_exception=1)
 		else:
-			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
-				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(float[i][1],
-				" entered should be between ", float[i][2],
-				" (including) and ",float[i][3], " (excluding)"),
+			if float(dimension[i][0]) < dimension[i][2] or float(dimension[i][0]) >= dimension[i][3]:
+				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(dimension[i][1],
+				" entered should be between ", dimension[i][2],
+				" (including) and ",dimension[i][3], " (excluding)"),
 				raise_exception=1)
 ################################################################################
 def fn_common_check(doc):
