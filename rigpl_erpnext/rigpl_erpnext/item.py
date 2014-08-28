@@ -170,11 +170,11 @@ def validate(doc, method):
 				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
 				#9.Type, 10.In Desc
 			dim_fields = [
-				[doc.height_dia,"Head \xd8",3,26,doc.height_dia_inch,
+				[doc.height_dia,"Head \xd8",3,40,doc.height_dia_inch,
 					doc.inch_h,"H\xd8:"," ","Length","Yes"],
-				[doc.l1,"Head Length",2,33,doc.l1_inch,
+				[doc.l1,"Head Length",2,100,doc.l1_inch,
 					doc.inch_l1," HL:"," ","Length","Yes"],
-				[doc.d1,"Body \xd8",1,26,doc.d1_inch,
+				[doc.d1,"Body \xd8",1,39,doc.d1_inch,
 					doc.inch_d1," B\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,300,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
@@ -563,7 +563,7 @@ def fn_integer_check(doc,float):
 			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
 				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(float[i][1],
 				" entered should be between ", float[i][2],
-				" (including) and ",float[i][3], " (excluding)"),
+				" (including1) and ",float[i][3], " (excluding)"),
 				raise_exception=1)
 		else:
 			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
