@@ -563,7 +563,7 @@ def fn_integer_check(doc,float):
 			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
 				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(float[i][1],
 				" entered should be between ", float[i][2],
-				" (including1) and ",float[i][3], " (excluding)"),
+				" (including) and ",float[i][3], " (excluding)"),
 				raise_exception=1)
 		else:
 			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:

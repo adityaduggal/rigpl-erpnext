@@ -52,9 +52,10 @@ def get_item_data(filters):
 					i.insert(5, j[3]) #insert currency of value
 
 		else:
-			i.insert(0,"PL?")
-			i.insert(3, "0")
-			i.insert(4, "NP")
+			i.insert(0, "NA")
+			i.insert(1,"PL?")
+			i.insert(4, "0")
+			i.insert(5, "NP")
 	return data
 
 
