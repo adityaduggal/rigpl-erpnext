@@ -33,7 +33,7 @@ def get_item_data(filters):
 	order by it.base_material, it.quality, it.tool_type, it.special_treatment, it.height_dia, it.width,
 	it.d1, it.l1""" %conditions , as_list=1)
 
-	item_price = frappe.db.sql("""select itp.price_list, itp.item_code, itp.ref_rate, itp.currency
+	item_price = frappe.db.sql("""select itp.price_list, itp.item_code, itp.price_list_rate, itp.currency
 	from `tabItem Price` itp %s order by itp.item_code""" %conditions_itp, as_list=1)
 
 	#last_so = frappe.db.sql("""select so.customer, max(so.transaction_date), so.name
@@ -61,11 +61,6 @@ def get_conditions(filters):
 
 	if filters.get("tt"):
 		conditions += " and it.tool_type = '%s'" % filters["tt"]
-	elif filters.get("bm"):
-		if filter.get("quality") is None:
-			frappe.msgprint("Please Select a Base Material and Quality to Proceed", raise_exception=1)
-	elif filters.get("item") is None:
-		frappe.msgprint("Please Select a Tool Type to Proceed", raise_exception=1)
 
 	if filters.get("bm"):
 		conditions += " and it.base_material = '%s'" % filters["bm"]
@@ -74,7 +69,7 @@ def get_conditions(filters):
 		conditions += " and it.quality = '%s'" % filters["quality"]
 
 	if filters.get("item"):
-		conditions += " and it.item_code = '%s'" % filters["item"]
+		conditions += " and it.name = '%s'" % filters["item"]
 
 	return conditions
 
