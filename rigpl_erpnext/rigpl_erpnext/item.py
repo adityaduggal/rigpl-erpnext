@@ -360,7 +360,7 @@ def validate(doc, method):
 		fn_integer_check(doc, dim_fields) #limit check
 		#Make Description, Web Description, Item Name, Concat, Concat1,
 		#Item Name (in the above order only)
-		doc.description,doc.web_long_description, doc.name, doc.concat,doc.concat1,doc.item_name = fn_gen_description(doc, dim_fields, spl_trt, uniquel0, uniquel1)
+		doc.description,doc.web_long_description, doc.concat,doc.concat1,doc.item_name = fn_gen_description(doc, dim_fields, spl_trt, uniquel0, uniquel1)
 		doc.item_code = doc.name
 ################################################################################
 def fn_gen_description(doc, fds,trt,ul0, ul1):
@@ -443,14 +443,16 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 	ic_CD = fn_check_digit(doc, ic_inter)
 	ic_code = '{0}{1}'.format(ic_inter, ic_CD)
 
-	if (doc.item_code and doc.item_code != "dummy"):
-		ic_existing = doc.item_code[:(len(doc.item_code)-4)]
+	if (doc.name and doc.name != "dummy"):
+		ic_existing = doc.name[:(len(doc.name)-4)]
 		#frappe.msgprint(ic_existing)
 		if ic_existing != ic_check:
 			frappe.msgprint("Change NOT ALLOWED since this would change \
 				Item Code which is NOT POSSIBLE.\nKindly contact \
 				Aditya Duggal for further details",
 				raise_exception = 1)
+	elif doc.name == "dummy":
+		doc.name = ic_code
 
 	if doc.drill_type is None:
 		D_DT = '{0}'.format("")
@@ -467,7 +469,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 	for i in range(0,len(fds)):
 		if fds[i][9] == "Yes": #Check if field is to be used in desc
 			if fds[i][8] == "Length": #Check type of field
-				if fds[i][0] != 0 :
+				if float(fds[i][0]) != 0 :
 					if fds[i][5]==1: #Check if Inch box checked
 						D_SZ += '{0}{1}{2}{3}'.format(fds[i][6],fds[i][4],
 							'"',fds[i][7])
@@ -479,12 +481,12 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 						Dw_SZ += '{0}{1:.4g}{2}{3}'.format(fds[i][6],
 							fds[i][0],'mm',fds[i][7])
 			elif fds[i][8] == "Angle":
-				if fds[i][0] != 0 :
+				if float(fds[i][0]) != 0 :
 					D_SZ += '{0}{1}{2}'.format(" ", fds[i][0], fds[i][7])
 					Dw_SZ += '{0}{1}{2}{3}{4}'.format(" ", fds[i][1],":",
 						fds[i][0], fds[i][7])
 			elif fds[i][8] == "Integer":
-				if fds[i][0] != 0 :
+				if float(fds[i][0]) != 0 :
 					D_SZ += '{0}{1}{2}{3}'.format(" ", fds[i][6], fds[i][0],
 						 fds[i][7])
 					Dw_SZ += '{0}{1}{2}{3}'.format(" ", fds[i][6],fds[i][0],
@@ -537,7 +539,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 	    {"attached_to_doctype": "Tool Type", "attached_to_name":
 	    doc.tool_type}, "file_url")
 
-	return (D_Desc, Dw_Desc, ic_code, uc_c0, uc_c1, it_name)
+	return (D_Desc, Dw_Desc, uc_c0, uc_c1, it_name)
 ################################################################################
 def fn_next_string(doc,s):
 	#This function would increase the serial number by One following the
