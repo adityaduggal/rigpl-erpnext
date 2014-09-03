@@ -42,9 +42,9 @@ def validate(doc, method):
 			dim_fields = [
 				[doc.d1,"Pilot \xd8",1,25,doc.d1_inch,
 					doc.inch_d1,"P\xd8:"," ","Length","Yes"],
-				[doc.l1,"Pilot Length",3,200,doc.l1_inch,
+				[doc.l1,"Pilot Length",1.1,25,doc.l1_inch,
 					doc.inch_l1," PL:"," ","Length","Yes"],
-				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+				[doc.height_dia,"Shank \xd8",2,25,doc.height_dia_inch,
 					doc.inch_h," S\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,350,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
@@ -56,7 +56,7 @@ def validate(doc, method):
 			 #FL shud be less than OAL.
 			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
 			#Pilot Dia less than Shank Dia
-			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[1])
+			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[0])
 
 		elif (doc.tool_type == "Centre Drill Type B"):
 			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
@@ -65,9 +65,9 @@ def validate(doc, method):
 			dim_fields = [
 				[doc.d1,"Pilot \xd8",1,25,doc.d1_inch,
 					doc.inch_d1,"P\xd8:"," ","Length","Yes"],
-				[doc.l1,"Pilot Length",3,200,doc.l1_inch,
+				[doc.l1,"Pilot Length",3,25,doc.l1_inch,
 					doc.inch_l1," PL:"," ","Length","Yes"],
-				[doc.height_dia,"Shank \xd8",1,25,doc.height_dia_inch,
+				[doc.height_dia,"Shank \xd8",3,25,doc.height_dia_inch,
 					doc.inch_h," S\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,350,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
@@ -80,7 +80,7 @@ def validate(doc, method):
 			#FL shud be less than OAL.
 			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
 			#Pilot Dia less than Shank Dia
-			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[1])
+			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[0])
 
 		elif (doc.tool_type == "Drill"):
 			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
@@ -170,11 +170,11 @@ def validate(doc, method):
 				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
 				#9.Type, 10.In Desc
 			dim_fields = [
-				[doc.height_dia,"Head \xd8",3,26,doc.height_dia_inch,
+				[doc.height_dia,"Head \xd8",3,40,doc.height_dia_inch,
 					doc.inch_h,"H\xd8:"," ","Length","Yes"],
-				[doc.l1,"Head Length",2,33,doc.l1_inch,
+				[doc.l1,"Head Length",2,100,doc.l1_inch,
 					doc.inch_l1," HL:"," ","Length","Yes"],
-				[doc.d1,"Body \xd8",1,26,doc.d1_inch,
+				[doc.d1,"Body \xd8",1,39,doc.d1_inch,
 					doc.inch_d1," B\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,300,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
@@ -358,9 +358,10 @@ def validate(doc, method):
 
 		fn_common_check(doc)
 		fn_integer_check(doc, dim_fields) #limit check
-		#Make Description, Web Description, Item Code, Concat, Concat1,
+		#Make Description, Web Description, Item Name, Concat, Concat1,
 		#Item Name (in the above order only)
-		doc.description,doc.web_long_description,doc.item_code,doc.concat,doc.concat1,doc.item_name = fn_gen_description(doc, dim_fields, spl_trt, uniquel0, uniquel1)
+		doc.description,doc.web_long_description, doc.concat,doc.concat1,doc.item_name = fn_gen_description(doc, dim_fields, spl_trt, uniquel0, uniquel1)
+		doc.item_code = doc.name
 ################################################################################
 def fn_gen_description(doc, fds,trt,ul0, ul1):
 	#This function generates the following:
@@ -442,14 +443,16 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 	ic_CD = fn_check_digit(doc, ic_inter)
 	ic_code = '{0}{1}'.format(ic_inter, ic_CD)
 
-	if (doc.item_code and doc.item_code != "dummy"):
-		ic_existing = doc.item_code[:(len(doc.item_code)-4)]
+	if (doc.name and doc.name != "dummy"):
+		ic_existing = doc.name[:(len(doc.name)-4)]
 		#frappe.msgprint(ic_existing)
 		if ic_existing != ic_check:
 			frappe.msgprint("Change NOT ALLOWED since this would change \
 				Item Code which is NOT POSSIBLE.\nKindly contact \
 				Aditya Duggal for further details",
 				raise_exception = 1)
+	elif doc.name == "dummy":
+		doc.name = ic_code
 
 	if doc.drill_type is None:
 		D_DT = '{0}'.format("")
@@ -466,24 +469,24 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 	for i in range(0,len(fds)):
 		if fds[i][9] == "Yes": #Check if field is to be used in desc
 			if fds[i][8] == "Length": #Check type of field
-				if fds[i][0] != 0 :
+				if float(fds[i][0]) != 0 :
 					if fds[i][5]==1: #Check if Inch box checked
 						D_SZ += '{0}{1}{2}{3}'.format(fds[i][6],fds[i][4],
 							'"',fds[i][7])
 						Dw_SZ +=  '{0}{1}{2}{3}'.format(fds[i][6],fds[i][4],
 						'"',fds[i][7])
 					else:
-						D_SZ += '{0}{1:.4g}{2}'.format(fds[i][6],fds[i][0],
+						D_SZ += '{0}{1:.4g}{2}'.format(fds[i][6],float(fds[i][0]),
 							fds[i][7])
 						Dw_SZ += '{0}{1:.4g}{2}{3}'.format(fds[i][6],
-							fds[i][0],'mm',fds[i][7])
+							float(fds[i][0]),'mm',fds[i][7])
 			elif fds[i][8] == "Angle":
-				if fds[i][0] != 0 :
+				if float(fds[i][0]) != 0 :
 					D_SZ += '{0}{1}{2}'.format(" ", fds[i][0], fds[i][7])
 					Dw_SZ += '{0}{1}{2}{3}{4}'.format(" ", fds[i][1],":",
 						fds[i][0], fds[i][7])
 			elif fds[i][8] == "Integer":
-				if fds[i][0] != 0 :
+				if float(fds[i][0]) != 0 :
 					D_SZ += '{0}{1}{2}{3}'.format(" ", fds[i][6], fds[i][0],
 						 fds[i][7])
 					Dw_SZ += '{0}{1}{2}{3}'.format(" ", fds[i][6],fds[i][0],
@@ -516,7 +519,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 			if ul0[i] == 0:
 				uc_c0 += '{0:.4f}'.format(0.0000)
 			else:
-				uc_c0 += '{0:.4f}'.format(ul0[i])
+				uc_c0 += '{0:.4f}'.format(float(ul0[i]))
 		else:
 			uc_c0 += '{0:.4f}'.format(0.0000)
 
@@ -526,7 +529,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 			if ul1[i] == 0:
 				uc_c1 += '{0:.4f}'.format(0.0000)
 			else:
-				uc_c1 += '{0:.4f}'.format(ul1[i])
+				uc_c1 += '{0:.4f}'.format(float(ul1[i]))
 		else:
 			uc_c1 += '{0:.4f}'.format(0.0000)
 	########################################################################
@@ -536,7 +539,7 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 	    {"attached_to_doctype": "Tool Type", "attached_to_name":
 	    doc.tool_type}, "file_url")
 
-	return (D_Desc, Dw_Desc, ic_code, uc_c0, uc_c1, it_name)
+	return (D_Desc, Dw_Desc, uc_c0, uc_c1, it_name)
 ################################################################################
 def fn_next_string(doc,s):
 	#This function would increase the serial number by One following the
@@ -555,20 +558,20 @@ def fn_next_string(doc,s):
 		return head+'P'
 	return head + chr(ord(tail)+1)
 ################################################################################
-def fn_integer_check(doc,float):
-	for i in range(0,len(float)):
-		if not float[i][0]:
-			float[i][0] = 0
-			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
-				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(float[i][1],
-				" entered should be between ", float[i][2],
-				" (including) and ",float[i][3], " (excluding)"),
+def fn_integer_check(doc,dimension):
+	for i in range(0,len(dimension)):
+		if not dimension[i][0]:
+			dimension[i][0] = 0
+			if dimension[i][0] < dimension[i][2] or dimension[i][0] >= dimension[i][3]:
+				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(dimension[i][1],
+				" entered should be between ", dimension[i][2],
+				" (including) and ",dimension[i][3], " (excluding)"),
 				raise_exception=1)
 		else:
-			if float[i][0] < float[i][2] or float[i][0] >= float[i][3]:
-				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(float[i][1],
-				" entered should be between ", float[i][2],
-				" (including) and ",float[i][3], " (excluding)"),
+			if float(dimension[i][0]) < dimension[i][2] or float(dimension[i][0]) >= dimension[i][3]:
+				frappe.msgprint('{0}{1}{2}{3}{4}{5}'.format(dimension[i][1],
+				" entered should be between ", dimension[i][2],
+				" (including) and ",dimension[i][3], " (excluding)"),
 				raise_exception=1)
 ################################################################################
 def fn_common_check(doc):

@@ -12,7 +12,8 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"PL::60", "Item:Link/Item:120", "Description::350", "List Price:Currency:100",
+		"PL ID:Link/Item Price:100", "PL::60", "Item:Link/Item:120", "Description::350", 
+		"List Price:Currency:100",
 		"Cur::40", "Brand::100", "BM::70", "QLT::60", "TT::100", "SPL::50",
 		"HD:Float:50", "W:Float:50", "L:Float:50", "Zn:Float:50", "D1:Float:50",
 		"L1:Float:50", "a1:Float:50", "D2:Float:50", "L2:Float:50", "a2:Float:50",
@@ -33,7 +34,7 @@ def get_item_data(filters):
 	order by it.base_material, it.quality, it.tool_type, it.special_treatment, it.height_dia, it.width,
 	it.d1, it.l1""" %conditions , as_list=1)
 
-	item_price = frappe.db.sql("""select itp.price_list, itp.item_code, itp.ref_rate, itp.currency
+	item_price = frappe.db.sql("""select itp.price_list, itp.item_code, itp.price_list_rate, itp.currency, itp.name
 	from `tabItem Price` itp %s order by itp.item_code""" %conditions_itp, as_list=1)
 
 	#last_so = frappe.db.sql("""select so.customer, max(so.transaction_date), so.name
@@ -45,14 +46,16 @@ def get_item_data(filters):
 		if any (i[0] in s for s in item_price):
 			for j in item_price:
 				if i[0] == j[1]:
-					i.insert(0, j[0]) #insert Price list name
-					i.insert(3, j[2]) #insert price value
-					i.insert(4, j[3]) #insert currency of value
+					i.insert(0, j[4]) #insert price list id
+					i.insert(1, j[0]) #insert Price list name
+					i.insert(4, j[2]) #insert price value
+					i.insert(5, j[3]) #insert currency of value
 
 		else:
-			i.insert(0,"PL?")
-			i.insert(3, "0")
-			i.insert(4, "NP")
+			i.insert(0, "NA")
+			i.insert(1,"PL?")
+			i.insert(4, "0")
+			i.insert(5, "NP")
 	return data
 
 
@@ -61,11 +64,6 @@ def get_conditions(filters):
 
 	if filters.get("tt"):
 		conditions += " and it.tool_type = '%s'" % filters["tt"]
-	elif filters.get("bm"):
-		if filter.get("quality") is None:
-			frappe.msgprint("Please Select a Base Material and Quality to Proceed", raise_exception=1)
-	elif filters.get("item") is None:
-		frappe.msgprint("Please Select a Tool Type to Proceed", raise_exception=1)
 
 	if filters.get("bm"):
 		conditions += " and it.base_material = '%s'" % filters["bm"]
@@ -74,7 +72,7 @@ def get_conditions(filters):
 		conditions += " and it.quality = '%s'" % filters["quality"]
 
 	if filters.get("item"):
-		conditions += " and it.item_code = '%s'" % filters["item"]
+		conditions += " and it.name = '%s'" % filters["item"]
 
 	return conditions
 

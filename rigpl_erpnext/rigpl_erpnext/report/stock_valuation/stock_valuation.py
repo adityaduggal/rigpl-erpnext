@@ -18,7 +18,7 @@ def execute(filters=None):
 			qty_dict = iwb_map[item][wh]
 			data.append([item,item_map[item]["description"], wh,
 			qty_dict.bal_qty,
-			pl_map.get(item,{}).get("ref_rate"),
+			pl_map.get(item,{}).get("price_list_rate"),
 			qty_dict.val_rate,
 			qty_dict.value,
 			purchase_map.get(item,{}).get("purchase_rate"),
@@ -81,11 +81,11 @@ def get_item_warehouse_map(filters):
 				"opening_qty": 0.0, "in_qty": 0.0, "out_qty": 0.0, "bal_qty": 0.0, "val_rate":0.0, "value":0.0
 			}))
 		qty_dict = iwb_map[d.item_code][d.warehouse]
-		if d.posting_date < filters["date"]:
+		if d.posting_date <= filters["date"]:
 			qty_dict.opening_qty += flt(d.actual_qty)
 			qty_dict.val_rate = flt(d.valuation_rate)
 			qty_dict.value = flt(d.stock_value)
-		elif d.posting_date >= filters["date"]:
+		elif d.posting_date > filters["date"]:
 			if flt(d.actual_qty) > 0:
 				qty_dict.in_qty += flt(d.actual_qty)
 			else:
@@ -111,9 +111,9 @@ def get_pl_map(filters):
 	else:
 		frappe.msgprint("Please select a Price List for Valuation Purposes", raise_exception=1)
 
-	pl_map_int = frappe.db.sql ("""SELECT it.name, p.price_list, p.ref_rate
+	pl_map_int = frappe.db.sql ("""SELECT it.name, p.price_list, p.price_list_rate
 		FROM `tabItem` it, `tabItem Price` p
-		WHERE p.item_code = it.item_code %s
+		WHERE p.item_code = it.name %s
 		ORDER BY it.name""" % conditions, as_dict=1)
 	pl_map={}
 
