@@ -56,7 +56,7 @@ def validate(doc, method):
 			 #FL shud be less than OAL.
 			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
 			#Pilot Dia less than Shank Dia
-			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[1])
+			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[0])
 
 		elif (doc.tool_type == "Centre Drill Type B"):
 			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
@@ -80,7 +80,7 @@ def validate(doc, method):
 			#FL shud be less than OAL.
 			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
 			#Pilot Dia less than Shank Dia
-			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[1])
+			fn_two_nos_compare(doc, "greater", dim_fields[2], dim_fields[0])
 
 		elif (doc.tool_type == "Drill"):
 			#1.Field Name, 2.Field Label, 3.Lower Limit, 4.Upper Limit,
@@ -476,10 +476,10 @@ def fn_gen_description(doc, fds,trt,ul0, ul1):
 						Dw_SZ +=  '{0}{1}{2}{3}'.format(fds[i][6],fds[i][4],
 						'"',fds[i][7])
 					else:
-						D_SZ += '{0}{1:.4g}{2}'.format(fds[i][6],fds[i][0],
+						D_SZ += '{0}{1:.4g}{2}'.format(fds[i][6],float(fds[i][0]),
 							fds[i][7])
 						Dw_SZ += '{0}{1:.4g}{2}{3}'.format(fds[i][6],
-							fds[i][0],'mm',fds[i][7])
+							float(fds[i][0]),'mm',fds[i][7])
 			elif fds[i][8] == "Angle":
 				if float(fds[i][0]) != 0 :
 					D_SZ += '{0}{1}{2}'.format(" ", fds[i][0], fds[i][7])
