@@ -67,7 +67,13 @@ doc_events = {
 	},
 	"Quality": {
 		"autoname": "rigpl_erpnext.rigpl_erpnext.quality.autoname"
-	}
+	},
+	"Sales Invoice": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate"
+	},
+	"Sales Order": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.validate"
+	},
 }
 
 # Scheduled Tasks
