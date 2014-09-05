@@ -22,7 +22,8 @@ def get_columns():
 	return [
 		"Invoice Date:Date:80", "Invoice#:Link/Sales Invoice:110",
 		"Customer:Link/Customer:200","Taxes::100", 
-		"Net Total:Currency:100","Grand Total:Currency:100", 
+		"Net Total:Currency:100","Grand Total:Currency:100",
+		"Fiscal Year::100", "Q::30", 
 		"C-Form:Link/C-Form:130", "C-Form #::100", 
 		"State::100", "Received On:Date:80",
 	]
@@ -31,7 +32,8 @@ def get_va_entries(filters):
 	conditions = get_conditions(filters)
 	if filters.get("status") == "Received":
 		si = frappe.db.sql(""" select si.posting_date, si.name, si.customer, 
-			si.taxes_and_charges,si.net_total, si.grand_total, cf.name,
+			si.taxes_and_charges,si.net_total, si.grand_total, 
+			si.fiscal_year, cf.name,
 			cf.c_form_no, cf.state, cf.received_date
 			FROM `tabSales Invoice` si, `tabC-Form` cf
 			WHERE si.docstatus = 1 AND
@@ -39,12 +41,24 @@ def get_va_entries(filters):
 			ORDER BY si.customer, si.name""" % conditions, as_list=1)
 	else:
 		si = frappe.db.sql(""" select si.posting_date, si.name, si.customer, 
-			si.taxes_and_charges, si.net_total, si.grand_total
+			si.taxes_and_charges, si.net_total, si.grand_total, si.fiscal_year
 			FROM `tabSales Invoice` si
 			WHERE si.docstatus = 1 AND
 			si.c_form_applicable = 'Yes' AND
 			si.c_form_no is NULL %s
 			ORDER BY si.customer, si.name""" % conditions, as_list=1)
+	for i in range(0,len(si)):
+		mo = (datetime.datetime.strptime(si[i][0], '%Y-%m-%d').date()).month
+		if mo < 4:
+			qtr = "Q4"
+		elif mo < 7:
+			qtr = "Q1"
+		elif mo < 10:
+			qtr = "Q2"
+		elif mo <= 12:
+			qtr = "Q3"
+		si[i].insert (7, qtr)
+		
 	return si
 
 def get_conditions(filters):
