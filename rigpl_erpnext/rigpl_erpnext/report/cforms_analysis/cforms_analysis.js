@@ -8,6 +8,12 @@ frappe.query_reports["CForms Analysis"] = {
 			"options": "Fiscal Year"
 		},
 		{
+			"fieldname":"quarter",
+			"label": "Quarter",
+			"fieldtype": "Select",
+			"options": "\nQ1\nQ2\nQ3\nQ4"
+		},
+		{
 			"fieldname":"customer",
 			"label": "Customer",
 			"fieldtype": "Link",
