@@ -42,22 +42,36 @@ def get_va_entries(filters):
 			si.taxes_and_charges, si.net_total, si.grand_total
 			FROM `tabSales Invoice` si
 			WHERE si.docstatus = 1 AND
-			si.c_form_applicable = 'Yes' %s
+			si.c_form_applicable = 'Yes' AND
+			si.c_form_no is NULL %s
 			ORDER BY si.customer, si.name""" % conditions, as_list=1)
-	#fmonth = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_start_date")
-	#frappe.msgprint(len(si))
-	#find quarter of invoice:
-	#for i in range (0,len(si)):
-	#	frappe.msgprint(si[i][0])
-		#quarter = ((exceil((22-fmonth.month+si[i][0].month),3))/3%4)+1
-		#si[i].insert(1,"Q"+quarter)
-	
 	return si
 
 def get_conditions(filters):
 	conditions = ""
 	if filters.get("fiscal_year"):
 		conditions += "and si.fiscal_year = '%s'" % filters["fiscal_year"]
+
+	if filters.get("quarter"):
+		if filters.get("fiscal_year"):
+			year = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_start_date").year
+			quarter = filters.get("quarter")
+			if quarter == "Q1":
+				start_date = datetime.datetime.strptime(str(year)+"-04-01", '%Y-%m-%d').date()
+				end_date = datetime.datetime.strptime(str(year) + "-06-30", '%Y-%m-%d').date()
+			elif quarter == "Q2":
+				start_date = datetime.datetime.strptime(str(year)+"-07-01", '%Y-%m-%d').date()
+				end_date = datetime.datetime.strptime(str(year) + "-09-30", '%Y-%m-%d').date()
+			elif quarter == "Q3":
+				start_date = datetime.datetime.strptime(str(year)+"-10-01", '%Y-%m-%d').date()
+				end_date = datetime.datetime.strptime(str(year) + "-12-31", '%Y-%m-%d').date()
+			elif quarter == "Q4":
+				start_date = datetime.datetime.strptime(str(year+1)+"-01-01", '%Y-%m-%d').date()
+				end_date = datetime.datetime.strptime(str(year+1) + "-03-31", '%Y-%m-%d').date()
+			conditions += "and si.posting_date >= '%s'" % start_date
+			conditions += "and si.posting_date <= '%s'" % end_date
+		else:
+			frappe.msgprint("Please select fiscal year before selecting Quarter", raise_exception=1)
 
 	if filters.get("customer"):
 		conditions += "and si.customer = '%s'" % filters["customer"]
