@@ -42,7 +42,8 @@ def get_va_entries(filters):
 			si.taxes_and_charges, si.net_total, si.grand_total
 			FROM `tabSales Invoice` si
 			WHERE si.docstatus = 1 AND
-			si.c_form_applicable = 'Yes' %s
+			si.c_form_applicable = 'Yes' AND
+			si.c_form_no is NULL %s
 			ORDER BY si.customer, si.name""" % conditions, as_list=1)
 	return si
 
