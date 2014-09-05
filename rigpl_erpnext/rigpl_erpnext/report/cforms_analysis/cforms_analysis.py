@@ -70,7 +70,7 @@ def get_conditions(filters):
 			conditions += "and si.posting_date >= '%s'" % start_date
 			conditions += "and si.posting_date <= '%s'" % end_date
 		else:
-			frappe.msgprint("Please select fiscal year before selecting Quarter")
+			frappe.msgprint("Please select fiscal year before selecting Quarter", raise_exception=1)
 
 	if filters.get("customer"):
 		conditions += "and si.customer = '%s'" % filters["customer"]
