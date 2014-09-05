@@ -21,9 +21,9 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "C-Forms Analysis",
+					"name": "CForms Analysis",
 					"doctype": "C-Form",
-				}
+				},
 			]
 		}
 	]
