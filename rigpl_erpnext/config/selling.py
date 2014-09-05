@@ -30,6 +30,12 @@ def get_data():
 					"name": "Trial Tracking",
 					"doctype": "Sales Order",
 				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "Price List",
+					"doctype": "Item Price",
+				},
 			]
 		}
 	]
