@@ -58,7 +58,9 @@ def get_va_entries(filters):
 		elif mo <= 12:
 			qtr = "Q3"
 		si[i].insert (7, qtr)
-		
+	
+	si = sorted(si, key=lambda k: (k[6], k[7], k[2], k[0], k[1]))
+	
 	return si
 
 def get_conditions(filters):
@@ -89,6 +91,9 @@ def get_conditions(filters):
 
 	if filters.get("customer"):
 		conditions += "and si.customer = '%s'" % filters["customer"]
+
+	if filters.get("date"):
+		conditions += "and si.posting_date <= '%s'" % filters["date"]
 
 	if filters.get("company"):
 		conditions += "and si.letter_head = '%s'" % filters["company"]

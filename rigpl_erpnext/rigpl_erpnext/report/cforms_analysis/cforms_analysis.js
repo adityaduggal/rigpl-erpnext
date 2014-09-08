@@ -31,5 +31,10 @@ frappe.query_reports["CForms Analysis"] = {
 			"fieldtype": "Link",
 			"options": "Letter Head"
 		},
+		{
+			"fieldname":"date",
+			"label": "C-Forms upto this Date",
+			"fieldtype": "Date"
+		},
 	]
 }
