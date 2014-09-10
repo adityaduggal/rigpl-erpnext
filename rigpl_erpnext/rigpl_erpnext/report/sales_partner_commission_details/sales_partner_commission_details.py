@@ -22,24 +22,38 @@ def get_columns(filters):
 		"Item Code:Link/Item:120", "Description::300", "Qty:Float:80", 
 		"Rate:Currency:80", "List Price:Currency:60", "Discount:Float:60", "Amount:Currency:100", 
 		"Sales Partner:Link/Sales Partner:140", "Commission %:Float:80", 
-		"Commission Amount:Currency:100", "Linewise Commission Amt:Currency:100"]
+		"Comm Amt:Currency:100"]
 
 def get_entries(filters):
 	date_field = filters["doc_type"] == "Sales Order" and "transaction_date" or "posting_date"
 	conditions = get_conditions(filters, date_field)
 	if filters.get("based_on")=="Transaction":
-		entries = frappe.db.sql("""select dt.name, dt.customer, dt.territory, dt.%s, 
+		data = frappe.db.sql("""select dt.name, dt.customer, dt.territory, dt.%s, 
 			dt_item.item_code, dt_item.description, dt_item.qty, dt_item.base_rate, 
 			dt_item.base_price_list_rate, dt_item.discount_percentage, 
 			dt_item.base_amount, dt.sales_partner, 
-			dt.commission_rate, dt.total_commission, dt.commission_rate*dt_item.base_amount/100
+			dt.commission_rate, dt.commission_rate*dt_item.base_amount/100
 			from `tab%s` dt, `tab%s Item` dt_item
 			where dt.name = dt_item.parent and dt.docstatus = 1 %s order by dt.customer, dt.name desc""" % 
 			(date_field, filters["doc_type"], filters["doc_type"],conditions), as_list=1)
 	elif filters.get("based_on")=="Master":
-		msgprint(_("WIP2"), raise_exception=1)
-
-	return entries
+		#msgprint(_("WIP2"), raise_exception=1)
+		data = frappe.db.sql("""select dt.name, dt.customer, cu.territory, dt.%s, 
+			dt_item.item_code, dt_item.description, dt_item.qty, dt_item.base_rate, 
+			dt_item.base_price_list_rate, dt_item.discount_percentage, 
+			dt_item.base_amount, cu.default_sales_partner, 
+			cu.default_commission_rate, dt.commission_rate*dt_item.base_amount/100
+			from `tab%s` dt, `tab%s Item` dt_item, `tabCustomer` cu 
+			WHERE dt.customer = cu.name
+			AND dt.name = dt_item.parent 
+			AND dt.docstatus = 1 %s order by dt.customer, dt.name desc""" % 
+			(date_field, filters["doc_type"], filters["doc_type"],conditions), as_list=1)
+	
+	for i in range(0,len(data)):
+		if data[i][11] is None:
+			data[i][11] = "-"
+	
+	return data
 
 def get_conditions(filters, date_field):
 	conditions = ""
@@ -54,7 +68,12 @@ def get_conditions(filters, date_field):
 		if filters.get("sales_partner"): conditions += " and dt.sales_partner = '%s'" % \
 		 	filters["sales_partner"].replace("'", "\'")
 	elif filters.get("based_on") == "Master":
-		msgprint(_("WIP"), raise_exception=1)
+		#msgprint(_("WIP"), raise_exception=1)
+		if filters.get("territory"): conditions += " and cu.territory = '%s'" % \
+			filters["territory"].replace("'", "\'")
+
+		if filters.get("sales_partner"): conditions += " and cu.default_sales_partner = '%s'" % \
+		 	filters["sales_partner"].replace("'", "\'")
 	else:
 		msgprint(_("Please select the whether commission to be shown \
 			from Customer Master or from Transaction first"), raise_exception=1)

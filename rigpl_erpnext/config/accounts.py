@@ -17,6 +17,12 @@ def get_data():
 					"is_query_report": True,
 					"name": "PR to be Billed",
 					"doctype": "Purchase Invoice",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "Sales Partner Commission Details",
+					"doctype": "Sales Invoice",
 				}
 			]
 		}

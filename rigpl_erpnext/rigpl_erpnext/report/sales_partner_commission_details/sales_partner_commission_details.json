@@ -1,0 +1,17 @@
+{
+ "add_total_row": 1, 
+ "apply_user_permissions": 1, 
+ "creation": "2014-09-11 00:01:11.044674", 
+ "disabled": 0, 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "is_standard": "Yes", 
+ "modified": "2014-09-11 00:01:43.690486", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "Sales Partner Commission Details", 
+ "owner": "Administrator", 
+ "ref_doctype": "Sales Invoice", 
+ "report_name": "Sales Partner Commission Details", 
+ "report_type": "Script Report"
+}

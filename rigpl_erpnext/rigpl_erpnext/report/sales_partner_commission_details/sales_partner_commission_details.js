@@ -1,7 +1,7 @@
 // Copyright (c) 2013, Web Notes Technologies Pvt. Ltd. and Contributors
 // License: GNU General Public License v3. See license.txt
 
-frappe.query_reports["Transaction Details"] = {
+frappe.query_reports["Sales Partner Commission Details"] = {
 	"filters": [
 		{
 			"fieldname":"doc_type",
