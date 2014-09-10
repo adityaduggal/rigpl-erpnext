@@ -42,7 +42,7 @@ def get_entries(filters):
 			dt_item.item_code, dt_item.description, dt_item.qty, dt_item.base_rate, 
 			dt_item.base_price_list_rate, dt_item.discount_percentage, 
 			dt_item.base_amount, cu.default_sales_partner, 
-			cu.default_commission_rate, dt.commission_rate*dt_item.base_amount/100
+			cu.default_commission_rate, cu.default_commission_rate*dt_item.base_amount/100
 			from `tab%s` dt, `tab%s Item` dt_item, `tabCustomer` cu 
 			WHERE dt.customer = cu.name
 			AND dt.name = dt_item.parent 
