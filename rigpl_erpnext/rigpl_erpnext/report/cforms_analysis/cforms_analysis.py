@@ -41,7 +41,8 @@ def get_va_entries(filters):
 			ORDER BY si.customer, si.name""" % conditions, as_list=1)
 	else:
 		si = frappe.db.sql(""" select si.posting_date, si.name, si.customer, 
-			si.taxes_and_charges, si.net_total, si.grand_total, si.fiscal_year
+			si.taxes_and_charges, si.net_total, si.grand_total, si.fiscal_year,
+			null, null, null
 			FROM `tabSales Invoice` si
 			WHERE si.docstatus = 1 AND
 			si.c_form_applicable = 'Yes' AND
