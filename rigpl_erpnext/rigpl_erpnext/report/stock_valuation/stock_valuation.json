@@ -1,10 +1,11 @@
 {
+ "add_total_row": 1, 
  "apply_user_permissions": 1, 
  "creation": "2013-07-31 18:52:01", 
  "docstatus": 0, 
  "doctype": "Report", 
  "is_standard": "Yes", 
- "modified": "2014-06-05 17:10:02.367955", 
+ "modified": "2014-09-17 10:40:32.588732", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Stock Valuation", 

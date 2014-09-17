@@ -1,10 +1,11 @@
 {
+ "add_total_row": 1, 
  "apply_user_permissions": 1, 
  "creation": "2013-07-06 15:31:50", 
  "docstatus": 0, 
  "doctype": "Report", 
  "is_standard": "Yes", 
- "modified": "2014-06-05 17:12:25.161013", 
+ "modified": "2014-09-17 10:40:08.263022", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Trial Tracking", 
