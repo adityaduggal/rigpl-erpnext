@@ -1,10 +1,11 @@
 {
+ "add_total_row": 1, 
  "apply_user_permissions": 1, 
  "creation": "2013-05-28 23:55:29", 
  "docstatus": 0, 
  "doctype": "Report", 
  "is_standard": "Yes", 
- "modified": "2014-06-05 17:00:56.364959", 
+ "modified": "2014-09-17 10:42:36.008823", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Customers with SO", 

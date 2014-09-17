@@ -1,11 +1,11 @@
 {
- "add_total_row": 0, 
+ "add_total_row": 1, 
  "apply_user_permissions": 1, 
  "creation": "2013-06-14 21:05:20", 
  "docstatus": 0, 
  "doctype": "Report", 
  "is_standard": "Yes", 
- "modified": "2014-06-05 17:14:34.084319", 
+ "modified": "2014-09-17 10:39:16.840114", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Value Addition", 
