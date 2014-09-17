@@ -14,48 +14,47 @@ def execute(filters=None):
 def get_columns():
 	return [
 		"DN #:Link/Delivery Note:120", "Customer:Link/Customer:200" ,"Date:Date:100",
-		"Item Code:Link/Item:130","Description::350", "DN Qty:Float/2:70",
+		"Item Code:Link/Item:130","Description::350", "DN Qty:Float:70",
 		"DN Price:Currency:70", "DN Amount:Currency:80", "SO #:Link/Sales Order:140",
-		"Unbilled Qty:Currency:80", "Unbilled Amount:Currency:80"
+		"Unbilled Qty:Float:80", "Unbilled Amount:Currency:80"
 	]
 
 def get_dn_entries(filters):
-	conditions = get_conditions(filters)
+	conditions = get_conditions(filters)[0]
+	si_cond = get_conditions(filters)[1]
+	
+	query = """select dn.name, dn.customer, dn.posting_date, dni.item_code, 
+	dni.description, dni.qty, dni.base_rate, dni.base_amount, dni.against_sales_order,
 
-	dn = frappe.db.sql("""select
-    dn.name, dn.customer, dn.posting_date,
-	dni.item_code, dni.description, dni.qty, dni.base_rate,
-	dni.base_amount, dni.against_sales_order,
-
-	(dni.qty - ifnull((select sum(sid.qty) from `tabSales Invoice Item` sid, `tabSales Invoice` si
-	    where sid.delivery_note = dn.name and
+	(dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, `tabSales Invoice` si 
+		WHERE sid.delivery_note = dn.name and
 		sid.parent = si.name and
-		si.docstatus = 1 and
-	    sid.dn_detail = dni.name), 0)),
+		sid.dn_detail = dni.name %s), 0)),
 
 	(dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, `tabSales Invoice` si
-        where sid.delivery_note = dn.name and
+        	where sid.delivery_note = dn.name and
 		sid.parent = si.name and
-		si.docstatus = 1 and
-        sid.dn_detail = dni.name), 0)),
+        	sid.dn_detail = dni.name %s), 0)),
 
 	dni.item_name, dni.description
-	from `tabDelivery Note` dn, `tabDelivery Note Item` dni
-	where
-    dn.docstatus = 1
-    AND dn.name = dni.parent
-    AND (dni.qty - ifnull((select sum(sid.qty) from `tabSales Invoice Item` sid, `tabSales Invoice` si
-        where sid.delivery_note = dn.name and
+	
+	FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni
+
+	WHERE dn.docstatus = 1
+    	AND dn.name = dni.parent
+    	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, `tabSales Invoice` si
+        	WHERE sid.delivery_note = dn.name and
 		sid.parent = si.name and
-		si.docstatus = 1 and
-        sid.dn_detail = dni.name), 0)>=1)
+        	sid.dn_detail = dni.name %s), 0)>=1)
 
 	AND (dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, `tabSales Invoice` si
-        where sid.delivery_note = dn.name and
+        	WHERE sid.delivery_note = dn.name and
 		sid.parent = si.name and
-		si.docstatus = 1 and
-        sid.dn_detail = dni.name), 0)>=1) %s
-	order by dn.posting_date asc """ % conditions ,as_list=1)
+        	sid.dn_detail = dni.name %s), 0)>=1) %s
+	
+	ORDER BY dn.posting_date asc """ % (si_cond,si_cond,si_cond,si_cond,conditions)
+
+	dn = frappe.db.sql(query ,as_list=1)
 
 	so = frappe.db.sql (""" SELECT so.name, so.order_type
 		FROM `tabSales Order` so
@@ -65,24 +64,14 @@ def get_dn_entries(filters):
 		for j in range(0,len(so)):
 			if dn[i][8] == so[j][0]:
 				dn[i].insert (11,so[j][1])
-
-	#si = frappe.db.sql("""SELECT sid.dn_detail, sum(sid.qty), sum(sid.amount)
-	#	FROM `tabSales Invoice` si, `tabSales Invoice Item` sid
-	#	WHERE sid.parent = si.name
-	#	AND si.docstatus = 1
-	#	AND sid.dn_detail IS NOT NULL
-	#	GROUP BY sid.dn_detail
-	#	ORDER BY sid.dn_detail""", as_list=1)
-
 	return dn
 
 def get_conditions(filters):
 	conditions = ""
-	#cond_dnq = ""
+	si_cond = ""
 
 	if filters.get("customer"):
 		conditions += " and dn.customer = '%s'" % filters["customer"]
-		#cond_dnq += " and dn.customer = '%s'" % filters["customer"]
 
 	if filters.get("from_date"):
 		if filters.get("to_date"):
@@ -92,4 +81,10 @@ def get_conditions(filters):
 
 	if filters.get("to_date"):
 		conditions += " and dn.posting_date <= '%s'" % filters["to_date"]
-	return conditions
+		
+	if filters.get("draft")=="Yes":
+		si_cond = " and si.docstatus != 2"
+	else:
+		si_cond = " and si.docstatus = 1"
+	
+	return conditions, si_cond
