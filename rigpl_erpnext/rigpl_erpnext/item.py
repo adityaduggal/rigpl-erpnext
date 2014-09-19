@@ -170,7 +170,7 @@ def validate(doc, method):
 				#5.inch_field, 6.is_inch, 7.pref_desc, 8.suff_desc,
 				#9.Type, 10.In Desc
 			dim_fields = [
-				[doc.height_dia,"Head \xd8",3,40,doc.height_dia_inch,
+				[doc.height_dia,"Head \xd8",2,40,doc.height_dia_inch,
 					doc.inch_h,"H\xd8:"," ","Length","Yes"],
 				[doc.l1,"Head Length",2,100,doc.l1_inch,
 					doc.inch_l1," HL:"," ","Length","Yes"],
@@ -225,7 +225,7 @@ def validate(doc, method):
 				if (doc.base_material == "HSS"):
 					spl_trt = ["Hard", "None"] #allowed special treatment
 					dim_fields = [
-						[doc.height_dia,"Height",6,150,
+						[doc.height_dia,"Height",2,150,
 							doc.height_dia_inch,doc.inch_h,"","x",
 							"Length","Yes"],
 						[doc.width,"Width",6,150,doc.width_inch,
@@ -237,12 +237,12 @@ def validate(doc, method):
 				elif (doc.base_material == "Carbide"):
 					spl_trt = ["None"] #allowed special treatment
 					dim_fields = [
-						[doc.height_dia,"Height",2.5,30,
+						[doc.height_dia,"Height",2,300,
 							doc.height_dia_inch,doc.inch_h,"","x",
 							"Length","Yes"],
-						[doc.width,"Width",2.5,30,doc.width_inch,
+						[doc.width,"Width",2,300,doc.width_inch,
 							doc.inch_w,"","x","Length","Yes"],
-						[doc.length,"OAL",10,331,doc.length_inch,
+						[doc.length,"OAL",10,1000,doc.length_inch,
 							doc.inch_l,"","","Length","Yes"],
 						[doc.a1, "Bevel Angle",0,0.001,"","","","",
 							"Angle","Yes"]]
@@ -277,10 +277,10 @@ def validate(doc, method):
 				elif (doc.base_material == "Carbide"):
 					spl_trt = ["None"] #allowed special treatment
 					dim_fields = [
-						[doc.height_dia,"Dia \xd8",3,33,
+						[doc.height_dia,"Dia \xd8",2,100,
 							doc.height_dia_inch,doc.inch_h,"\xd8","x",
 							"Length","Yes"],
-						[doc.length,"OAL",10,331,doc.length_inch,
+						[doc.length,"OAL",10,1000,doc.length_inch,
 							doc.inch_l,"","","Length","Yes"],
 						[doc.a1, "Bevel Angle",0,0.001,"",""," Bevel:","\xb0",
 							"Angle","No"]]
@@ -343,7 +343,7 @@ def validate(doc, method):
 							"Length","Yes"],
 						[doc.width,"Width",2.5,50,doc.width_inch,
 							doc.inch_w,"","x","Length","Yes"],
-						[doc.length,"OAL",0,400,doc.length_inch,
+						[doc.length,"OAL",10,400,doc.length_inch,
 							doc.inch_l,"","","Length","Yes"],
 						[doc.a1, "Bevel Angle",0,0.001,"","","","",
 							"Angle","Yes"]]
