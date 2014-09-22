@@ -15,7 +15,7 @@ def get_columns():
 
 	return [
 		"Date:Date:80", "Time:Time:70" ,"Item:Link/Item:130", "Description::250",
-		"Qty:Float/2:60", "Balance:Float/2:90", "Transaction Link::30",
+		"Qty:Float:60", "Balance:Float:90", "Transaction Link::30",
 		"Warehouse::120", "Voucher No::130", "Voucher Type::140","Name::100"
 	]
 
