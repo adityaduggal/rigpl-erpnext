@@ -16,9 +16,9 @@ def get_columns():
 
 	return [
 		"PR #:Link/Purchase Receipt:120", "Supplier:Link/Supplier:200" ,"Date:Date:100",
-		"Item Code:Link/Item:130","Description::350", "PR Qty:Float/2:70",
+		"Item Code:Link/Item:130","Description::350", "PR Qty:Float:70",
 		"PR Price:Currency:70", "PR Amount:Currency:80", "PO #:Link/Purchase Order:140",
-		"Unbilled Qty:Float/3:80", "Unbilled Amount:Currency:80"
+		"Unbilled Qty:Float:80", "Unbilled Amount:Currency:80"
 	]
 
 def get_pr_entries(filters):

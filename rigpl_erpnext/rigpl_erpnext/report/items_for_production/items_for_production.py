@@ -13,14 +13,21 @@ def execute(filters=None):
 def get_columns():
 	return [
 		"Item:Link/Item:130", "Qual::60", "TT::100",
-		"D:Float/3:55", "W:Float/3:55", "L:Float/2:50",
-		"CUT::60",	"URG::60", "Total:Float/2:80",
+		{"label": "D", "fieldtype": "Float", "precision": 3, "width": 50},
+		{"label": "W", "fieldtype": "Float", "precision": 3, "width": 50},
+		{"label": "L", "fieldtype": "Float", "precision": 1, "width": 50},
+		"CUT::60",	"URG::60",
+		{"label": "Total", "fieldtype": "Float", "precision": 2, "width": 50},
 		"RO:Int:40", "SO:Int:40", "PO:Int:40",
-		"PL:Float/1:40","DE:Int:40", "BG:Int:40",
-		"Description::300", "D1:Float/3:35", "L1:Float/3:35", "RM::30",
+		"PL:Int:40","DE:Int:40", "BG:Int:40",
+		"Description::300",
+		{"label": "D1", "fieldtype": "Float", "precision": 3, "width": 35},
+		{"label": "L1", "fieldtype": "Float", "precision": 3, "width": 35},
+		"RM::30",
 		"BRG:Int:50", "BHT:Int:50", "BFG:Int:50", "BTS:Int:50",
 		"DSL:Int:50", "DRG:Int:50", "DFG:Int:50", "DTS:Int:50",
-		"DRM:Float/2:55", "BRM:Float/2:55",
+		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50},
+		{"label": "BRM", "fieldtype": "Float", "precision": 3, "width": 50},
 		"DRJ:Int:50", "PList::30", "TOD::30"
 	]
 

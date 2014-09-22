@@ -15,8 +15,8 @@ def get_columns():
 		"Item:Link/Item:130", "Description::350", "ROL:Int:60", "Sold:Int:60",
 		"#Cust:Int:60", "# DN:Int:60", "Con:Int:60", "DNA:Int:60", "ConA:Int:60",
 		"TotA:Int:80", "Diff:Int:60","BM::70", "TT::80",
-		"Quality::80","H/D:Float/3:60", "W:Float/3:60",
-		"L:Float/3:60", "D1:Float/3:60","L1:Float/3:60","Brand::100"
+		"Quality::80","H/D:Float:60", "W:Float:60",
+		"L:Float:60", "D1:Float:60","L1:Float:60","Brand::100"
 	]
 
 def get_sl_entries(filters):
