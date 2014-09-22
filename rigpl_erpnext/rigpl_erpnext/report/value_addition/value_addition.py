@@ -15,11 +15,11 @@ def get_columns():
 
 	return [
 		"Posting Date:Date:80", "Name:Link/Delivery Note:100" ,"Customer:Link/Customer:180",
-		"Item Code:Link/Item:100","Description::250", "Quantity:Float/2:60",
-		"Discount (%):Float/2:60", "Rate*:Float/2:60", "Amount*:Float/2:60",
-		"Status::100", "Base Metal::100", "Tool Type::100", "Height or Dia (mm):Float/3:60",
-		"Width (mm):Float/3:60", "Length (mm):Float/2:60", "Material::80",
-		"D1:Float/3:60", "L1:Float/3:60", "Coating::80"
+		"Item Code:Link/Item:100","Description::250", "Quantity:Float:60",
+		"Discount (%):Float:60", "Rate*:Currency:60", "Amount*:Currency:60",
+		"Status::100", "Base Metal::100", "Tool Type::100", "Height or Dia (mm):Float:60",
+		"Width (mm):Float:60", "Length (mm):Float:60", "Material::80",
+		"D1:Float:60", "L1:Float:60", "Coating::80"
 	]
 
 def get_va_entries(filters):

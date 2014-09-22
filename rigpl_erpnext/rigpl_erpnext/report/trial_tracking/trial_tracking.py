@@ -13,8 +13,8 @@ def execute(filters=None):
 def get_columns():
 	return [
 		"Trial Status::100", "SO #:Link/Sales Order:100", "SO Date:Date:90", "Customer:Link/Customer:150",
-		"Item:Link/Item:120", "Description::350", "Qty:Float/2:60", "PL:Currency:80",
-		"Rate:Currency:80", "Amount:Currency:100", "Delivered Qty:Float/2:80", "Sales Person::200"
+		"Item:Link/Item:120", "Description::350", "Qty:Float:60", "PL:Currency:80",
+		"Rate:Currency:80", "Amount:Currency:100", "Delivered Qty:Float:80", "Sales Person::200"
 	]
 
 def get_trial_data(filters):

@@ -37,11 +37,11 @@ def get_columns(filters):
 	"""return columns based on filters"""
 
 	columns = ["Item:Link/Item:150"] + ["Description::350"] + \
-	["Warehouse:Link/Warehouse:100"] + ["Quantity:Float/2:60"] + ["List Price:Currency:80"] + \
+	["Warehouse:Link/Warehouse:100"] + ["Quantity:Float:60"] + ["List Price:Currency:80"] + \
 	["VR:Currency:80"] + ["Value:Currency:100"] + ["LPR:Currency:80"] + ["LSR:Currency:80"] + \
-	["BM::80"] + ["Qual::80"] +["TT::80"] + ["H:Float/3:50"] + \
-	["W:Float/3:50"] + ["L:Float/3:50"] + ["D1:Float/3:50"] + \
-	["L1:Float/3:50"] + ["Is RM::50"] + ["Brand::60"]
+	["BM::80"] + ["Qual::80"] +["TT::80"] + ["H:Float:50"] + \
+	["W:Float:50"] + ["L:Float:50"] + ["D1:Float:50"] + \
+	["L1:Float:50"] + ["Is RM::50"] + ["Brand::60"]
 
 	return columns
 
