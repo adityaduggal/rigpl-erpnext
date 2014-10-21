@@ -42,9 +42,9 @@ def validate(doc, method):
 			dim_fields = [
 				[doc.d1,"Pilot \xd8",1,25,doc.d1_inch,
 					doc.inch_d1,"P\xd8:"," ","Length","Yes"],
-				[doc.l1,"Pilot Length",1.1,25,doc.l1_inch,
+				[doc.l1,"Pilot Length",1.1,26,doc.l1_inch,
 					doc.inch_l1," PL:"," ","Length","Yes"],
-				[doc.height_dia,"Shank \xd8",2,25,doc.height_dia_inch,
+				[doc.height_dia,"Shank \xd8",2,26,doc.height_dia_inch,
 					doc.inch_h," S\xd8:"," ","Length","Yes"],
 				[doc.length,"OAL",25,350,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
