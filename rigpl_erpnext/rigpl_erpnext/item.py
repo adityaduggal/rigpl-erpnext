@@ -220,7 +220,7 @@ def validate(doc, method):
 						doc.inch_l,"","","Length","Yes"],
 					[doc.a1, "Bevel Angle",0,31,"","","","\xb0",
 						"Angle","Yes"]]
-				spl_trt = ["CRY", "None"] #allowed special treatment
+				spl_trt = ["CRY", "None", "TiN"] #allowed special treatment
 			if (doc.is_rm == "Yes"):
 				if (doc.base_material == "HSS"):
 					spl_trt = ["Hard", "None"] #allowed special treatment
