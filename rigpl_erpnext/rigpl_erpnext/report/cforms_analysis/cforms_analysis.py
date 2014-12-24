@@ -37,7 +37,7 @@ def get_va_entries(filters):
 			WHERE si.docstatus = 1 AND
 			si.c_form_applicable = 'Yes' AND si.c_form_no = cf.name %s
 			ORDER BY si.customer, si.name""" % conditions
-		frappe.msgprint(query)
+
 		si = frappe.db.sql(query, as_list=1)
 		
 	elif filters.get("status") == "Not Received" and filters.get("summary") is None :
