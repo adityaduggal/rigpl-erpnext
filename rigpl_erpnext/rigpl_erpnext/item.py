@@ -145,7 +145,7 @@ def validate(doc, method):
 					doc.inch_l1," HL:"," ","Length","Yes"],
 				[doc.d1,"Mid \xd8",2,40,doc.d1_inch,
 					doc.inch_d1," M\xd8:"," ","Length","Yes"],
-				[doc.l2,"Mid Length",6,101,doc.l2_inch,
+				[doc.l2,"Mid Length",2,101,doc.l2_inch,
 					doc.inch_l2," ML:"," ","Length","Yes"],
 				[doc.d2,"Front \xd8",1,40,doc.d2_inch,
 					doc.inch_d1," F\xd8:"," ","Length","Yes"],
