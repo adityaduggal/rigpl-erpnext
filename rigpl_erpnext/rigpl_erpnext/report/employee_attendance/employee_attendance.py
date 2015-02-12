@@ -12,26 +12,19 @@ def execute(filters=None):
 
 	conditions, filters = get_conditions(filters)
 	columns = get_columns(filters)
-	att_map = get_attendance_list(conditions, filters)[0]
-	attendance_list = get_attendance_list(conditions, filters)[1]
+	att_map = get_attendance_list(conditions, filters)
 	emp_map = get_employee_details()
 	holidays = get_holiday_list(conditions, filters)
-	total_days = filters["total_days_in_month"]
+
 	data = []
-	no_of_employees = len(sorted(att_map))
-	#frappe.msgprint(attendance_list)
-	for emp in sorted(att_map):
-		nos = sum(1 for i in attendance_list if i['day_of_month']==1)
-		frappe.msgprint(nos)
-	
 	for emp in sorted(att_map):
 		emp_det = emp_map.get(emp) #emp_det == Employee Details from Employee master
 		if not emp_det:
 			continue
 
 		row = [emp, emp_det.employee_name]
-		row2 = [emp, emp_det.employee_name]
 		
+		total_days = filters["total_days_in_month"]
 		total_p = total_a = total_h = 0.0
 		for day in range(total_days):
 			stat = ""
@@ -39,10 +32,7 @@ def execute(filters=None):
 				if day+1 == holidays[i][0]:
 					stat = "Holiday"
 			if stat != "Holiday": stat = "Absent"
-			date_time = att_map.get(emp).get(day + 1, stat)
-			#frappe.msgprint(date_time)
 			status = att_map.get(emp).get(day + 1, stat)
-			#frappe.msgprint(status)
 			status_map = {"Present": "P", "Absent": "A", "Half Day": "HD", "Holiday": "HO"}
 			row.append(status_map[status])
 
@@ -61,7 +51,6 @@ def execute(filters=None):
 		row += [total_p, total_a, total_s]
 
 		data.append(row)
-		data.append(row2)
 
 	return columns, data
 
@@ -77,23 +66,14 @@ def get_columns(filters):
 	return columns
 
 def get_attendance_list(conditions, filters):
-	attendance_list = frappe.db.sql("""select at.employee, day(at.att_date) as day_of_month,
-		at.status, att.time_type, att.date_time from tabAttendance at, `tabAttendance Time Table` att
-		where at.docstatus = 1 AND att.parent = at.name
-		%s order by at.employee, at.att_date, att.date_time""" %
+	attendance_list = frappe.db.sql("""select employee, day(att_date) as day_of_month,
+		status from tabAttendance where docstatus = 1 %s order by employee, att_date""" %
 		conditions, filters, as_dict=1)
 	att_map = {}
-	time_map ={}
-	#frappe.msgprint(attendance_list)
 	for d in attendance_list:
-		#frappe.msgprint(d)
 		att_map.setdefault(d.employee, frappe._dict()).setdefault(d.day_of_month, "")
 		att_map[d.employee][d.day_of_month] = d.status
-		time_map.setdefault(d.employee, frappe._dict()).setdefault(d.day_of_month, "")
-		time_map[d.employee][d.day_of_month] = d.date_time
-	#frappe.msgprint(time_map)
-
-	return att_map, attendance_list
+	return att_map
 
 def get_conditions(filters):
 	if not (filters.get("month") and filters.get("fiscal_year")):
