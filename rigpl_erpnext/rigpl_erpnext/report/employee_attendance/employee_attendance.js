@@ -1,7 +1,7 @@
-// Copyright (c) 2013, Web Notes Technologies Pvt. Ltd. and Contributors
-// License: GNU General Public License v3. See license.txt
+// Copyright (c) 2013, Rohit Industries Ltd. and contributors
+// For license information, please see license.txt
 
-frappe.query_reports["Monthly Attendance Time Based"] = {
+frappe.query_reports["Employee Attendance"] = {
 	"filters": [
 		{
 			"fieldname":"month",
