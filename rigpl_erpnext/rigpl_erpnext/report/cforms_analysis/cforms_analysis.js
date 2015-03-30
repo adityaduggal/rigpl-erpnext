@@ -23,11 +23,11 @@ frappe.query_reports["CForms Analysis"] = {
 			"fieldname":"status",
 			"label": "Status",
 			"fieldtype": "Select",
-			"options": "Received\nNot Received"
+			"options": "Not Received\nReceived"
 		},
 		{
-			"fieldname":"company",
-			"label": "Company",
+			"fieldname":"letter_head",
+			"label": "Letter Head",
 			"fieldtype": "Link",
 			"options": "Letter Head"
 		},
@@ -35,6 +35,11 @@ frappe.query_reports["CForms Analysis"] = {
 			"fieldname":"date",
 			"label": "C-Forms upto this Date",
 			"fieldtype": "Date"
+		},
+		{
+			"fieldname":"summary",
+			"label": "Summary",
+			"fieldtype": "Check"
 		},
 	]
 }

@@ -29,6 +29,12 @@ def get_data():
 					"is_query_report": True,
 					"name": "Sales Partner Commission Details",
 					"doctype": "Sales Invoice",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "TOD Sales Invoice",
+					"doctype": "Sales Invoice",
 				}
 			]
 		}
