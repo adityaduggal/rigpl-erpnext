@@ -16,7 +16,8 @@ def get_columns():
 		"DN #:Link/Delivery Note:120", "Customer:Link/Customer:200" ,"Date:Date:100",
 		"Item Code:Link/Item:130","Description::350", "DN Qty:Float:70",
 		"DN Price:Currency:70", "DN Amount:Currency:80", "SO #:Link/Sales Order:140",
-		"Unbilled Qty:Float:80", "Unbilled Amount:Currency:80"
+		"Unbilled Qty:Float:80", "Unbilled Amount:Currency:80", "DN Detail::100", "SO Detail::100",
+		"Taxes::100"
 	]
 
 def get_dn_entries(filters):
@@ -36,7 +37,7 @@ def get_dn_entries(filters):
 		sid.parent = si.name and
         	sid.dn_detail = dni.name %s), 0)),
 
-	dni.item_name, dni.description
+	dni.name ,dni.prevdoc_detail_docname, dn.taxes_and_charges, dni.item_name, dni.description
 	
 	FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni
 
@@ -63,7 +64,7 @@ def get_dn_entries(filters):
 	for i in range(0,len(dn)):
 		for j in range(0,len(so)):
 			if dn[i][8] == so[j][0]:
-				dn[i].insert (11,so[j][1])
+				dn[i].insert (14,so[j][1])
 	return dn
 
 def get_conditions(filters):
