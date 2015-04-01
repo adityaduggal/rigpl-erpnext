@@ -10,7 +10,7 @@
  "module": "RIGPL ERPNext", 
  "name": "Pending Orders", 
  "owner": "Administrator", 
- "ref_doctype": "Sales Orders", 
+ "ref_doctype": "Sales Order", 
  "report_name": "Pending Orders", 
  "report_type": "Script Report"
 }
