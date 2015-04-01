@@ -1,1 +1,2 @@
 rigpl_erpnext.patches.cform_letterhead_si_so
+rigpl_erpnext.patches.inclusive_excise_conversion
