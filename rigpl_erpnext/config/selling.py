@@ -36,6 +36,12 @@ def get_data():
 					"name": "Price List",
 					"doctype": "Item Price",
 				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "Pending Orders",
+					"doctype": "Sales Order",
+				},
 			]
 		}
 	]
