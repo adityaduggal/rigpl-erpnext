@@ -52,7 +52,7 @@ def validate(doc, method):
 					" Z=","","Integer","Yes"],
 				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"],
 				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"]]
-			spl_trt = [] #allowed special treatment
+			spl_trt = ["None",""] #allowed special treatment
 			 #FL shud be less than OAL.
 			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
 			#Pilot Dia less than Shank Dia
@@ -76,7 +76,7 @@ def validate(doc, method):
 				[doc.a1, "Angle",120,120.001,"","","","\xb0","Angle","No"],
 				[doc.a2, "Angle",60,60.001,"","","","\xb0","Angle","No"],
 				[doc.a3, "Angle",120,120.001,"","","","\xb0","Angle","No"]]
-			spl_trt = [] #allowed special treaftment
+			spl_trt = ["None",""] #allowed special treaftment
 			#FL shud be less than OAL.
 			fn_two_nos_compare(doc, "greater", dim_fields[3], dim_fields[1])
 			#Pilot Dia less than Shank Dia
@@ -114,7 +114,7 @@ def validate(doc, method):
 				[doc.length,"OAL",25,550,doc.length_inch,
 					doc.inch_l,"","","Length","Yes"],
 				[doc.a1, "Bevel Angle",0,31,"",""," Bevel:","\xb0","Angle","Yes"]]
-			spl_trt = [] #allowed special treatment
+			spl_trt = ["None",""] #allowed special treatment
 			 #H<W check (10x20 and NOT 20x10)
 			fn_two_nos_compare(doc, "greater-equal", dim_fields[1], dim_fields[0])
 
@@ -153,7 +153,7 @@ def validate(doc, method):
 					doc.inch_l," OAL:","","Length","Yes"],
 				[doc.a1, "Angle",0,61,"","","","\xb0","Angle","No"],
 				[doc.a2, "Angle",0,61,"","","","\xb0","Angle","No"]]
-			spl_trt = [] #allowed special treatment
+			spl_trt = ["None",""] #allowed special treatment
 			#Head Dia > Mid Dia
 			fn_two_nos_compare(doc, "greater", dim_fields[0], dim_fields[2])
 			#Mid Dia > Front Dia
@@ -179,7 +179,7 @@ def validate(doc, method):
 				[doc.length,"OAL",25,300,doc.length_inch,
 					doc.inch_l," OAL:"," ","Length","Yes"],
 				[doc.a1, "Angle",0,61,"","","","\xb0","Angle","No"]]
-			spl_trt = [] #allowed special treatment
+			spl_trt = ["None",""] #allowed special treatment
 			#Head Dia > Body Dia
 			fn_two_nos_compare(doc, "greater", dim_fields[0], dim_fields[2])
 			#OAL > HL
