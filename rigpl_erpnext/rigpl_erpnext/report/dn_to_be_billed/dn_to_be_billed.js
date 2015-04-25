@@ -23,5 +23,11 @@ frappe.query_reports["DN To Be Billed"] = {
 			"fieldtype": "Select",
 			"options": "Yes\nNo"
 		},
+		{
+			"fieldname":"trial",
+			"label": "Trial",
+			"fieldtype": "Select",
+			"options": "No\nYes"
+		},
 	]
 }

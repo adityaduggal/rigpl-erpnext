@@ -1,22 +1,51 @@
 {
- "allow_copy": 0, 
+ "allow_copy": 1, 
  "allow_import": 1, 
  "allow_rename": 1, 
+ "autoname": "field:prevdoc_detail_docname", 
  "creation": "2015-04-23 19:59:41.264210", 
  "custom": 0, 
+ "default_print_format": "customer, against_sales_order, item_code, description, trial_owner, status", 
  "docstatus": 0, 
  "doctype": "DocType", 
- "document_type": "Master", 
+ "document_type": "Transaction", 
  "fields": [
   {
+   "fieldname": "customer_information", 
+   "fieldtype": "Section Break", 
+   "label": "Customer Information", 
+   "permlevel": 0, 
+   "precision": ""
+  }, 
+  {
+   "fieldname": "customer", 
+   "fieldtype": "Link", 
+   "in_list_view": 1, 
+   "label": "Customer", 
+   "options": "Customer", 
+   "permlevel": 0, 
+   "precision": "", 
+   "read_only": 1, 
+   "reqd": 1
+  }, 
+  {
+   "fieldname": "prevdoc_detail_docname", 
+   "fieldtype": "Data", 
+   "hidden": 1, 
+   "label": "Against Document Detail No", 
+   "permlevel": 0, 
+   "precision": "", 
+   "read_only": 1
+  }, 
+  {
    "allow_on_submit": 0, 
-   "fieldname": "sales_order_no", 
+   "fieldname": "against_sales_order", 
    "fieldtype": "Link", 
    "hidden": 0, 
    "ignore_user_permissions": 0, 
    "in_filter": 0, 
    "in_list_view": 1, 
-   "label": "Sales Order No", 
+   "label": "Against Sales Order", 
    "no_copy": 0, 
    "options": "Sales Order", 
    "permlevel": 0, 
@@ -39,15 +68,7 @@
    "reqd": 1
   }, 
   {
-   "fieldname": "description", 
-   "fieldtype": "Data", 
-   "label": "Description", 
-   "permlevel": 0, 
-   "precision": "", 
-   "reqd": 1
-  }, 
-  {
-   "fieldname": "quantity", 
+   "fieldname": "qty", 
    "fieldtype": "Float", 
    "label": "Quantity", 
    "permlevel": 0, 
@@ -56,7 +77,23 @@
    "reqd": 1
   }, 
   {
-   "fieldname": "price", 
+   "fieldname": "column_break_3", 
+   "fieldtype": "Column Break", 
+   "permlevel": 0, 
+   "precision": ""
+  }, 
+  {
+   "fieldname": "description", 
+   "fieldtype": "Small Text", 
+   "in_list_view": 1, 
+   "label": "Description", 
+   "permlevel": 0, 
+   "precision": "", 
+   "read_only": 1, 
+   "reqd": 1
+  }, 
+  {
+   "fieldname": "base_rate", 
    "fieldtype": "Currency", 
    "label": "Price", 
    "permlevel": 0, 
@@ -65,43 +102,66 @@
    "reqd": 1
   }, 
   {
-   "fieldname": "customer", 
+   "fieldname": "trial_owner", 
    "fieldtype": "Link", 
-   "label": "Customer", 
-   "options": "Customer", 
+   "in_list_view": 1, 
+   "label": "Trial Owner", 
+   "options": "Sales Person", 
    "permlevel": 0, 
    "precision": "", 
    "read_only": 1, 
    "reqd": 1
   }, 
   {
-   "fieldname": "sales_person", 
-   "fieldtype": "Link", 
-   "label": "Sales Person", 
-   "options": "Sales Person", 
-   "permlevel": 0, 
-   "precision": "", 
-   "read_only": 0, 
-   "reqd": 1
-  }, 
-  {
-   "fieldname": "operation_type", 
-   "fieldtype": "Select", 
-   "label": "Operation Type", 
+   "fieldname": "trial_data", 
+   "fieldtype": "Section Break", 
+   "label": "Trial Data", 
    "permlevel": 0, 
    "precision": ""
   }, 
   {
    "fieldname": "competitor_name", 
-   "fieldtype": "Data", 
+   "fieldtype": "Select", 
+   "in_list_view": 1, 
    "label": "Competitor Name", 
+   "options": "\nAddison\nBIPICO\nBrisloy\nGuhring\nGW / Ceratizit\nHanita\nHitachi\nJK\nKennametal\nMA Ford / TOTEM\nMAGICUT\nMiranda\nMitsubishi\nNS tools\nOthers (specify)\nSandvik\nSECO\nSGS\nTruCut\nUnion tools\nYG-1\nZCC", 
    "permlevel": 0, 
    "precision": ""
   }, 
   {
    "fieldname": "material_to_machine", 
-   "fieldtype": "Data", 
+   "fieldtype": "Select", 
+   "in_list_view": 1, 
    "label": "Material to Machine", 
+   "options": "\nSteel Low Carbon\nSteel Mild\nSteel Alloyed\nStainless Steel\nAluminum and Alloys\nCast Iron\nNon-Ferrous\nTitanium and Ni Alloys", 
+   "permlevel": 0, 
+   "precision": ""
+  }, 
+  {
+   "fieldname": "target_life", 
+   "fieldtype": "Float", 
+   "label": "Target Life", 
+   "permlevel": 0, 
+   "precision": "1"
+  }, 
+  {
+   "fieldname": "life_of_tool", 
+   "fieldtype": "Float", 
+   "label": "Life of Tool", 
+   "permlevel": 0, 
+   "precision": "1"
+  }, 
+  {
+   "fieldname": "unit_of_tool_life", 
+   "fieldtype": "Select", 
+   "label": "Unit of Tool Life", 
+   "options": "\nmins\nNo of Components\nmeters", 
+   "permlevel": 0, 
+   "precision": ""
+  }, 
+  {
+   "fieldname": "column_break_17", 
+   "fieldtype": "Column Break", 
    "permlevel": 0, 
    "precision": ""
   }, 
@@ -127,32 +187,26 @@
    "precision": "1"
   }, 
   {
-   "fieldname": "axial_depth_of_cut", 
-   "fieldtype": "Float", 
-   "label": "Axial Depth of Cut", 
-   "permlevel": 0, 
-   "precision": "3"
-  }, 
-  {
-   "fieldname": "radial_depth_of_cut", 
-   "fieldtype": "Float", 
-   "label": "Radial Depth of Cut", 
-   "permlevel": 0, 
-   "precision": "3"
-  }, 
-  {
    "fieldname": "status", 
    "fieldtype": "Select", 
+   "in_list_view": 1, 
    "label": "Status", 
-   "options": "\nApproved\nRejected\nAwaited", 
+   "options": "\nIn Production\nMaterial Ready\nAwaited\nPassed\nFailed", 
    "permlevel": 0, 
    "precision": "", 
    "reqd": 1
   }, 
   {
-   "fieldname": "result", 
+   "fieldname": "sb", 
+   "fieldtype": "Section Break", 
+   "label": "Notes", 
+   "permlevel": 0, 
+   "precision": ""
+  }, 
+  {
+   "fieldname": "notes", 
    "fieldtype": "Text", 
-   "label": "Result", 
+   "label": "Notes", 
    "permlevel": 0, 
    "precision": ""
   }, 
@@ -170,12 +224,12 @@
  "hide_heading": 0, 
  "hide_toolbar": 0, 
  "icon": "icon-stethoscope", 
- "in_create": 0, 
+ "in_create": 1, 
  "in_dialog": 0, 
  "is_submittable": 1, 
  "issingle": 0, 
  "istable": 0, 
- "modified": "2015-04-23 20:33:53.950809", 
+ "modified": "2015-04-25 10:53:10.803285", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Trial Tracking", 
