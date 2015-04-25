@@ -19,8 +19,8 @@ def validate(doc,method):
 			if d.sales_order is None:
 				frappe.msgprint(("""Error in Row# {0} has DN# {1} but there is no SO.
 				Hence making of Invoice is DENIED""").format(d.idx, d.delivery_note), raise_exception=1)
-		frappe.msgprint('{0}{1}'.format("yo ",d.sales_order))
 		if d.sales_order is not None:
+			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
 				sod = dnd.prevdoc_detail_docname
