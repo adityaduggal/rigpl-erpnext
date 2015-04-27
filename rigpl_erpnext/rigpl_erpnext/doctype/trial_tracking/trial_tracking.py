@@ -41,6 +41,13 @@ class TrialTracking(Document):
 		if doc.status == "Failed":
 			if doc.target_life <= doc.life_of_tool:
 				frappe.msgprint("In Failed trials the target life has to be MORE than Actual Life of Tool achieved", raise_exception=1)
+				
+		#Check the SODetail Number as Unique
+		if doc.prevdoc_detail_docname:
+			sod_list = frappe.db.sql("""select prevdoc_detail_docname from `tabTrial Tracking` 
+				WHERE prevdoc_detail_docname=%s""", doc.prevdoc_detail_docname)
+			if len(sod_list)>1:
+				frappe.msgprint('{0}{1}'.format("SO Detail No already exists ", doc.prevdoc_detail_docname), raise_exception=1)
 		
 	def on_submit(doc):
 		if doc.status not in ("Failed", "Passed"):
