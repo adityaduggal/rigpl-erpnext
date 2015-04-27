@@ -133,11 +133,12 @@
    "fieldtype": "Select", 
    "in_list_view": 1, 
    "label": "Material to Machine", 
-   "options": "\nSteel Low Carbon\nSteel Mild\nSteel Alloyed\nStainless Steel\nAluminum and Alloys\nCast Iron\nNon-Ferrous\nTitanium and Ni Alloys", 
+   "options": "\nAluminum & Alloys\nCast Iron\nDie Steel / tool Steel\nNon-Ferrous\nOthers (specify)\nStainless Steel\nSteel - Alloy Steel\nSteel - Low Carbon Steel\nSteel - Mild Steel\nTitanium & Ni Alloys", 
    "permlevel": 0, 
    "precision": ""
   }, 
   {
+   "description": "Life of Competitor's Tool", 
    "fieldname": "target_life", 
    "fieldtype": "Float", 
    "label": "Target Life", 
@@ -147,7 +148,7 @@
   {
    "fieldname": "life_of_tool", 
    "fieldtype": "Float", 
-   "label": "Life of Tool", 
+   "label": "Life of Tool (Rohit)", 
    "permlevel": 0, 
    "precision": "1"
   }, 
@@ -166,22 +167,30 @@
    "precision": ""
   }, 
   {
-   "fieldname": "speed", 
-   "fieldtype": "Float", 
-   "label": "Speed", 
+   "fieldname": "hardness", 
+   "fieldtype": "Int", 
+   "label": "Hardness", 
    "permlevel": 0, 
    "precision": "1"
   }, 
   {
+   "fieldname": "unit_of_hardness", 
+   "fieldtype": "Select", 
+   "label": "Unit of Hardness", 
+   "options": "\nBHN\nHRB\nHRC", 
+   "permlevel": 0, 
+   "precision": ""
+  }, 
+  {
    "fieldname": "feed", 
-   "fieldtype": "Float", 
-   "label": "Feed", 
+   "fieldtype": "Int", 
+   "label": "Feed (mm/min)", 
    "permlevel": 0, 
    "precision": "1"
   }, 
   {
    "fieldname": "rpm", 
-   "fieldtype": "Float", 
+   "fieldtype": "Int", 
    "label": "RPM", 
    "permlevel": 0, 
    "precision": "1"
@@ -195,6 +204,14 @@
    "permlevel": 0, 
    "precision": "", 
    "reqd": 1
+  }, 
+  {
+   "fieldname": "invoice_no", 
+   "fieldtype": "Data", 
+   "label": "Invoice No", 
+   "permlevel": 0, 
+   "precision": "", 
+   "read_only": 1
   }, 
   {
    "fieldname": "sb", 
@@ -229,7 +246,7 @@
  "is_submittable": 1, 
  "issingle": 0, 
  "istable": 0, 
- "modified": "2015-04-25 10:53:10.803285", 
+ "modified": "2015-04-27 12:00:10.064197", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Trial Tracking", 

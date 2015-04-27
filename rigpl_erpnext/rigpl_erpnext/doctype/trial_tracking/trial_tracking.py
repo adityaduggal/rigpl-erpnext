@@ -13,6 +13,14 @@ class TrialTracking(Document):
 				"1. Target Life", "\n", "2. Life of Tool", "\n", 
 				"3. Unit of Tool Life", "\n", "Are Mandatory!!!"),raise_exception = 1)
 		
+		#Unit of Hardness validation with Hardness
+		if doc.hardness is not None or doc.unit_of_hardness is not "":
+			if doc.hardness is None or doc.unit_of_hardness is "":
+				frappe.msgprint("Hardness and Unit of Hardness should be selected simultaneously", raise_exception=1)
+		if doc.feed is not None:
+			if doc.feed <= 50 or doc.feed >= 500:
+				frappe.msgprint("Feed is in mm/min and hence cannot be less than 50 or higher than 500", raise_exception=1)
+		
 		if doc.status in ("Material Ready", "Awaited", "Failed", "Passed"):
 			sod = frappe.get_doc("Sales Order Item", doc.name)
 			if sod.delivered_qty is None:
