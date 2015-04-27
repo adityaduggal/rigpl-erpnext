@@ -29,11 +29,17 @@ def on_submit(so,method):
 			tt.base_rate = sod.base_rate
 			tt.trial_owner = s_team.sales_person
 			tt.status = "In Production"
-			frappe.msgprint('{0}{1}'.format("Created New Trial Tracking: ", sod.name))
 			tt.insert()
+			query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name
+			name = frappe.db.sql(query, as_list=1)
+			frappe.msgprint('{0}{1}'.format("Created New Trial Tracking Number: ", name[0][0]))
 			
 			
 def on_cancel(so, method):
 	if so.track_trial == 1:
 		for sod in so.get("sales_order_details"):
-			frappe.delete_doc("Trial Tracking", sod.name)
+			query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name
+			name = frappe.db.sql(query, as_list=1)
+			if name:
+				frappe.delete_doc("Trial Tracking", name[0])
+				frappe.msgprint('{0}{1}'.format("Deleted Trial Tracking No: ", name[0][0]))

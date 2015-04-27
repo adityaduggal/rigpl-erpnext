@@ -69,7 +69,9 @@ doc_events = {
 		"autoname": "rigpl_erpnext.rigpl_erpnext.quality.autoname"
 	},
 	"Sales Invoice": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate"
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_cancel"
 	},
 	"Sales Order": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.validate",
@@ -77,7 +79,8 @@ doc_events = {
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_cancel"
 	},
 	"Delivery Note": {
-		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit"
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
 	},
 }
 

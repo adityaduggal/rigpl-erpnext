@@ -7,22 +7,20 @@ from frappe.model.document import Document
 
 class TrialTracking(Document):
 	def validate(doc):
-		if doc.target_life is not None or doc.life_of_tool is not None or doc.unit_of_tool_life is not "":
-			if doc.target_life is None or doc.life_of_tool is None or doc.unit_of_tool_life is "":
-				frappe.msgprint('{0}{1}{2}{3}{4}{5}{6}{7}{8}'.format("All 3 fields:", "\n", 
-				"1. Target Life", "\n", "2. Life of Tool", "\n", 
-				"3. Unit of Tool Life", "\n", "Are Mandatory!!!"),raise_exception = 1)
+		if doc.target_life:
+			if doc.unit_of_tool_life is "":
+				frappe.msgprint("Please select the Unit for Tool Life",raise_exception = 1)
 		
 		#Unit of Hardness validation with Hardness
-		if doc.hardness is not None or doc.unit_of_hardness is not "":
-			if doc.hardness is None or doc.unit_of_hardness is "":
-				frappe.msgprint("Hardness and Unit of Hardness should be selected simultaneously", raise_exception=1)
-		if doc.feed is not None:
-			if doc.feed <= 50 or doc.feed >= 500:
+		if doc.hardness:
+			if doc.unit_of_hardness is "":
+				frappe.msgprint("Please select unit of Hardness", raise_exception=1)
+		if doc.feed:
+			if doc.feed <= 50 or doc.feed >= 5000:
 				frappe.msgprint("Feed is in mm/min and hence cannot be less than 50 or higher than 500", raise_exception=1)
 		
 		if doc.status in ("Material Ready", "Awaited", "Failed", "Passed"):
-			sod = frappe.get_doc("Sales Order Item", doc.name)
+			sod = frappe.get_doc("Sales Order Item", doc.prevdoc_detail_docname)
 			if sod.delivered_qty is None:
 				sod.delivered_qty = 0
 			if (sod.qty - sod.delivered_qty) > 0:
@@ -43,6 +41,13 @@ class TrialTracking(Document):
 		if doc.status == "Failed":
 			if doc.target_life <= doc.life_of_tool:
 				frappe.msgprint("In Failed trials the target life has to be MORE than Actual Life of Tool achieved", raise_exception=1)
+				
+		#Check the SODetail Number as Unique
+		if doc.prevdoc_detail_docname:
+			sod_list = frappe.db.sql("""select prevdoc_detail_docname from `tabTrial Tracking` 
+				WHERE prevdoc_detail_docname=%s""", doc.prevdoc_detail_docname)
+			if len(sod_list)>1:
+				frappe.msgprint('{0}{1}'.format("SO Detail No already exists ", doc.prevdoc_detail_docname), raise_exception=1)
 		
 	def on_submit(doc):
 		if doc.status not in ("Failed", "Passed"):
