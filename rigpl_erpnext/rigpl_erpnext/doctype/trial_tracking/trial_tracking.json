@@ -2,7 +2,7 @@
  "allow_copy": 1, 
  "allow_import": 1, 
  "allow_rename": 1, 
- "autoname": "field:prevdoc_detail_docname", 
+ "autoname": "TT/.#####", 
  "creation": "2015-04-23 19:59:41.264210", 
  "custom": 0, 
  "default_print_format": "customer, against_sales_order, item_code, description, trial_owner, status", 
@@ -207,8 +207,9 @@
   }, 
   {
    "fieldname": "invoice_no", 
-   "fieldtype": "Data", 
+   "fieldtype": "Link", 
    "label": "Invoice No", 
+   "options": "Sales Invoice", 
    "permlevel": 0, 
    "precision": "", 
    "read_only": 1
@@ -246,7 +247,7 @@
  "is_submittable": 1, 
  "issingle": 0, 
  "istable": 0, 
- "modified": "2015-04-27 12:00:10.064197", 
+ "modified": "2015-04-27 19:46:39.772829", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Trial Tracking", 
