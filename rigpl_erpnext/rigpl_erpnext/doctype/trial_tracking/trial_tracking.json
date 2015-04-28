@@ -122,7 +122,7 @@
   {
    "fieldname": "competitor_name", 
    "fieldtype": "Select", 
-   "in_list_view": 1, 
+   "in_list_view": 0, 
    "label": "Competitor Name", 
    "options": "\nAddison\nBIPICO\nBrisloy\nGuhring\nGW / Ceratizit\nHanita\nHitachi\nJK\nKennametal\nMA Ford / TOTEM\nMAGICUT\nMiranda\nMitsubishi\nNS tools\nOthers (specify)\nSandvik\nSECO\nSGS\nTruCut\nUnion tools\nYG-1\nZCC", 
    "permlevel": 0, 
@@ -247,7 +247,7 @@
  "is_submittable": 1, 
  "issingle": 0, 
  "istable": 0, 
- "modified": "2015-04-27 19:46:39.772829", 
+ "modified": "2015-04-28 13:47:58.589834", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Trial Tracking", 
