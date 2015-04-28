@@ -48,14 +48,9 @@ def get_dn_entries(filters):
     	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, `tabSales Invoice` si
         	WHERE sid.delivery_note = dn.name and
 		sid.parent = si.name and
-        	sid.dn_detail = dni.name %s), 0)>=1)
-
-	AND (dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, `tabSales Invoice` si
-        	WHERE sid.delivery_note = dn.name and
-		sid.parent = si.name and
-        	sid.dn_detail = dni.name %s), 0)>=1) %s
+        	sid.dn_detail = dni.name %s), 0)>=0.01) %s
 	
-	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, so_cond, si_cond, si_cond, conditions)
+	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, so_cond, si_cond, conditions)
 		
 	dn = frappe.db.sql(query ,as_list=1)
 
