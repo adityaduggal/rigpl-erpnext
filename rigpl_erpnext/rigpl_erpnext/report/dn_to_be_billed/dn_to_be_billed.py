@@ -51,7 +51,6 @@ def get_dn_entries(filters):
         	sid.dn_detail = dni.name %s), 0)>=0.01) %s
 	
 	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, so_cond, si_cond, conditions)
-		
 	dn = frappe.db.sql(query ,as_list=1)
 
 	return dn
@@ -81,6 +80,6 @@ def get_conditions(filters):
 	if filters.get("trial") == "Yes":
 		so_cond = "and so.track_trial = 1"
 	else:
-		so_cond = "and so.track_trial is null"
+		so_cond = "and (so.track_trial <> 1 or so.track_trial is null)"
 	
 	return conditions, si_cond, so_cond
