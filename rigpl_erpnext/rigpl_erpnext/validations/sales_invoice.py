@@ -28,9 +28,9 @@ def validate(doc,method):
 				name = frappe.db.sql(query, as_list=1)
 				if name:
 					tt = frappe.get_doc("Trial Tracking", name[0][0])
-				if tt:
-					if tt.status is not ("Failed", "Passed") and tt.docstatus <> 1:
-						frappe.msgprint("Cannot Make Invoice for Trial Items without Trial being Completed and Submitted", raise_exception=1)
+					if tt:
+						if tt.status is not ("Failed", "Passed") and tt.docstatus <> 1:
+							frappe.msgprint("Cannot Make Invoice for Trial Items without Trial being Completed and Submitted", raise_exception=1)
 
 def on_submit(doc,method):
 	for d in doc.entries:
