@@ -82,6 +82,9 @@ doc_events = {
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
 	},
+	"Attendance": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate"
+	},
 }
 
 # Scheduled Tasks
