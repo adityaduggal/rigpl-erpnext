@@ -6,9 +6,15 @@ from frappe.utils import cstr
 from datetime import datetime, timedelta
 
 def validate(doc,method):
+	#Check if the employee is Active for the Dates
+	emp = frappe.get_doc("Employee", doc.employee)
+	if emp.status == "Left":
+		if emp.relieving_date < doc.att_date:
+			frappe.msgprint('{0}{1}{2}'.format("Can't create attendance for ",  emp.employee_name, " as he/she has already LEFT on this Date"), raise_exception = 1)
+
 	att_tt = []
 	att_time = []
-	
+
 	for d in doc.attendance_time:
 		att_tt.append(cstr(d.time_type))
 		att_time.append(cstr(d.date_time))
@@ -31,9 +37,10 @@ def validate(doc,method):
 	#Check if there are at least 4 Punch Data in the Time Table
 	if doc.attendance_time:
 		for att in doc.attendance_time:
-			if len(doc.attendance_time) <= 3:
-				frappe.msgprint("Atleast 4 times are needed", raise_exception = 1)
+			if len(doc.attendance_time) <= 1:
+				frappe.msgprint("Atleast 2 times are needed", raise_exception = 1)
 	
 	#Error if there is NO DATA in the Time Table
 	else:
 		frappe.msgprint("Time details are mandatory", raise_exception = 1)
+	

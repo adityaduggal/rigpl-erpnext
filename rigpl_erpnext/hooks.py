@@ -85,6 +85,9 @@ doc_events = {
 	"Attendance": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate"
 	},
+	"Employee": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate"
+	},
 }
 
 # Scheduled Tasks
