@@ -89,6 +89,9 @@ doc_events = {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate"
 >>>>>>> Added Shift and attendance validations
 	},
+	"Employee": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate"
+	},
 }
 
 # Scheduled Tasks
