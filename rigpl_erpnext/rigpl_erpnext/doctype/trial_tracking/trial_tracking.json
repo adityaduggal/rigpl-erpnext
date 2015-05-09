@@ -5,7 +5,7 @@
  "autoname": "TT/.#####", 
  "creation": "2015-04-23 19:59:41.264210", 
  "custom": 0, 
- "default_print_format": "customer, against_sales_order, item_code, description, trial_owner, status", 
+ "default_print_format": "Trial Tracking", 
  "docstatus": 0, 
  "doctype": "DocType", 
  "document_type": "Transaction", 
@@ -247,7 +247,7 @@
  "is_submittable": 1, 
  "issingle": 0, 
  "istable": 0, 
- "modified": "2015-04-28 13:47:58.589834", 
+ "modified": "2015-05-09 10:20:30.011224", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Trial Tracking", 
@@ -275,6 +275,7 @@
  ], 
  "read_only": 0, 
  "read_only_onload": 0, 
+ "search_fields": "customer, against_sales_order, item_code, description, trial_owner, status", 
  "sort_field": "modified", 
  "sort_order": "DESC"
 }
