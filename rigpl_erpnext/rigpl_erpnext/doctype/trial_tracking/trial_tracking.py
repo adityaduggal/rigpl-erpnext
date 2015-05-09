@@ -16,8 +16,10 @@ class TrialTracking(Document):
 			if doc.unit_of_hardness is "":
 				frappe.msgprint("Please select unit of Hardness", raise_exception=1)
 		if doc.feed:
-			if doc.feed <= 50 or doc.feed >= 5000:
-				frappe.msgprint("Feed is in mm/min and hence cannot be less than 50 or higher than 500", raise_exception=1)
+			min_feed = 30
+			max_feed = 5000
+			if doc.feed < min_feed or doc.feed > max_feed:
+				frappe.msgprint('{0}{1}{2}{3}'.format("Feed is in mm/min and hence cannot be less than ",min_feed, " or higher than ", max_feed), raise_exception=1)
 		
 		if doc.status in ("Material Ready", "Awaited", "Failed", "Passed"):
 			sod = frappe.get_doc("Sales Order Item", doc.prevdoc_detail_docname)
