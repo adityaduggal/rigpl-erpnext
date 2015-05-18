@@ -8,7 +8,8 @@ def validate(doc,method):
 	for d in doc.mtn_details:
 		query = """SELECT vr.name FROM `tabValuation Rate` vr where vr.disabled = 'No' and vr.item_code = '%s' """ % d.item_code
 		vr_name = frappe.db.sql(query, as_list=1)
-		vr = frappe.get_doc("Valuation Rate", vr_name[0][0])
+		if vr_name <> []:
+			vr = frappe.get_doc("Valuation Rate", vr_name[0][0])
 		wh = d.s_warehouse or d.t_warehouse
 		if d.item_code == vr.item_code:
 			if vr.warehouse is not None:
