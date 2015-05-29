@@ -40,15 +40,14 @@ def get_items(filters):
 		ifnull(t.drill_type,"-"), if(t.inch_h=1,1,"-"), if(t.inch_d1,1,"-"), if(t.inch_w,1,"-"),
 		if(t.inch_l,1,"-"), if(t.inch_l1,1,"-"), if(t.inch_d2,1,"-"), if(t.inch_l2,1,"-"),
 		ifnull(t.description,"-"), ifnull(t.item_group,"-"), ifnull(t.is_rm,"-"),
-		ifnull(t.pl_item,"-"), ifnull(t.stock_maintained,"-"), ifnull(t.end_of_life,'9999-12-31'),
+		ifnull(t.pl_item,"-"), ifnull(t.stock_maintained,"-"), ifnull(t.end_of_life,'2099-12-31'),
 		ifnull(t.item_name,"--"), ifnull(t.show_in_website,2),ifnull(t.website_warehouse,"--"),
 		ifnull(t.weightage,0), ifnull(t.website_image,"--"), ifnull(web_long_description,"--")
-		FROM `tabItem` t where t.end_of_life > date(now()) %s
+		FROM `tabItem` t where ifnull(t.end_of_life, '2099-12-31') > CURDATE() %s
 		ORDER BY
 		t.is_rm, t.base_material, t.quality, t.tool_type, t.no_of_flutes, t.special_treatment,
 		t.d1, t.l1, t.height_dia, t.width, t.length, t.d2, t.l2""" % conditions
-	
-	frappe.msgprint(query)
+
 	
 	data= frappe.db.sql(query, as_list=1)
 
