@@ -30,7 +30,7 @@ def get_item_data(filters):
 	it.special_treatment, it.height_dia, it.width, it.length, it.no_of_flutes, it.d1, it.l1, it.a1,
 	it.d2, it.l2, it.a2, it.r1, it.a3, it.drill_type, it.height_dia_inch, it.width_inch,
 	it.length_inch, it.d1_inch, it.l1_inch, it.d2_inch, it.l2_inch, it.pl_item
-	from `tabItem` it where ifnull(it.end_of_life, '0000-00-00')='0000-00-00' %s
+	from `tabItem` it where ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
 	order by it.base_material, it.quality, it.tool_type, it.special_treatment, it.height_dia, it.width,
 	it.d1, it.l1""" %conditions , as_list=1)
 

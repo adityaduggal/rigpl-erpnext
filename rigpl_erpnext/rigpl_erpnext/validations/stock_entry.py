@@ -5,7 +5,7 @@ from frappe import msgprint
 
 def validate(doc,method):
 	#Get Stock Valuation from Valuation Rate Table
-	for d in doc.mtn_details:
+	for d in doc.items:
 		query = """SELECT vr.name FROM `tabValuation Rate` vr where vr.disabled = 'No' and vr.item_code = '%s' """ % d.item_code
 		vr_name = frappe.db.sql(query, as_list=1)
 		if vr_name <> []:

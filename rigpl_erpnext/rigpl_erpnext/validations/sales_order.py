@@ -4,7 +4,7 @@ import frappe
 from frappe import msgprint
 
 def validate(doc,method):
-	letter_head= frappe.db.get_value("Sales Taxes and Charges Master", doc.taxes_and_charges ,"letter_head")
+	letter_head= frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"letter_head")
 	if (doc.letter_head != letter_head):
 		frappe.msgprint("Letter Head selected does not match with Sales Tax", raise_exception=1)
 
@@ -18,7 +18,7 @@ def on_submit(so,method):
 		if no_of_team <> 1:
 			frappe.msgprint("Please enter exactly one Sales Person who is responsible for carrying out the Trials", raise_exception=1)
 		
-		for sod in so.get("sales_order_details"):
+		for sod in so.get("items"):
 			tt=frappe.new_doc("Trial Tracking")
 			tt.prevdoc_detail_docname = sod.name
 			tt.against_sales_order = so.name
@@ -37,7 +37,7 @@ def on_submit(so,method):
 			
 def on_cancel(so, method):
 	if so.track_trial == 1:
-		for sod in so.get("sales_order_details"):
+		for sod in so.get("items"):
 			query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name
 			name = frappe.db.sql(query, as_list=1)
 			if name:
