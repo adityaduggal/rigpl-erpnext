@@ -29,7 +29,11 @@ def get_columns(filters):
 		"State::100", "Received On:Date:80"]
 
 def get_va_entries(filters):
+	if filters.get("status") is None:
+		frappe.msgprint("Please Select the Status of C-Form first", raise_exception=1)
+	
 	conditions = get_conditions(filters)
+	
 	if filters.get("status") == "Received" and filters.get("summary") is None :
 		query = """select si.posting_date, si.name, si.customer, 
 			si.taxes_and_charges, cu.default_taxes_and_charges, 
@@ -40,7 +44,7 @@ def get_va_entries(filters):
 			WHERE si.docstatus = 1 AND si.customer=cu.name AND
 			si.c_form_applicable = 'Yes' AND si.c_form_no = cf.name %s
 			ORDER BY si.customer, si.name""" % conditions
-
+		
 		si = frappe.db.sql(query, as_list=1)
 		
 	elif filters.get("status") == "Not Received" and filters.get("summary") is None :
