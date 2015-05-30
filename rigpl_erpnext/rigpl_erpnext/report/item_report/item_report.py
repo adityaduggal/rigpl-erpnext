@@ -13,10 +13,10 @@ def execute(filters=None):
 def get_columns():
 	return [
 		"Item:Link/Item:130", "Brand::80", "TT::80", "BM::60", "QLT::60",
-		"Zn:Float:60", "SPL Treat::60", "D:Float/3:50", "D In::50", "D1:Float/3:50",
-		"D1 In::50", "W:Float/3:50","W In::50", "L:Float/3:50", "L In::50",
-		"L1:Float/3:50","L1 In::50", "D2:Float/3:5","D2 In::50","L2:Float/3:50",
-		"L2 In:Float/3:50","A1:Int:30","A2:Int:30", "A3:Int:30", "R1:Float/3:30",
+		"Zn:Float:60", "SPL Treat::60", "D:Float:50", "D In::50", "D1:Float:50",
+		"D1 In::50", "W:Float:50","W In::50", "L:Float:50", "L In::50",
+		"L1:Float:50","L1 In::50", "D2:Float:5","D2 In::50","L2:Float:50",
+		"L2 In:Float:50","A1:Int:30","A2:Int:30", "A3:Int:30", "R1:Float:30",
 		"DType::40","DI::30","D1I::30","WI::30","LI::30","L1I::30", "D2I::30",
 		"L2I::30", "Description::300", "Item Group:Link/Item Group:250", "RM::60",
 		"PL::60", "TOD::30", "EOL:Date:30", "Item Name::300","Show in Web::60", "Web WH::80",
@@ -25,8 +25,8 @@ def get_columns():
 
 def get_items(filters):
 	conditions = get_conditions(filters)
-
-	data= frappe.db.sql("""SELECT t.name, IFNULL(t.brand,"-"), IFNULL(t.tool_type,"-"),
+	
+	query = """SELECT t.name, IFNULL(t.brand,"-"), IFNULL(t.tool_type,"-"),
 		IFNULL(t.base_material,"-"), IFNULL(t.quality,"-"), if(t.no_of_flutes=0,NULL,t.no_of_flutes),
 		ifnull(t.special_treatment,"-"),
 		if(t.height_dia=0,NULL,t.height_dia), ifnull(t.height_dia_inch,"-"),
@@ -40,13 +40,16 @@ def get_items(filters):
 		ifnull(t.drill_type,"-"), if(t.inch_h=1,1,"-"), if(t.inch_d1,1,"-"), if(t.inch_w,1,"-"),
 		if(t.inch_l,1,"-"), if(t.inch_l1,1,"-"), if(t.inch_d2,1,"-"), if(t.inch_l2,1,"-"),
 		ifnull(t.description,"-"), ifnull(t.item_group,"-"), ifnull(t.is_rm,"-"),
-		ifnull(t.pl_item,"-"), ifnull(t.stock_maintained,"-"), ifnull(t.end_of_life,'9999-12-31'),
+		ifnull(t.pl_item,"-"), ifnull(t.stock_maintained,"-"), ifnull(t.end_of_life,'2099-12-31'),
 		ifnull(t.item_name,"--"), ifnull(t.show_in_website,2),ifnull(t.website_warehouse,"--"),
 		ifnull(t.weightage,0), ifnull(t.website_image,"--"), ifnull(web_long_description,"--")
-		FROM `tabItem` t where ifnull(t.end_of_life, '0000-00-00')='0000-00-00' %s
+		FROM `tabItem` t where ifnull(t.end_of_life, '2099-12-31') > CURDATE() %s
 		ORDER BY
 		t.is_rm, t.base_material, t.quality, t.tool_type, t.no_of_flutes, t.special_treatment,
-		t.d1, t.l1, t.height_dia, t.width, t.length, t.d2, t.l2""" % conditions, as_list=1)
+		t.d1, t.l1, t.height_dia, t.width, t.length, t.d2, t.l2""" % conditions
+
+	
+	data= frappe.db.sql(query, as_list=1)
 
 
 	return data

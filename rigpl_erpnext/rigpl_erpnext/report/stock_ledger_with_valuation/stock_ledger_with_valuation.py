@@ -16,8 +16,8 @@ def get_columns():
 	return [
 		"Date:Date:80", "Time:Time:70" ,"Item:Link/Item:130", "Description::250",
 		"Qty:Float:60", "Balance:Float:90", "Warehouse::120", "Rate:Currency:80",
-		"Value:Currency: 120", "Incoming Rate:Currency:80" ,"Voucher No::130",
-		"Transaction Link::30", "Voucher Type::140","Name::100"
+		"Value:Currency: 120", "Incoming Rate:Currency:80" ,
+		"Voucher No:Dynamic Link/Voucher Type:130","Voucher Type::140","Name::100"
 	]
 
 def get_sl_entries(filters):
@@ -37,8 +37,6 @@ def get_sl_entries(filters):
 	#frappe.msgprint(desc)
 	for i in range(0,len(data)):
 		data[i].insert(3, desc[0][1])
-		data[i].insert(11, """<a href="%s"><i class="icon icon-share" style="cursor: pointer;"></i></a>""" \
-			% ("/".join(["#Form", data[i][11], data[i][10]]),))
 
 	return data
 

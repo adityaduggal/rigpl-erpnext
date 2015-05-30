@@ -91,13 +91,8 @@ def get_items(filters):
 
 	WHERE bn.item_code != ""
 	AND bn.item_code = it.name
-	AND it.item_code NOT REGEXP '^CN'
-	AND it.item_code NOT REGEXP '^CSP00'
-	AND it.item_code NOT REGEXP '^HSP00'
-	AND it.item_code NOT REGEXP '^JC'
-	AND it.item_code NOT REGEXP '^JH'
-	AND it.item_code != 'SCRAP'
-	AND ifnull(it.end_of_life, '0000-00-00')='0000-00-00' %s
+	AND it.tool_type != 'Others'
+	AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
 
 	group by bn.item_code
 

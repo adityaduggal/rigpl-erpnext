@@ -15,8 +15,8 @@ def get_columns():
 
 	return [
 		"Date:Date:80", "Time:Time:70" ,"Item:Link/Item:130", "Description::250",
-		"Qty:Float:60", "Balance:Float:90", "Transaction Link::30",
-		"Warehouse::120", "Voucher No::130", "Voucher Type::140","Name::100"
+		"Qty:Float:60", "Balance:Float:90", "Warehouse::120", "Voucher No:Dynamic Link/Voucher Type:130", 
+		"Voucher Type::140","Name::100"
 	]
 
 def get_sl_entries(filters):
@@ -24,7 +24,7 @@ def get_sl_entries(filters):
 	conditions_item = get_conditions_item(filters)
 
 	data = frappe.db.sql("""select posting_date, posting_time, item_code,
-		actual_qty, qty_after_transaction, warehouse, voucher_type, voucher_no,
+		actual_qty, qty_after_transaction, warehouse, voucher_no, voucher_type,
 		name from `tabStock Ledger Entry` where is_cancelled = "No" %s
 		order by posting_date desc, posting_time desc, name desc"""
 		% conditions, as_list=1)
@@ -35,8 +35,6 @@ def get_sl_entries(filters):
 	#frappe.msgprint(desc)
 	for i in range(0,len(data)):
 		data[i].insert(3, desc[0][1])
-		data[i].insert(6, """<a href="%s"><i class="icon icon-share" style="cursor: pointer;"></i></a>""" \
-			% ("/".join(["#Form", data[i][7], data[i][8]]),))
 
 	return data
 

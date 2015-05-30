@@ -45,7 +45,7 @@ def get_sl_entries(filters):
 
 	data = frappe.db.sql("""select it.name, it.description, if(it.re_order_level=0,NULL,it.re_order_level),
 	it.base_material, it.tool_type, it.quality, it.height_dia, it.width, it.length, it.d1, it.l1
-	FROM `tabItem` it WHERE ifnull(it.end_of_life, '0000-00-00')='0000-00-00' %s
+	FROM `tabItem` it WHERE ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
 	ORDER BY it.base_material, it.quality, it.tool_type, it.height_dia,
 	it.width, it.length, it.d1, it.l1, it.brand"""
 	% conditions_it, as_list=1)
