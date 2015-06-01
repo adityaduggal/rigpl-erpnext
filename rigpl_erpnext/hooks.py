@@ -82,10 +82,13 @@ doc_events = {
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
 	},
+<<<<<<< HEAD
 	"Stock Entry": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate"
 	},
+=======
+>>>>>>> af8518a75464f33e10fdbf54abb0e912b61fcb40
 	"Attendance": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate"
 	},
