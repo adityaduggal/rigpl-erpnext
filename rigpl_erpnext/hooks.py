@@ -85,6 +85,9 @@ doc_events = {
 	"Stock Entry": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate"
+	"Attendance": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate"
+>>>>>>> Added Shift and attendance validations
 	},
 }
 
