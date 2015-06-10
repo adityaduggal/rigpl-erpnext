@@ -86,6 +86,9 @@ doc_events = {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate"
 	},
+	"Lead": {
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update"
+	},
 }
 
 # Scheduled Tasks
