@@ -89,6 +89,9 @@ doc_events = {
 	"Lead": {
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update"
 	},
+	"Customer": {
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update"
+	},
 }
 
 # Scheduled Tasks
