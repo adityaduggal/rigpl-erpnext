@@ -6,7 +6,8 @@ import frappe.permissions
 
 def on_update(doc,method):
 	if doc.lead_owner:
-		frappe.permissions.add_user_permission("Lead", doc.name, doc.lead_owner, with_message = True)
+		#doc.contact_by = doc.lead_owner
+		frappe.permissions.add_user_permission("Lead", doc.name, doc.lead_owner)
 	
 	#Check if the lead is not in another user, if its there then delete the LEAD from the user's permission
 	query = """SELECT name, parent from `tabDefaultValue` where defkey = 'Lead' AND defvalue = '%s' AND parent <> '%s' """ % (doc.name, doc.lead_owner)
