@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 import frappe
+from datetime import datetime
 from frappe.utils import flt
 
 def execute(filters=None):
@@ -9,20 +10,16 @@ def execute(filters=None):
 	item_map = get_item_details(filters)
 	iwb_map = get_item_warehouse_map(filters)
 	pl_map = get_pl_map(filters)
-	purchase_map = get_purchase_map (filters)
 
 	data = []
 	for item in sorted(iwb_map):
 		for wh in sorted(iwb_map[item]):
-			#frappe.msgprint(pl_map.get(item,0))
 			qty_dict = iwb_map[item][wh]
 			data.append([item,item_map[item]["description"], wh,
 			qty_dict.bal_qty,
 			pl_map.get(item,{}).get("price_list_rate"),
 			qty_dict.val_rate,
 			qty_dict.value,
-			purchase_map.get(item,{}).get("purchase_rate"),
-			3,
 			item_map[item]["base_material"],
 			item_map[item]["quality"], item_map[item]["tool_type"],
 			item_map[item]["height_dia"], item_map[item]["width"],
@@ -38,7 +35,7 @@ def get_columns(filters):
 
 	columns = ["Item:Link/Item:150"] + ["Description::350"] + \
 	["Warehouse:Link/Warehouse:100"] + ["Quantity:Float:60"] + ["List Price:Currency:80"] + \
-	["VR:Currency:80"] + ["Value:Currency:100"] + ["LPR:Currency:80"] + ["LSR:Currency:80"] + \
+	["VR:Currency:80"] + ["Value:Currency:100"] + \
 	["BM::80"] + ["Qual::80"] +["TT::80"] + ["H:Float:50"] + \
 	["W:Float:50"] + ["L:Float:50"] + ["D1:Float:50"] + \
 	["L1:Float:50"] + ["Is RM::50"] + ["Brand::60"]
@@ -75,7 +72,7 @@ def get_stock_ledger_entries(filters):
 def get_item_warehouse_map(filters):
 	sle = get_stock_ledger_entries(filters)
 	iwb_map = {}
-
+	filters["date"] = datetime.strptime(filters["date"], '%Y-%m-%d').date()
 	for d in sle:
 		iwb_map.setdefault(d.item_code, {}).setdefault(d.warehouse, frappe._dict({\
 				"opening_qty": 0.0, "in_qty": 0.0, "out_qty": 0.0, "bal_qty": 0.0, "val_rate":0.0, "value":0.0
@@ -85,14 +82,13 @@ def get_item_warehouse_map(filters):
 			qty_dict.opening_qty += flt(d.actual_qty)
 			qty_dict.val_rate = flt(d.valuation_rate)
 			qty_dict.value = flt(d.stock_value)
-		elif d.posting_date > filters["date"]:
+		elif d.posting_date > filters["date"].date():
 			if flt(d.actual_qty) > 0:
 				qty_dict.in_qty += flt(d.actual_qty)
 			else:
 				qty_dict.out_qty += abs(flt(d.actual_qty))
 
 		qty_dict.bal_qty += flt(d.actual_qty)
-	#frappe.msgprint(iwb_map)
 	return iwb_map
 
 def get_item_details(filters):
@@ -120,24 +116,3 @@ def get_pl_map(filters):
 	for d in pl_map_int:
 		pl_map.setdefault(d.name,d)
 	return pl_map
-
-def get_purchase_map(filters):
-	conditions = ""
-	if filters.get("item_code"):
-		conditions += " and prd.item_code = '%s'" % filters["item_code"]
-
-	if filters.get("date"):
-		conditions += " and pr.posting_date <= '%s'" % filters ["date"]
-
-	purchase_map_int = frappe.db.sql ("""SELECT prd.item_code, prd.purchase_rate , max(pr.posting_date)
-		FROM `tabPurchase Receipt` pr, `tabPurchase Receipt Item` prd
-		WHERE prd.parent = pr.name
-		AND pr.docstatus = 1 %s
-		GROUP BY prd.item_code
-		ORDER BY prd.item_code, pr.posting_date desc""" % conditions , as_dict=1)
-	purchase_map={}
-
-	for d in purchase_map_int:
-		purchase_map.setdefault(d.name,d)
-	#frappe.msgprint(purchase_map_int)
-	return purchase_map
