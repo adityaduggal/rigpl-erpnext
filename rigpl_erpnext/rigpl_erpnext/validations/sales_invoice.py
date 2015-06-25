@@ -33,7 +33,18 @@ def validate(doc,method):
 							frappe.msgprint("Cannot Make Invoice for Trial Items without Trial being Completed and Submitted", raise_exception=1)
 
 def on_submit(doc,method):
+	user = frappe.session.user
+	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
+	roles = frappe.db.sql(query, as_list=1)
+	
 	for d in doc.items:
+		if d.sales_order is None:
+			if d.delivery_note is None:
+				if doc.ignore_pricing_rule == 1:
+					if any("System Manager" in s  for s in roles):
+						pass
+					else:
+						frappe.msgprint("You are not Authorised to Submit this Transaction ask a System Manager", raise_exception=1)
 		if d.sales_order is not None:
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
