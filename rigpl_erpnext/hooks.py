@@ -92,6 +92,12 @@ doc_events = {
 	"Customer": {
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update"
 	},
+	"Attendance": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate"
+	},
+	"Employee": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate"
+	},
 }
 
 # Scheduled Tasks
