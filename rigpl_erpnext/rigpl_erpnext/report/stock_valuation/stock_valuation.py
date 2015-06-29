@@ -10,6 +10,7 @@ def execute(filters=None):
 	item_map = get_item_details(filters)
 	iwb_map = get_item_warehouse_map(filters)
 	pl_map = get_pl_map(filters)
+	value_map = get_value_map(filters)
 
 	data = []
 	for item in sorted(iwb_map):
@@ -25,7 +26,8 @@ def execute(filters=None):
 			item_map[item]["height_dia"], item_map[item]["width"],
 			item_map[item]["length"], item_map[item]["d1"],
 			item_map[item]["l1"], item_map[item]["is_rm"],
-			item_map[item]["brand"]
+			item_map[item]["brand"],
+			value_map.get(item,{}).get("valuation_rate")
 			])
 
 	return columns, data
@@ -38,7 +40,7 @@ def get_columns(filters):
 	["VR:Currency:80"] + ["Value:Currency:100"] + \
 	["BM::80"] + ["Qual::80"] +["TT::80"] + ["H:Float:50"] + \
 	["W:Float:50"] + ["L:Float:50"] + ["D1:Float:50"] + \
-	["L1:Float:50"] + ["Is RM::50"] + ["Brand::60"]
+	["L1:Float:50"] + ["Is RM::50"] + ["Brand::60"] + ["Set Value:Currency:80"]
 
 	return columns
 
@@ -116,3 +118,13 @@ def get_pl_map(filters):
 	for d in pl_map_int:
 		pl_map.setdefault(d.name,d)
 	return pl_map
+
+def get_value_map(filter):
+	value_map_int = frappe.db.sql ("""SELECT it.name, v.price_list, v.valuation_rate
+	FROM `tabItem` it, `tabValuation Rate` v
+	WHERE v.item_code = it.name and  v.disabled = "No"
+	ORDER BY it.name""", as_dict=1)
+	value_map={}
+	for d in value_map_int:
+		value_map.setdefault(d.name,d)
+	return value_map
