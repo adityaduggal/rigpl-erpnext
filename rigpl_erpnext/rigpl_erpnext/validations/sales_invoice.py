@@ -57,9 +57,6 @@ def validate(doc,method):
 		for d in dn.items:
 			if d.name not in list_of_dn_details:
 				frappe.msgprint(("""Item Code {0} in DN# {1} is not mentioned in the Invoice""").format(d.item_code, dn.name), raise_exception=1)
-		
-	frappe.msgprint(len(list_of_dns))
-	frappe.msgprint(len(list_of_dn_details))
 
 def on_submit(doc,method):
 	user = frappe.session.user
