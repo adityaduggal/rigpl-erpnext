@@ -6,12 +6,12 @@
  "docstatus": 0, 
  "doctype": "Report", 
  "is_standard": "Yes", 
- "modified": "2015-07-11 00:09:09.928565", 
+ "modified": "2015-07-11 09:06:52.982201", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Sales Person Analysis", 
  "owner": "Administrator", 
- "ref_doctype": "Sales Order", 
+ "ref_doctype": "Tool Type", 
  "report_name": "Sales Person Analysis", 
  "report_type": "Script Report"
 }
