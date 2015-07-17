@@ -5,14 +5,13 @@ frappe.query_reports["Item Report"] = {
 			"label": "Brand",
 			"fieldtype": "Link",
 			"options": "Brand",
-			"default": "Rohit"
 		},
 		{
 			"fieldname":"material",
 			"label": "Material",
 			"fieldtype": "Select",
 			"options": "\nCarbide\nHSS",
-			"default": "HSS"
+			"reqd": 1
 		},
 		{
 			"fieldname":"quality",
@@ -24,7 +23,8 @@ frappe.query_reports["Item Report"] = {
 			"fieldname":"tool_type",
 			"label": "Tool Type",
 			"fieldtype": "Link",
-			"options": "Tool Type"
+			"options": "Tool Type",
+			"reqd": 1
 		},
 		{
 			"fieldname":"is_rm",

@@ -43,20 +43,29 @@ def validate(doc,method):
 							frappe.msgprint("Cannot Make Invoice for Trial Items without Trial being Completed and Submitted", raise_exception=1)
 	
 	#Check the quantity of Invoice is EQUAL to the DN quantity and also check if the FULL DN is being invoices
-
-	for d in doc.items:
-		dn = frappe.get_doc("Delivery Note", d.delivery_note)
-		if d.delivery_note is not None:
-			for dnd in dn.items:
-				if dnd.name == d.dn_detail:
-					if dnd.qty != d.qty:
-						frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
+	#Below code would check if the items are based on DN or NOT
+	#If SI is NOT BASED on DN then it would ensure that the SI has the update stock button checked.
 	
-	for i in range(len(list_of_dns)):
-		dn = frappe.get_doc("Delivery Note", list_of_dns[i])
-		for d in dn.items:
-			if d.name not in list_of_dn_details:
-				frappe.msgprint(("""Item Code {0} in DN# {1} is not mentioned in the Invoice""").format(d.item_code, dn.name), raise_exception=1)
+	for d in doc.items:
+		if d.delivery_note is not None:
+			dn = frappe.get_doc("Delivery Note", d.delivery_note)
+			if dn is not None:
+				for dnd in dn.items:
+					if dnd.name == d.dn_detail:
+						if dnd.qty != d.qty:
+							frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
+	if len(list_of_dns)==1 and list_of_dns[0] == None:
+		if doc.update_stock != 1:
+			frappe.msgprint("Please check the Update Stock Button since Items are not based on DN", raise_exception=1)
+	elif len(list_of_dns)>1:
+		for i in range(len(list_of_dns)):
+			if list_of_dns[i] is None:
+				frappe.msgprint(("""Not allowed to enter items without DN make another invoice for such items check line # {0}""").format((d.idx)+1), raise_exception=1)
+			else:
+				dn = frappe.get_doc("Delivery Note", list_of_dns[i])
+				for d in dn.items:
+					if d.name not in list_of_dn_details:
+						frappe.msgprint(("""Item Code {0} in DN# {1} is not mentioned in the Invoice""").format(d.item_code, dn.name), raise_exception=1)
 
 def on_submit(doc,method):
 	user = frappe.session.user
