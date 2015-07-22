@@ -4,13 +4,20 @@ frappe.query_reports["Trial Tracking"] = {
 			"fieldname":"trial_status",
 			"label": "Trial Status",
 			"fieldtype": "Select",
-			"options": "Approved\nRejected\nAwaited"
+			"options": "In Production\nMaterial Ready\nAwaited\nPassed\nFailed",
+			"reqd": 1
 		},
 		{
 			"fieldname":"customer",
 			"label": "Customer",
 			"fieldtype": "Link",
 			"options": "Customer"
+		},
+		{
+			"fieldname":"trial_owner",
+			"label": "Owner",
+			"fieldtype": "Link",
+			"options": "Sales Person"
 		},
 		{
 			"fieldname":"from_date",
