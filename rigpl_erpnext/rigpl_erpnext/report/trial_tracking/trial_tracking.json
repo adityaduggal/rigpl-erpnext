@@ -5,12 +5,12 @@
  "docstatus": 0, 
  "doctype": "Report", 
  "is_standard": "Yes", 
- "modified": "2014-09-17 10:40:08.263022", 
+ "modified": "2015-07-22 11:02:49.442320", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Trial Tracking", 
  "owner": "Administrator", 
- "ref_doctype": "Sales Order", 
+ "ref_doctype": "Trial Tracking", 
  "report_name": "Trial Tracking", 
  "report_type": "Script Report"
 }

@@ -12,22 +12,22 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Trial Status::100", "SO #:Link/Sales Order:100", "SO Date:Date:90", "Customer:Link/Customer:150",
-		"Item:Link/Item:120", "Description::350", "Qty:Float:60", "PL:Currency:80",
-		"Rate:Currency:80", "Amount:Currency:100", "Delivered Qty:Float:80", "Sales Person::200"
+		"ID:Link/Trial Tracking:100", "Trial Status::100", "SO #:Link/Sales Order:100",
+		"Date:Date:100", "Customer:Link/Customer:150",
+		"Item:Link/Item:120", "Description::350", "Qty:Float:60", "Indicated Price:Currency:80",
+		"Competitor::80", "Trial Owner::200"
 	]
 
 def get_trial_data(filters):
 	conditions = get_conditions(filters)
-
-	data = frappe.db.sql("""select so.trial_status, so.name , so.transaction_date, so.customer,
-	soi.item_code, soi.description, soi.qty, soi.ref_rate, soi.export_rate,
-	soi.export_amount, soi.delivered_qty, st.sales_person
-	from `tabSales Order` so, `tabSales Order Item` soi, `tabSales Team` st
-	where so.docstatus = 1 and so.order_type = "Trial Order"
-	and soi.parent = so.name and st.parenttype = "Sales Order"
-	and st.parent = so.name %s
-	order by so.transaction_date""" %conditions , as_list=1)
+	
+	query = """SELECT tt.name, tt.status, tt.against_sales_order, so.transaction_date, tt.customer,
+	tt.item_code, tt.description, tt.qty, tt.base_rate, tt.competitor_name, tt.trial_owner
+	FROM `tabTrial Tracking` tt, `tabSales Order` so
+	WHERE tt.docstatus != 2 AND so.name = tt.against_sales_order %s
+	ORDER BY tt.customer""" %conditions
+	
+	data = frappe.db.sql(query , as_list=1)
 
 	return data
 
@@ -44,18 +44,19 @@ def get_conditions(filters):
 				frappe.msgprint("Period should be less than 1000 days", raise_exception=1)
 
 		conditions += " and so.transaction_date >= '%s'" % filters["from_date"]
-	else:
-		frappe.msgprint("Please select From Date", raise_exception = 1)
 
 	if filters.get("to_date"):
 		conditions += " and so.transaction_date <= '%s'" % filters["to_date"]
 
 	if filters.get("trial_status"):
-		conditions += " and so.trial_status = '%s'" % filters["trial_status"]
+		conditions += " and tt.status = '%s'" % filters["trial_status"]
 
 
 	if filters.get("customer"):
-		conditions += " and so.customer = '%s'" % filters["customer"]
+		conditions += " and tt.customer = '%s'" % filters["customer"]
+		
+	if filters.get("trial_owner"):
+		conditions += " and tt.trial_owner = '%s'" % filters["trial_owner"]
 
 	return conditions
 
