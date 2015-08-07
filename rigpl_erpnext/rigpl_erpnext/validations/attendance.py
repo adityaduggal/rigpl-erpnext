@@ -23,24 +23,34 @@ def validate(doc,method):
 		if att_tt[i] == "In Time":
 			if att_tt[i+1] <> "Out Time":
 				frappe.msgprint('{0}{1}'.format("In Time should be followed by Out Time check line #", i+2),raise_exception=1)
-			att_time[i] = datetime.strptime(att_time[i], '%Y-%m-%d %H:%M:%S')
-			att_time[i+1] = datetime.strptime(att_time[i+1], '%Y-%m-%d %H:%M:%S')
-			diff = (att_time[i+1] - att_time[i])
-			
-			#Checks if the two entries are apart by at least 10 mins
-			if diff < timedelta(minutes=10):
-				frappe.msgprint('{0}{1}'.format("Difference between 2 times cannot be less than 10 mins, Check line #", i+2), raise_exception=1)
+			diff = time_diff(att_time[i], att_time[i+1])
+			diff_allowed(diff, i)
+
 		elif att_tt[i] == "Out Time":
 			if att_tt[i+1] <> "In Time":
 				frappe.msgprint('{0}{1}'.format("Out Time should be followed by In Time check line #", i+2),raise_exception=1)
+			
+			diff = time_diff(att_time[i], att_time[i+1])
+			diff_allowed(diff,i)
 	
-	#Check if there are at least 4 Punch Data in the Time Table
+	#Check if there is an even number of punch data
 	if doc.attendance_time:
 		for att in doc.attendance_time:
-			if len(doc.attendance_time) <= 1:
-				frappe.msgprint("Atleast 2 times are needed", raise_exception = 1)
+			if (len(doc.attendance_time)) % 2 <> 0:
+				frappe.msgprint("Time Data has to be multiple of 2", raise_exception = 1)
+
+				
+#Function to find the difference between 2 times
+def time_diff (time1, time2):
+	time1 = datetime.strptime(time1, '%Y-%m-%d %H:%M:%S')
+	time2 = datetime.strptime(time2, '%Y-%m-%d %H:%M:%S')
+	diff = time2 - time1
+	return diff
+
+#Function to define the minimum and max difference allowed between times
+def diff_allowed(time, i):
+	if time < timedelta(minutes=10):
+		frappe.msgprint('{0}{1}'.format("Difference between 2 times cannot be less than 10 mins, Check line #", i+2), raise_exception=1)
 	
-	#Error if there is NO DATA in the Time Table
-	else:
-		frappe.msgprint("Time details are mandatory", raise_exception = 1)
-	
+	if time > timedelta(hours = 18):
+		frappe.msgprint('{0}{1}'.format("Difference between 2 times cannot be greater than 18 hrs, Check line #", i+2), raise_exception=1)
