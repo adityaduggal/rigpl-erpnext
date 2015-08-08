@@ -98,6 +98,9 @@ doc_events = {
 	"Employee": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate"
 	},
+	"Holiday List":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.holiday_list.validate"
+	},
 }
 
 # Scheduled Tasks
