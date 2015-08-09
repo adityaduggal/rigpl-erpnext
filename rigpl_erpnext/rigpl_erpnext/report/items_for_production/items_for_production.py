@@ -14,20 +14,20 @@ def get_columns():
 	return [
 		"Item:Link/Item:130", "Qual::60", "TT::100",
 		{"label": "D", "fieldtype": "Float", "precision": 3, "width": 50},
+		{"label": "D1", "fieldtype": "Float", "precision": 3, "width": 35},
 		{"label": "W", "fieldtype": "Float", "precision": 3, "width": 50},
 		{"label": "L", "fieldtype": "Float", "precision": 1, "width": 50},
-		"CUT::60",	"URG::60",
+		{"label": "L1", "fieldtype": "Float", "precision": 3, "width": 35},
+		"Zn:Int:30", "SPL::50", "CUT::60",	"URG::60",
 		{"label": "Total", "fieldtype": "Float", "precision": 2, "width": 50},
 		"RO:Int:40", "SO:Int:40", "PO:Int:40",
 		"PL:Int:40","DE:Int:40", "BG:Int:40",
 		"Description::300",
-		{"label": "D1", "fieldtype": "Float", "precision": 3, "width": 35},
-		{"label": "L1", "fieldtype": "Float", "precision": 3, "width": 35},
 		"RM::30",
-		"BRG:Int:50", "BHT:Int:50", "BFG:Int:50", "BTS:Int:50",
-		"DSL:Int:50", "DRG:Int:50", "DFG:Int:50", "DTS:Int:50",
-		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50},
 		{"label": "BRM", "fieldtype": "Float", "precision": 3, "width": 50},
+		"BRG:Int:50", "BHT:Int:50", "BFG:Int:50", "BTS:Int:50",
+		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50},
+		"DSL:Int:50", "DRG:Int:50", "DFG:Int:50", "DTS:Int:50",
 		"DRJ:Int:50", "PList::30", "TOD::30"
 	]
 
@@ -35,9 +35,10 @@ def get_items(filters):
 	conditions = get_conditions(filters)
 
 	data = frappe.db.sql("""SELECT it.name,ifnull(it.quality,"x"),
-	it.tool_type,if(it.height_dia=0,NULL,it.height_dia),
-	if(it.width=0,NULL,it.width),
-	if(it.length=0,NULL,it.length),
+	it.tool_type,if(it.height_dia=0,NULL,it.height_dia), if(it.d1=0, NULL,it.d1),
+	if(it.width=0,NULL,it.width), if(it.length=0,NULL,it.length),
+	if(it.l1=0, NULL, it.l1), if(it.no_of_flutes=0, NULL, it.no_of_flutes), 
+	it.special_treatment,
 	if(it.re_order_level=0, NULL ,it.re_order_level),
 	if(sum(bn.reserved_qty)=0,NULL,sum(bn.reserved_qty)),
 	if(sum(bn.ordered_qty)=0,NULL,sum(bn.ordered_qty)),
@@ -49,8 +50,11 @@ def get_items(filters):
 	if(min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)),
 
-	it.description, it.d1, it.l1,ifnull(it.is_rm,"No"),
+	it.description,	if(it.is_rm = "","No", ifnull(it.is_rm, "No")),
 
+	if(min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)),
+	
 	if(min(case WHEN bn.warehouse="RG-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="RG-BGH655 - RIGPL" THEN bn.actual_qty end)),
 
@@ -63,6 +67,9 @@ def get_items(filters):
 	if(min(case WHEN bn.warehouse="TEST-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="TEST-BGH655 - RIGPL" THEN bn.actual_qty end)),
 
+	if(min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
+		min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)) ,
+		
 	if(min(case WHEN bn.warehouse="SLIT-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="SLIT-DEL20A - RIGPL" THEN bn.actual_qty end)),
 
@@ -74,12 +81,6 @@ def get_items(filters):
 
 	if(min(case WHEN bn.warehouse="TEST-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="TEST-DEL20A - RIGPL" THEN bn.actual_qty end)),
-
-	if(min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)) ,
-
-	if(min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-		min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)),
 
 	if(min(case WHEN bn.warehouse="REJ-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="REJ-DEL20A - RIGPL" THEN bn.actual_qty end)),
@@ -100,91 +101,93 @@ def get_items(filters):
 	it.quality asc,
 	it.tool_type asc,
 	it.height_dia asc,
+	it.d1 asc,
 	it.width asc,
-	it.length asc""" % conditions, as_list=1)
+	it.length asc,
+	it.l1 asc""" % conditions, as_list=1)
 
 
 	for i in range(0, len(data)):
-		#frappe.msgprint(data[i])
-		if data[i][6] is None:
-			ROL=0
-		else:
-			ROL = data[i][6]
-
-		if data[i][7] is None:
-			SO=0
-		else:
-			SO = data[i][7]
-
-		if data[i][8] is None:
-			PO=0
-		else:
-			PO = data[i][8]
-
-		if data[i][9] is None:
-			PLAN=0
-		else:
-			PLAN = data[i][9]
 
 		if data[i][10] is None:
-			DEL = 0
+			ROL=0
 		else:
-			DEL = data[i][10]
+			ROL = data[i][10]
 
 		if data[i][11] is None:
+			SO=0
+		else:
+			SO = data[i][11]
+
+		if data[i][12] is None:
+			PO=0
+		else:
+			PO = data[i][12]
+
+		if data[i][13] is None:
+			PLAN=0
+		else:
+			PLAN = data[i][13]
+
+		if data[i][14] is None:
+			DEL = 0
+		else:
+			DEL = data[i][14]
+
+		if data[i][15] is None:
 			BGH=0
 		else:
-			BGH = data[i][11]
-
-		if data[i][16] is None:
-			BRG=0
-		else:
-			BRG = data[i][16]
-
-		if data[i][17] is None:
-			BHT=0
-		else:
-			BHT = data[i][17]
+			BGH = data[i][15]
 
 		if data[i][18] is None:
-			BFG=0
-		else:
-			BFG = data[i][18]
-
-		if data[i][19] is None:
-			BTS=0
-		else:
-			BTS = data[i][19]
-
-		if data[i][20] is None:
-			DSL=0
-		else:
-			DSL = data[i][20]
-
-		if data[i][21] is None:
-			DRG=0
-		else:
-			DRG = data[i][21]
-
-		if data[i][22] is None:
-			DFG=0
-		else:
-			DFG = data[i][22]
-
-		if data[i][23] is None:
-			DTEST=0
-		else:
-			DTEST = data[i][23]
-
-		if data[i][24] is None:
-			DRM=0
-		else:
-			DRM = data[i][24]
-
-		if data[i][25] is None:
 			BRM=0
 		else:
-			BRM = data[i][25]
+			BRM = data[i][18]
+			
+		if data[i][19] is None:
+			BRG=0
+		else:
+			BRG = data[i][19]
+
+		if data[i][20] is None:
+			BHT=0
+		else:
+			BHT = data[i][20]
+
+		if data[i][21] is None:
+			BFG=0
+		else:
+			BFG = data[i][21]
+
+		if data[i][22] is None:
+			BTS=0
+		else:
+			BTS = data[i][22]
+
+		if data[i][23] is None:
+			DRM=0
+		else:
+			DRM = data[i][23]
+			
+		if data[i][24] is None:
+			DSL=0
+		else:
+			DSL = data[i][24]
+
+		if data[i][25] is None:
+			DRG=0
+		else:
+			DRG = data[i][25]
+
+		if data[i][26] is None:
+			DFG=0
+		else:
+			DFG = data[i][26]
+
+		if data[i][27] is None:
+			DTEST=0
+		else:
+			DTEST = data[i][27]
 
 		total = (DEL + BGH + BRG + BHT + BFG + BTS
 		+ DSL + DRG + DFG + DTEST + DRM + BRM
@@ -233,9 +236,9 @@ def get_items(filters):
 		else:
 			prd = ""
 
-		data[i].insert (6, urg)
-		data[i].insert (7, prd)
-		data[i].insert (8, total)
+		data[i].insert (10, urg)
+		data[i].insert (11, prd)
+		data[i].insert (12, total)
 
 	for j in range(0,len(data)):
 		for k in range(0, len(data[j])):
