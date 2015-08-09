@@ -242,9 +242,8 @@ def get_items(filters):
 
 	for j in range(0,len(data)):
 		for k in range(0, len(data[j])):
-			if type(data[j][k]) is float:
-				if data[j][k] ==0:
-					data[j][k] = None
+			if data[j][k] ==0:
+				data[j][k] = None
 
 	return data
 
