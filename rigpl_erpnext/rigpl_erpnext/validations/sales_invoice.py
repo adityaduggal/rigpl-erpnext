@@ -56,7 +56,9 @@ def validate(doc,method):
 							frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
 	if len(list_of_dns)==1 and list_of_dns[0] == None:
 		if doc.update_stock != 1:
-			frappe.msgprint("Please check the Update Stock Button since Items are not based on DN", raise_exception=1)
+			for d in doc.items:
+				if d.qty > 0:
+					frappe.msgprint("Please check the Update Stock Button since Items are not based on DN", raise_exception=1)
 	elif len(list_of_dns)>1:
 		for i in range(len(list_of_dns)):
 			if list_of_dns[i] is None:
