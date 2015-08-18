@@ -25,21 +25,23 @@ def validate(doc,method):
 	for i in range(len(att_tt)-1):
 		if att_tt[i] == "In Time":
 			#Checks the first Punch Data is within the Same date as that of the Attendance
-			#Also checks if the first punch data is within the permissible limits of SHIFT Time
 			if i < 1:
 				attendance = datetime.strptime(att_time[i], '%Y-%m-%d %H:%M:%S').date()
-				time = datetime.strptime(att_time[i], '%Y-%m-%d %H:%M:%S').time()
-				allowed_hrs =frappe.db.get_value("Shift Details", doc.shift ,"delayed_entry_allowed_time")
-				allowed_in_time = frappe.db.get_value("Shift Details", doc.shift ,"in_time")
-				#time_check = time - allowed_in_time
-				check = att_date - attendance
+				time1 = datetime.strptime(att_time[i], '%Y-%m-%d %H:%M:%S').time()
+				shift_hrs =frappe.db.get_value("Shift Details", doc.shift ,"delayed_entry_allowed_time")
+				shift_in_time = frappe.db.get_value("Shift Details", doc.shift ,"in_time").seconds
+				frappe.msgprint(shift_in_time)
+				lunch_out = frappe.db.get_value("Shift Details", doc.shift ,"lunch_out")
+				lunch_in = frappe.db.get_value("Shift Details", doc.shift ,"lunch_in")
 				
-				frappe.msgprint(allowed_in_time)
+				check = att_date - attendance
 				
 				if check > timedelta(days=0) or check < timedelta(days = 0):
 					frappe.msgprint("Attendance date and Attendance Time Data are not in same date", raise_exception=1)
+			
 			if att_tt[i+1] <> "Out Time":
 				frappe.msgprint('{0}{1}'.format("In Time should be followed by Out Time check line #", i+2),raise_exception=1)
+			
 			diff = time_diff(att_time[i], att_time[i+1])
 			diff_allowed(diff, i,10,18)
 
@@ -64,6 +66,7 @@ def validate(doc,method):
 	doc.overtime = 0
 	tt_in = 0
 	tt_out = 0
+	lunch_out = frappe.db.get_value("Shift Details", doc.shift ,"hours_required_per_day").seconds/3600
 	hrs_needed =frappe.db.get_value("Shift Details", doc.shift ,"hours_required_per_day").seconds/3600
 	round = frappe.db.get_value("Shift Details", doc.shift ,"time_rounding").seconds/3600
 	
@@ -84,7 +87,9 @@ def time_diff (time1, time2):
 #Function to define the minimum and max difference allowed between times
 def diff_allowed(time, i, min_in_mins, max_in_hours):
 	if time < timedelta(minutes=min_in_mins):
-		frappe.msgprint('{0}{1}'.format("Difference between 2 times cannot be less than 10 mins, Check line #", i+2), raise_exception=1)
+		frappe.msgprint('{0}{1}'.format("Difference between 2 times cannot be less than 10 mins, Check line #", i+2), 
+			raise_exception=1)
 	
 	if time > timedelta(hours = max_in_hours):
-		frappe.msgprint('{0}{1}'.format("Difference between 2 times cannot be greater than 18 hrs, Check line #", i+2), raise_exception=1)
+		frappe.msgprint('{0}{1}'.format("Difference between 2 times cannot be greater than 18 hrs, Check line #", i+2), 
+			raise_exception=1)
