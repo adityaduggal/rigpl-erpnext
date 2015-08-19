@@ -18,5 +18,16 @@ Mandatory:,Yes,Yes,Yes,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,
 Type:,Data (text),Link,Select,Data,Select,Select,Text,Text,Data,Int,Check,Check,Check,Check,Data,Text,Check,Data,Check,Check,Check,Check,Check,Check
 Info:,,Valid DocType,"One of: Attach, Button, Check, Code, Column Break, Currency, Data, Date, Datetime, Dynamic Link, Float, HTML, Image, Int, Link, Long Text, Password, Percent, Read Only, Section Break, Select, Small Text, Table, Text, Text Editor, Time",,,"One of: 1, 2, 3, 4, 5, 6, 7, 8, 9",,,,Integer,0 or 1,0 or 1,0 or 1,0 or 1,,,0 or 1,,0 or 1,0 or 1,0 or 1,0 or 1,0 or 1,0 or 1
 Start entering data below this line,,,,,,,,,,,,,,,,,,,,,,,,
+,"""Item Attribute Value-serial""",Item Attribute Value,Data,Serial,long_description,,,,serial,0,1,0,1,0,,1,0,,0,0,0,0,0,0
 ,"""Item Attribute Value-long_description""",Item Attribute Value,Text,Long Description,description,,,,long_description,0,1,0,0,0,,,0,,0,0,0,0,0,0
 ,"""Item Attribute Value-description""",Item Attribute Value,Text,Description,abbr,,,,description,0,1,0,0,0,,,0,,0,0,0,0,0,0
+,"""Attendance-overtime""",Attendance,Float,Overtime,att,2,,,overtime,0,0,0,1,0,,,0,,0,1,0,0,0,0
+,"""Attendance-att""",Attendance,Section Break,Time Details,,,,,att,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Attendance-shift""",Attendance,Link,Shift,att_date,,Shift Details,,shift,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Deduction Type-percentage""",Deduction Type,Percent,Percentage,earning,2,,,percentage,0,0,0,0,0,,,0,eval:doc.based_on_earning == 1,0,0,0,0,0,0
+,"""Deduction Type-earning""",Deduction Type,Link,Earning,based_on_earning,,Earning Type,,earning,0,0,0,0,0,,,0,eval:doc.based_on_earning == 1,0,0,0,0,0,0
+,"""Deduction Type-based_on_earning""",Deduction Type,Check,Based on Earning,deduction_name,,,,based_on_earning,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Attendance-attendance_time""",Attendance,Table,Attendance Time,,,Attendance Time Table,,attendance_time,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Employee-pan_number""",Employee,Data,PAN Number,company_email,,,,pan_number,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Sales Partner-pan""",Sales Partner,Text,PAN,partner_type,,,Enter the Permanent Account Number for TDS,pan,0,0,0,0,0,,,0,,0,1,0,0,0,0
+,"""Sales Partner-user""",Sales Partner,Link,User,,,User,,user,0,0,1,0,0,,,0,,0,0,0,0,0,0
