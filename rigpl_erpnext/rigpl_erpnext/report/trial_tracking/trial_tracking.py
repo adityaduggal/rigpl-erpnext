@@ -15,14 +15,15 @@ def get_columns():
 		"ID:Link/Trial Tracking:100", "Trial Status::100", "SO #:Link/Sales Order:100",
 		"Date:Date:100", "Customer:Link/Customer:150",
 		"Item:Link/Item:120", "Description::350", "Qty:Float:60", "Indicated Price:Currency:80",
-		"Competitor::80", "Trial Owner::200", "Days:Int:80"
+		"Competitor::80", "Trial Owner::200", "Invoice No:Link/Sales Invoice:100","Days:Int:80"
 	]
 
 def get_trial_data(filters):
 	conditions = get_conditions(filters)
 	
 	query = """SELECT tt.name, tt.status, tt.against_sales_order, so.transaction_date, tt.customer,
-	tt.item_code, tt.description, tt.qty, tt.base_rate, tt.competitor_name, tt.trial_owner, (curdate()-so.transaction_date)
+	tt.item_code, tt.description, tt.qty, tt.base_rate, tt.competitor_name, tt.trial_owner, 
+	ifnull(tt.invoice_no,'Not Invoiced'), (curdate()-so.transaction_date)
 	FROM `tabTrial Tracking` tt, `tabSales Order` so
 	WHERE tt.docstatus != 2 AND so.name = tt.against_sales_order %s
 	ORDER BY tt.customer""" %conditions
