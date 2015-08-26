@@ -25,7 +25,7 @@ def get_trial_data(filters):
 	tt.item_code, tt.description, tt.qty, tt.base_rate, tt.competitor_name, tt.trial_owner, 
 	ifnull(tt.invoice_no,'Not Invoiced'), (curdate()-so.transaction_date)
 	FROM `tabTrial Tracking` tt, `tabSales Order` so
-	WHERE tt.docstatus != 2 AND so.name = tt.against_sales_order %s
+	WHERE so.name = tt.against_sales_order %s
 	ORDER BY tt.customer""" %conditions
 	
 	data = frappe.db.sql(query , as_list=1)
@@ -58,6 +58,15 @@ def get_conditions(filters):
 		
 	if filters.get("trial_owner"):
 		conditions += " and tt.trial_owner = '%s'" % filters["trial_owner"]
+	
+	if filters.get("status")== "Draft":
+		conditions += " and tt.docstatus = 0"
+	elif filters.get("status")== "Submitted":
+		conditions += " and tt.docstatus = 1"
+	elif filters.get("status")== "Cancelled":
+		conditions += " and tt.docstatus = 2"
+	else:
+		conditions += " and tt.docstatus !=2"
 
 	return conditions
 
