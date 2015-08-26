@@ -15,7 +15,7 @@ def autoname(doc,method):
 		doc.name = code
 		nxt_serial = fn_next_string(doc,serial[0][0])
 		frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
-
+		
 def generate_description(doc,method):
 	if doc.variant_of:
 		desc = []
@@ -121,7 +121,6 @@ def change_idx(doc,method):
 			iva.idx = att.priority
 			#frappe.msgprint("IDX = " + `iva.idx` + " for Attribute: " + `d.attribute` + " whereas the Priority = " + `att.priority`)
 			
-		
 ########CODE FOR NEXT STRING#######################################################################
 def fn_next_string(doc,s):
 	#This function would increase the serial number by One following the
