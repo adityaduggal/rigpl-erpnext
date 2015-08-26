@@ -101,25 +101,17 @@ def generate_item_code(doc,method):
 		code = code + serial[0][0]
 		chk_digit = fn_check_digit(doc,code)
 		code = code + `chk_digit`
-		#doc.name = code
-		#nxt_serial = fn_next_string(doc,serial[0][0])
-		#frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 		return serial, code
 		
 ########Change the IDX of the Item Varaint Attribute table as per Priority########################
 def change_idx(doc,method):
 	if doc.variant_of or doc.has_variants:
-		#frappe.msgprint("yes")
 		for d in doc.attributes:
-			#frappe.msgprint(d.attribute)
 			iva = frappe.get_doc("Item Variant Attribute", d.name)
 			att = frappe.get_doc("Item Attribute", d.attribute)
-			#frappe.db.set(iva, "idx", att.priority)
 			name = `str(d.name)`
 			frappe.db.set_value("Item Variant Attribute", name, "idx", att.priority, update_modified=False ,debug = True)
-			#frappe.msgprint(iva.name + " " + `iva.idx` + " " + iva.attribute)
 			iva.idx = att.priority
-			#frappe.msgprint("IDX = " + `iva.idx` + " for Attribute: " + `d.attribute` + " whereas the Priority = " + `att.priority`)
 			
 ########CODE FOR NEXT STRING#######################################################################
 def fn_next_string(doc,s):
