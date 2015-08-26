@@ -4,16 +4,74 @@ import frappe
 from frappe import msgprint
 
 def validate(doc, method):
-	doc.item_name = doc.name
+	#doc.item_name = doc.name
+	doc.page_name = doc.item_name
+	generate_description(doc,method)
+	#change_idx(doc,method)
 
 def autoname(doc,method):
 	if doc.variant_of:
-		(serial, code) = make_item_code(doc,method)
+		(serial, code) = generate_item_code(doc,method)
 		doc.name = code
 		nxt_serial = fn_next_string(doc,serial[0][0])
 		frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 
-def make_item_code(doc,method):
+def generate_description(doc,method):
+	if doc.variant_of:
+		desc = []
+		description = ""
+		long_desc = ""
+		for d in doc.attributes:
+			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
+			if is_numeric <> 1:
+				#Below query gets the values of description mentioned in the Attribute table
+				cond1 = d.attribute
+				cond2 = d.attribute_value
+				query = """SELECT iav.description, iav.long_description , ia.priority 
+					FROM `tabItem Attribute Value` iav, `tabItem Attribute` ia
+					WHERE iav.parent = '%s' AND iav.parent = ia.name
+					AND iav.attribute_value = '%s'""" %(cond1, cond2)
+				desc.extend(frappe.db.sql(query, as_list=1))
+				
+				query = """SELECT iva.prefix, iva.suffix FROM `tabItem Variant Attribute` iva
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute )
+				
+				get_pref = frappe.db.sql(query, as_list=1)
+				
+			else:
+				query1 = """SELECT ia.priority FROM `tabItem Attribute` ia
+					WHERE ia.name = '%s'""" %d.attribute
+						
+				prefix = frappe.db.sql("""SELECT iva.prefix FROM `tabItem Variant Attribute` iva
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
+					
+				suffix = frappe.db.sql("""SELECT iva.suffix FROM `tabItem Variant Attribute` iva
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
+					
+				concat = ""
+				if prefix[0][0] <> '""':
+					concat = str(prefix[0][0]) + str(d.attribute_value)
+				else:
+					concat = str(d.attribute_value)
+				
+				if suffix[0][0]<> '""':
+					concat = concat + str(suffix[0][0])
+				desc.extend([[concat, concat, frappe.db.sql(query1, as_list=1)[0][0]]])
+				
+				
+		desc.sort(key=lambda x:x[2]) #Sort the desc as per priority lowest one is taken first
+		for i in range(len(desc)):
+			if desc[i][0] <> '""':
+				description = description + desc[i][0]
+			if desc[i][1] <> '""':
+				long_desc = long_desc + desc[i][1]
+		
+		doc.description = description
+		doc.web_long_description = long_desc
+		doc.item_name = long_desc
+		doc.item_code = doc.name
+		
+def generate_item_code(doc,method):
 	if doc.variant_of:
 		code = ""
 		abbr = []
@@ -47,6 +105,22 @@ def make_item_code(doc,method):
 		#nxt_serial = fn_next_string(doc,serial[0][0])
 		#frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 		return serial, code
+		
+########Change the IDX of the Item Varaint Attribute table as per Priority########################
+def change_idx(doc,method):
+	if doc.variant_of or doc.has_variants:
+		#frappe.msgprint("yes")
+		for d in doc.attributes:
+			#frappe.msgprint(d.attribute)
+			iva = frappe.get_doc("Item Variant Attribute", d.name)
+			att = frappe.get_doc("Item Attribute", d.attribute)
+			#frappe.db.set(iva, "idx", att.priority)
+			name = `str(d.name)`
+			frappe.db.set_value("Item Variant Attribute", name, "idx", att.priority, update_modified=False ,debug = True)
+			#frappe.msgprint(iva.name + " " + `iva.idx` + " " + iva.attribute)
+			iva.idx = att.priority
+			#frappe.msgprint("IDX = " + `iva.idx` + " for Attribute: " + `d.attribute` + " whereas the Priority = " + `att.priority`)
+			
 		
 ########CODE FOR NEXT STRING#######################################################################
 def fn_next_string(doc,s):
