@@ -52,8 +52,9 @@ def validate(doc,method):
 			if dn is not None:
 				for dnd in dn.items:
 					if dnd.name == d.dn_detail:
-						if dnd.qty != d.qty:
-							frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
+						if d.qty > 0:
+							if dnd.qty != d.qty:
+								frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
 	if len(list_of_dns)==1 and list_of_dns[0] == None:
 		if doc.update_stock != 1:
 			for d in doc.items:
