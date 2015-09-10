@@ -7,13 +7,7 @@ from frappe.utils import cstr
 from datetime import datetime, timedelta
 
 def validate(doc,method):
-	#Check if the employee is Active for the Dates
-	emp = frappe.get_doc("Employee", doc.employee)
-	if emp.status == "Left":
-		doc.att_date = datetime.strptime(doc.att_date, '%Y-%m-%d').date()
-		if emp.relieving_date < doc.att_date:
-			frappe.msgprint('{0}{1}{2}'.format("Can't create attendance for ",  emp.employee_name, " as he/she has already LEFT on this Date"), raise_exception = 1)
-
+	check_employee (doc,method)
 	att_tt = []
 	att_time = []
 	att_date = datetime.strptime(doc.att_date, '%Y-%m-%d').date()
@@ -30,7 +24,6 @@ def validate(doc,method):
 				time1 = datetime.strptime(att_time[i], '%Y-%m-%d %H:%M:%S').time()
 				shift_hrs =frappe.db.get_value("Shift Details", doc.shift ,"delayed_entry_allowed_time")
 				shift_in_time = frappe.db.get_value("Shift Details", doc.shift ,"in_time").seconds
-				frappe.msgprint(shift_in_time)
 				lunch_out = frappe.db.get_value("Shift Details", doc.shift ,"lunch_out")
 				lunch_in = frappe.db.get_value("Shift Details", doc.shift ,"lunch_in")
 				
@@ -75,8 +68,20 @@ def validate(doc,method):
 			tt_in = tt_in + (time_diff(att_time[i], att_time[i+1]).seconds)/3600
 		else:
 			tt_out = tt_out + (time_diff(att_time[i], att_time[i+1]).seconds)/3600
-		doc.overtime = (tt_in - hrs_needed)- ((tt_in - hrs_needed)%round)
+		if round > 0:
+			doc.overtime = (tt_in - hrs_needed)- ((tt_in - hrs_needed)%round)
+		else:
+			frappe.msgprint("Time Rounding Mentioned in Shift Details cannot be ZERO, please change the same before proceeding.")
 				
+#Function to check if the attendance is not for a NON-WORKING employee
+def check_employee(doc, method):
+	#Check if the employee is Active for the Dates
+	emp = frappe.get_doc("Employee", doc.employee)
+	if emp.status == "Left":
+		doc.att_date = datetime.strptime(doc.att_date, '%Y-%m-%d').date()
+		if emp.relieving_date < doc.att_date:
+			frappe.msgprint(frappe._("Cannot create attendance for {0} as he/she has left on {1}").format(emp.employee_name, emp.relieving_date), raise_exception=1)
+	
 #Function to find the difference between 2 times
 def time_diff (time1, time2):
 	time1 = datetime.strptime(time1, '%Y-%m-%d %H:%M:%S')
