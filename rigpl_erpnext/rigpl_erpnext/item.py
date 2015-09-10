@@ -13,6 +13,7 @@ def autoname(doc,method):
 	if doc.variant_of:
 		(serial, code) = generate_item_code(doc,method)
 		doc.name = code
+		doc.page_name = doc.name
 		nxt_serial = fn_next_string(doc,serial[0][0])
 		frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 		
