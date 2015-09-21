@@ -182,3 +182,13 @@ def fn_check_digit(doc,id_without_check):
 	# check digit is amount needed to reach next number
 	# divisible by ten. Return an integer
 	return int((10 - (sum % 10)) % 10)
+
+@frappe.whitelist()
+def get_uom_factors(from_uom, to_uom):
+	if (from_uom == to_uom): 
+		return {'lft': 1, 'rgt': 1}
+	return {
+		'rgt': frappe.db.get_value('UOM Conversion Detail', filters={'parent': from_uom, 'uom': to_uom}, fieldname='conversion_factor'),
+		'lft': frappe.db.get_value('UOM Conversion Detail', filters={'parent': to_uom, 'uom': from_uom}, fieldname='conversion_factor')
+	}
+	
