@@ -4,11 +4,13 @@ import frappe
 from frappe import msgprint
 
 def validate(doc, method):
-	#doc.item_name = doc.name
 	doc.page_name = doc.item_name
 	generate_description(doc,method)
-	#change_idx(doc,method)
-
+	if doc.variant_of is None:
+		doc.item_name = doc.name
+		doc.item_code = doc.name
+		doc.page_name = doc.name
+	
 def autoname(doc,method):
 	if doc.variant_of:
 		(serial, code) = generate_item_code(doc,method)
@@ -16,6 +18,7 @@ def autoname(doc,method):
 		doc.page_name = doc.name
 		nxt_serial = fn_next_string(doc,serial[0][0])
 		frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
+
 		
 def generate_description(doc,method):
 	if doc.variant_of:
@@ -24,25 +27,45 @@ def generate_description(doc,method):
 		long_desc = ""
 		for d in doc.attributes:
 			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
-			if is_numeric <> 1:
+			use_in_description = frappe.db.sql("""SELECT iva.use_in_description from  `tabItem Variant Attribute` iva 
+				WHERE iva.parent = '%s' AND iva.attribute = '%s' """ %(doc.variant_of, d.attribute), as_list=1)[0][0]
+				
+			if is_numeric <> 1 and use_in_description == 1:
 				#Below query gets the values of description mentioned in the Attribute table
+				#for non-numeric values
 				cond1 = d.attribute
 				cond2 = d.attribute_value
-				query = """SELECT iav.description, iav.long_description , ia.priority 
+				query = """SELECT iav.description, iav.long_description
 					FROM `tabItem Attribute Value` iav, `tabItem Attribute` ia
 					WHERE iav.parent = '%s' AND iav.parent = ia.name
-					AND iav.attribute_value = '%s'""" %(cond1, cond2)
-				desc.extend(frappe.db.sql(query, as_list=1))
+					AND iav.attribute_value = '%s'""" %(cond1, cond2)				
+				list =frappe.db.sql(query, as_list=1)
+
+				prefix = frappe.db.sql("""SELECT iva.prefix FROM `tabItem Variant Attribute` iva
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
+					
+				suffix = frappe.db.sql("""SELECT iva.suffix FROM `tabItem Variant Attribute` iva
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
+					
+				concat = ""
+				if prefix[0][0] <> '""':
+					concat = str(prefix[0][0]) + str(list[0][0])
+					concat2 = str(prefix[0][0]) + str(list[0][1])
+				else:
+					concat1 = str(list[0][0])
+					concat2 = str(list[0][1])
+
+				if suffix[0][0]<> '""':
+					concat1 = concat1 + str(suffix[0][0])
+					concat2 = concat2 + str(suffix[0][0])
+				desc.extend([[concat1, concat2, d.idx]])
 				
-				query = """SELECT iva.prefix, iva.suffix FROM `tabItem Variant Attribute` iva
-					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute )
-				
-				get_pref = frappe.db.sql(query, as_list=1)
-				
-			else:
-				query1 = """SELECT ia.priority FROM `tabItem Attribute` ia
-					WHERE ia.name = '%s'""" %d.attribute
-						
+			elif is_numeric == 1 and use_in_description == 1:
+				#Below query gets the values of description mentioned in the Attribute table
+				#for Numeric values
+				query1 = """SELECT iva.idx FROM `tabItem Variant Attribute` iva
+					WHERE iva.attribute = '%s'""" %d.attribute
+					
 				prefix = frappe.db.sql("""SELECT iva.prefix FROM `tabItem Variant Attribute` iva
 					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
 					
@@ -54,19 +77,24 @@ def generate_description(doc,method):
 					concat = str(prefix[0][0]) + str(d.attribute_value)
 				else:
 					concat = str(d.attribute_value)
-				
+
 				if suffix[0][0]<> '""':
 					concat = concat + str(suffix[0][0])
-				desc.extend([[concat, concat, frappe.db.sql(query1, as_list=1)[0][0]]])
-				
-				
+				desc.extend([[concat, concat, d.idx]])
+			
+			else:
+				query1 = """SELECT iva.idx FROM `tabItem Variant Attribute` iva
+					WHERE iva.attribute = '%s'""" %d.attribute	
+				desc.extend([["","",frappe.db.sql(query1, as_list=1)[0][0]]])
+
+		
 		desc.sort(key=lambda x:x[2]) #Sort the desc as per priority lowest one is taken first
 		for i in range(len(desc)):
 			if desc[i][0] <> '""':
 				description = description + desc[i][0]
 			if desc[i][1] <> '""':
 				long_desc = long_desc + desc[i][1]
-		
+
 		doc.description = description
 		doc.web_long_description = long_desc
 		doc.item_name = long_desc
@@ -78,13 +106,14 @@ def generate_item_code(doc,method):
 		abbr = []
 		for d in doc.attributes:
 			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
-			if is_numeric <> 1:
+			use_in_item_code = frappe.db.get_value("Item Attribute", d.attribute, "use_in_item_code")
+			if is_numeric <> 1 and use_in_item_code == 1:
 				cond1 = d.attribute
 				cond2 = d.attribute_value
 				query = """SELECT iav.abbr, ia.priority from `tabItem Attribute Value` iav, `tabItem Attribute` ia
 					WHERE iav.parent = '%s' AND iav.parent = ia.name
 					AND iav.attribute_value = '%s'""" %(cond1, cond2)
-				
+
 				#Get serial from Tool Type (This is HARDCODED)
 				#TODO: Put 1 custom field in Item Attribute checkbox "Use for Serial Number"
 				#now also add a validation that you cannot use more than 1 attributes which have use for serial no.
@@ -150,7 +179,7 @@ def fn_check_digit(doc,id_without_check):
 	for n, char in enumerate(reversed(id_without_checkdigit)):
 
 			if not valid_chars.count(char):
-					raise Exception('InvalidIDException')
+					frappe.throw('Invalid Character has been used for Item Code check Attributes')
 
 			# our "digit" is calculated using ASCII value - 48
 			digit = ord(char) - 48
