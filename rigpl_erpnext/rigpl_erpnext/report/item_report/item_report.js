@@ -1,47 +1,58 @@
 frappe.query_reports["Item Report"] = {
 	"filters": [
 		{
+			"fieldname":"rm",
+			"label": "Is RM",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0
+		},
+		{
+			"fieldname":"bm",
+			"label": "Base Material",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0
+		},
+		{
 			"fieldname":"brand",
 			"label": "Brand",
 			"fieldtype": "Link",
-			"options": "Brand",
+			"options": "Item Attribute Value",
+			"reqd": 0
 		},
-		{
-			"fieldname":"material",
-			"label": "Material",
-			"fieldtype": "Select",
-			"options": "\nCarbide\nHSS",
-			"reqd": 1
-		},
+
 		{
 			"fieldname":"quality",
 			"label": "Quality",
 			"fieldtype": "Link",
-			"options": "Quality",
+			"options": "Item Attribute Value",
+			"reqd": 0
 		},
 		{
-			"fieldname":"tool_type",
+			"fieldname":"tt",
 			"label": "Tool Type",
 			"fieldtype": "Link",
-			"options": "Tool Type",
-			"reqd": 1
+			"options": "Item Attribute Value",
+			"reqd": 0
 		},
 		{
-			"fieldname":"is_rm",
-			"label": "Is RM",
-			"fieldtype": "Select",
-			"options": "\nYes",
-		},
-		{
-			"fieldname":"show_in_website",
-			"label": "Show in Website",
-			"fieldtype": "Check"
+			"fieldname":"spl_treatment",
+			"label": "Special Treatment",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0
 		},
 		{
 			"fieldname":"item",
 			"label": "Item Code",
 			"fieldtype": "Link",
 			"options": "Item"
+		},
+		{
+			"fieldname":"show_in_website",
+			"label": "Show in Website",
+			"fieldtype": "Check"
 		},
 		{
 			"fieldname":"special",
