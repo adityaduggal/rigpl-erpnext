@@ -52,7 +52,8 @@ $.extend(erpnext.item, {
 								'filters': [
 									['Item Attribute Value', 'parent', '=', r.name]
 								],
-								'fields': ['attribute_value']
+								'fields': ['attribute_value'],
+								'limit_page_length': 500
 							},
 							'callback': function(res){
 								(res.message || []).forEach(function(r){
@@ -216,15 +217,16 @@ $.extend(erpnext.item, {
 						tgt_uom = hidden_fields[key][tgt],
 					    factors = erpnext.item.get_conversion_factors(uom, tgt_uom);
 					if (uom === tgt_uom) {
-						args[tgt] = val;
+						args[tgt] = flt(val) || val;
 					} else if (factors.rgt){
-						args[tgt] = (base * factors.rgt).toFixed(frappe.defaults.get_global_default('float_precision'));
+						args[tgt] = flt(base * factors.rgt).toFixed(frappe.defaults.get_global_default('float_precision'));
 					}
 				});
 			    delete args[key];
 			});
 			
-			
+			console.table(Object.keys(args).map(function(k){ return {'key': k, 'value': args[k]}}));
+			//debugger;
 			Object.keys(args).forEach(function(attribute){
 				if (!rules.hasOwnProperty(attribute)) return;
 				var msg = [];
