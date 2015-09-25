@@ -4,6 +4,7 @@ import frappe
 from frappe import msgprint
 
 def validate(doc, method):
+	validate_variants(doc,method)
 	doc.page_name = doc.item_name
 	generate_description(doc,method)
 	if doc.variant_of is None:
@@ -19,7 +20,62 @@ def autoname(doc,method):
 		nxt_serial = fn_next_string(doc,serial[0][0])
 		frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 
+def validate_variants(doc,method):
+	if doc.variant_of:
+		#Check if all variants are mentioned in the Item Variant Table as per the Template.
+		template = frappe.get_doc("Item", doc.variant_of)
 		
+		template_attribute = []
+		variant_attribute = []
+		template_restricted_attributes = {}
+		template_rest_summary = []
+		
+
+		for t in template.attributes:
+			template_attribute.append(t.attribute)
+		
+		count = 0
+		for d in doc.attributes:
+			variant_attribute.append([d.attribute])
+			variant_attribute[count].append(d.attribute_value)
+			count +=1
+		
+		#First check the order of all the variants is as per the template or not.
+		for i in range(len(template_attribute)):
+			if len(template_attribute) == len(variant_attribute) and \
+				template_attribute[i] != variant_attribute[i][0]:
+				
+				frappe.throw(("Row# {0} should have {1} as per the template").format(i+1, \
+				template_attribute[i]))
+		
+		#Now check the values of the Variant and if they are within the restrictions.
+		#1. Check if the Select field is as per restriction table
+		#2. Check the rule of the numeric fields like d1_mm < d2_mm
+				
+		for t in template.item_variant_restrictions:
+			template_rest_summary.append(t.attribute)
+			template_restricted_attributes.setdefault(t.attribute,[])
+			if t.is_numeric == 1:
+				template_restricted_attributes[t.attribute].append(t.rule)
+			else:
+				template_restricted_attributes[t.attribute].append(t.allowed_values)
+			
+		for d in doc.attributes:
+			av = [] #list of multiple allowed values
+			chk_numeric = frappe.db.get_value("Item Attribute", d.attribute, \
+			"numeric_values")
+			
+			if chk_numeric == 1:
+				if template_restricted_attributes.get(d.attribute):
+					frappe.msgprint(template_restricted_attributes.get(d.attribute))
+					#unable to know how to get this thing to work
+			else:
+
+				if template_restricted_attributes.get(d.attribute):
+					if d.attribute_value not in template_restricted_attributes.get(d.attribute):
+						frappe.throw(("Attribute value {0} not allowed").format(d.attribute_value))
+
+				
 def generate_description(doc,method):
 	if doc.variant_of:
 		desc = []
@@ -27,7 +83,8 @@ def generate_description(doc,method):
 		long_desc = ""
 		for d in doc.attributes:
 			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
-			use_in_description = frappe.db.sql("""SELECT iva.use_in_description from  `tabItem Variant Attribute` iva 
+			use_in_description = frappe.db.sql("""SELECT iva.use_in_description from  
+				`tabItem Variant Attribute` iva 
 				WHERE iva.parent = '%s' AND iva.attribute = '%s' """ %(doc.variant_of, d.attribute), as_list=1)[0][0]
 				
 			if is_numeric <> 1 and use_in_description == 1:
@@ -49,15 +106,15 @@ def generate_description(doc,method):
 					
 				concat = ""
 				if prefix[0][0] <> '""':
-					concat = str(prefix[0][0]) + str(list[0][0])
-					concat2 = str(prefix[0][0]) + str(list[0][1])
+					concat = unicode(prefix[0][0]) + unicode(list[0][0])
+					concat2 = unicode(prefix[0][0]) + unicode(list[0][1])
 				else:
-					concat1 = str(list[0][0])
-					concat2 = str(list[0][1])
+					concat1 = unicode(list[0][0])
+					concat2 = unicode(list[0][1])
 
 				if suffix[0][0]<> '""':
-					concat1 = concat1 + str(suffix[0][0])
-					concat2 = concat2 + str(suffix[0][0])
+					concat1 = concat1 + unicode(suffix[0][0])
+					concat2 = concat2 + unicode(suffix[0][0])
 				desc.extend([[concat1, concat2, d.idx]])
 				
 			elif is_numeric == 1 and use_in_description == 1:
@@ -74,12 +131,12 @@ def generate_description(doc,method):
 					
 				concat = ""
 				if prefix[0][0] <> '""':
-					concat = str(prefix[0][0]) + str(d.attribute_value)
+					concat = unicode(prefix[0][0]) + unicode(d.attribute_value)
 				else:
-					concat = str(d.attribute_value)
+					concat = unicode(d.attribute_value)
 
 				if suffix[0][0]<> '""':
-					concat = concat + str(suffix[0][0])
+					concat = concat + unicode(suffix[0][0])
 				desc.extend([[concat, concat, d.idx]])
 			
 			else:
@@ -139,7 +196,7 @@ def change_idx(doc,method):
 		for d in doc.attributes:
 			iva = frappe.get_doc("Item Variant Attribute", d.name)
 			att = frappe.get_doc("Item Attribute", d.attribute)
-			name = `str(d.name)`
+			name = `unicode(d.name)`
 			frappe.db.set_value("Item Variant Attribute", name, "idx", att.priority, update_modified=False ,debug = True)
 			iva.idx = att.priority
 			
