@@ -217,9 +217,9 @@ $.extend(erpnext.item, {
 						tgt_uom = hidden_fields[key][tgt],
 					    factors = erpnext.item.get_conversion_factors(uom, tgt_uom);
 					if (uom === tgt_uom) {
-						args[tgt] = flt(val) || val;
+						args[tgt] = val.indexOf('/') === -1 ? flt(val) : val;
 					} else if (factors.rgt){
-						args[tgt] = flt(base * factors.rgt).toFixed(frappe.defaults.get_global_default('float_precision'));
+						args[tgt] = flt((base * factors.rgt).toFixed(frappe.defaults.get_global_default('float_precision')));
 					}
 				});
 			    delete args[key];
@@ -242,6 +242,7 @@ $.extend(erpnext.item, {
 					frappe.throw(msg.join('<br>'))
 				}
 			});
+			Object.keys(args).forEach(function(attribute){ args[attribute] = args[attribute] + '';});
 			frappe.call({
 				method:"erpnext.controllers.item_variant.get_variant",
 				args: {
