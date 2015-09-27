@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
+from frappe.utils import flt
 
 def validate(doc, method):
 	validate_variants(doc,method)
@@ -11,7 +12,7 @@ def validate(doc, method):
 		doc.item_name = doc.name
 		doc.item_code = doc.name
 		doc.page_name = doc.name
-	
+		
 def autoname(doc,method):
 	if doc.variant_of:
 		(serial, code) = generate_item_code(doc,method)
@@ -45,8 +46,8 @@ def validate_variants(doc,method):
 			if len(template_attribute) == len(variant_attribute) and \
 				template_attribute[i] != variant_attribute[i][0]:
 				
-				frappe.throw(("Row# {0} should have {1} as per the template").format(i+1, \
-				template_attribute[i]))
+				frappe.throw(("Item Code: {0} Row# {1} should have {2} as per the template")\
+					.format(doc.name, i+1, template_attribute[i]))
 		
 		#Now check the values of the Variant and if they are within the restrictions.
 		#1. Check if the Select field is as per restriction table
@@ -54,26 +55,46 @@ def validate_variants(doc,method):
 				
 		for t in template.item_variant_restrictions:
 			template_rest_summary.append(t.attribute)
-			template_restricted_attributes.setdefault(t.attribute,[])
+			template_restricted_attributes.setdefault(t.attribute,{'rules': [], 'allows': []})
 			if t.is_numeric == 1:
-				template_restricted_attributes[t.attribute].append(t.rule)
+				template_restricted_attributes[t.attribute]['rules'].append(t.rule)
 			else:
-				template_restricted_attributes[t.attribute].append(t.allowed_values)
-			
+				template_restricted_attributes[t.attribute]['allows'].append(t.allowed_values)
+		
+		ctx = {d.attribute: d.attribute_value if not isinstance(d.attribute_value, basestring) or not d.attribute_value.isdigit() else \
+			flt(d.attribute_value) for d in doc.attributes}
+		
+		if doc.name == "H3RER0Z38":
+			frappe.msgprint(ctx)
+		
 		for d in doc.attributes:
-			av = [] #list of multiple allowed values
 			chk_numeric = frappe.db.get_value("Item Attribute", d.attribute, \
 			"numeric_values")
 			
 			if chk_numeric == 1:
 				if template_restricted_attributes.get(d.attribute):
-					frappe.msgprint(template_restricted_attributes.get(d.attribute))
-					#unable to know how to get this thing to work
+					rules = template_restricted_attributes.get(d.attribute, {}).get('rules', [])
+					for rule in rules:
+						repls = {
+							'!': ' not ',
+							'false': 'False',
+							'true': 'True',
+							'&&': ' and ',
+							'||': ' or ' 
+						}
+						for k,v in repls.items():
+							rule = rule.replace(k,v)
+						try:
+							valid = eval(rule, ctx, ctx)
+						except Exception, e:
+							frappe.throw(e)
+							
+						if not valid:
+							frappe.throw('Item Code: {0} Rule "{1}" failing for field "{2}"'.format(doc.name, rule, d.attribute))
 			else:
-
-				if template_restricted_attributes.get(d.attribute):
-					if d.attribute_value not in template_restricted_attributes.get(d.attribute):
-						frappe.throw(("Attribute value {0} not allowed").format(d.attribute_value))
+				if template_restricted_attributes.get(d.attribute, {}).get('allows', False):
+					if d.attribute_value not in template_restricted_attributes.get(d.attribute, {}).get('allows', []):
+						frappe.throw(("Item Code: {0} Attribute value {1} not allowed").format(doc.name, d.attribute_value))
 
 				
 def generate_description(doc,method):
@@ -85,7 +106,8 @@ def generate_description(doc,method):
 			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
 			use_in_description = frappe.db.sql("""SELECT iva.use_in_description from  
 				`tabItem Variant Attribute` iva 
-				WHERE iva.parent = '%s' AND iva.attribute = '%s' """ %(doc.variant_of, d.attribute), as_list=1)[0][0]
+				WHERE iva.parent = '%s' AND iva.attribute = '%s' """ %(doc.variant_of, 
+					d.attribute), as_list=1)[0][0]
 				
 			if is_numeric <> 1 and use_in_description == 1:
 				#Below query gets the values of description mentioned in the Attribute table
@@ -99,10 +121,12 @@ def generate_description(doc,method):
 				list =frappe.db.sql(query, as_list=1)
 
 				prefix = frappe.db.sql("""SELECT iva.prefix FROM `tabItem Variant Attribute` iva
-					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, 
+						d.attribute ), as_list=1)
 					
 				suffix = frappe.db.sql("""SELECT iva.suffix FROM `tabItem Variant Attribute` iva
-					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, 
+						d.attribute ), as_list=1)
 					
 				concat = ""
 				if prefix[0][0] <> '""':
@@ -124,10 +148,12 @@ def generate_description(doc,method):
 					WHERE iva.attribute = '%s'""" %d.attribute
 					
 				prefix = frappe.db.sql("""SELECT iva.prefix FROM `tabItem Variant Attribute` iva
-					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, 
+						d.attribute ), as_list=1)
 					
 				suffix = frappe.db.sql("""SELECT iva.suffix FROM `tabItem Variant Attribute` iva
-					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, d.attribute ), as_list=1)
+					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, 
+						d.attribute ), as_list=1)
 					
 				concat = ""
 				if prefix[0][0] <> '""':
@@ -163,29 +189,36 @@ def generate_item_code(doc,method):
 		abbr = []
 		for d in doc.attributes:
 			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
-			use_in_item_code = frappe.db.get_value("Item Attribute", d.attribute, "use_in_item_code")
+			use_in_item_code = frappe.db.get_value("Item Attribute", d.attribute, 
+				"use_in_item_code")
 			if is_numeric <> 1 and use_in_item_code == 1:
 				cond1 = d.attribute
 				cond2 = d.attribute_value
-				query = """SELECT iav.abbr, ia.priority from `tabItem Attribute Value` iav, `tabItem Attribute` ia
-					WHERE iav.parent = '%s' AND iav.parent = ia.name
-					AND iav.attribute_value = '%s'""" %(cond1, cond2)
+				query = """SELECT iav.abbr from `tabItem Attribute Value` iav, 
+				`tabItem Attribute` ia
+				WHERE iav.parent = '%s' AND iav.parent = ia.name
+				AND iav.attribute_value = '%s'""" %(cond1, cond2)
 
 				#Get serial from Tool Type (This is HARDCODED)
 				#TODO: Put 1 custom field in Item Attribute checkbox "Use for Serial Number"
-				#now also add a validation that you cannot use more than 1 attributes which have use for serial no.
+				#now also add a validation that you cannot use more than 1 attributes which 
+				#have use for serial no.
 				if cond1 == "Tool Type":
 					query2 = """SELECT iav.serial, iav.name from `tabItem Attribute Value` iav
 						WHERE iav.parent = 'Tool Type' AND iav.attribute_value= '%s'""" %cond2
 					serial = frappe.db.sql(query2 , as_list=1)
 				
-				abbr.extend(frappe.db.sql(query,as_list=1))
+				abbr.extend(frappe.db.sql(query, as_list=1))
+				abbr[len(abbr)-1].append(d.idx)
 		abbr.sort(key=lambda x:x[1]) #Sort the abbr as per priority lowest one is taken first
 		
 		for i in range(len(abbr)):
 			if abbr[i][0] <> '""':
 				code = code + abbr[i][0]
-		code = code + serial[0][0]
+		if len(serial[0][0]) > 2:
+			code = code + serial[0][0]
+		else:
+			frappe.throw("Serial length is lower than 3 characters")
 		chk_digit = fn_check_digit(doc,code)
 		code = code + `chk_digit`
 		return serial, code
@@ -197,7 +230,8 @@ def change_idx(doc,method):
 			iva = frappe.get_doc("Item Variant Attribute", d.name)
 			att = frappe.get_doc("Item Attribute", d.attribute)
 			name = `unicode(d.name)`
-			frappe.db.set_value("Item Variant Attribute", name, "idx", att.priority, update_modified=False ,debug = True)
+			frappe.db.set_value("Item Variant Attribute", name, "idx", att.priority, 
+				update_modified=False ,debug = True)
 			iva.idx = att.priority
 			
 ########CODE FOR NEXT STRING#######################################################################
@@ -274,7 +308,9 @@ def get_uom_factors(from_uom, to_uom):
 	if (from_uom == to_uom): 
 		return {'lft': 1, 'rgt': 1}
 	return {
-		'rgt': frappe.db.get_value('UOM Conversion Detail', filters={'parent': from_uom, 'uom': to_uom}, fieldname='conversion_factor'),
-		'lft': frappe.db.get_value('UOM Conversion Detail', filters={'parent': to_uom, 'uom': from_uom}, fieldname='conversion_factor')
+		'rgt': frappe.db.get_value('UOM Conversion Detail', filters={'parent': from_uom, 'uom': 
+			to_uom}, fieldname='conversion_factor'),
+		'lft': frappe.db.get_value('UOM Conversion Detail', filters={'parent': to_uom, 'uom': 
+			from_uom}, fieldname='conversion_factor')
 	}
 	
