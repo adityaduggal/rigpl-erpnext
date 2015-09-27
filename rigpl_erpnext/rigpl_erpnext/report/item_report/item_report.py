@@ -12,9 +12,11 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Item:Link/Item:100", "BM::60","Brand::50","Quality::50", "SPL::50", 
-		"TT::100", "D1:Float:50",
-		"W1:Float:50", "L1:Float:60", "D1_Inch::50", "W1_Inch::50", "L1_Inch::50"
+		"Item:Link/Item:100", "RM::30", "BM::60","Brand::50","Quality::50", "SPL::50", 
+		"TT::100", "MTM::100", "Purpose::100", "Type::100",
+		"D1:Float:50","W1:Float:50", "L1:Float:60", 
+		"D2:Float:50", "L2::50", "D3::50", "L3::50",
+		"D1_Inch::50", "W1_Inch::50", "L1_Inch::50"
 	]
 
 def get_items(filters):
@@ -22,10 +24,13 @@ def get_items(filters):
 
 	data = frappe.db.sql("""SELECT it.name FROM `tabItem` it""", as_list=1)
 
-	attributes = ['Base Material', 'Brand', '%Quality', 'Special Treatment',
-		'Tool Type', 'd1_mm', 'w1_mm', 'l1_mm', 'd1_inch', 'w1_inch', 'l1_inch']
+	attributes = ['Is RM', 'Base Material', 'Brand', '%Quality', 'Special Treatment',
+		'Tool Type', 'Material to Machine', 'Purpose', 'Type Selector',
+		'd1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm', 'd3_mm', 'l3_mm',
+		'd1_inch', 'w1_inch', 'l1_inch']
 	
-	float_fields = ['d1_mm', 'w1_mm', 'l1_mm']
+	float_fields = ['d1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm', 
+		'd3_mm', 'l3_mm',]
 	for i in range(len(data)):
 		att = []
 		for j in attributes:
