@@ -12,18 +12,19 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Item:Link/Item:130", "Qual::60", "TT::100",
-		{"label": "D", "fieldtype": "Float", "precision": 3, "width": 50},
-		{"label": "D1", "fieldtype": "Float", "precision": 3, "width": 35},
-		{"label": "W", "fieldtype": "Float", "precision": 3, "width": 50},
-		{"label": "L", "fieldtype": "Float", "precision": 1, "width": 50},
-		{"label": "L1", "fieldtype": "Float", "precision": 3, "width": 35},
-		"Zn:Int:30", "SPL::50", "CUT::60",	"URG::60",
+		"Item:Link/Item:130", 
+		
+		###Below are attribute fields
+		"RM::30", "Brand::60", "Qual::50", "SPL::50", "TT::60", "MTM::60",
+		"Purp::60", "Type::60", "D1:Float:30", "W1:Float:30", "L1:Float:30",
+		"D2:Float:30", "L2:Float:30",
+		###Above are Attribute fields
+		
+		"CUT::60","URG::60",
 		{"label": "Total", "fieldtype": "Float", "precision": 2, "width": 50},
 		"RO:Int:40", "SO:Int:40", "PO:Int:40",
 		"PL:Int:40","DE:Int:40", "BG:Int:40",
 		"Description::300",
-		"RM::30",
 		{"label": "BRM", "fieldtype": "Float", "precision": 3, "width": 50},
 		"BRG:Int:50", "BHT:Int:50", "BFG:Int:50", "BTS:Int:50",
 		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50},
@@ -34,11 +35,7 @@ def get_columns():
 def get_items(filters):
 	conditions = get_conditions(filters)
 
-	data = frappe.db.sql("""SELECT it.name,ifnull(it.quality,"x"),
-	it.tool_type,if(it.height_dia=0,NULL,it.height_dia), if(it.d1=0, NULL,it.d1),
-	if(it.width=0,NULL,it.width), if(it.length=0,NULL,it.length),
-	if(it.l1=0, NULL, it.l1), if(it.no_of_flutes=0, NULL, it.no_of_flutes), 
-	it.special_treatment,
+	data = frappe.db.sql("""SELECT it.name,
 	if(it.re_order_level=0, NULL ,it.re_order_level),
 	if(sum(bn.reserved_qty)=0,NULL,sum(bn.reserved_qty)),
 	if(sum(bn.ordered_qty)=0,NULL,sum(bn.ordered_qty)),
@@ -49,8 +46,6 @@ def get_items(filters):
 
 	if(min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)),
-
-	it.description,	if(it.is_rm = "","No", ifnull(it.is_rm, "No")),
 
 	if(min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 		min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)),
@@ -95,99 +90,90 @@ def get_items(filters):
 	AND it.tool_type != 'Others'
 	AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
 
-	group by bn.item_code
-
-	ORDER BY it.base_material asc,
-	it.quality asc,
-	it.tool_type asc,
-	it.height_dia asc,
-	it.d1 asc,
-	it.width asc,
-	it.length asc,
-	it.l1 asc""" % conditions, as_list=1)
+	group by bn.item_code""" % conditions, as_list=1)
 
 
 	for i in range(0, len(data)):
 
-		if data[i][10] is None:
+		if data[i][1] is None:
 			ROL=0
 		else:
-			ROL = data[i][10]
+			ROL = data[i][1]
 
-		if data[i][11] is None:
+		if data[i][2] is None:
 			SO=0
 		else:
-			SO = data[i][11]
+			SO = data[i][2]
 
-		if data[i][12] is None:
+		if data[i][3] is None:
 			PO=0
 		else:
-			PO = data[i][12]
+			PO = data[i][3]
 
-		if data[i][13] is None:
+		if data[i][4] is None:
 			PLAN=0
 		else:
-			PLAN = data[i][13]
+			PLAN = data[i][4]
 
-		if data[i][14] is None:
+		if data[i][5] is None:
 			DEL = 0
 		else:
-			DEL = data[i][14]
+			DEL = data[i][5]
 
-		if data[i][15] is None:
+		if data[i][6] is None:
 			BGH=0
 		else:
-			BGH = data[i][15]
+			BGH = data[i][6]
 
-		if data[i][18] is None:
+		if data[i][8] is None:
 			BRM=0
 		else:
-			BRM = data[i][18]
+			BRM = data[i][8]
 			
-		if data[i][19] is None:
+		if data[i][9] is None:
 			BRG=0
 		else:
-			BRG = data[i][19]
+			BRG = data[i][9]
 
-		if data[i][20] is None:
+		if data[i][10] is None:
 			BHT=0
 		else:
-			BHT = data[i][20]
+			BHT = data[i][10]
 
-		if data[i][21] is None:
+		if data[i][11] is None:
 			BFG=0
 		else:
-			BFG = data[i][21]
+			BFG = data[i][11]
 
-		if data[i][22] is None:
+		if data[i][12] is None:
 			BTS=0
 		else:
-			BTS = data[i][22]
+			BTS = data[i][12]
 
-		if data[i][23] is None:
+		if data[i][13] is None:
 			DRM=0
 		else:
-			DRM = data[i][23]
+			DRM = data[i][13]
 			
-		if data[i][24] is None:
+		if data[i][14] is None:
 			DSL=0
 		else:
-			DSL = data[i][24]
+			DSL = data[i][14]
 
-		if data[i][25] is None:
+		if data[i][15] is None:
 			DRG=0
 		else:
-			DRG = data[i][25]
+			DRG = data[i][15]
 
-		if data[i][26] is None:
+		if data[i][16] is None:
 			DFG=0
 		else:
-			DFG = data[i][26]
+			DFG = data[i][16]
 
-		if data[i][27] is None:
+		if data[i][17] is None:
 			DTEST=0
 		else:
-			DTEST = data[i][27]
+			DTEST = data[i][17]
 
 		total = (DEL + BGH + BRG + BHT + BFG + BTS
 		+ DSL + DRG + DFG + DTEST + DRM + BRM
@@ -236,17 +222,37 @@ def get_items(filters):
 		else:
 			prd = ""
 
-		data[i].insert (10, urg)
-		data[i].insert (11, prd)
-		data[i].insert (12, total)
+		data[i].insert (1, urg)
+		data[i].insert (2, prd)
+		data[i].insert (3, total)
 
 	for j in range(0,len(data)):
 		for k in range(0, len(data[j])):
 			if data[j][k] ==0:
 				data[j][k] = None
-
+				
+	attributes = ['Is RM', 'Brand', '%Quality', 'Special Treatment',
+	'Tool Type', 'Material to Machine', 'Purpose', 'Type Selector',
+	'd1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm']
+	
+	float_fields = ['d1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm']
+	
+	for i in range(len(data)):
+		att = []
+		for j in attributes:
+			att = frappe.db.sql("""SELECT ifnull(iva.attribute_value,"-")
+				FROM `tabItem Variant Attribute` iva
+				WHERE iva.attribute LIKE '%s'
+				AND iva.parent = '%s'""" %(j,data[i][0]), as_list=1)
+			if not att:
+				att = ["-"]
+			if j in float_fields and att[0][0] <> "-":
+				data[i].insert((len(data[i])-22),[float(att[0][0])])
+			else:
+				data[i].insert((len(data[i])-22), att[0])
+	
 	return data
-
+	
 def get_conditions(filters):
 	conditions = ""
 

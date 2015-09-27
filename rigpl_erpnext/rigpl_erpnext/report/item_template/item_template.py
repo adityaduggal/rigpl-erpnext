@@ -13,7 +13,7 @@ def execute(filters=None):
 	
 def get_columns():
 	return[
-		"Item:Link/Item:300", "Is RM::50","BM::60", "Brand::100", "Quality::150",
+		"Item:Link/Item:300", "# Variants:Int:50","Is RM::50","BM::60", "Brand::100", "Quality::150",
 		"SPL::100", "TT::300", "D1_MM::100", "D1_INCH::100", "W1_MM::100",
 		"W1_INCH::100", "L1_MM::100", "L1_INCH::100"
 	]
@@ -35,14 +35,21 @@ def get_items(filters):
 		WHERE it.has_variants = 1
 		AND ifnull(it.end_of_life, '2099-12-31') > curdate()
 		ORDER BY it.name""", as_list=1)
-	
+		
 	#Below loop would fetch the data of the attributes from Restriction Table
 	#and the Item Variant Attribute table and Item Attribute table to be filled
 	#in the report.
 	
 	for i in range(len(data)):
+		#Add the total number of active items under a template
+		nos = frappe.db.sql("""SELECT count(it.name) FROM `tabItem` it
+		WHERE it.variant_of = '%s' AND ifnull(it.end_of_life, '2099-12-31') > 
+		curdate()""" %data[i][0], as_list=1)
+		
+		data[i].extend(nos[0])
+		
 		restrictions = []
-		for j in attributes:
+		for j in attributes:			
 			#Check if the attribute is mentioned in the Restrictions table, if it is
 			#then insert the value in the report, for Multiple Values
 			#the data should be filled like "Rohit, None"
