@@ -14,14 +14,15 @@ def execute(filters=None):
 def get_columns():
 	return[
 		"Item:Link/Item:300", "# Variants:Int:50","Is RM::50","BM::60", "Brand::100", "Quality::150",
-		"SPL::100", "TT::300", "D1_MM::100", "D1_INCH::100", "W1_MM::100",
-		"W1_INCH::100", "L1_MM::100", "L1_INCH::100"
+		"SPL::100", "TT::150", "D1_MM::100", "D1_INCH::100", "W1_MM::100",
+		"W1_INCH::100", "L1_MM::100", "L1_INCH::100", "CETSH::150"
 	]
 
 def get_items(filters):
 	#List of fields to be fetched in the report
 	attributes = ['Is RM', 'Base Material', 'Brand', '%Quality', 'Special Treatment',
-		'Tool Type', 'd1_mm', 'd1_inch', 'w1_mm', 'w1_inch', 'l1_mm', 'l1_inch']
+		'Tool Type', 'd1_mm', 'd1_inch', 'w1_mm', 'w1_inch', 'l1_mm', 'l1_inch',
+		'CETSH Number']
 	
 	float_fields = ['d1_mm', 'w1_mm', 'l1_mm']
 	linked_fields = ['d1_inch', 'w1_inch', 'l1_inch']
@@ -49,7 +50,7 @@ def get_items(filters):
 		data[i].extend(nos[0])
 		
 		restrictions = []
-		for j in attributes:			
+		for j in attributes:
 			#Check if the attribute is mentioned in the Restrictions table, if it is
 			#then insert the value in the report, for Multiple Values
 			#the data should be filled like "Rohit, None"
@@ -59,7 +60,6 @@ def get_items(filters):
 				WHERE ivr.attribute LIKE '%s'
 				AND ivr.parent = '%s'
 				ORDER BY ivr.allowed_values""" %(j,data[i][0]), as_list=1)
-			
 			#If attribute has mutliple values in the restriction tables then
 			#it would list all the values concatenated
 			
@@ -80,19 +80,23 @@ def get_items(filters):
 			#is in the Item Variant Attribute table, if that attribute is there then the
 			#code fetches all the values of the attribute from attribute master and puts it in the 
 			#report
-			
+						
 			if restrictions == [["-"]]:
 				att = []
-				att = frappe.db.sql("""SELECT iva.attribute
+				query = """SELECT iva.attribute
 				FROM `tabItem Variant Attribute` iva
 				WHERE iva.attribute LIKE '%s'
-				AND iva.parent = '%s'""" %(j,data[i][0]), as_list=1)
-								
+				AND iva.parent = '%s'""" %(j,data[i][0])
+				
+				att = frappe.db.sql(query, as_list=1)
+												
 				if att:
-					att = frappe.db.sql("""SELECT iav.attribute_value
+					query = """SELECT iav.attribute_value
 						FROM `tabItem Attribute Value` iav
 						WHERE iav.parent = '%s'
-						ORDER BY iav.attribute_value""" %(j), as_list=1)
+						ORDER BY iav.attribute_value""" %(j)
+						
+					att = frappe.db.sql(query, as_list=1)
 					if len(att) > 1:
 						for k in range (len(att)):
 							if k > 0:
@@ -100,11 +104,10 @@ def get_items(filters):
 							else:
 								restrictions = [att[k]]
 						restrictions = [restrictions]
+					elif len(att) == 1:
+						restrictions = [att[0]]
 				else:
 					restrictions = [["-"]]
 			data[i].extend(restrictions[0])
-			
-	#data = sorted (data, key = lambda x:(x[1], x[3], x[5], x[6], x[7]))
-	#frappe.msgprint(data)
-	
+				
 	return data

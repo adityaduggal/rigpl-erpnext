@@ -48,6 +48,10 @@ def validate_variants(doc,method):
 				
 				frappe.throw(("Item Code: {0} Row# {1} should have {2} as per the template")\
 					.format(doc.name, i+1, template_attribute[i]))
+			
+			elif len(template_attribute) != len(variant_attribute):
+				frappe.throw(("Item Code: {0} number of attributes not as per the template")\
+					.format(doc.name))
 		
 		#Now check the values of the Variant and if they are within the restrictions.
 		#1. Check if the Select field is as per restriction table
@@ -61,11 +65,17 @@ def validate_variants(doc,method):
 			else:
 				template_restricted_attributes[t.attribute]['allows'].append(t.allowed_values)
 		
-		ctx = {d.attribute: d.attribute_value if not isinstance(d.attribute_value, basestring) or not d.attribute_value.isdigit() else \
-			flt(d.attribute_value) for d in doc.attributes}
+		ctx = {}
+		for d in doc.attributes:
+			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, \
+			"numeric_values")
+			if is_numeric == 1:
+				d.attribute_value = flt(d.attribute_value)
+			ctx[d.attribute] =  d.attribute_value
 		
-		if doc.name == "H3RER0Z38":
-			frappe.msgprint(ctx)
+		#ctx = {d.attribute: d.attribute_value if not isinstance(d.attribute_value, basestring) \
+		#	or not d.attribute_value.isdigit() else \
+		#	flt(d.attribute_value) for d in doc.attributes}
 		
 		for d in doc.attributes:
 			chk_numeric = frappe.db.get_value("Item Attribute", d.attribute, \
@@ -90,19 +100,24 @@ def validate_variants(doc,method):
 							frappe.throw(e)
 							
 						if not valid:
-							frappe.throw('Item Code: {0} Rule "{1}" failing for field "{2}"'.format(doc.name, rule, d.attribute))
+							frappe.throw('Item Code: {0} Rule "{1}" failing for field "{2}"'\
+								.format(doc.name, rule, d.attribute))
 			else:
 				if template_restricted_attributes.get(d.attribute, {}).get('allows', False):
-					if d.attribute_value not in template_restricted_attributes.get(d.attribute, {}).get('allows', []):
-						frappe.throw(("Item Code: {0} Attribute value {1} not allowed").format(doc.name, d.attribute_value))
-
-				
+					if d.attribute_value not in template_restricted_attributes.get(d.attribute, {})\
+						.get('allows', []):
+						frappe.throw(("Item Code: {0} Attribute value {1} not allowed")\
+							.format(doc.name, d.attribute_value))
+						
 def generate_description(doc,method):
 	if doc.variant_of:
 		desc = []
 		description = ""
 		long_desc = ""
 		for d in doc.attributes:
+			concat = ""
+			concat1 = ""
+			concat2 = ""
 			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
 			use_in_description = frappe.db.sql("""SELECT iva.use_in_description from  
 				`tabItem Variant Attribute` iva 
@@ -119,29 +134,35 @@ def generate_description(doc,method):
 					WHERE iav.parent = '%s' AND iav.parent = ia.name
 					AND iav.attribute_value = '%s'""" %(cond1, cond2)				
 				list =frappe.db.sql(query, as_list=1)
-
 				prefix = frappe.db.sql("""SELECT iva.prefix FROM `tabItem Variant Attribute` iva
 					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, 
 						d.attribute ), as_list=1)
-					
+
 				suffix = frappe.db.sql("""SELECT iva.suffix FROM `tabItem Variant Attribute` iva
 					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, 
 						d.attribute ), as_list=1)
-					
+
 				concat = ""
+				concat2 = ""
 				if prefix[0][0] <> '""':
-					concat = unicode(prefix[0][0]) + unicode(list[0][0])
-					concat2 = unicode(prefix[0][0]) + unicode(list[0][1])
+					if list[0][0] <> '""':
+						concat = unicode(prefix[0][0]) + unicode(list[0][0])
+					if list[0][1]:
+						concat2 = unicode(prefix[0][0]) + unicode(list[0][1])
 				else:
-					concat1 = unicode(list[0][0])
-					concat2 = unicode(list[0][1])
+					if list[0][0] <> '""':
+						concat1 = unicode(list[0][0])
+					if list[0][1] <> '""':
+						concat2 = unicode(list[0][1])
 
 				if suffix[0][0]<> '""':
 					concat1 = concat1 + unicode(suffix[0][0])
 					concat2 = concat2 + unicode(suffix[0][0])
 				desc.extend([[concat1, concat2, d.idx]])
-				
+			
 			elif is_numeric == 1 and use_in_description == 1:
+				concat=""
+				concat2 = ""
 				#Below query gets the values of description mentioned in the Attribute table
 				#for Numeric values
 				query1 = """SELECT iva.idx FROM `tabItem Variant Attribute` iva
@@ -170,7 +191,6 @@ def generate_description(doc,method):
 					WHERE iva.attribute = '%s'""" %d.attribute	
 				desc.extend([["","",frappe.db.sql(query1, as_list=1)[0][0]]])
 
-		
 		desc.sort(key=lambda x:x[2]) #Sort the desc as per priority lowest one is taken first
 		for i in range(len(desc)):
 			if desc[i][0] <> '""':
