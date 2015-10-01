@@ -33,7 +33,7 @@ def validate(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:
@@ -87,7 +87,7 @@ def on_submit(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:
@@ -100,7 +100,7 @@ def on_cancel(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:
