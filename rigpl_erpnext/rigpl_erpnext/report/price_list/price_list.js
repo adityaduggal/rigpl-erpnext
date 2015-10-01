@@ -1,38 +1,65 @@
 frappe.query_reports["Price List"] = {
 	"filters": [
 		{
-			"fieldname":"price_list",
+			"fieldname":"pl",
 			"label": "Price List",
 			"fieldtype": "Link",
 			"options": "Price List",
 			"default": "PL47",
-			"reqd": 1
+			"reqd": 1,
+			"get_query": function(){ return {'filters': [['Price List', 'enabled','=',1]]}}
+		},
+		{
+			"fieldname":"bm",
+			"label": "Base Material",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 1,
+			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Base Material']]}}
+		},
+		{
+			"fieldname":"brand",
+			"label": "Brand",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Brand']]}}
+		},
+
+		{
+			"fieldname":"quality",
+			"label": "Quality",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','Like','% Quality']]}}
 		},
 		{
 			"fieldname":"tt",
 			"label": "Tool Type",
 			"fieldtype": "Link",
-			"options": "Tool Type",
-			"reqd": 1
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Tool Type']]}}
 		},
 		{
-			"fieldname":"bm",
-			"label": "Base Material",
-			"fieldtype": "Select",
-			"options": "\nCarbide\nHSS",
-			"reqd": 1
-		},
-		{
-			"fieldname":"quality",
-			"label": "Quality",
+			"fieldname":"spl",
+			"label": "Special Treatment",
 			"fieldtype": "Link",
-			"options": "Quality"
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Special Treatment']]}}
 		},
 		{
 			"fieldname":"item",
 			"label": "Item Code",
 			"fieldtype": "Link",
 			"options": "Item"
+		},
+		{
+			"fieldname":"is_pl",
+			"label": "Is PL",
+			"fieldtype": "Check"
 		}
 	]
 }

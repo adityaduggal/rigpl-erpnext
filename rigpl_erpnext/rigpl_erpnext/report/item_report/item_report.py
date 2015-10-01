@@ -12,22 +12,96 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Item:Link/Item:100", "RM::30", "BM::60","Brand::50","Quality::50", "SPL::50", 
-		"TT::100", "MTM::100", "Purpose::100", "Type::100",
+		"Item:Link/Item:130", "RM::30", "BM::60","Brand::50","Quality::70", "SPL::50", 
+		"TT::150", "MTM::60", "Purpose::60", "Type::60",
 		"D1:Float:50","W1:Float:50", "L1:Float:60", 
 		"D2:Float:50", "L2::50", "D3::50", "L3::50",
 		"A1_DEG:Float:50",
 		"D1_Inch::50", "W1_Inch::50", "L1_Inch::50",
-		"CETSH::150",
-		"Template or Variant Of:Link/Item:200", "Description::300",
-		"Creation:Date:100"
+		"CETSH::70", "Template or Variant Of:Link/Item:300", "Description::400",
+		"EOL:Date:100", "Created By:Link/User:150", "Creation:Date:150"
 	]
 
 def get_items(filters):
-	conditions_it = get_conditions(filters) [0]
+	conditions_it = get_conditions(filters)
+	bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
 
-	query = """SELECT it.name, it.variant_of, it.description, it.creation FROM `tabItem` it 
-		WHERE ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s""" % conditions_it
+	query = """SELECT it.name, 
+		IFNULL(rm.attribute_value, "-"), IFNULL(bm.attribute_value, "-"),
+		IFNULL(brand.attribute_value, "-"), IFNULL(quality.attribute_value, "-"),
+		IFNULL(spl.attribute_value, "-"), IFNULL(tt.attribute_value, "-"),
+		IFNULL(mtm.attribute_value, "-"), IFNULL(purpose.attribute_value, "-"),
+		IFNULL(type.attribute_value, "-"), 
+		CAST(d1.attribute_value AS DECIMAL(8,3)), 
+		CAST(w1.attribute_value AS DECIMAL(8,3)), 
+		CAST(l1.attribute_value AS DECIMAL(8,3)), 
+		CAST(d2.attribute_value AS DECIMAL(8,3)), 
+		CAST(l2.attribute_value AS DECIMAL(8,3)),
+		CAST(d3.attribute_value AS DECIMAL(8,3)), 
+		CAST(l3.attribute_value AS DECIMAL(8,3)),
+		CAST(a1.attribute_value AS DECIMAL(8,3)), 
+		IFNULL(d1_inch.attribute_value, "-"),
+		IFNULL(w1_inch.attribute_value, "-"),
+		IFNULL(l1_inch.attribute_value, "-"),
+		IFNULL(cetsh.attribute_value, "-"), it.variant_of, 
+		it.description, IFNULL(it.end_of_life, '2099-12-31'), 
+		it.owner, it.creation
+		
+		FROM `tabItem` it
+		
+		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
+			AND rm.attribute = 'Is RM'
+		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
+			AND quality.attribute = '%s Quality'
+		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
+			AND brand.attribute = 'Brand'
+		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+			AND tt.attribute = 'Tool Type'
+		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
+			AND spl.attribute = 'Special Treatment'
+		LEFT JOIN `tabItem Variant Attribute` mtm ON it.name = mtm.parent
+			AND mtm.attribute = 'Material to Machine'
+		LEFT JOIN `tabItem Variant Attribute` type ON it.name = type.parent
+			AND type.attribute = 'Type Selector'
+		LEFT JOIN `tabItem Variant Attribute` purpose ON it.name = purpose.parent
+			AND purpose.attribute = 'Purpose'
+		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+			AND d1.attribute = 'd1_mm'
+		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+			AND w1.attribute = 'w1_mm'
+		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+			AND l1.attribute = 'l1_mm'
+		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+			AND d2.attribute = 'd2_mm'
+		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+			AND l2.attribute = 'l2_mm'
+		LEFT JOIN `tabItem Variant Attribute` d3 ON it.name = d3.parent
+			AND d3.attribute = 'd3_mm'
+		LEFT JOIN `tabItem Variant Attribute` l3 ON it.name = l3.parent
+			AND l3.attribute = 'l3_mm'
+		LEFT JOIN `tabItem Variant Attribute` a1 ON it.name = a1.parent
+			AND a1.attribute = 'a1_deg'
+		LEFT JOIN `tabItem Variant Attribute` d1_inch ON it.name = d1_inch.parent
+			AND d1_inch.attribute = 'd1_inch'
+		LEFT JOIN `tabItem Variant Attribute` w1_inch ON it.name = w1_inch.parent
+			AND w1_inch.attribute = 'w1_inch'
+		LEFT JOIN `tabItem Variant Attribute` l1_inch ON it.name = l1_inch.parent
+			AND l1_inch.attribute = 'l1_inch'
+		LEFT JOIN `tabItem Variant Attribute` cetsh ON it.name = cetsh.parent
+			AND cetsh.attribute = 'CETSH Number' %s
+		
+		ORDER BY rm.attribute_value, bm.attribute_value, brand.attribute_value,
+			quality.attribute_value, spl.attribute_value, tt.attribute_value, 
+			CAST(d1.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(w1.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(l1.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(d2.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(l2.attribute_value AS DECIMAL(8,3)) ASC,
+			CAST(d3.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(l3.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it)
+	
 
 	data = frappe.db.sql(query, as_list=1)
 	
@@ -40,43 +114,38 @@ def get_items(filters):
 	
 	float_fields = ['d1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm', 
 		'd3_mm', 'l3_mm', 'a1_deg']
-	for i in range(len(data)):
-		att = []
-		for j in attributes:
-			att = frappe.db.sql("""SELECT ifnull(iva.attribute_value,"-")
-				FROM `tabItem Variant Attribute` iva
-				WHERE iva.attribute LIKE '%s'
-				AND iva.parent = '%s'""" %(j,data[i][0]), as_list=1)
-			if not att:
-				att = ["-"]
-			if j in float_fields and att[0][0] <> "-":
-				data[i].insert(len(data[i])-3,[float(att[0][0])])
-			else:
-				data[i].insert(len(data[i])-3, att[0])
-	data = sorted (data, key = lambda x:(x[1], x[3], x[5], x[6], x[7]))
+
 	return data
 
 def get_conditions(filters):
 	conditions_it = ""
-	conditions_iva = ""
+
+	if filters.get("eol"):
+		conditions_it += "WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
+	
+	if filters.get("rm"):
+		rm = frappe.db.get_value("Item Attribute Value", filters["rm"], "attribute_value")
+		conditions_it += " AND rm.attribute_value = '%s'" % rm
+
+	if filters.get("bm"):
+		bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
+		conditions_it += " AND bm.attribute_value = '%s'" % bm
 
 	if filters.get("brand"):
-		conditions_iva += " and iva.brand = '%s'" % filters["brand"]
-
-	if filters.get("material"):
-		conditions_iva += " and iva.base_material = '%s'" % filters["material"]
+		brand = frappe.db.get_value("Item Attribute Value", filters["brand"], "attribute_value")
+		conditions_it += " AND brand.attribute_value = '%s'" % brand
 
 	if filters.get("quality"):
-		conditions_iva += " and iva.quality = '%s'" % filters["quality"]
+		quality = frappe.db.get_value("Item Attribute Value", filters["quality"], "attribute_value")
+		conditions_it += " AND quality.attribute_value = '%s'" % quality
 
-	if filters.get("tool_type"):
-		conditions_iva += " and iva.tool_type = '%s'" % filters["tool_type"]
-
-	if filters.get("is_rm"):
-		if filters.get("is_rm")=="Yes":
-			conditions_iva += " and iva.is_rm = '%s'" % filters["is_rm"]
-		else:
-			conditions_iva += " and iva.is_rm in ('%s' , NULL)" % filters["is_rm"]
+	if filters.get("spl"):
+		spl = frappe.db.get_value("Item Attribute Value", filters["spl"], "attribute_value")
+		conditions_it += " AND spl.attribute_value = '%s'" % spl
+		
+	if filters.get("tt"):
+		tt = frappe.db.get_value("Item Attribute Value", filters["tt"], "attribute_value")
+		conditions_it += " AND tt.attribute_value = '%s'" % tt
 
 
 	if filters.get("show_in_website") ==1:
@@ -88,5 +157,4 @@ def get_conditions(filters):
 	if filters.get("variant_of"):
 		conditions_it += " and it.variant_of = '%s'" % filters["variant_of"]
 
-
-	return conditions_it, conditions_iva
+	return conditions_it

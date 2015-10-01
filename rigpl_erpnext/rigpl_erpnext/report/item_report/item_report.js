@@ -41,12 +41,19 @@ frappe.query_reports["Item Report"] = {
 			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Tool Type']]}}
 		},
 		{
-			"fieldname":"spl_treatment",
+			"fieldname":"spl",
 			"label": "Special Treatment",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Special Treatment']]}}
+		},
+		{
+			"fieldname":"eol",
+			"label": "End Of Life",
+			"fieldtype": "Date",
+			"default": get_today(),
+			"reqd": 1
 		},
 		{
 			"fieldname":"item",
@@ -65,11 +72,6 @@ frappe.query_reports["Item Report"] = {
 		{
 			"fieldname":"show_in_website",
 			"label": "Show in Website",
-			"fieldtype": "Check"
-		},
-		{
-			"fieldname":"special",
-			"label": "Check this to Bypass Validation",
 			"fieldtype": "Check"
 		}
 	]
