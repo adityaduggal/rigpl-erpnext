@@ -38,7 +38,7 @@ def get_dn_entries(filters):
 		sid.parent = si.name and
         	sid.dn_detail = dni.name %s), 0)),
 
-	dni.name ,dni.prevdoc_detail_docname, dn.taxes_and_charges, dni.item_name, dni.description, so.track_trial
+	dni.name ,dni.so_detail, dn.taxes_and_charges, dni.item_name, dni.description, so.track_trial
 	
 	FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order` so
 
