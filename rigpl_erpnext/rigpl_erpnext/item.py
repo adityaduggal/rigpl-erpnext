@@ -178,9 +178,9 @@ def generate_description(doc,method):
 					
 				concat = ""
 				if prefix[0][0] <> '""':
-					concat = unicode(prefix[0][0][1:-1]) + unicode(d.attribute_value)
+					concat = unicode(prefix[0][0][1:-1]) + unicode('{0:g}'.format(d.attribute_value))
 				else:
-					concat = unicode(d.attribute_value)
+					concat = unicode('{0:g}'.format(d.attribute_value))
 
 				if suffix[0][0]<> '""':
 					concat = concat + unicode(suffix[0][0][1:-1])
