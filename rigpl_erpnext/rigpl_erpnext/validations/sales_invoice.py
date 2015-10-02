@@ -33,7 +33,7 @@ def validate(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:
@@ -52,8 +52,9 @@ def validate(doc,method):
 			if dn is not None:
 				for dnd in dn.items:
 					if dnd.name == d.dn_detail:
-						if dnd.qty != d.qty:
-							frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
+						if d.qty > 0:
+							if dnd.qty != d.qty:
+								frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
 	if len(list_of_dns)==1 and list_of_dns[0] == None:
 		if doc.update_stock != 1:
 			for d in doc.items:
@@ -86,7 +87,7 @@ def on_submit(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:
@@ -99,7 +100,7 @@ def on_cancel(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:
