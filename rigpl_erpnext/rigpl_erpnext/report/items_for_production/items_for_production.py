@@ -121,7 +121,7 @@ def get_items(filters):
 		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
 			AND l2.attribute = 'l2_mm'
 		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
-			AND l2.attribute = 'Number of Flutes (Zn)'
+			AND zn.attribute = 'Number of Flutes (Zn)'
 	
 	WHERE bn.item_code != ""
 		AND bn.item_code = it.name
