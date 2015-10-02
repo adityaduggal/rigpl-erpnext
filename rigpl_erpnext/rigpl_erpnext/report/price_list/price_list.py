@@ -12,74 +12,105 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"PL ID:Link/Item Price:100", "PL::60", "Item:Link/Item:120", "Description::350", 
-		"List Price:Currency:100",
-		"Cur::40", "Brand::100", "BM::70", "QLT::60", "TT::100", "SPL::50",
-		"HD:Float:50", "W:Float:50", "L:Float:50", "Zn:Float:50", "D1:Float:50",
-		"L1:Float:50", "a1:Float:50", "D2:Float:50", "L2:Float:50", "a2:Float:50",
-		"r1:Float:50", "a3:Float:50", "DT::50","H In::50", "W In::50", "L In::50",
-		"D1 In::50", "L1 In::50", "D2 In::50", "L2 In::50", "Is PL::50"
+		"PL ID:Link/Item Price:100", "PL::60", "Item:Link/Item:120", 
+		"List Price:Currency:70", "Cur::40", 
+		"BM::60", "Brand::60", "QLT::80", "SPL::50", "TT::150",
+		"D1:Float:50", "W1:Float:50", "L1:Float:50", "Zn:Float:50", "D2:Float:50",
+		"L2:Float:50", "A1:Float:50", "Is PL::50", "Description::400"
 	]
 
 def get_item_data(filters):
-	conditions = get_conditions(filters)
-	conditions_itp = get_conditions_item_price(filters)
+	conditions_it = get_conditions(filters)
+	bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
+	pl = " AND itp.price_list = '%s'" % filters.get("pl")
+	
+	query = """
+	SELECT
+		IFNULL(itp.name, "-"), IFNULL(itp.price_list, "-"), 
+		it.name, itp.price_list_rate, IFNULL(itp.currency, "-"),
+		IFNULL(bm.attribute_value, "-"), IFNULL(brand.attribute_value, "-"),
+		IFNULL(quality.attribute_value, "-"), IFNULL(spl.attribute_value, "-"),
+		IFNULL(tt.attribute_value, "-"),
+		CAST(d1.attribute_value AS DECIMAL(8,3)),
+		CAST(w1.attribute_value AS DECIMAL(8,3)),
+		CAST(l1.attribute_value AS DECIMAL(8,3)),
+		CAST(zn.attribute_value AS UNSIGNED),
+		CAST(d2.attribute_value AS DECIMAL(8,3)),
+		CAST(l2.attribute_value AS DECIMAL(8,3)),
+		CAST(a1.attribute_value AS DECIMAL(8,3)), it.pl_item, it.description
+		
+	FROM `tabItem` it
+	
+		LEFT JOIN `tabItem Price` itp ON it.name = itp.item_code %s
+		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
+			AND quality.attribute = '%s Quality'
+		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
+			AND brand.attribute = 'Brand'
+		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+			AND tt.attribute = 'Tool Type'
+		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
+			AND spl.attribute = 'Special Treatment'
+		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+			AND d1.attribute = 'd1_mm'
+		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+			AND w1.attribute = 'w1_mm'
+		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+			AND l1.attribute = 'l1_mm'
+		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+			AND d2.attribute = 'd2_mm'
+		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+			AND l2.attribute = 'l2_mm'
+		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
+			AND zn.attribute = 'No Of Flutes (Zn)'
+		LEFT JOIN `tabItem Variant Attribute` a1 ON it.name = a1.parent
+			AND a1.attribute = 'a1_deg'
+	
+	WHERE
+		IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
+	
+	ORDER BY bm.attribute_value, brand.attribute_value,
+		quality.attribute_value, spl.attribute_value, tt.attribute_value,
+		CAST(d1.attribute_value AS DECIMAL(8,3)) ASC,
+		CAST(w1.attribute_value AS DECIMAL(8,3)) ASC,
+		CAST(l1.attribute_value AS DECIMAL(8,3)) ASC,
+		CAST(zn.attribute_value AS UNSIGNED) ASC,
+		CAST(d2.attribute_value AS DECIMAL(8,3)) ASC,
+		CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" %(pl, bm, conditions_it)
+	
+	data = frappe.db.sql(query , as_list=1)
 
-
-	data = frappe.db.sql("""select it.name, it.description, it.brand, it.base_material, it.quality, it.tool_type,
-	it.special_treatment, it.height_dia, it.width, it.length, it.no_of_flutes, it.d1, it.l1, it.a1,
-	it.d2, it.l2, it.a2, it.r1, it.a3, it.drill_type, it.height_dia_inch, it.width_inch,
-	it.length_inch, it.d1_inch, it.l1_inch, it.d2_inch, it.l2_inch, it.pl_item
-	from `tabItem` it where ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
-	order by it.base_material, it.quality, it.tool_type, it.special_treatment, it.height_dia, it.width,
-	it.d1, it.l1""" %conditions , as_list=1)
-
-	item_price = frappe.db.sql("""select itp.price_list, itp.item_code, itp.price_list_rate, itp.currency, itp.name
-	from `tabItem Price` itp %s order by itp.item_code""" %conditions_itp, as_list=1)
-
-	#last_so = frappe.db.sql("""select so.customer, max(so.transaction_date), so.name
-	#from `tabSales Order` so where so.docstatus = 1 group by so.customer""", as_list=1)
-
-
-	#loop to add prices to the Item Table
-	for i in data:
-		if any (i[0] in s for s in item_price):
-			for j in item_price:
-				if i[0] == j[1]:
-					i.insert(0, j[4]) #insert price list id
-					i.insert(1, j[0]) #insert Price list name
-					i.insert(4, j[2]) #insert price value
-					i.insert(5, j[3]) #insert currency of value
-
-		else:
-			i.insert(0, "NA")
-			i.insert(1,"PL?")
-			i.insert(4, "0")
-			i.insert(5, "NP")
 	return data
 
 
 def get_conditions(filters):
-	conditions = ""
-
-	if filters.get("tt"):
-		conditions += " and it.tool_type = '%s'" % filters["tt"]
+	conditions_it = ""
 
 	if filters.get("bm"):
-		conditions += " and it.base_material = '%s'" % filters["bm"]
+		bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
+		conditions_it += " AND bm.attribute_value = '%s'" % bm
+
+	if filters.get("brand"):
+		brand = frappe.db.get_value("Item Attribute Value", filters["brand"], "attribute_value")
+		conditions_it += " AND brand.attribute_value = '%s'" % brand
 
 	if filters.get("quality"):
-		conditions += " and it.quality = '%s'" % filters["quality"]
+		quality = frappe.db.get_value("Item Attribute Value", filters["quality"], "attribute_value")
+		conditions_it += " AND quality.attribute_value = '%s'" % quality
+
+	if filters.get("spl"):
+		spl = frappe.db.get_value("Item Attribute Value", filters["spl"], "attribute_value")
+		conditions_it += " AND spl.attribute_value = '%s'" % spl
+		
+	if filters.get("tt"):
+		tt = frappe.db.get_value("Item Attribute Value", filters["tt"], "attribute_value")
+		conditions_it += " AND tt.attribute_value = '%s'" % tt
 
 	if filters.get("item"):
-		conditions += " and it.name = '%s'" % filters["item"]
+		conditions_it += " AND it.name = '%s'" % filters["item"]
 
-	return conditions
-
-def get_conditions_item_price(filters):
-	conditions_itp = ""
-
-	if filters.get("price_list"):
-		conditions_itp += " WHERE itp.price_list = '%s'" % filters["price_list"]
-
-	return conditions_itp
+	if filters.get("is_pl"):
+		conditions_it += " AND it.pl_item = 'Yes'"
+		
+	return conditions_it
