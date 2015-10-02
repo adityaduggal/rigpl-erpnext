@@ -1,23 +1,14 @@
-frappe.query_reports["Calculate ROL"] = {
+// Copyright (c) 2013, Rohit Industries Ltd. and contributors
+// For license information, please see license.txt
+
+frappe.query_reports["Obsolete Items"] = {
 	"filters": [
 		{
-			"fieldname":"from_date",
-			"label": "From Date",
+			"fieldname":"eol",
+			"label": "End Of Life",
 			"fieldtype": "Date",
-			"reqd": 1,
-		},
-		{
-			"fieldname":"to_date",
-			"label": "To Date",
-			"fieldtype": "Date",
-			"default": get_today(),
-			"reqd": 1,
-		},
-		{
-			"fieldname":"item",
-			"label": "Item Code",
-			"fieldtype": "Link",
-			"options": "Item"
+			"default" : get_today(),
+			"reqd": 1
 		},
 		{
 			"fieldname":"is_rm",
@@ -71,6 +62,31 @@ frappe.query_reports["Calculate ROL"] = {
 			"reqd": 0,
 			"get_query": function(){ return {'filters': [['Item Attribute Value', 
 			'parent','=','Tool Type']]}}
+		},
+		{
+			"fieldname":"item",
+			"label": "Item",
+			"fieldtype": "Link",
+			"options": "Item",
+			"reqd": 0
+		},
+		{
+			"fieldname":"has_variants",
+			"label": "Has Variants",
+			"fieldtype": "Check",
+			"default" : 0
+		},
+		{
+			"fieldname":"web",
+			"label": "Web",
+			"fieldtype": "Check",
+			"default" : 0
+		},
+		{
+			"fieldname":"is_pl_item",
+			"label": "PL Item",
+			"fieldtype": "Check",
+			"default" : 1
 		}
 	]
 }
