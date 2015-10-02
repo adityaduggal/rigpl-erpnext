@@ -57,6 +57,8 @@ def get_items(filters):
 		if(min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 			min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)),
 
+		it.description,	
+		
 		if(min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 			min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)),
 		
@@ -262,9 +264,9 @@ def get_items(filters):
 		else:
 			prd = ""
 
-		data[i].insert (11, urg)
-		data[i].insert (12, prd)
-		data[i].insert (13, total)
+		data[i].insert (10, urg)
+		data[i].insert (11, prd)
+		data[i].insert (12, total)
 
 	for j in range(0,len(data)):
 		for k in range(0, len(data[j])):
