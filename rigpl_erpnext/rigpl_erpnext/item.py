@@ -146,18 +146,18 @@ def generate_description(doc,method):
 				concat2 = ""
 				if prefix[0][0] <> '""':
 					if list[0][0] <> '""':
-						concat = unicode(prefix[0][0]) + unicode(list[0][0])
+						concat = unicode(prefix[0][0][1:-1]) + unicode(list[0][0][1:-1])
 					if list[0][1]:
-						concat2 = unicode(prefix[0][0]) + unicode(list[0][1])
+						concat2 = unicode(prefix[0][0][1:-1]) + unicode(list[0][1][1:-1])
 				else:
 					if list[0][0] <> '""':
-						concat1 = unicode(list[0][0])
+						concat1 = unicode(list[0][0][1:-1])
 					if list[0][1] <> '""':
-						concat2 = unicode(list[0][1])
+						concat2 = unicode(list[0][1][1:-1])
 
 				if suffix[0][0]<> '""':
-					concat1 = concat1 + unicode(suffix[0][0])
-					concat2 = concat2 + unicode(suffix[0][0])
+					concat1 = concat1 + unicode(suffix[0][0][1:-1])
+					concat2 = concat2 + unicode(suffix[0][0][1:-1])
 				desc.extend([[concat1, concat2, d.idx]])
 			
 			elif is_numeric == 1 and use_in_description == 1:
@@ -178,12 +178,12 @@ def generate_description(doc,method):
 					
 				concat = ""
 				if prefix[0][0] <> '""':
-					concat = unicode(prefix[0][0]) + unicode(d.attribute_value)
+					concat = unicode(prefix[0][0][1:-1]) + unicode(d.attribute_value)
 				else:
 					concat = unicode(d.attribute_value)
 
 				if suffix[0][0]<> '""':
-					concat = concat + unicode(suffix[0][0])
+					concat = concat + unicode(suffix[0][0][1:-1])
 				desc.extend([[concat, concat, d.idx]])
 			
 			else:
