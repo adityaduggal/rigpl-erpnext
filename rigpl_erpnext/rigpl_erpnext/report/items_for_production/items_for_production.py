@@ -17,7 +17,7 @@ def get_columns():
 		###Below are attribute fields
 		"RM::30", "Brand::60", "Qual::50", "SPL::50", "TT::90",
 		"D1:Float:50", "W1:Float:50", "L1:Float:50",
-		"D2:Float:50", "L2:Float:50",
+		"D2:Float:50", "L2:Float:50", "Zn:Int:40",
 		###Above are Attribute fields
 		
 		"CUT::60","URG::60",
@@ -46,6 +46,7 @@ def get_items(filters):
 		CAST(l1.attribute_value AS DECIMAL(8,3)), 
 		CAST(d2.attribute_value AS DECIMAL(8,3)), 
 		CAST(l2.attribute_value AS DECIMAL(8,3)),
+		CAST(zn.attribute_value AS UNSIGNED),
 		if(it.re_order_level=0, NULL ,it.re_order_level),
 		if(sum(bn.reserved_qty)=0,NULL,sum(bn.reserved_qty)),
 		if(sum(bn.ordered_qty)=0,NULL,sum(bn.ordered_qty)),
@@ -119,6 +120,8 @@ def get_items(filters):
 			AND d2.attribute = 'd2_mm'
 		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
 			AND l2.attribute = 'l2_mm'
+		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
+			AND l2.attribute = 'Number of Flutes (Zn)'
 	
 	WHERE bn.item_code != ""
 		AND bn.item_code = it.name
@@ -137,85 +140,85 @@ def get_items(filters):
 
 	for i in range(0, len(data)):
 
-		if data[i][11] is None:
+		if data[i][12] is None:
 			ROL=0
 		else:
-			ROL = data[i][11]
-
-		if data[i][12] is None:
-			SO=0
-		else:
-			SO = data[i][12]
+			ROL = data[i][12]
 
 		if data[i][13] is None:
-			PO=0
+			SO=0
 		else:
-			PO = data[i][13]
+			SO = data[i][13]
 
 		if data[i][14] is None:
-			PLAN=0
+			PO=0
 		else:
-			PLAN = data[i][14]
+			PO = data[i][14]
 
 		if data[i][15] is None:
-			DEL = 0
+			PLAN=0
 		else:
-			DEL = data[i][15]
+			PLAN = data[i][15]
 
 		if data[i][16] is None:
+			DEL = 0
+		else:
+			DEL = data[i][16]
+
+		if data[i][17] is None:
 			BGH=0
 		else:
-			BGH = data[i][16]
+			BGH = data[i][17]
 
-		if data[i][18] is None:
+		if data[i][19] is None:
 			BRM=0
 		else:
-			BRM = data[i][18]
+			BRM = data[i][19]
 			
-		if data[i][19] is None:
+		if data[i][20] is None:
 			BRG=0
 		else:
-			BRG = data[i][19]
-
-		if data[i][20] is None:
-			BHT=0
-		else:
-			BHT = data[i][20]
+			BRG = data[i][20]
 
 		if data[i][21] is None:
-			BFG=0
+			BHT=0
 		else:
-			BFG = data[i][21]
+			BHT = data[i][21]
 
 		if data[i][22] is None:
-			BTS=0
+			BFG=0
 		else:
-			BTS = data[i][22]
+			BFG = data[i][22]
 
 		if data[i][23] is None:
+			BTS=0
+		else:
+			BTS = data[i][23]
+
+		if data[i][24] is None:
 			DRM=0
 		else:
-			DRM = data[i][23]
+			DRM = data[i][24]
 			
-		if data[i][24] is None:
+		if data[i][25] is None:
 			DSL=0
 		else:
-			DSL = data[i][24]
-
-		if data[i][25] is None:
-			DRG=0
-		else:
-			DRG = data[i][25]
+			DSL = data[i][25]
 
 		if data[i][26] is None:
-			DFG=0
+			DRG=0
 		else:
-			DFG = data[i][26]
+			DRG = data[i][26]
 
 		if data[i][27] is None:
+			DFG=0
+		else:
+			DFG = data[i][27]
+
+		if data[i][28] is None:
 			DTEST=0
 		else:
-			DTEST = data[i][27]
+			DTEST = data[i][28]
 
 		total = (DEL + BGH + BRG + BHT + BFG + BTS
 		+ DSL + DRG + DFG + DTEST + DRM + BRM
@@ -264,9 +267,9 @@ def get_items(filters):
 		else:
 			prd = ""
 
-		data[i].insert (11, urg)
-		data[i].insert (12, prd)
-		data[i].insert (13, total)
+		data[i].insert (12, urg)
+		data[i].insert (13, prd)
+		data[i].insert (14, total)
 
 	for j in range(0,len(data)):
 		for k in range(0, len(data[j])):

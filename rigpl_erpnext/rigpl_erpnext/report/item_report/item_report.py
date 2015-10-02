@@ -15,8 +15,8 @@ def get_columns():
 		"Item:Link/Item:130", "RM::30", "BM::60","Brand::50","Quality::70", "SPL::50", 
 		"TT::150", "MTM::60", "Purpose::60", "Type::60",
 		"D1:Float:50","W1:Float:50", "L1:Float:60", 
-		"D2:Float:50", "L2:Float:50", "D3:Float:50", "L3:Float:50",
-		"A1_DEG:Float:50",
+		"D2:Float:50", "L2:Float:50", "Zn:Int:30",
+		"D3:Float:50", "L3:Float:50", "A1_DEG:Float:50",
 		"D1_Inch::50", "W1_Inch::50", "L1_Inch::50",
 		"CETSH::70", "Template or Variant Of:Link/Item:300", "Description::400",
 		"EOL:Date:100", "Created By:Link/User:150", "Creation:Date:150"
@@ -37,6 +37,7 @@ def get_items(filters):
 		CAST(l1.attribute_value AS DECIMAL(8,3)), 
 		CAST(d2.attribute_value AS DECIMAL(8,3)), 
 		CAST(l2.attribute_value AS DECIMAL(8,3)),
+		CAST(zn.attribute_value AS UNSIGNED),
 		CAST(d3.attribute_value AS DECIMAL(8,3)), 
 		CAST(l3.attribute_value AS DECIMAL(8,3)),
 		CAST(a1.attribute_value AS DECIMAL(8,3)), 
@@ -77,6 +78,8 @@ def get_items(filters):
 			AND d2.attribute = 'd2_mm'
 		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
 			AND l2.attribute = 'l2_mm'
+		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
+			AND zn.attribute = 'Number of Flutes (Zn)'
 		LEFT JOIN `tabItem Variant Attribute` d3 ON it.name = d3.parent
 			AND d3.attribute = 'd3_mm'
 		LEFT JOIN `tabItem Variant Attribute` l3 ON it.name = l3.parent
