@@ -15,7 +15,7 @@ def get_columns():
 		"Item:Link/Item:130", "RM::30", "BM::60","Brand::50","Quality::70", "SPL::50", 
 		"TT::150", "MTM::60", "Purpose::60", "Type::60",
 		"D1:Float:50","W1:Float:50", "L1:Float:60", 
-		"D2:Float:50", "L2::50", "D3::50", "L3::50",
+		"D2:Float:50", "L2:Float:50", "D3:Float:50", "L3:Float:50",
 		"A1_DEG:Float:50",
 		"D1_Inch::50", "W1_Inch::50", "L1_Inch::50",
 		"CETSH::70", "Template or Variant Of:Link/Item:300", "Description::400",

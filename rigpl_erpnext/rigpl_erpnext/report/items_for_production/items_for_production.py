@@ -264,9 +264,9 @@ def get_items(filters):
 		else:
 			prd = ""
 
-		data[i].insert (10, urg)
-		data[i].insert (11, prd)
-		data[i].insert (12, total)
+		data[i].insert (11, urg)
+		data[i].insert (12, prd)
+		data[i].insert (13, total)
 
 	for j in range(0,len(data)):
 		for k in range(0, len(data[j])):
