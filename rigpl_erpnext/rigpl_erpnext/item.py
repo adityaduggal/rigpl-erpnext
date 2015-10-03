@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 from frappe.utils import flt
+from frappe.desk.reportview import get_match_cond
 
 def validate(doc, method):
 	validate_variants(doc,method)
@@ -144,9 +145,10 @@ def generate_description(doc,method):
 
 				concat = ""
 				concat2 = ""
+								
 				if prefix[0][0] <> '""':
-					if list[0][0] <> '""':
-						concat = unicode(prefix[0][0][1:-1]) + unicode(list[0][0][1:-1])
+					if list[0][0]:
+						concat1 = unicode(prefix[0][0][1:-1]) + unicode(list[0][0][1:-1])
 					if list[0][1]:
 						concat2 = unicode(prefix[0][0][1:-1]) + unicode(list[0][1][1:-1])
 				else:
@@ -190,6 +192,8 @@ def generate_description(doc,method):
 				query1 = """SELECT iva.idx FROM `tabItem Variant Attribute` iva
 					WHERE iva.attribute = '%s'""" %d.attribute	
 				desc.extend([["","",frappe.db.sql(query1, as_list=1)[0][0]]])
+			
+		frappe.msgprint(desc)
 
 		desc.sort(key=lambda x:x[2]) #Sort the desc as per priority lowest one is taken first
 		for i in range(len(desc)):
@@ -333,4 +337,23 @@ def get_uom_factors(from_uom, to_uom):
 		'lft': frappe.db.get_value('UOM Conversion Detail', filters={'parent': to_uom, 'uom': 
 			from_uom}, fieldname='conversion_factor')
 	}
-	
+
+ # searches for Item Attributes
+def attribute_query(doctype, txt, searchfield, start, page_len, filters):
+	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
+		where ({key} like %(txt)s
+				or attribute_value like %(txt)s)
+			{mcond}
+		order by
+			if(locate(%(_txt)s, name), locate(%(_txt)s, name), 99999),
+			if(locate(%(_txt)s, attribute_value), locate(%(_txt)s, attribute_value), 99999),
+			attribute_value
+		limit %(start)s, %(page_len)s""".format(**{
+			'key': searchfield,
+			'mcond': get_match_cond(doctype)
+		}), {
+			'txt': "%%%s%%" % txt,
+			'_txt': txt.replace("%", ""),
+			'start': start,
+			'page_len': page_len,
+		})
