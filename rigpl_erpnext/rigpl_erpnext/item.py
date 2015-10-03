@@ -192,8 +192,6 @@ def generate_description(doc,method):
 				query1 = """SELECT iva.idx FROM `tabItem Variant Attribute` iva
 					WHERE iva.attribute = '%s'""" %d.attribute	
 				desc.extend([["","",frappe.db.sql(query1, as_list=1)[0][0]]])
-			
-		frappe.msgprint(desc)
 
 		desc.sort(key=lambda x:x[2]) #Sort the desc as per priority lowest one is taken first
 		for i in range(len(desc)):
