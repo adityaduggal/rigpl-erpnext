@@ -5,7 +5,7 @@ frappe.query_reports["Items For Production"] = {
 			"label": "Is RM",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Is RM']]}}
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_rm_query"}}
 		},
 		{
 			"fieldname":"bm",
@@ -13,7 +13,7 @@ frappe.query_reports["Items For Production"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 1,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Base Material']]}}
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
 		},
 		{
 			"fieldname":"brand",
@@ -21,7 +21,7 @@ frappe.query_reports["Items For Production"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Brand']]}}
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_brand_query"}}
 		},
 
 		{
@@ -30,7 +30,7 @@ frappe.query_reports["Items For Production"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','Like','% Quality']]}}
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_quality_query"}}
 		},
 		{
 			"fieldname":"tt",
@@ -38,7 +38,7 @@ frappe.query_reports["Items For Production"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Tool Type']]}}
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{
 			"fieldname":"spl",
@@ -46,14 +46,14 @@ frappe.query_reports["Items For Production"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Special Treatment']]}}
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_spl_query"}}
 		},
 		{
 			"fieldname":"item",
 			"label": "Item Code",
 			"fieldtype": "Link",
 			"options": "Item",
-			"reqd": 0
+			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
 		}
 	]
 }

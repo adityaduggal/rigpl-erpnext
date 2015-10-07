@@ -21,7 +21,7 @@ def get_columns():
 
 def get_item_data(filters):
 	conditions_it = get_conditions(filters)
-	bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
+	bm = filters["bm"]
 	pl = " AND itp.price_list = '%s'" % filters.get("pl")
 	
 	query = """
@@ -89,23 +89,23 @@ def get_conditions(filters):
 
 	if filters.get("bm"):
 		bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
-		conditions_it += " AND bm.attribute_value = '%s'" % bm
+		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
 
 	if filters.get("brand"):
 		brand = frappe.db.get_value("Item Attribute Value", filters["brand"], "attribute_value")
-		conditions_it += " AND brand.attribute_value = '%s'" % brand
+		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
 
 	if filters.get("quality"):
 		quality = frappe.db.get_value("Item Attribute Value", filters["quality"], "attribute_value")
-		conditions_it += " AND quality.attribute_value = '%s'" % quality
+		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
 
 	if filters.get("spl"):
 		spl = frappe.db.get_value("Item Attribute Value", filters["spl"], "attribute_value")
-		conditions_it += " AND spl.attribute_value = '%s'" % spl
+		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
 		
 	if filters.get("tt"):
 		tt = frappe.db.get_value("Item Attribute Value", filters["tt"], "attribute_value")
-		conditions_it += " AND tt.attribute_value = '%s'" % tt
+		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
 
 	if filters.get("item"):
 		conditions_it += " AND it.name = '%s'" % filters["item"]

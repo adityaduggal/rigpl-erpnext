@@ -337,9 +337,105 @@ def get_uom_factors(from_uom, to_uom):
 	}
 
  # searches for Item Attributes
-def attribute_query(doctype, txt, searchfield, start, page_len, filters):
+def attribute_rm_query(doctype, txt, searchfield, start, page_len, filters):
 	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
-		where ({key} like %(txt)s
+		where parent = "Is RM" 
+			AND ({key} like %(txt)s
+				or attribute_value like %(txt)s)
+			{mcond}
+		order by
+			if(locate(%(_txt)s, name), locate(%(_txt)s, name), 99999),
+			if(locate(%(_txt)s, attribute_value), locate(%(_txt)s, attribute_value), 99999),
+			attribute_value
+		limit %(start)s, %(page_len)s""".format(**{
+			'key': searchfield,
+			'mcond': get_match_cond(doctype)
+		}), {
+			'txt': "%%%s%%" % txt,
+			'_txt': txt.replace("%", ""),
+			'start': start,
+			'page_len': page_len,
+		})
+def attribute_bm_query(doctype, txt, searchfield, start, page_len, filters):
+	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
+		where parent = "Base Material" 
+			AND ({key} like %(txt)s
+				or attribute_value like %(txt)s)
+			{mcond}
+		order by
+			if(locate(%(_txt)s, name), locate(%(_txt)s, name), 99999),
+			if(locate(%(_txt)s, attribute_value), locate(%(_txt)s, attribute_value), 99999),
+			attribute_value
+		limit %(start)s, %(page_len)s""".format(**{
+			'key': searchfield,
+			'mcond': get_match_cond(doctype)
+		}), {
+			'txt': "%%%s%%" % txt,
+			'_txt': txt.replace("%", ""),
+			'start': start,
+			'page_len': page_len,
+		})
+def attribute_brand_query(doctype, txt, searchfield, start, page_len, filters):
+	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
+		where parent = "Brand" 
+			AND ({key} like %(txt)s
+				or attribute_value like %(txt)s)
+			{mcond}
+		order by
+			if(locate(%(_txt)s, name), locate(%(_txt)s, name), 99999),
+			if(locate(%(_txt)s, attribute_value), locate(%(_txt)s, attribute_value), 99999),
+			attribute_value
+		limit %(start)s, %(page_len)s""".format(**{
+			'key': searchfield,
+			'mcond': get_match_cond(doctype)
+		}), {
+			'txt': "%%%s%%" % txt,
+			'_txt': txt.replace("%", ""),
+			'start': start,
+			'page_len': page_len,
+		})
+def attribute_quality_query(doctype, txt, searchfield, start, page_len, filters):
+	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
+		where (parent = 'HSS Quality' OR parent = 'Carbide Quality')
+			AND ({key} like %(txt)s
+				or attribute_value like %(txt)s)
+			{mcond}
+		order by
+			if(locate(%(_txt)s, name), locate(%(_txt)s, name), 99999),
+			if(locate(%(_txt)s, attribute_value), locate(%(_txt)s, attribute_value), 99999),
+			attribute_value
+		limit %(start)s, %(page_len)s""".format(**{
+			'key': searchfield,
+			'mcond': get_match_cond(doctype)
+		}), {
+			'txt': "%%%s%%" % txt,
+			'_txt': txt.replace("%", ""),
+			'start': start,
+			'page_len': page_len,
+		})
+def attribute_tt_query(doctype, txt, searchfield, start, page_len, filters):
+	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
+		where parent = "Tool Type" 
+			AND ({key} like %(txt)s
+				or attribute_value like %(txt)s)
+			{mcond}
+		order by
+			if(locate(%(_txt)s, name), locate(%(_txt)s, name), 99999),
+			if(locate(%(_txt)s, attribute_value), locate(%(_txt)s, attribute_value), 99999),
+			attribute_value
+		limit %(start)s, %(page_len)s""".format(**{
+			'key': searchfield,
+			'mcond': get_match_cond(doctype)
+		}), {
+			'txt': "%%%s%%" % txt,
+			'_txt': txt.replace("%", ""),
+			'start': start,
+			'page_len': page_len,
+		})
+def attribute_spl_query(doctype, txt, searchfield, start, page_len, filters):
+	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
+		where parent = "Special Treatment" 
+			AND ({key} like %(txt)s
 				or attribute_value like %(txt)s)
 			{mcond}
 		order by
