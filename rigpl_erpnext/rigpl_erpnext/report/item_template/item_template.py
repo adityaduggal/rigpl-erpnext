@@ -13,12 +13,16 @@ def execute(filters=None):
 	
 def get_columns():
 	return[
-		"Item:Link/Item:300", "# Variants:Int:50","Is RM::50","BM::60", "Brand::100", "Quality::150",
-		"SPL::100", "TT::150", "D1_MM::100", "D1_INCH::100", "W1_MM::100",
-		"W1_INCH::100", "L1_MM::100", "L1_INCH::100", "CETSH::150"
+		"Item:Link/Item:300", "# Variants:Int:50","Is RM::50","BM::60", "Brand::60", 
+		"Quality::60", "SPL::60", "TT::150", "MTM::60", "Purpose::60", 
+		"Item Group::200", "WH::150", "Valuation::60", "Tolerance:Int:40", 
+		"Purchase:Int:40", "Is Sale:Int:40", "PRD:Int:40", "CETSH::100", 
+		"D1_MM::50", "W1_MM::50", "L1_MM::50"
 	]
 
 def get_items(filters):
+	conditions_it = get_conditions(filters)
+	bm = filters["bm"]
 	#List of fields to be fetched in the report
 	attributes = ['Is RM', 'Base Material', 'Brand', '%Quality', 'Special Treatment',
 		'Tool Type', 'd1_mm', 'd1_inch', 'w1_mm', 'w1_inch', 'l1_mm', 'l1_inch',
@@ -27,87 +31,61 @@ def get_items(filters):
 	float_fields = ['d1_mm', 'w1_mm', 'l1_mm']
 	linked_fields = ['d1_inch', 'w1_inch', 'l1_inch']
 	
-	################################################################################################
-	#TODO: List the range of Float fields and also for linked fields show Yes/No
-	################################################################################################
-	
-	#Select only Those Item Codes which are having Attributes ==> Templates
-	data = frappe.db.sql("""SELECT it.name FROM `tabItem` it
-		WHERE it.has_variants = 1
-		AND ifnull(it.end_of_life, '2099-12-31') > curdate()
-		ORDER BY it.name""", as_list=1)
+	data = frappe.db.sql("""SELECT it.name, 
+		(SELECT count(name) FROM `tabItem` WHERE variant_of = it.name),
+		IFNULL(rm.allowed_values, "-"), IFNULL(bm.allowed_values, "-"),
+		IFNULL(brand.allowed_values, "-"), IFNULL(quality.allowed_values, "-"), 
+		IFNULL(spl.allowed_values, "-"), IFNULL(tt.allowed_values, "-"),
+		IFNULL(mtm.allowed_values, "-"), IFNULL(purpose.allowed_values, "-"),
+		it.item_group, it.default_warehouse, it.valuation_method,
+		it.tolerance, it.is_purchase_item,
+		it.is_sales_item, it.is_pro_applicable, 
+		IFNULL(cetsh.allowed_values, "-")
 		
-	#Below loop would fetch the data of the attributes from Restriction Table
-	#and the Item Variant Attribute table and Item Attribute table to be filled
-	#in the report.
-	
-	for i in range(len(data)):
-		#Add the total number of active items under a template
-		nos = frappe.db.sql("""SELECT count(it.name) FROM `tabItem` it
-		WHERE it.variant_of = '%s' AND ifnull(it.end_of_life, '2099-12-31') > 
-		curdate()""" %data[i][0], as_list=1)
+		FROM `tabItem` it
+		LEFT JOIN `tabItem Variant Restrictions` rm ON it.name = rm.parent
+			AND rm.attribute = 'Is RM'
+		LEFT JOIN `tabItem Variant Restrictions` bm ON it.name = bm.parent
+			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Restrictions` brand ON it.name = brand.parent
+			AND brand.attribute = 'Brand'
+		LEFT JOIN `tabItem Variant Restrictions` quality ON it.name = quality.parent
+			AND quality.attribute = '%s Quality'
+		LEFT JOIN `tabItem Variant Restrictions` spl ON it.name = spl.parent
+			AND spl.attribute = 'Special Treatment'
+		LEFT JOIN `tabItem Variant Restrictions` tt ON it.name = tt.parent
+			AND tt.attribute = 'Tool Type'
+		LEFT JOIN `tabItem Variant Restrictions` mtm ON it.name = mtm.parent
+			AND mtm.attribute = 'Material to Machine'
+		LEFT JOIN `tabItem Variant Restrictions` purpose ON it.name = purpose.parent
+			AND purpose.attribute = 'Purpose'
+		LEFT JOIN `tabItem Variant Restrictions` cetsh ON it.name = cetsh.parent
+			AND cetsh.attribute = 'CETSH Number'
+			
+			
+		WHERE it.has_variants = 1 %s """ % (bm, conditions_it) , as_list = 1)
 		
-		data[i].extend(nos[0])
-		
-		restrictions = []
-		for j in attributes:
-			#Check if the attribute is mentioned in the Restrictions table, if it is
-			#then insert the value in the report, for Multiple Values
-			#the data should be filled like "Rohit, None"
-			
-			att = frappe.db.sql("""SELECT ifnull(ivr.allowed_values,"-")
-				FROM `tabItem Variant Restrictions` ivr
-				WHERE ivr.attribute LIKE '%s'
-				AND ivr.parent = '%s'
-				ORDER BY ivr.allowed_values""" %(j,data[i][0]), as_list=1)
-			#If attribute has mutliple values in the restriction tables then
-			#it would list all the values concatenated
-			
-			if len(att) > 1: #if restriction table has more than 1 value for a Attribute
-				for k in range (len(att)):
-					if k > 0:
-						restrictions = [[restrictions[0][0] + ", " + att[k][0]]]
-					else:
-						restrictions = [att[k]]
-			elif len(att) == 1:
-				restrictions = [att[0]]
-			
-			else:
-				restrictions = ["-"]
-			
-			restrictions = [restrictions]
-			#If attribute is not found in the restrictions table then the code checks if it
-			#is in the Item Variant Attribute table, if that attribute is there then the
-			#code fetches all the values of the attribute from attribute master and puts it in the 
-			#report
-						
-			if restrictions == [["-"]]:
-				att = []
-				query = """SELECT iva.attribute
-				FROM `tabItem Variant Attribute` iva
-				WHERE iva.attribute LIKE '%s'
-				AND iva.parent = '%s'""" %(j,data[i][0])
-				
-				att = frappe.db.sql(query, as_list=1)
-												
-				if att:
-					query = """SELECT iav.attribute_value
-						FROM `tabItem Attribute Value` iav
-						WHERE iav.parent = '%s'
-						ORDER BY iav.attribute_value""" %(j)
-						
-					att = frappe.db.sql(query, as_list=1)
-					if len(att) > 1:
-						for k in range (len(att)):
-							if k > 0:
-								restrictions = [restrictions[0][0] + ", " + att[k][0]]
-							else:
-								restrictions = [att[k]]
-						restrictions = [restrictions]
-					elif len(att) == 1:
-						restrictions = [att[0]]
-				else:
-					restrictions = [["-"]]
-			data[i].extend(restrictions[0])
-				
 	return data
+	
+def get_conditions(filters):
+	conditions_it = ""
+
+	if filters.get("rm"):
+		conditions_it += " AND rm.allowed_values = '%s'" % filters["rm"]
+
+	if filters.get("bm"):
+		conditions_it += " AND bm.allowed_values = '%s'" % filters["bm"]
+
+	if filters.get("brand"):
+		conditions_it += " AND brand.allowed_values = '%s'" % filters["brand"]
+
+	if filters.get("quality"):
+		conditions_it += " AND quality.allowed_values = '%s'" % filters["quality"]
+
+	if filters.get("spl"):
+		conditions_it += " AND spl.allowed_values = '%s'" % filters["spl"]
+		
+	if filters.get("tt"):
+		conditions_it += " AND tt.allowed_values = '%s'" % filters["tt"]
+
+	return conditions_it
