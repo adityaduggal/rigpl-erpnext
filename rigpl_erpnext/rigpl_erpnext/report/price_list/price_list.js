@@ -39,7 +39,7 @@ frappe.query_reports["Price List"] = {
 			"label": "Tool Type",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
-			"reqd": 0,
+			"reqd": 1,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{
@@ -56,6 +56,13 @@ frappe.query_reports["Price List"] = {
 			"fieldtype": "Link",
 			"options": "Item",
 			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
+		},
+		{
+			"fieldname":"template",
+			"label": "Template",
+			"fieldtype": "Link",
+			"options": "Item",
+			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 1]]}}
 		},
 		{
 			"fieldname":"is_pl",

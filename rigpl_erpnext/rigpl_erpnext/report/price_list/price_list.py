@@ -63,7 +63,7 @@ def get_item_data(filters):
 		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
 			AND l2.attribute = 'l2_mm'
 		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
-			AND zn.attribute = 'No Of Flutes (Zn)'
+			AND zn.attribute = 'Number of Flutes (Zn)'
 		LEFT JOIN `tabItem Variant Attribute` a1 ON it.name = a1.parent
 			AND a1.attribute = 'a1_deg'
 	
@@ -71,13 +71,14 @@ def get_item_data(filters):
 		IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
 	
 	ORDER BY bm.attribute_value, brand.attribute_value,
-		quality.attribute_value, spl.attribute_value, tt.attribute_value,
+		quality.attribute_value, tt.attribute_value,
 		CAST(d1.attribute_value AS DECIMAL(8,3)) ASC,
 		CAST(w1.attribute_value AS DECIMAL(8,3)) ASC,
 		CAST(l1.attribute_value AS DECIMAL(8,3)) ASC,
 		CAST(zn.attribute_value AS UNSIGNED) ASC,
 		CAST(d2.attribute_value AS DECIMAL(8,3)) ASC,
-		CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" %(pl, bm, conditions_it)
+		CAST(l2.attribute_value AS DECIMAL(8,3)) ASC,
+		spl.attribute_value""" %(pl, bm, conditions_it)
 	
 	data = frappe.db.sql(query , as_list=1)
 
@@ -88,27 +89,25 @@ def get_conditions(filters):
 	conditions_it = ""
 
 	if filters.get("bm"):
-		bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
 		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
 
 	if filters.get("brand"):
-		brand = frappe.db.get_value("Item Attribute Value", filters["brand"], "attribute_value")
 		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
 
 	if filters.get("quality"):
-		quality = frappe.db.get_value("Item Attribute Value", filters["quality"], "attribute_value")
 		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
 
 	if filters.get("spl"):
-		spl = frappe.db.get_value("Item Attribute Value", filters["spl"], "attribute_value")
 		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
 		
 	if filters.get("tt"):
-		tt = frappe.db.get_value("Item Attribute Value", filters["tt"], "attribute_value")
 		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
 
 	if filters.get("item"):
 		conditions_it += " AND it.name = '%s'" % filters["item"]
+		
+	if filters.get("template"):
+		conditions_it += " AND it.variant_of = '%s'" % filters["template"]
 
 	if filters.get("is_pl"):
 		conditions_it += " AND it.pl_item = 'Yes'"
