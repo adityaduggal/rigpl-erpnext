@@ -29,10 +29,10 @@ Start entering data below this line,,,,,,,,,,,,,,,,,,,,,,,,
 ,"""Item Attribute-hidden""",Item Attribute,Check,Hidden,,,,,hidden,0,0,0,0,0,,,0,eval:!doc.virtual,0,0,0,0,1,0
 ,"""Item Attribute-virtual""",Item Attribute,Check,Virtual,,,,,virtual,0,0,0,0,0,,,0,,0,0,0,0,1,0
 ,"""Item Variant Attribute-use_in_description""",Item Variant Attribute,Check,Use in Description,,,,,use_in_description,0,0,0,0,0,,1,0,,0,0,0,0,0,0
-,"""Item Variant Attribute-suffix""",Item Variant Attribute,Text,Suffix,field_name,,,,suffix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,0,0
+,"""Item Variant Attribute-suffix""",Item Variant Attribute,Text,Suffix,field_name,,,,suffix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,1,0
 ,"""Item Variant Attribute-field_name""",Item Variant Attribute,Data,Field Name,cb,,,,field_name,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,0,0
 ,"""Item Variant Attribute-cb""",Item Variant Attribute,Column Break,,attribute,,,,cb,0,0,0,0,0,,,0,,0,0,0,0,0,0
-,"""Item Variant Attribute-prefix""",Item Variant Attribute,Text,Prefix,attribute,,,,prefix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,0,0
+,"""Item Variant Attribute-prefix""",Item Variant Attribute,Text,Prefix,attribute,,,,prefix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,1,0
 ,"""UOM-uoms""",UOM,Table,UOMS,,,UOM Conversion Detail,,uoms,0,0,0,0,0,,,0,,0,0,0,0,0,0
 ,"""Item-item_variant_restrictions""",Item,Table,Item Variant Restrictions,attributes,,Item Variant Restrictions,,item_variant_restrictions,9,0,0,0,0,,,0,eval: doc.has_variants,0,0,0,0,0,0
 ,"""Attendance-overtime""",Attendance,Float,Overtime,att,2,,,overtime,0,0,0,1,0,,,0,,0,1,0,0,0,0
