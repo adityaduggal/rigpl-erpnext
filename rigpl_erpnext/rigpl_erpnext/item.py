@@ -74,10 +74,6 @@ def validate_variants(doc,method):
 				d.attribute_value = flt(d.attribute_value)
 			ctx[d.attribute] =  d.attribute_value
 		
-		#ctx = {d.attribute: d.attribute_value if not isinstance(d.attribute_value, basestring) \
-		#	or not d.attribute_value.isdigit() else \
-		#	flt(d.attribute_value) for d in doc.attributes}
-		
 		for d in doc.attributes:
 			chk_numeric = frappe.db.get_value("Item Attribute", d.attribute, \
 			"numeric_values")
@@ -109,6 +105,18 @@ def validate_variants(doc,method):
 						.get('allows', []):
 						frappe.throw(("Item Code: {0} Attribute value {1} not allowed")\
 							.format(doc.name, d.attribute_value))
+		
+		#Check the limit in the Template
+		limit = template.variant_limit
+		actual = frappe.db.sql("""SELECT count(name) FROM `tabItem` WHERE variant_of = '%s'""" \
+			% template.name, as_list =1)
+		if actual[0][0] >= limit:
+			frappe.throw(("Template Limit reached. Set Limit = {0} whereas total \
+				number of variants = {1} increase the limit to save the variant")\
+					.format(limit, actual[0][0]))
+		else:
+			frappe.msgprint(("Template Set Limit = {0} whereas total number of variants = {1}")\
+					.format(limit, actual[0][0]))
 						
 def generate_description(doc,method):
 	if doc.variant_of:
@@ -244,17 +252,6 @@ def generate_item_code(doc,method):
 		chk_digit = fn_check_digit(doc,code)
 		code = code + `chk_digit`
 		return serial, code
-		
-########Change the IDX of the Item Varaint Attribute table as per Priority########################
-def change_idx(doc,method):
-	if doc.variant_of or doc.has_variants:
-		for d in doc.attributes:
-			iva = frappe.get_doc("Item Variant Attribute", d.name)
-			att = frappe.get_doc("Item Attribute", d.attribute)
-			name = `unicode(d.name)`
-			frappe.db.set_value("Item Variant Attribute", name, "idx", att.priority, 
-				update_modified=False ,debug = True)
-			iva.idx = att.priority
 			
 ########CODE FOR NEXT STRING#######################################################################
 def fn_next_string(doc,s):
