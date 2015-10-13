@@ -26,9 +26,12 @@ def autoname(doc,method):
 def web_catalog(doc,method):
 	if doc.pl_item == "Yes":
 		doc.show_in_website = 1
+	else:
+		doc.show_in_website = 0
+		
 	if doc.show_in_website == 1:
 		doc.website_warehouse = doc.default_warehouse
-		doc.weightage = doc.re_order_level
+		doc.weightage = doc.re_order_level	
 		
 def validate_variants(doc,method):
 	if doc.variant_of:
