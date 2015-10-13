@@ -45,10 +45,8 @@ Start entering data below this line,,,,,,,,,,,,,,,,,,,,,,,,
 ,"""Sales Partner-pan""",Sales Partner,Text,PAN,partner_type,,,Enter the Permanent Account Number for TDS,pan,0,0,0,0,0,,,0,,0,1,0,0,0,0
 ,"""Sales Partner-user""",Sales Partner,Link,User,,,User,,user,0,0,1,0,0,,,0,,0,0,0,0,0,0
 ,"""Item-item_variant_restrictions""",Item,Table,Item Variant Restrictions,attributes,,Item Variant Restrictions,,item_variant_restrictions,9,0,0,0,0,,,0,eval: doc.has_variants,0,0,0,0,0,0
-,"""Item-Stock Maintained""",Item,Select,TOD Given,brand,,"
-Yes
-No",,stock_maintained,1,0,0,0,0,,No,0,,0,1,0,1,0,0
-,"""Item-pl_item""",Item,Select,PL Item,stock_maintained,,"
-No
+,"""Item-Stock Maintained""",Item,Select,TOD Given,brand,,"No
+Yes",,stock_maintained,1,0,0,0,0,,No,0,,0,1,0,1,0,0
+,"""Item-pl_item""",Item,Select,PL Item,stock_maintained,,"No
 Yes",Whether the item is Mentioned on Price List and Catalog and inherently this item would also show on the Website if this field is Selected as Yes.,pl_item,1,0,0,0,0,,No,0,,0,1,0,0,0,0
-,"""Item-variant_limit""",Item,Int,Variant Limit,pl_item,,,Maximum Number of Variants Allowed under this ,variant_limit,9,1,0,0,0,,50,0,eval: doc.has_variants,0,1,0,0,0,0
+,"""Item-variant_limit""",Item,Int,Variant Limit,pl_item,,,Maximum Number of Variants Allowed under this ,variant_limit,9,1,0,0,0,,30,0,eval: doc.has_variants,0,1,0,0,0,0
