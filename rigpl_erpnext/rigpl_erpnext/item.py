@@ -7,6 +7,7 @@ from frappe.desk.reportview import get_match_cond
 
 def validate(doc, method):
 	validate_variants(doc,method)
+	web_catalog(doc,method)
 	doc.page_name = doc.item_name
 	generate_description(doc,method)
 	if doc.variant_of is None:
@@ -22,6 +23,13 @@ def autoname(doc,method):
 		nxt_serial = fn_next_string(doc,serial[0][0])
 		frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 
+def web_catalog(doc,method):
+	if doc.pl_item == "Yes":
+		doc.show_in_website = 1
+	if doc.show_in_website == 1:
+		doc.website_warehouse = doc.default_warehouse
+		doc.weightage = doc.re_order_level
+		
 def validate_variants(doc,method):
 	if doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
