@@ -1,2 +1,3 @@
 rigpl_erpnext.patches.cform_letterhead_si_so
 rigpl_erpnext.patches.inclusive_excise_conversion
+rigpl_erpnext.patches.20151013_delete_obsolete_items
