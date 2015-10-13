@@ -13,11 +13,11 @@ def execute(filters=None):
 	
 def get_columns():
 	return[
-		"Item:Link/Item:300", "# Variants:Int:50","Is RM::50","BM::60", "Brand::60", 
-		"Quality::60", "SPL::60", "TT::150", "MTM::60", "Purpose::60", 
-		"Item Group::200", "WH::150", "Valuation::60", "Tolerance:Int:40", 
-		"Purchase:Int:40", "Is Sale:Int:40", "PRD:Int:40", "CETSH::100", 
-		"D1_MM::50", "W1_MM::50", "L1_MM::50"
+		"Item:Link/Item:300", "# Variants:Int:50", "Limit:Int:50", "Is RM::50",
+		"BM::60", "Brand::60", "Quality::60", "SPL::60", "TT::150", "MTM::60",
+		"Purpose::60", "Item Group::200", "WH::150", "Valuation::60",
+		"Tolerance:Int:40", "Purchase:Int:40", "Is Sale:Int:40",
+		"PRD:Int:40", "CETSH::100", "D1_MM::50", "W1_MM::50", "L1_MM::50"
 	]
 
 def get_items(filters):
@@ -33,6 +33,7 @@ def get_items(filters):
 	
 	data = frappe.db.sql("""SELECT it.name, 
 		(SELECT count(name) FROM `tabItem` WHERE variant_of = it.name),
+		it.variant_limit,
 		IFNULL(rm.allowed_values, "-"), IFNULL(bm.allowed_values, "-"),
 		IFNULL(brand.allowed_values, "-"), IFNULL(quality.allowed_values, "-"), 
 		IFNULL(spl.allowed_values, "-"), IFNULL(tt.allowed_values, "-"),

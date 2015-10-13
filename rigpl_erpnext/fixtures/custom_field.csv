@@ -49,3 +49,6 @@ Start entering data below this line,,,,,,,,,,,,,,,,,,,,,,,,
 ,"""Item-Stock Maintained""",Item,Select,TOD Given,brand,,"
 Yes
 No",,stock_maintained,1,0,0,0,0,,No,0,,0,1,0,1,0,0
+"","""Item-pl_item""","Item","Select","PL Item","stock_maintained","","
+No
+Yes","Whether the item is Mentioned on Price List and Catalog and inherently this item would also show on the Website if this field is Selected as Yes.","pl_item",1,0,0,0,0,"","No",0,"",0,1,0,0,0,0
