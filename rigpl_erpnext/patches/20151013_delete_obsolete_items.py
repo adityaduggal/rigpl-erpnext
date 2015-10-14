@@ -9,6 +9,7 @@ def execute():
 		FROM `tabItem` it
 		WHERE 
 			it.base_material = 'HSS'
+			AND it.pl_item = 'No'
 			AND (it.tool_type = 'Round' OR it.tool_type = 'Punches')
 
 			AND ifnull((SELECT count(sod.name) FROM `tabMaterial Request Item` sod WHERE sod.item_code = 
