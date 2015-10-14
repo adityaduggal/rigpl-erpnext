@@ -8,9 +8,10 @@ def execute():
 		SELECT it.name, ifnull(it.owner, "Administrator"), it.creation
 		FROM `tabItem` it
 		WHERE 
-			it.base_material = 'HSS'
-			AND it.pl_item = 'No'
-			AND (it.tool_type = 'Round' OR it.tool_type = 'Punches')
+			it.pl_item = 'No'
+			AND (it.tool_type = 'Round' OR it.tool_type = 'Punches' 
+			OR it.tool_type = 'Square' OR it.tool_type = 'Rectangular' 
+			OR it.tool_type = 'Punch Step3')
 
 			AND ifnull((SELECT count(sod.name) FROM `tabMaterial Request Item` sod WHERE sod.item_code = 
 				it.name GROUP BY sod.item_code),0) = 0
@@ -52,9 +53,9 @@ def execute():
 			WHERE item_code = '%s' """% i[0], as_list=1)
 		if vr:
 			for k in range(len(vr)):
-				#frappe.delete_doc_if_exists("Valuation Rate", vr[k][0])
+				frappe.delete_doc_if_exists("Valuation Rate", vr[k][0])
 				print "Deleted", vr[k][0]
-		#frappe.delete_doc_if_exists("Item", i[0])
+		frappe.delete_doc_if_exists("Item", i[0])
 		print "Row#", j, "Deleted Item", i[0], "which was Created By", i[1], "on", i[2]
 		j += 1
 	print "Total Items Deleted=", len(obs_items)
