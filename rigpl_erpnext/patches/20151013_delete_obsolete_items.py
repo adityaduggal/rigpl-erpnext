@@ -11,7 +11,8 @@ def execute():
 			it.pl_item = 'No'
 			AND (it.tool_type = 'Round' OR it.tool_type = 'Punches' 
 			OR it.tool_type = 'Square' OR it.tool_type = 'Rectangular' 
-			OR it.tool_type = 'Punch Step3')
+			OR it.tool_type = 'Punch Step3' OR it.tool_type = 'Mandrels'
+			OR it.tool_type = 'Others' OR it.tool_type = 'Parting')
 
 			AND ifnull((SELECT count(sod.name) FROM `tabMaterial Request Item` sod WHERE sod.item_code = 
 				it.name GROUP BY sod.item_code),0) = 0
