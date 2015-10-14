@@ -52,9 +52,9 @@ def execute():
 			WHERE item_code = '%s' """% i[0], as_list=1)
 		if vr:
 			for k in range(len(vr)):
-				frappe.delete_doc_if_exists("Valuation Rate", vr[k][0])
+				#frappe.delete_doc_if_exists("Valuation Rate", vr[k][0])
 				print "Deleted", vr[k][0]
-		frappe.delete_doc_if_exists("Item", i[0])
+		#frappe.delete_doc_if_exists("Item", i[0])
 		print "Row#", j, "Deleted Item", i[0], "which was Created By", i[1], "on", i[2]
 		j += 1
 	print "Total Items Deleted=", len(obs_items)
