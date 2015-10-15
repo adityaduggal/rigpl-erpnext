@@ -14,6 +14,7 @@ def validate(doc, method):
 		doc.item_name = doc.name
 		doc.item_code = doc.name
 		doc.page_name = doc.name
+		doc.description = doc.name
 		
 def autoname(doc,method):
 	if doc.variant_of:
