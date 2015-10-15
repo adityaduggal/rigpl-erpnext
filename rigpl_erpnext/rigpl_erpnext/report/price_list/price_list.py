@@ -66,6 +66,12 @@ def get_item_data(filters):
 			AND zn.attribute = 'Number of Flutes (Zn)'
 		LEFT JOIN `tabItem Variant Attribute` a1 ON it.name = a1.parent
 			AND a1.attribute = 'a1_deg'
+		LEFT JOIN `tabItem Variant Attribute` purpose ON it.name = purpose.parent
+			AND purpose.attribute = 'Purpose'
+		LEFT JOIN `tabItem Variant Attribute` type ON it.name = type.parent
+			AND type.attribute = 'Type Selector'
+		LEFT JOIN `tabItem Variant Attribute` mtm ON it.name = mtm.parent
+			AND mtm.attribute = 'Material to Machine'
 	
 	WHERE
 		IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
@@ -99,6 +105,15 @@ def get_conditions(filters):
 
 	if filters.get("spl"):
 		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
+		
+	if filters.get("purpose"):
+		conditions_it += " AND purpose.attribute_value = '%s'" % filters["purpose"]
+		
+	if filters.get("type"):
+		conditions_it += " AND type.attribute_value = '%s'" % filters["type"]
+		
+	if filters.get("mtm"):
+		conditions_it += " AND mtm.attribute_value = '%s'" % filters["mtm"]
 		
 	if filters.get("tt"):
 		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
