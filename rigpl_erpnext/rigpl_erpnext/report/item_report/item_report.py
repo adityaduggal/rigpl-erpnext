@@ -140,6 +140,15 @@ def get_conditions(filters):
 
 	if filters.get("spl"):
 		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
+
+	if filters.get("purpose"):
+		conditions_it += " AND purpose.attribute_value = '%s'" % filters["purpose"]
+		
+	if filters.get("type"):
+		conditions_it += " AND type.attribute_value = '%s'" % filters["type"]
+		
+	if filters.get("mtm"):
+		conditions_it += " AND mtm.attribute_value = '%s'" % filters["mtm"]
 		
 	if filters.get("tt"):
 		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
