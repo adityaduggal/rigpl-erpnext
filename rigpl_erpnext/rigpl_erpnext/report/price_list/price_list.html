@@ -2,7 +2,7 @@
 	{%= frappe.boot.letter_heads[filters.letter_head || frappe.defaults.get_default("letter_head")] %}
 </div>
 <h2 class="text-center">{%= __("Price List") + " " + (filters.pl) %}</h2>
-<h4 class="text-center">{%= __(filters.bm) + (" " + (filters.brand || "")) + (" " + (filters.quality || "")) + " " + (filters.tt) %}</h4>
+<h4 class="text-center">{%= __(filters.bm) + (" " + (filters.brand || "")) + (" " + (filters.purpose || "")) + (" " + (filters.type || ""))  + " " + (filters.tt) + (" " + (filters.quality || ""))  + (" " + (filters.spl || "")) + (" " + (filters.mtm || ""))%}</h4>
 <h4 class="text-center">{%= __(filters.template || "") %}</h4>
 <hr>
 <table class="table table-bordered">
