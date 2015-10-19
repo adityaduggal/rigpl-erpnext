@@ -139,6 +139,8 @@ def validate_variants(doc,method):
 				frappe.throw(("Template Limit reached. Set Limit = {0} whereas total \
 				number of variants = {1} increase the limit to save New Item Code")\
 					.format(limit, actual[0][0]))
+	elif doc.has_variants <> 1:
+		frappe.throw("Only Variants or Templates are Allowed to be Made")
 
 						
 def generate_description(doc,method):
