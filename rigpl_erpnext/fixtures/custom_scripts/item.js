@@ -3,7 +3,7 @@ frappe.provide("erpnext.item");
 frappe.ui.form.on("Item", {
 	refresh: function(frm) {
 		if (frm.doc.has_variants) {
-			frm.add_custom_button(__("Make Variant Custom"), function() {
+			frm.add_custom_button(__("Make New Item Code"), function() {
 				erpnext.item.make_variant_custom()
 			}, "icon-list", "btn-default");
 		}
