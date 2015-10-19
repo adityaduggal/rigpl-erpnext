@@ -122,13 +122,24 @@ def validate_variants(doc,method):
 		limit = template.variant_limit
 		actual = frappe.db.sql("""SELECT count(name) FROM `tabItem` WHERE variant_of = '%s'""" \
 			% template.name, as_list =1)
-		if actual[0][0] > limit:
-			frappe.throw(("Template Limit reached. Set Limit = {0} whereas total \
-				number of variants = {1} increase the limit to save the variant")\
-					.format(limit, actual[0][0]))
+		
+		check = frappe.db.sql("""SELECT name FROM `tabItem` WHERE name = '%s'""" \
+			% doc.name, as_list = 1)
+		
+		if check:
+			if actual[0][0] > limit:
+				frappe.throw(("Template Limit reached. Set Limit = {0} whereas total \
+					number of variants = {1} increase the limit to save the variant")\
+						.format(limit, actual[0][0]))
+			else:
+				frappe.msgprint(("Template Set Limit = {0} whereas total number of variants = {1}")\
+						.format(limit, actual[0][0]))
 		else:
-			frappe.msgprint(("Template Set Limit = {0} whereas total number of variants = {1}")\
+			if actual[0][0] >= limit:
+				frappe.throw(("Template Limit reached. Set Limit = {0} whereas total \
+				number of variants = {1} increase the limit to save New Item Code")\
 					.format(limit, actual[0][0]))
+
 						
 def generate_description(doc,method):
 	if doc.variant_of:
