@@ -47,12 +47,38 @@ def get_columns(filters):
 #get all details
 def get_stock_ledger_entries(filters):
 	conditions = get_conditions(filters)[0]
+	conditions_it = get_conditions(filters)[1]
+	
 	return frappe.db.sql("""SELECT sle.item_code, sle.warehouse,
 		sle.posting_date, sle.actual_qty , sle.valuation_rate, sle.stock_value
-		FROM `tabStock Ledger Entry` sle, `tabWarehouse` wh
-		WHERE wh.disabled <> 1 AND wh.name = sle.warehouse AND
-			IFNULL(is_cancelled, 'No') = 'No' %s ORDER BY sle.posting_date, sle.posting_time,
-			sle.item_code, sle.warehouse""" %conditions, as_dict=1)
+		FROM `tabStock Ledger Entry` sle, `tabWarehouse` wh, `tabItem` it
+		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
+			AND rm.attribute = 'Is RM'
+		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` h_qual ON it.name = h_qual.parent
+			AND h_qual.attribute = 'HSS Quality'
+		LEFT JOIN `tabItem Variant Attribute` c_qual ON it.name = c_qual.parent
+			AND c_qual.attribute = 'Carbide Quality'
+		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
+			AND brand.attribute = 'Brand'
+		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+			AND tt.attribute = 'Tool Type'
+		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+			AND d1.attribute = 'd1_mm'
+		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+			AND w1.attribute = 'w1_mm'
+		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+			AND l1.attribute = 'l1_mm'
+		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+			AND d2.attribute = 'd2_mm'
+		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+			AND l2.attribute = 'l2_mm'
+		WHERE wh.disabled <> 1 AND wh.name = sle.warehouse AND 
+			IFNULL(it.end_of_life, '2099-12-31') > CURDATE() AND
+			sle.item_code = it.name AND
+			IFNULL(is_cancelled, 'No') = 'No' %s %s ORDER BY sle.posting_date, sle.posting_time,
+			sle.item_code, sle.warehouse""" %(conditions, conditions_it), as_dict=1)
 
 def get_item_warehouse_map(filters):
 	sle = get_stock_ledger_entries(filters)
