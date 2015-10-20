@@ -136,8 +136,13 @@ def get_sl_entries(filters):
 			AND l2.attribute = 'l2_mm'
 		
 		
-		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() 
-		%s""" % (conditions_sle, conditions_so, conditions_ste, conditions_so, \
+		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
+		ORDER BY bm.attribute_value, quality.attribute_value, 
+		tt.attribute_value, CAST(d1.attribute_value AS DECIMAL(8,3)),
+		CAST(w1.attribute_value AS DECIMAL(8,3)),
+		CAST(d2.attribute_value AS DECIMAL(8,3)),
+		CAST(l2.attribute_value AS DECIMAL(8,3))""" \
+		% (conditions_sle, conditions_so, conditions_ste, conditions_so, \
 		conditions_so, bm,conditions_it)
 
 	data = frappe.db.sql(query, as_list=1)
