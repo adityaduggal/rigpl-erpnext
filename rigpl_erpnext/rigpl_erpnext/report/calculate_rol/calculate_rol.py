@@ -12,12 +12,12 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Item:Link/Item:130", "ROL:Int:60", "SOLD:Int:60",
-		"#Cust:Int:60", "CON:Int:60", "SI Avg:Int:60", "CON Avg:Int:60",
-		"TotA:Int:80", "Diff:Int:60","BM::60", "Brand::60",
-		"Quality::80", "TT::150", "SPL::60", 
-		"D1 MM:Float:60", "W1 MM:Float:60", "L1 MM:Float:60", 
-		"D2 MM:Float:60","L2 MM:Float:60",
+		"Item:Link/Item:130", "ROL:Int:50", "SOLD:Int:50",
+		"#Cust:Int:50", "CON:Int:50", "SI Avg:Int:50", "CON Avg:Int:50",
+		"TotA:Int:50", "Diff:Int:40", "# SO:Int:40", "BM::60", "Brand::60",
+		"Quality::60", "TT::130", "SPL::50", 
+		"D1 MM:Float:50", "W1 MM:Float:50", "L1 MM:Float:60", 
+		"D2 MM:Float:50","L2 MM:Float:60",
 		"Description::450"
 	]
 
@@ -25,7 +25,8 @@ def get_sl_entries(filters):
 	conditions_it = get_conditions(filters)[0]
 	conditions_so = get_conditions(filters)[1]
 	conditions_sle = get_conditions(filters)[2]
-	bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
+	conditions_ste = get_conditions(filters)[3]
+	bm = filters["bm"]
 
 	if (filters.get("from_date")):
 		diff = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days
@@ -79,7 +80,21 @@ def get_sl_entries(filters):
 			AND sod.item_code = it.name %s
 			GROUP BY sod.item_code), 
 		
-		null,null, null,null, null, 
+		(SELECT SUM(sted.qty) FROM `tabStock Entry Detail` sted,
+			`tabStock Entry` ste
+			WHERE sted.parent = ste.name AND ste.docstatus = 1 
+			AND sted.s_warehouse IS NOT NULL
+			AND sted.t_warehouse IS NULL
+			AND sted.item_code = it.name %s),
+		
+		null, null,null, null, 
+		
+		IF((SELECT COUNT(DISTINCT(so.name)) FROM `tabSales Order` so,
+			`tabSales Order Item` sod WHERE so.name = sod.parent
+			AND sod.item_code = it.name AND so.docstatus = 1 %s)=0, NULL,
+			(SELECT COUNT(DISTINCT(so.name)) FROM `tabSales Order` so,
+			`tabSales Order Item` sod WHERE so.name = sod.parent
+			AND sod.item_code = it.name AND so.docstatus = 1 %s)),
 		
 		IFNULL(bm.attribute_value, "-"), IFNULL(brand.attribute_value, "-"), 
 		IFNULL(quality.attribute_value, "-"),
@@ -103,6 +118,12 @@ def get_sl_entries(filters):
 			AND tt.attribute = 'Tool Type'
 		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
 			AND spl.attribute = 'Special Treatment'
+		LEFT JOIN `tabItem Variant Attribute` purpose ON it.name = purpose.parent
+			AND purpose.attribute = 'Purpose'
+		LEFT JOIN `tabItem Variant Attribute` type ON it.name = type.parent
+			AND type.attribute = 'Type Selector'
+		LEFT JOIN `tabItem Variant Attribute` mtm ON it.name = mtm.parent
+			AND mtm.attribute = 'Material to Machine'
 		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
 			AND d1.attribute = 'd1_mm'
 		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
@@ -116,10 +137,57 @@ def get_sl_entries(filters):
 		
 		
 		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() 
-		%s""" % (conditions_sle, conditions_so, bm,conditions_it)
+		%s""" % (conditions_sle, conditions_so, conditions_ste, conditions_so, \
+		conditions_so, bm,conditions_it)
 
 	data = frappe.db.sql(query, as_list=1)
-
+	
+	diff = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days
+	if diff < 0:
+		frappe.throw("From date should be before To Date")
+	
+	for i in range(len(data)):
+		sold = None
+		cons = None
+		si_avg = None
+		tot_avg = None
+		con_avg = None
+		change =  None
+		rol = None
+		
+		rol = data[i][1]
+		sold = data[i][2]
+		cons = data[i][4] 
+		if sold:
+			si_avg = ((sold/diff)*30)
+		if cons:
+			con_avg = ((cons/diff)*30)
+		if si_avg:
+			if con_avg:
+				tot_avg = con_avg + si_avg
+			else:
+				tot_avg = si_avg
+		else:
+			if con_avg:
+				tot_avg = con_avg
+			else:
+				tot_avg = None
+				
+		if rol:
+			if tot_avg:
+				change = tot_avg - rol
+			else:
+				change = -rol
+		else:
+			if tot_avg:
+				change = tot_avg
+			else:
+				change = None
+		
+		data[i][5] = si_avg
+		data[i][6] = con_avg
+		data[i][7] = tot_avg
+		data[i][8] = change
 
 	return data
 
@@ -127,12 +195,13 @@ def get_conditions(filters):
 	conditions_it = ""
 	conditions_so = ""
 	conditions_sle = ""
+	conditions_ste = ""
 
 	if filters.get("item"):
 		conditions_it += " AND it.name = '%s'" % filters["item"]
 
-	if filters.get("is_rm"):
-		conditions_it += " AND rm.attribute_value = '%s'" % filters["is_rm"]
+	if filters.get("rm"):
+		conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
 
 	if filters.get("bm"):
 		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
@@ -145,6 +214,15 @@ def get_conditions(filters):
 
 	if filters.get("spl"):
 		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
+
+	if filters.get("purpose"):
+		conditions_it += " AND purpose.attribute_value = '%s'" % filters["purpose"]
+		
+	if filters.get("type"):
+		conditions_it += " AND type.attribute_value = '%s'" % filters["type"]
+		
+	if filters.get("mtm"):
+		conditions_it += " AND mtm.attribute_value = '%s'" % filters["mtm"]
 		
 	if filters.get("tt"):
 		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
@@ -152,10 +230,12 @@ def get_conditions(filters):
 	if filters.get("from_date"):
 		conditions_so += " AND so.transaction_date >= '%s'" % filters["from_date"]
 		conditions_sle += " AND sle.posting_date >= '%s'" % filters["from_date"]
+		conditions_ste += " AND ste.posting_date >= '%s'" % filters["from_date"]
 
 	if filters.get("to_date"):
 		conditions_so += " AND so.transaction_date <= '%s'" % filters["to_date"]
 		conditions_sle += " AND sle.posting_date <= '%s'" % filters["to_date"]
+		conditions_ste += " AND ste.posting_date <= '%s'" % filters["to_date"]
 		
-	return conditions_it, conditions_so, conditions_sle
+	return conditions_it, conditions_so, conditions_sle, conditions_ste
 

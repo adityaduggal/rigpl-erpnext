@@ -31,11 +31,13 @@ def get_dn_entries(filters):
 	(dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, `tabSales Invoice` si 
 		WHERE sid.delivery_note = dn.name and
 		sid.parent = si.name and
+		sid.qty > 0 AND
 		sid.dn_detail = dni.name %s), 0)),
 
 	(dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, `tabSales Invoice` si
         	where sid.delivery_note = dn.name and
-		sid.parent = si.name and
+			sid.parent = si.name and
+			sid.qty > 0 AND
         	sid.dn_detail = dni.name %s), 0)),
 
 	dni.name ,dni.so_detail, dn.taxes_and_charges, dni.item_name, dni.description, so.track_trial
@@ -46,9 +48,10 @@ def get_dn_entries(filters):
 		AND so.name = dni.against_sales_order %s
     	AND dn.name = dni.parent
     	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, `tabSales Invoice` si
-        	WHERE sid.delivery_note = dn.name and
-		sid.parent = si.name and
-        	sid.dn_detail = dni.name %s), 0)>=0.01) %s
+        	WHERE sid.delivery_note = dn.name
+				AND sid.parent = si.name
+				AND sid.qty > 0
+				AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
 	
 	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, so_cond, si_cond, conditions)
 	dn = frappe.db.sql(query ,as_list=1)
@@ -68,14 +71,16 @@ def get_conditions(filters):
 			if getdate(filters.get("from_date"))>getdate(filters.get("to_date")):
 				frappe.msgprint("From Date cannot be greater than To Date", raise_exception=1)
 		conditions += " and dn.posting_date >= '%s'" % filters["from_date"]
+		si_cond += " AND si.posting_date >= '%s'" % filters ["from_date"]
 
 	if filters.get("to_date"):
 		conditions += " and dn.posting_date <= '%s'" % filters["to_date"]
+		si_cond += " AND si.posting_date <= '%s'" % filters ["to_date"]
 		
 	if filters.get("draft")=="Yes":
-		si_cond = " and si.docstatus != 2"
+		si_cond += " and si.docstatus != 2"
 	else:
-		si_cond = " and si.docstatus = 1"
+		si_cond += " and si.docstatus = 1"
 	
 	if filters.get("trial") == "Yes":
 		so_cond = "and so.track_trial = 1"
