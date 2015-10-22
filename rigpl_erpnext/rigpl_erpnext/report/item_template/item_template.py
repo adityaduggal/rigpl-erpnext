@@ -16,8 +16,9 @@ def get_columns():
 		"Item:Link/Item:300", "# Variants:Int:50", "Limit:Int:50", "Is RM::50",
 		"BM::60", "Brand::60", "Quality::60", "SPL::60", "TT::150", "MTM::60",
 		"Purpose::60", "Item Group::200", "WH::150", "Valuation::60",
-		"Tolerance:Int:40", "Purchase:Int:40", "Is Sale:Int:40",
-		"PRD:Int:40", "CETSH::100", "D1_MM::50", "W1_MM::50", "L1_MM::50"
+		"Tolerance:Int:40", "PUR:Int:40", "SALE:Int:40", "WEB:Int:40", "PL::40",
+		"PRD:Int:40", "CETSH::100", "D1_MM::50", "W1_MM::50", "L1_MM::50",
+		"Image::200"
 	]
 
 def get_items(filters):
@@ -40,8 +41,8 @@ def get_items(filters):
 		IFNULL(mtm.allowed_values, "-"), IFNULL(purpose.allowed_values, "-"),
 		it.item_group, it.default_warehouse, it.valuation_method,
 		it.tolerance, it.is_purchase_item,
-		it.is_sales_item, it.is_pro_applicable, 
-		IFNULL(cetsh.allowed_values, "-")
+		it.is_sales_item, it.show_in_website, it.pl_item, it.is_pro_applicable,
+		IFNULL(cetsh.allowed_values, "-"), NULL, NULL, NULL, IFNULL(it.image, "-")
 		
 		FROM `tabItem` it
 		LEFT JOIN `tabItem Variant Restrictions` rm ON it.name = rm.parent
@@ -60,6 +61,8 @@ def get_items(filters):
 			AND mtm.attribute = 'Material to Machine'
 		LEFT JOIN `tabItem Variant Restrictions` purpose ON it.name = purpose.parent
 			AND purpose.attribute = 'Purpose'
+		LEFT JOIN `tabItem Variant Restrictions` type ON it.name = type.parent
+			AND type.attribute = 'Type Selector'
 		LEFT JOIN `tabItem Variant Restrictions` cetsh ON it.name = cetsh.parent
 			AND cetsh.attribute = 'CETSH Number'
 			
@@ -85,6 +88,15 @@ def get_conditions(filters):
 
 	if filters.get("spl"):
 		conditions_it += " AND spl.allowed_values = '%s'" % filters["spl"]
+
+	if filters.get("purpose"):
+		conditions_it += " AND purpose.allowed_values = '%s'" % filters["purpose"]
+		
+	if filters.get("type"):
+		conditions_it += " AND type.allowed_values = '%s'" % filters["type"]
+		
+	if filters.get("mtm"):
+		conditions_it += " AND mtm.allowed_values = '%s'" % filters["mtm"]
 		
 	if filters.get("tt"):
 		conditions_it += " AND tt.allowed_values = '%s'" % filters["tt"]
