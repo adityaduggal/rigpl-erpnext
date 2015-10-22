@@ -40,7 +40,7 @@ frappe.query_reports["Item Template"] = {
 			"label": "Tool Type",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
-			"reqd": 0,
+			"reqd": 1,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{
@@ -50,6 +50,30 @@ frappe.query_reports["Item Template"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_spl_query"}}
+		},
+		{
+			"fieldname":"purpose",
+			"label": "Purpose",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_purpose_query"}}
+		},
+		{
+			"fieldname":"type",
+			"label": "Type",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_type_query"}}
+		},
+		{
+			"fieldname":"mtm",
+			"label": "Material to Machine",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_mtm_query"}}
 		}
 	]
 }
