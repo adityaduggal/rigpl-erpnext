@@ -141,6 +141,14 @@ def validate_variants(doc,method):
 					.format(limit, actual[0][0]))
 	elif doc.has_variants <> 1:
 		frappe.throw("Only Variants or Templates are Allowed to be Made")
+	elif doc.has_variants == 1:
+		user = frappe.session.user
+		query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
+		roles = frappe.db.sql(query, as_list=1)
+		if any("System Manager" in s  for s in roles):
+			pass
+		else:
+			frappe.throw("Only System Managers are Allowed to Edit Templates")
 
 						
 def generate_description(doc,method):
