@@ -336,3 +336,7 @@ cur_frm.cscript.custom_onload = function () {
 		
 	}
 }
+//Below code would disable the attribute table after being saved.
+cur_frm.cscript.custom_refresh = function(doc, cdt, cdn) {
+    cur_frm.toggle_enable(["attributes"], cur_frm.doc.__islocal);
+}
