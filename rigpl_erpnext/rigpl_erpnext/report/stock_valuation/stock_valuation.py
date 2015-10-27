@@ -50,7 +50,8 @@ def get_stock_ledger_entries(filters):
 	conditions_it = get_conditions(filters)[1]
 	
 	return frappe.db.sql("""SELECT sle.item_code, sle.warehouse,
-		sle.posting_date, sle.actual_qty , sle.valuation_rate, sle.stock_value
+		sle.posting_date, sle.posting_time, sle.qty_after_transaction ,
+		sle.valuation_rate, sle.stock_value
 		FROM `tabStock Ledger Entry` sle, `tabWarehouse` wh, `tabItem` it
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
@@ -78,7 +79,7 @@ def get_stock_ledger_entries(filters):
 			IFNULL(it.end_of_life, '2099-12-31') > CURDATE() AND
 			sle.item_code = it.name AND
 			IFNULL(is_cancelled, 'No') = 'No' %s %s ORDER BY sle.posting_date, sle.posting_time,
-			sle.item_code, sle.warehouse""" %(conditions, conditions_it), as_dict=1)
+			sle.item_code, sle.warehouse, sle.name""" %(conditions, conditions_it), as_dict=1)
 
 def get_item_warehouse_map(filters):
 	sle = get_stock_ledger_entries(filters)
@@ -86,22 +87,15 @@ def get_item_warehouse_map(filters):
 	filters["date"] = datetime.strptime(filters["date"], '%Y-%m-%d').date()
 	for d in sle:
 		iwb_map.setdefault(d.item_code, {}).setdefault(d.warehouse, frappe._dict({\
-				"opening_qty": 0.0, "in_qty": 0.0, "out_qty": 0.0, "bal_qty": 0.0, "val_rate":0.0,\
-				"value":0.0
+				"bal_qty": 0.0, "val_rate":0.0, "value":0.0
 			}))
 		qty_dict = iwb_map[d.item_code][d.warehouse]
 		if d.posting_date <= filters["date"]:
-			qty_dict.opening_qty += flt(d.actual_qty)
 			qty_dict.val_rate = flt(d.valuation_rate)
 			qty_dict.value = flt(d.stock_value)
-		elif d.posting_date > filters["date"].date():
-			if flt(d.actual_qty) > 0:
-				qty_dict.in_qty += flt(d.actual_qty)
-			else:
-				qty_dict.out_qty += abs(flt(d.actual_qty))
+			qty_dict.bal_qty = flt(d.qty_after_transaction)
 
-		qty_dict.bal_qty += flt(d.actual_qty)
-
+		
 	return iwb_map
 
 def get_item_details(filters):
@@ -193,9 +187,6 @@ def get_conditions(filters):
 
 	if filters.get("brand"):
 		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
-
-	if filters.get("quality"):
-		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
 		
 	if filters.get("tt"):
 		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
