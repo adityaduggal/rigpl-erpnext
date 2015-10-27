@@ -16,19 +16,20 @@ def execute(filters=None):
 	for item in sorted(iwb_map):
 		for wh in sorted(iwb_map[item]):
 			qty_dict = iwb_map[item][wh]
-			data.append([item,item_map[item]["desc"], wh,
-			qty_dict.bal_qty,
-			pl_map.get(item,{}).get("price_list_rate"),
-			qty_dict.val_rate,
-			qty_dict.value,
-			item_map[item]["bm"],
-			item_map[item]["quality"], item_map[item]["tt"],
-			item_map[item]["d1"], item_map[item]["w1"],
-			item_map[item]["l1"], item_map[item]["d2"],
-			item_map[item]["l2"], item_map[item]["rm"],
-			item_map[item]["brand"],
-			value_map.get(item,{}).get("valuation_rate")
-			])
+			if qty_dict.bal_qty > 0:
+				data.append([item,item_map[item]["desc"], wh,
+				qty_dict.bal_qty,
+				pl_map.get(item,{}).get("price_list_rate"),
+				qty_dict.val_rate,
+				qty_dict.value,
+				item_map[item]["bm"],
+				item_map[item]["quality"], item_map[item]["tt"],
+				item_map[item]["d1"], item_map[item]["w1"],
+				item_map[item]["l1"], item_map[item]["d2"],
+				item_map[item]["l2"], item_map[item]["rm"],
+				item_map[item]["brand"],
+				value_map.get(item,{}).get("valuation_rate")
+				])
 
 	return columns, data
 
