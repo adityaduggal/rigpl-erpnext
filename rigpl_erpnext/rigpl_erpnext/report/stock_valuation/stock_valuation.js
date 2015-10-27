@@ -44,15 +44,6 @@ frappe.query_reports["Stock Valuation"] = {
 			"reqd": 0,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_brand_query"}}
 		},
-
-		{
-			"fieldname":"quality",
-			"label": "Quality",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"reqd": 0,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_quality_query"}}
-		},
 		{
 			"fieldname":"tt",
 			"label": "Tool Type",
