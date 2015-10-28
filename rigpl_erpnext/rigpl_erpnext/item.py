@@ -15,7 +15,6 @@ def validate(doc, method):
 		doc.item_code = doc.name
 		doc.page_name = doc.name
 		doc.description = doc.name
-		
 def autoname(doc,method):
 	if doc.variant_of:
 		(serial, code) = generate_item_code(doc,method)
@@ -35,6 +34,16 @@ def web_catalog(doc,method):
 		doc.weightage = doc.re_order_level	
 		
 def validate_variants(doc,method):
+	user = frappe.session.user
+	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
+	roles = frappe.db.sql(query, as_list=1)
+	
+	if doc.show_in_website == 1:
+		if doc.image and doc.website_image:
+			pass
+		else:
+			frappe.throw("For Website Items Image is Mandatory")
+	
 	if doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
 		template = frappe.get_doc("Item", doc.variant_of)
@@ -140,11 +149,11 @@ def validate_variants(doc,method):
 				number of variants = {1} increase the limit to save New Item Code")\
 					.format(limit, actual[0][0]))
 	elif doc.has_variants <> 1:
-		frappe.throw("Only Variants or Templates are Allowed to be Made")
+		if any("System Manager" in s  for s in roles):
+			pass
+		else:
+			frappe.throw("Only System Managers are Allowed to Create Non Template or Variant Items")
 	elif doc.has_variants == 1:
-		user = frappe.session.user
-		query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
-		roles = frappe.db.sql(query, as_list=1)
 		if any("System Manager" in s  for s in roles):
 			pass
 		else:
