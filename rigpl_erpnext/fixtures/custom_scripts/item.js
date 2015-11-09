@@ -291,33 +291,6 @@ $.extend(erpnext.item, {
 });
 
 cur_frm.cscript.custom_onload = function () {
-	frappe.meta.get_docfield('Item Variant Restrictions', 'allowed_values').on_make = function(field){
-		$(field.input_area).addClass('ui-front');
-		field.$input.autocomplete({
-			minChars: 0,
-			minLength: 0,
-			source: function(request, response){
-				frappe.call({
-					method: 'frappe.client.get_list',
-					args: {
-						doctype: 'Item Attribute Value',
-						filters: [
-							['parent', '=', field.doc.attribute],
-							['attribute_value', 'like', request.term + '%']
-						],
-						fields: ['attribute_value']
-					},
-					callback: function(res){
-						response($.map(res.message, function(d){ return d.attribute_value;}));
-					}
-				})
-			},
-			select: function(event, ui){
-				field.$input.val(ui.item.value);
-				field.$input.trigger('change');
-			}
-		});
-	}
 	if (cur_frm.doc.has_variants == 1) {
 		cur_frm.set_query('attribute', 'attributes', function(){
 			return {
@@ -340,3 +313,32 @@ cur_frm.cscript.custom_onload = function () {
 cur_frm.cscript.custom_refresh = function(doc, cdt, cdn) {
     cur_frm.toggle_enable(["attributes"], cur_frm.doc.__islocal);
 }
+
+frappe.ui.form.on("Item Variant Restrictions", "form_render", function(frm, cdt, cdn){
+	var field = cur_frm.fields_dict.item_variant_restrictions.grid.grid_rows_by_docname[cdn].fields_dict.allowed_values;
+	$(field.input_area).addClass('ui-front');
+	field.$input.autocomplete({
+		minChars: 0,
+		minLength: 0,
+		source: function(request, response){
+			frappe.call({
+				method: 'frappe.client.get_list',
+				args: {
+					doctype: 'Item Attribute Value',
+					filters: [
+						['parent', '=', field.doc.attribute],
+						['attribute_value', 'like', request.term + '%']
+					],
+					fields: ['attribute_value']
+				},
+				callback: function(res){
+					response($.map(res.message, function(d){ return d.attribute_value;}));
+				}
+			})
+		},
+		select: function(event, ui){
+			field.$input.val(ui.item.value);
+			field.$input.trigger('change');
+		}
+	});
+});
