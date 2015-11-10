@@ -310,9 +310,13 @@ cur_frm.cscript.custom_onload = function () {
 	}
 }
 //Below code would disable the attribute table after being saved.
-cur_frm.cscript.custom_refresh = function(doc, cdt, cdn) {
-    cur_frm.toggle_enable(["attributes"], cur_frm.doc.__islocal);
-}
+frappe.ui.form.on("Item", "refresh", function(frm){
+    frm.fields_dict.attributes.grid.df.read_only = frm.doc.__islocal ? false: true;
+	frm.fields_dict.attributes.grid.docfields.forEach(function(field){
+		field.read_only = frm.doc.__islocal ? false: true;
+	});
+    frm.refresh_field("attributes");
+});
 
 frappe.ui.form.on("Item Variant Restrictions", "form_render", function(frm, cdt, cdn){
 	var field = cur_frm.fields_dict.item_variant_restrictions.grid.grid_rows_by_docname[cdn].fields_dict.allowed_values;
