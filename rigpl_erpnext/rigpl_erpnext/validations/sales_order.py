@@ -4,6 +4,13 @@ import frappe
 from frappe import msgprint
 
 def validate(doc,method):
+	for sod in doc.get("items"):
+		#below code updates the CETSH number for the item in SO
+		query = """SELECT a.attribute_value FROM `tabItem Variant Attribute` a 
+			WHERE a.parent = '%s' AND a.attribute = 'CETSH Number' """ % sod.item_code
+		cetsh = frappe.db.sql(query, as_list=1)
+		sod.cetsh_number = cetsh[0][0]
+		
 	letter_head= frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"letter_head")
 	if (doc.letter_head != letter_head):
 		frappe.msgprint("Letter Head selected does not match with Sales Tax", raise_exception=1)

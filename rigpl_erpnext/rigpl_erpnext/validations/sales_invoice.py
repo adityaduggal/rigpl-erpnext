@@ -15,6 +15,15 @@ def validate(doc,method):
 		frappe.msgprint("Letter Head selected does not match with Sales Tax", raise_exception=1)
 		
 	for d in doc.items:
+	
+		#below code updates the CETSH number for the item in SI
+		query = """SELECT a.attribute_value FROM `tabItem Variant Attribute` a 
+			WHERE a.parent = '%s' AND a.attribute = 'CETSH Number' """ % d.item_code
+		frappe.msgprint(query)
+		cetsh = frappe.db.sql(query, as_list=1)
+		frappe.msgprint(cetsh[0][0])
+		d.cetsh_number = cetsh[0][0]
+		
 		if d.delivery_note not in list_of_dns:
 			list_of_dns.extend([d.delivery_note])
 		
