@@ -9,7 +9,16 @@ def validate(doc,method):
 		query = """SELECT a.attribute_value FROM `tabItem Variant Attribute` a 
 			WHERE a.parent = '%s' AND a.attribute = 'CETSH Number' """ % sod.item_code
 		cetsh = frappe.db.sql(query, as_list=1)
-		sod.cetsh_number = cetsh[0][0]
+		if cetsh:
+			if sod.cetsh_number:
+				pass
+			else:
+				sod.cetsh_number = cetsh[0][0]
+		else:
+			if sod.cetsh_number:
+				pass
+			else:
+				sod.cetsh_number = '82079090'
 		
 	letter_head= frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"letter_head")
 	if (doc.letter_head != letter_head):
