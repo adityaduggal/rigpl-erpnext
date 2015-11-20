@@ -20,7 +20,16 @@ def validate(doc,method):
 		query = """SELECT a.attribute_value FROM `tabItem Variant Attribute` a 
 			WHERE a.parent = '%s' AND a.attribute = 'CETSH Number' """ % d.item_code
 		cetsh = frappe.db.sql(query, as_list=1)
-		d.cetsh_number = cetsh[0][0]
+		if cetsh:
+			if d.cetsh_number:
+				pass
+			else:
+				d.cetsh_number = cetsh[0][0]
+		else:
+			if d.cetsh_number:
+				pass
+			else:
+				d.cetsh_number = '82079090'
 		
 		if d.delivery_note not in list_of_dns:
 			list_of_dns.extend([d.delivery_note])
