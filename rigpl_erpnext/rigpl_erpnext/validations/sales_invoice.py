@@ -6,6 +6,7 @@ from frappe import msgprint
 def validate(doc,method):
 	c_form_tax =frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"c_form_applicable")
 	letter_head= frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"letter_head")
+	series = frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"series")
 	list_of_dns = []
 	list_of_dn_details = []
 	
@@ -13,6 +14,15 @@ def validate(doc,method):
 		frappe.msgprint("C-Form applicable selection does not match with Sales Tax", raise_exception=1)
 	if (doc.letter_head != letter_head):
 		frappe.msgprint("Letter Head selected does not match with Sales Tax", raise_exception=1)
+	if series not in doc.name:
+		frappe.throw(("Series {0} selected for Tax {1} is not permitted").\
+		format(doc.naming_series, doc.taxes_and_charges))
+	elif doc.name[:3] == 'RBJ' and series == 'RB':
+		frappe.throw(("Series {0} selected for Tax {1} is not permitted").\
+		format(doc.naming_series, doc.taxes_and_charges))
+	if doc.naming_series not in doc.name[:len(doc.naming_series)]:
+		frappe.throw(("Series {0} selected for {1} is not permitted").\
+		format(doc.naming_series, doc.name))
 		
 	for d in doc.items:
 	

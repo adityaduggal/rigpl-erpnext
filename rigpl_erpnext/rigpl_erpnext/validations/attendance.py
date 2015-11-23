@@ -9,7 +9,9 @@ def validate(doc,method):
 	#Check if the employee is Active for the Dates
 	emp = frappe.get_doc("Employee", doc.employee)
 	if emp.status == "Left":
-		doc.att_date = datetime.strptime(doc.att_date, '%Y-%m-%d').date()
+		frappe.msgprint("hello")
+		#if isinstance(doc.att_date, basestring):
+		#	doc.att_date = datetime.strptime(doc.att_date, '%Y-%m-%d').date()
 		if emp.relieving_date < doc.att_date:
 			frappe.msgprint('{0}{1}{2}'.format("Can't create attendance for ",  emp.employee_name, " as he/she has already LEFT on this Date"), raise_exception = 1)
 
