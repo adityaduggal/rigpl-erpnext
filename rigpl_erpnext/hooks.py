@@ -104,6 +104,9 @@ doc_events = {
 	"Item Group":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"
 	},
+	"Stock Reconciliation":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"
+	},
 }
 
 # Scheduled Tasks
