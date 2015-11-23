@@ -50,3 +50,11 @@ Yes",,stock_maintained,1,0,0,0,0,,No,0,,0,1,0,1,0,0
 ,"""Item-pl_item""",Item,Select,PL Item,stock_maintained,,"No
 Yes",Whether the item is Mentioned on Price List and Catalog and inherently this item would also show on the Website if this field is Selected as Yes.,pl_item,1,0,0,0,0,,No,0,,0,1,0,0,0,0
 ,"""Item-variant_limit""",Item,Int,Variant Limit,pl_item,,,Maximum Number of Variants Allowed under this ,variant_limit,9,1,0,0,0,,30,0,eval: doc.has_variants,0,1,0,0,0,0
+,"""Sales Taxes and Charges Master-c_form_applicable""",Sales Taxes and Charges Template,Select,C Form Applicable,disabled,,"No
+Yes",,c_form_applicable,0,1,0,0,0,,,0,,0,1,0,0,0,0
+,"""Sales Taxes and Charges Master-letter_head""",Sales Taxes and Charges Template,Link,Letter Head,company,,Letter Head,,letter_head,0,1,0,0,0,,,0,,0,0,0,0,0,0
+,"""Sales Taxes and Charges Template-series""",Sales Taxes and Charges Template,Select,Series,c_form_applicable,,"AD
+OG
+RB
+RBJ
+RU",Match with the Sereis Selected in the Invoice,series,0,0,0,0,0,,,0,,0,1,0,0,0,0
