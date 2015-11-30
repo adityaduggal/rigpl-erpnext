@@ -11,4 +11,8 @@ def validate(doc,method):
 		if vr_name <> []:
 			vr = frappe.get_doc("Valuation Rate", vr_name[0][0])
 			if d.item_code == vr.item_code:
-				d.valuation_rate = vr.valuation_rate
+				if d.warehouse == "REJ-DEL20A - RIGPL":
+					d.valuation_rate = 1
+				else:
+					d.valuation_rate = vr.valuation_rate
+				
