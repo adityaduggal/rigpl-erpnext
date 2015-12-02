@@ -17,7 +17,7 @@ def get_columns():
 		"D1:Float:50","W1:Float:50", "L1:Float:60", 
 		"D2:Float:50", "L2:Float:50", "Zn:Int:30",
 		"D3:Float:50", "L3:Float:50", "A1_DEG:Float:50",
-		"D1_Inch::50", "W1_Inch::50", "L1_Inch::50", "Is PL::50",
+		"D1_Inch::50", "W1_Inch::50", "L1_Inch::50", "Is PL::50", "ROL:Int:60",
 		"CETSH::70", "Template or Variant Of:Link/Item:300", "Description::400",
 		"EOL:Date:100", "Created By:Link/User:150", "Creation:Date:150"
 	]
@@ -44,7 +44,7 @@ def get_items(filters):
 		IFNULL(d1_inch.attribute_value, "-"),
 		IFNULL(w1_inch.attribute_value, "-"),
 		IFNULL(l1_inch.attribute_value, "-"),
-		IFNULL(it.pl_item, "-"),
+		IFNULL(it.pl_item, "-"), IF(it.re_order_level =0, NULL, it.re_order_level),
 		IFNULL(cetsh.attribute_value, "-"), it.variant_of, 
 		it.description, IFNULL(it.end_of_life, '2099-12-31'), 
 		it.owner, it.creation
