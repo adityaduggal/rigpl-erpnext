@@ -17,8 +17,8 @@ def execute(filters=None):
 
 def get_columns(filters):
 	return [
-	"Sales Person:Link/Sales Person:150","Target:Currency:100","SO Booked:Currency:100", "SI Raised:Currency:100",
-	"Est AR:Currency:100"
+	"Sales Person:Link/Sales Person:150","FY Target:Currency:100","SO Booked:Currency:100",
+	"SI Raised:Currency:100", "Est AR:Currency:100"
 	#, "D::100", "E::100", "F::100", "G::100", "H::100", "J::100", #"K::100","L::100","M::100", "N::100"
 	]
 
@@ -28,46 +28,31 @@ def get_entries(filters):
 	conditions_so = get_conditions(filters, date_field)[1]
 	conditions_si = get_conditions(filters, date_field)[2]
 	
-	query = """SELECT sp.sales_person_name, spt.target_amount
-		FROM `tabSales Person` sp, `tabTarget Detail` spt
-		WHERE spt.parent = sp.name %s
-		ORDER BY sp.sales_person_name""" % conditions_sperson
+	query = """SELECT
+		sp.sales_person_name, spt.target_amount,
+		
+		(SELECT SUM(so.net_total) FROM `tabSales Order` so, `tabSales Team` st
+		WHERE st.sales_person = sp.name AND st.parent = so.name AND so.docstatus = 1 %s),
+		
+		(SELECT SUM(si.net_total) FROM `tabSales Invoice` si, `tabSales Team` st
+		WHERE st.sales_person = sp.name AND st.parent = si.name AND si.docstatus = 1 %s),
+		
+		(SELECT SUM(si.outstanding_amount) FROM `tabSales Invoice` si, `tabSales Team` st
+		WHERE st.sales_person = sp.name AND st.parent = si.name AND si.docstatus = 1 %s)
+		
+		FROM
+			`tabSales Person` sp
+			LEFT JOIN `tabTarget Detail` spt ON spt.parent = sp.name
+				AND spt.parenttype = 'Sales Person'
+			
+		WHERE 
+			sp.is_group = 'No' %s
+		ORDER BY sp.sales_person_name""" % (conditions_so, conditions_si, conditions_si, conditions_sperson)
 	
-	query2 = """SELECT "", "", sum(so.net_total) from `tabSales Order` so WHERE so.docstatus = 1 %s """ % conditions_so
-	
-	so_sum = frappe.db.sql("""SELECT st.sales_person, sum(so.net_total*st.allocated_percentage/100)
-	from `tabSales Order`  so, `tabSales Team` st
-	WHERE so.docstatus = 1 AND st.parent = so.name AND st.parenttype = 'Sales Order' %s
-	GROUP BY st.sales_person""" % conditions_so, as_list=1)
-	
-	si_sum = frappe.db.sql("""SELECT st.sales_person, sum(si.net_total*st.allocated_percentage/100)
-	from `tabSales Invoice`  si, `tabSales Team` st
-	WHERE si.docstatus = 1 AND st.parent = si.name AND st.parenttype = 'Sales Invoice' %s
-	GROUP BY st.sales_person""" % conditions_si, as_list=1)
-	
-	ar_sum = frappe.db.sql("""SELECT st.sales_person, sum(si.outstanding_amount)
-	from `tabSales Invoice`  si, `tabSales Team` st
-	WHERE si.docstatus = 1 AND st.parent = si.name AND st.parenttype = 'Sales Invoice' %s
-	GROUP BY st.sales_person""" % conditions_si, as_list=1)
+	#frappe.msgprint(query)
 	
 	data = frappe.db.sql(query , as_list=1)
-	#frappe.msgprint(ar_sum)
-	
-	for i in range(len(data)):
-		for j in range(len(so_sum)):
-			if data[i][0] == so_sum[j][0]:
-				data[i].insert(2,so_sum[j][1])
-	
-	for i in range(len(data)):
-		for j in range(len(si_sum)):
-			if data[i][0] == si_sum[j][0]:
-				data[i].insert(3,si_sum[j][1])
-				
-	for i in range(len(data)):
-		for j in range(len(ar_sum)):
-			if data[i][0] == ar_sum[j][0]:
-				data[i].insert(4,ar_sum[j][1])
-	
+		
 	return data
 	
 def get_conditions(filters, date_field):
@@ -89,11 +74,24 @@ def get_conditions(filters, date_field):
 		conditions_sperson += " AND spt.fiscal_year = '%s'" % \
 		filters["fiscal_year"].replace("'", "\'")
 		
-		conditions_so += " AND so.fiscal_year = '%s'" % \
-		filters["fiscal_year"].replace("'", "\'")
+		#conditions_so += " AND so.fiscal_year = '%s'" % \
+		#filters["fiscal_year"].replace("'", "\'")
 		
-		conditions_si += " AND si.fiscal_year = '%s'" % \
-		filters["fiscal_year"].replace("'", "\'")
+		#conditions_si += " AND si.fiscal_year = '%s'" % \
+		#filters["fiscal_year"].replace("'", "\'")
 	
-	#frappe.msgprint(conditions_sperson)
+	if filters.get("from_date"):
+		conditions_so += " AND so.transaction_date >= '%s'" % \
+		filters["from_date"].replace("'", "\'")
+
+		conditions_si += " AND si.posting_date >= '%s'" % \
+		filters["from_date"].replace("'", "\'")
+
+	if filters.get("to_date"):
+		conditions_so += " AND so.transaction_date <= '%s'" % \
+		filters["to_date"].replace("'", "\'")
+		
+		conditions_si += " AND si.posting_date <= '%s'" % \
+		filters["to_date"].replace("'", "\'")
+		
 	return conditions_sperson, conditions_so, conditions_si
