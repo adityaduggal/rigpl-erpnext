@@ -57,7 +57,7 @@ frappe.query_reports["Sales Person Analysis"] = {
 			label: "Fiscal Year",
 			fieldtype: "Link",
 			options: "Fiscal Year",
-			reqd: 1,
+			reqd: 0,
 			default: frappe.defaults.get_user_default("fiscal_year"),
 			on_change: function(query_report) {
 				var fiscal_year = query_report.get_values().fiscal_year;
