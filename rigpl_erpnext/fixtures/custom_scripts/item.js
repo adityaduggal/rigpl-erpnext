@@ -246,7 +246,7 @@ $.extend(erpnext.item, {
 			frappe.call({
 				method:"erpnext.controllers.item_variant.get_variant",
 				args: {
-					"item": cur_frm.doc.name,
+					"template": cur_frm.doc.name,
 					"args": args
 				},
 				callback: function(r) {
