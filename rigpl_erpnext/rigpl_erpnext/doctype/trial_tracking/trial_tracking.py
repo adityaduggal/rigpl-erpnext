@@ -7,6 +7,16 @@ from frappe.model.document import Document
 
 class TrialTracking(Document):
 	def validate(doc):
+		#Update the Invoice Number of the TT if Invoice Already made
+		query = """SELECT si.name FROM `tabSales Invoice` si, `tabSales Invoice Item` sid 
+		WHERE si.docstatus = 1 AND sid.parent = si.name AND sid.so_detail = '%s' 
+		ORDER BY si.name""" %doc.prevdoc_detail_docname
+
+		sid = frappe.db.sql(query, as_list=1)
+		
+		if sid:
+			doc.invoice_no = sid[0][0]
+		
 		if doc.target_life:
 			if doc.unit_of_tool_life is "":
 				frappe.msgprint("Please select the Unit for Tool Life",raise_exception = 1)
