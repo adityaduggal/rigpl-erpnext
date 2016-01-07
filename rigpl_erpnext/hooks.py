@@ -79,6 +79,7 @@ doc_events = {
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_cancel"
 	},
 	"Delivery Note": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.validate",
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
 	},
