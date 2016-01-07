@@ -1,29 +1,25 @@
-<div style="margin-bottom: 7px;" class="text-center">
-	{%= frappe.boot.letter_heads[filters.letter_head || frappe.defaults.get_default("letter_head")] %}
-</div>
-<h2 class="text-center">{%= __("Price List") + " " + (filters.pl) %}</h2>
-<h4 class="text-center">{%= __(filters.bm) + (" " + (filters.brand || "")) + (" " + (filters.purpose || "")) + (" " + (filters.type || ""))  + " " + (filters.tt) + (" " + (filters.quality || ""))  + (" " + (filters.spl || "")) + (" " + (filters.mtm || ""))%}</h4>
+<img name="logo" src="http://www.rigpl.com/files/rigpl-logo-new.png" width="125" height="125" alt="" style= "float:left;"/>
+<h1 class = "text-center" style= "float:center;">{%= __("Rohit Cutting Tools") + " (" + (filters.pl) + ")"%}</h1>
+<h4 class="text-center" style= "float:center;">{%= __(filters.bm) + (" " + (filters.brand || "")) + (" " + (filters.purpose || "")) + (" " + (filters.type || ""))  + " " + (filters.tt) + (" " + (filters.quality || ""))  + (" " + (filters.spl || "")) + (" " + (filters.mtm || ""))%}</h4>
 <h4 class="text-center">{%= __(filters.template || "") %}</h4>
 <hr>
-<table class="table table-bordered">
+<table class="table table-striped">
 	<thead>
 		<tr>
-			<th style="width: 10%">{%= __("Item") %}</th>
-			<th style="width: 45%">{%= __("Description") %}</th>
-			<th style="width: 5%">{%= __("D1") %}</th>
-			<th style="width: 5%">{%= __("W1") %}</th>
-			<th style="width: 5%">{%= __("L1") %}</th>
-			<th style="width: 5%">{%= __("D2") %}</th>
-			<th style="width: 5%">{%= __("L2") %}</th>
+			<th style="width: 50%">{%= __("Description") %}</th>
+			<th style="width: 5%">{%= __("D1 mm") %}</th>
+			<th style="width: 5%">{%= __("W1 mm") %}</th>
+			<th style="width: 5%">{%= __("L1 mm") %}</th>
+			<th style="width: 5%">{%= __("D2 mm") %}</th>
+			<th style="width: 5%">{%= __("L2 mm") %}</th>
 			<th style="width: 5%">{%= __("Zn") %}</th>
-			<th style="width: 15%">{%= __("Price") %}</th>
+			<th style="width: 20%; text-align: right">{%= __("Price") %}</th>
 		</tr>
 	</thead>
 	<tbody>
 		{% for(var i=0, l=data.length; i<l; i++) { %}
 			<tr>
 			{% if(data[i][__("List Price")]) { %}
-				<td>{%= (data[i][__("Item")]) %}</td>
 				<td>{%= (data[i][__("Description")]) %}</td>
 				<td>{%= data[i][__("D1")] %}</td>
 				<td>{%= (data[i][__("W1")]) %}</td>
@@ -37,4 +33,5 @@
 		{% } %}
 	</tbody>
 </table>
+
 <p class="text-right text-muted">Printed On {%= dateutil.str_to_user(dateutil.get_datetime_as_string()) %}</p>
