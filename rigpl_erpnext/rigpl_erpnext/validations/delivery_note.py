@@ -8,14 +8,14 @@ def validate(doc,method):
 	#if there is a Stock Reconciliation then the Update would FAIL
 	for dnd in doc.get("items"):
 		sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` 
-			WHERE item_code = '%s' AND warehouse = '%s' 
+			WHERE item_code = '%s' AND warehouse = '%s' AND voucher_type = 'Stock Reconciliation'
 			AND posting_date > '%s'""" %(dnd.item_code, dnd.warehouse, doc.posting_date), as_list=1)
 		if sr:
 			frappe.throw(("There is a Reconciliation for Item \
 			Code: {0} after the posting date").format(dnd.item_code))
 		else:
 			sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` 
-			WHERE item_code = '%s' AND warehouse = '%s' 
+			WHERE item_code = '%s' AND warehouse = '%s' AND voucher_type = 'Stock Reconciliation'
 			AND posting_date = '%s' AND posting_time >= '%s'""" \
 			%(dnd.item_code, dnd.warehouse, doc.posting_date, doc.posting_time), as_list=1)
 			if sr:
