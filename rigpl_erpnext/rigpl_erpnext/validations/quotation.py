@@ -15,5 +15,5 @@ def on_update(doc,method):
 		elif doc.customer:
 			if doc.customer != link[0][0]
 				frappe.throw(("Customer {0} is not linked to Lead {1} hence cannot be set\
-				in the Quotation").format())
+				in the Quotation").format(doc.customer, doc.lead))
 		

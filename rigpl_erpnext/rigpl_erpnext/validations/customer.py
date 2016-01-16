@@ -11,7 +11,33 @@ def on_update(doc,method):
 		other_lead = frappe.db.sql("""SELECT name FROM `tabCustomer` 
 			WHERE lead_name = '%s' AND name != '%s' """ %(doc.lead_name, doc.name), as_list=1)
 		if other_lead:
-			frappe.throw(("Lead {0} already linked to Customer {1}").format(doc.lead_name, other_lead[0][0]))
+			frappe.throw(("Lead {0} already linked to Customer {1}").format(doc.lead_name, \
+			other_lead[0][0]))
+		else:
+			#Check all previous quotations and Opportunity on Lead and add the name of Customer
+			quote = frappe.db.sql("""SELECT name FROM `tabQuotation` 
+				WHERE lead = '%s' AND (customer IS NULL OR customer = '')"""%(doc.lead_name), as_list=1)
+			opp = frappe.db.sql("""SELECT name FROM `tabOpportunity` 
+				WHERE lead = '%s' AND (customer IS NULL OR customer = '')"""%(doc.lead_name), as_list=1)
+			if quote:
+				for i in quote:
+					frappe.db.set_value("Quotation", i[0], "customer", doc.name)
+			if opp:
+				for i in opp:
+					frappe.db.set_value("Opportunity", i[0], "customer", doc.name)
+	else:
+		#Check if any Quote or Opportunity is linked to Customer with Lead and if so Remove it.
+		quote = frappe.db.sql("""SELECT name FROM `tabQuotation` 
+			WHERE customer = '%s' AND (lead IS NOT NULL OR lead = '')""" %(doc.name), as_list=1)
+		opp = frappe.db.sql("""SELECT name FROM `tabOpportunity` 
+			WHERE customer = '%s' AND (lead IS NOT NULL OR lead = '')""" %(doc.name), as_list=1)
+		if quote:
+			for i in quote:
+				frappe.db.set_value("Quotation", i[0], "customer", None)
+		if opp:
+			for i in opp:
+				frappe.db.set_value("Opportunity", i[0], "customer", None)
+		
 			
 	for d in doc.sales_team:
 		if d.sales_person:
