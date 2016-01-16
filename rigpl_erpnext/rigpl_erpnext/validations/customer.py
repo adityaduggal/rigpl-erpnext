@@ -6,6 +6,13 @@ import frappe.permissions
 
 def on_update(doc,method):
 	allowed_ids = []
+	#Check for From Lead field and don't allow duplication.
+	if doc.lead_name:
+		other_lead = frappe.db.sql("""SELECT name FROM `tabCustomer` 
+			WHERE lead_name = '%s' AND name != '%s' """ %(doc.lead_name, doc.name), as_list=1)
+		if other_lead:
+			frappe.throw(("Lead {0} already linked to Customer {1}").format(doc.lead_name, other_lead[0][0]))
+			
 	for d in doc.sales_team:
 		if d.sales_person:
 			s_person = frappe.get_doc("Sales Person", d.sales_person)

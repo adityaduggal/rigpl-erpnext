@@ -108,6 +108,12 @@ doc_events = {
 	"Stock Reconciliation":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"
 	},
+	"Quotation":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate"
+	},
+	"Opportunity":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
+	},
 }
 
 # Scheduled Tasks
