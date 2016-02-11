@@ -6,6 +6,14 @@ import frappe.permissions
 
 def on_update(doc,method):
 	allowed_ids = []
+	#Check if Customer Login ID is not Repeated
+	if doc.customer_login_id:
+		other_login_id = frappe.db.sql("""SELECT name FROM `tabCustomer` 
+			WHERE customer_login_id = '%s' 
+			AND name != '%s'""" %(doc.customer_login_id, doc.name), as_list=1)
+		if other_login_id:
+			frappe.throw(("Customer {0} already linked to User ID {1}").format(other_login_id[0][0], \
+				doc.customer_login_id))
 	#Check for From Lead field and don't allow duplication.
 	if doc.lead_name:
 		other_lead = frappe.db.sql("""SELECT name FROM `tabCustomer` 
@@ -57,6 +65,9 @@ def on_update(doc,method):
 			if user.enabled == 1:
 				frappe.permissions.add_user_permission("Customer", doc.name, s_partner.user)
 				allowed_ids.extend([s_partner.user])
+	if doc.customer_login_id:
+		frappe.permissions.add_user_permission("Customer", doc.name, doc.customer_login_id)
+		allowed_ids.extend([doc.customer_login_id])
 	
 	query = """SELECT name, parent from `tabDefaultValue` where defkey = 'Customer' AND defvalue = '%s'""" % (doc.name)
 	extra_perm = frappe.db.sql(query, as_list=1)
