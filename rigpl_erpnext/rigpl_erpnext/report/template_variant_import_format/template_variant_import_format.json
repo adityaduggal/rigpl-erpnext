@@ -1,0 +1,18 @@
+{
+ "add_total_row": 0, 
+ "apply_user_permissions": 1, 
+ "creation": "2016-02-12 17:45:04.602842", 
+ "disabled": 0, 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "idx": 0, 
+ "is_standard": "Yes", 
+ "modified": "2016-02-12 17:45:04.602842", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "Template Variant Import Format", 
+ "owner": "Administrator", 
+ "ref_doctype": "Item", 
+ "report_name": "Template Variant Import Format", 
+ "report_type": "Script Report"
+}
