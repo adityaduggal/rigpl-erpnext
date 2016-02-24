@@ -24,6 +24,7 @@ def autoname(doc,method):
 		frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 
 def web_catalog(doc,method):
+	validate_stock_fields(doc,method)
 	if doc.pl_item == "Yes":
 		doc.show_in_website = 1
 	else:
@@ -35,7 +36,12 @@ def web_catalog(doc,method):
 		if rol:
 			frappe.msgprint(rol)
 			doc.weightage = rol[0][0]
-		
+
+def validate_stock_fields(doc,method):
+	if doc.is_stock_item ==1:
+		if doc.valuation_method <> 'FIFO':
+			frappe.throw("Select Valuation method as FIFO for Stock Item")
+			
 def validate_variants(doc,method):
 	user = frappe.session.user
 	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
