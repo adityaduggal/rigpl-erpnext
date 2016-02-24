@@ -30,8 +30,11 @@ def web_catalog(doc,method):
 		doc.show_in_website = 0
 		
 	if doc.show_in_website == 1:
+		rol = frappe.db.sql("""SELECT warehouse_reorder_level FROM `tabItem Reorder` WHERE parent ='%s' """%(doc.name), as_list=1)
 		doc.website_warehouse = doc.default_warehouse
-		doc.weightage = doc.re_order_level	
+		if rol:
+			frappe.msgprint(rol)
+			doc.weightage = rol[0][0]
 		
 def validate_variants(doc,method):
 	user = frappe.session.user
