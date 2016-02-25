@@ -103,7 +103,9 @@ def validate_variants(doc,method):
 			if is_numeric == 1:
 				d.attribute_value = flt(d.attribute_value)
 			ctx[d.attribute] =  d.attribute_value
-		
+
+		original_keys = ctx.keys()
+			
 		for d in doc.attributes:
 			chk_numeric = frappe.db.get_value("Item Attribute", d.attribute, \
 			"numeric_values")
@@ -117,14 +119,17 @@ def validate_variants(doc,method):
 							'false': 'False',
 							'true': 'True',
 							'&&': ' and ',
-							'||': ' or ' 
+							'||': ' or ',
+							'&gt;': '>',
+							'&lt;': '<'
 						}
 						for k,v in repls.items():
 							rule = rule.replace(k,v)
+							
 						try:
 							valid = eval(rule, ctx, ctx)
 						except Exception, e:
-							frappe.throw(e)
+							frappe.throw("\n\n".join(map(str, [rule, {k:v for k,v in ctx.items() if k in original_keys}, e])))
 							
 						if not valid:
 							frappe.throw('Item Code: {0} Rule "{1}" failing for field "{2}"'\
