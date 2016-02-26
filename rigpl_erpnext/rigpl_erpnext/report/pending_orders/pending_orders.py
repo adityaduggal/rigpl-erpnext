@@ -40,7 +40,7 @@ def get_so_entries(filters):
 	WHERE
 	 sod.parent = so.name
 	 AND so.docstatus = 1
-	 AND so.status <> "Stopped"
+	 AND so.status <> "Closed"
 	 AND ifnull(sod.delivered_qty,0) < ifnull(sod.qty,0) %s
 	order by so.transaction_date desc """ % conditions
 	
