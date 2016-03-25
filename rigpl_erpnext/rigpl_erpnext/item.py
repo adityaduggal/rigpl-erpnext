@@ -25,6 +25,7 @@ def autoname(doc,method):
 
 def web_catalog(doc,method):
 	validate_stock_fields(doc,method)
+	validate_restriction(doc,method)
 	if doc.pl_item == "Yes":
 		doc.show_in_website = 1
 	else:
@@ -36,6 +37,19 @@ def web_catalog(doc,method):
 		if rol:
 			frappe.msgprint(rol)
 			doc.weightage = rol[0][0]
+		
+def validate_restriction(doc,method):
+	if doc.has_variants == 1:
+		#Check if the Restrictions Numeric check field is correctly selected
+		for d in doc.item_variant_restrictions:
+			if d.is_numeric == 1:
+				if d.allowed_values:
+					frappe.throw(("Allowed Values field not allowed for numeric \
+						attribute {0}").format(d.attribute))
+			elif d.is_numeric == 0:
+				if d.rule:
+					frappe.throw(("Rule not allowed for non-numeric \
+						attribute {0}").format(d.attribute))
 
 def validate_stock_fields(doc,method):
 	if doc.is_stock_item ==1:
