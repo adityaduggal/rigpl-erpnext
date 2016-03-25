@@ -34,8 +34,8 @@ def web_catalog(doc,method):
 	if doc.show_in_website == 1:
 		rol = frappe.db.sql("""SELECT warehouse_reorder_level FROM `tabItem Reorder` WHERE parent ='%s' """%(doc.name), as_list=1)
 		doc.website_warehouse = doc.default_warehouse
+		doc.website_image = doc.image
 		if rol:
-			frappe.msgprint(rol)
 			doc.weightage = rol[0][0]
 		
 def validate_restriction(doc,method):
@@ -62,9 +62,7 @@ def validate_variants(doc,method):
 	roles = frappe.db.sql(query, as_list=1)
 	
 	if doc.show_in_website == 1:
-		if doc.image and doc.website_image:
-			pass
-		else:
+		if not (doc.image or doc.website_image):
 			frappe.throw("For Website Items Image is Mandatory")
 	
 	if doc.variant_of:
