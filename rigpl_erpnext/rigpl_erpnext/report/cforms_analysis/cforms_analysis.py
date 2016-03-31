@@ -38,52 +38,55 @@ def get_va_entries(filters):
 		query = """select si.posting_date, si.name, si.customer, 
 			si.taxes_and_charges, cu.default_taxes_and_charges, 
 			si.net_total, si.grand_total, 
-			si.fiscal_year, cf.name,
+			fy.name, cf.name,
 			cf.c_form_no, cf.state, cf.received_date
-			FROM `tabSales Invoice` si, `tabC-Form` cf, `tabCustomer` cu
+			FROM `tabSales Invoice` si, `tabC-Form` cf, `tabCustomer` cu, `tabFiscal Year` fy
 			WHERE si.docstatus = 1 AND si.customer=cu.name AND
+			fy.year_start_date <= si.posting_date AND
+			fy.year_end_date >= si.posting_date AND
 			si.c_form_applicable = 'Yes' AND si.c_form_no = cf.name %s
 			ORDER BY si.customer, si.name""" % conditions
-		
-		si = frappe.db.sql(query, as_list=1)
 		
 	elif filters.get("status") == "Not Received" and filters.get("summary") is None :
 		query = """ select si.posting_date, si.name, si.customer, 
 			si.taxes_and_charges, cu.default_taxes_and_charges, 
-			si.net_total, si.grand_total, si.fiscal_year,
+			si.net_total, si.grand_total, fy.name,
 			null, null, null
-			FROM `tabSales Invoice` si, `tabCustomer` cu
+			FROM `tabSales Invoice` si, `tabCustomer` cu, `tabFiscal Year` fy
 			WHERE si.docstatus = 1 AND si.customer=cu.name AND
+			fy.year_start_date <= si.posting_date AND
+			fy.year_end_date >= si.posting_date AND
 			si.c_form_applicable = 'Yes' AND
 			si.c_form_no is NULL %s
 			ORDER BY si.customer, si.name""" % conditions
-			
-		si = frappe.db.sql(query, as_list=1)
 	
 	elif filters.get("status") == "Not Received" and filters.get("summary")==1 :
-		query = """select si.customer, sum(si.net_total), sum(si.grand_total), si.fiscal_year,
+		query = """select si.customer, sum(si.net_total), sum(si.grand_total), fy.name,
 			cu.default_taxes_and_charges
-			FROM `tabSales Invoice` si, `tabCustomer` cu
+			FROM `tabSales Invoice` si, `tabCustomer` cu, `tabFiscal Year` fy
 			WHERE si.docstatus=1 AND si.c_form_applicable = 'Yes' AND
+			fy.year_start_date <= si.posting_date AND
+			fy.year_end_date >= si.posting_date AND
 			si.c_form_no is NULL AND si.customer = cu.name %s
-			GROUP BY si.customer, si.fiscal_year
-			ORDER BY si.fiscal_year, si.customer""" % conditions
-		
-		si = frappe.db.sql(query, as_list=1)
+			GROUP BY si.customer, fy.name
+			ORDER BY fy.name, si.customer""" % conditions
 	
 	elif filters.get("status") == "Received" and filters.get("summary")==1 :
-		query = """select si.customer, sum(si.net_total), sum(si.grand_total), si.fiscal_year,
+		query = """select si.customer, sum(si.net_total), sum(si.grand_total), fy.name,
 			cu.default_taxes_and_charges
-			FROM `tabSales Invoice` si, `tabCustomer` cu
+			FROM `tabSales Invoice` si, `tabCustomer` cu, `tabFiscal Year` fy
 			WHERE si.docstatus=1 AND si.c_form_applicable = 'Yes' AND
+			fy.year_start_date <= si.posting_date AND
+			fy.year_end_date >= si.posting_date AND
 			si.c_form_no is NOT NULL AND si.customer = cu.name %s
-			GROUP BY si.customer, si.fiscal_year
-			ORDER BY si.fiscal_year, si.customer""" % conditions
+			GROUP BY si.customer, fy.name
+			ORDER BY fy.name, si.customer""" % conditions
 		
-		si = frappe.db.sql(query, as_list=1)
 	else:
-		si = []
-		
+		query = """"""
+
+	si = frappe.db.sql(query, as_list=1)
+	
 	if filters.get("summary") is None:
 		for i in range(0,len(si)):
 			mo = (si[i][0]).month
@@ -104,7 +107,10 @@ def get_va_entries(filters):
 def get_conditions(filters):
 	conditions = ""
 	if filters.get("fiscal_year"):
-		conditions += "and si.fiscal_year = '%s'" % filters["fiscal_year"]
+		frm_date = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_start_date")
+		to_date = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_end_date")
+		conditions += "and si.posting_date >= '%s'" % frm_date
+		conditions += "and si.posting_date <= '%s'" % to_date
 
 	if filters.get("quarter"):
 		if filters.get("fiscal_year"):
