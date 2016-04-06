@@ -7,7 +7,7 @@ app_color = "#007AFF"
 app_email = "aditya@rigpl.com"
 app_url = "https://github.com/adityaduggal/custom_erpnext"
 app_version = "0.0.1"
-fixtures = ["Custom Field"]
+fixtures = ["Custom Field","Custom Script"]
 hide_in_installer = True
 
 # Includes in <head>
