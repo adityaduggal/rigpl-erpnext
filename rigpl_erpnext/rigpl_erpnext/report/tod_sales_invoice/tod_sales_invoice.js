@@ -5,7 +5,8 @@ frappe.query_reports["TOD Sales Invoice"] = {
 			"fieldname":"fiscal_year",
 			"label": "Fiscal Year",
 			"fieldtype": "Link",
-			"options": "Fiscal Year"
+			"options": "Fiscal Year",
+			"reqd": 1,
 		},
 		{
 			"fieldname":"customer",

@@ -29,7 +29,7 @@ def get_si_entries(filters):
 	conditions = get_conditions(filters)
 	
 	if filters.get("summary"):
-		query = """select si.customer, sum(sid.base_amount), it.pl_item
+		query = """select si.customer, sum(sid.base_net_amount), it.pl_item
 			FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
 			WHERE sid.parent = si.name AND sid.item_code = it.name AND
 			si.docstatus = 1 %s 
@@ -38,7 +38,7 @@ def get_si_entries(filters):
 	else:
 		query = """select si.name, si.posting_date, si.customer, sid.item_code,
 			sid.description, sid.qty, sid.base_price_list_rate, sid.discount_percentage, 
-			sid.base_rate, sid.base_amount, it.stock_maintained, it.pl_item
+			sid.base_net_rate, sid.base_net_amount, it.stock_maintained, it.pl_item
 			FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
 			WHERE sid.parent = si.name AND sid.item_code = it.name AND
 			si.docstatus = 1 %s 
@@ -50,10 +50,10 @@ def get_si_entries(filters):
 def get_conditions(filters):
 	conditions = ""
 	if filters.get("fiscal_year"):
-		conditions += "and si.fiscal_year = '%s'" % filters["fiscal_year"]
-	else:
-		frappe.msgprint("Please Select Fiscal Year First", raise_exception=1)
-
+		frm_date = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_start_date")
+		to_date = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_end_date")
+		conditions += "and si.posting_date >= '%s'" % frm_date
+		conditions += "and si.posting_date <= '%s'" % to_date
 
 	if filters.get("customer"):
 		conditions += "and si.customer = '%s'" % filters["customer"]

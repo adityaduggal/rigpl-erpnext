@@ -12,18 +12,21 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Item:Link/Item:130", "Description::350", "ROL:Int:60", "Sold:Int:60",
-		"#Cust:Int:60", "# DN:Int:60", "Con:Int:60", "DNA:Int:60", "ConA:Int:60",
-		"TotA:Int:80", "Diff:Int:60","BM::70", "TT::80",
-		"Quality::80","H/D:Float:60", "W:Float:60",
-		"L:Float:60", "D1:Float:60","L1:Float:60","Brand::100"
+		"Item:Link/Item:130", "ROL:Int:50", "SOLD:Int:50",
+		"#Cust:Int:50", "CON:Int:50", "SI Avg:Int:50", "CON Avg:Int:50",
+		"TotA:Int:50", "Diff:Int:40", "# SO:Int:40", "BM::60", "Brand::60",
+		"Quality::60", "TT::130", "SPL::50", 
+		"D1 MM:Float:50", "W1 MM:Float:50", "L1 MM:Float:60", 
+		"D2 MM:Float:50","L2 MM:Float:60",
+		"Description::450"
 	]
 
 def get_sl_entries(filters):
-	conditions = get_conditions(filters)
-	conditions_ste = get_conditions_ste(filters)
-	conditions_it = get_conditions_it(filters)
-	conditions_so = get_conditions_so(filters)
+	conditions_it = get_conditions(filters)[0]
+	conditions_so = get_conditions(filters)[1]
+	conditions_sle = get_conditions(filters)[2]
+	conditions_ste = get_conditions(filters)[3]
+	bm = filters["bm"]
 
 	if (filters.get("from_date")):
 		diff = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days
@@ -32,185 +35,212 @@ def get_sl_entries(filters):
 	else:
 		frappe.msgprint ("Please select from date first", raise_exception=1)
 
-	DN_Qty= frappe.db.sql("""select sle.item_code, sum(sle.actual_qty)*-1
-	from `tabStock Ledger Entry` sle where sle.voucher_type = "Delivery Note" and sle.is_cancelled = "No" %s
-	group by sle.item_code order by sle.item_code"""
-	% conditions, as_list=1)
+	pre_data = frappe.db.sql("""SELECT it.name FROM `tabItem` it
+		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
+			AND rm.attribute = 'Is RM'
+		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
+			AND quality.attribute = '%s Quality'
+		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
+			AND brand.attribute = 'Brand'
+		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+			AND tt.attribute = 'Tool Type'
+		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
+			AND spl.attribute = 'Special Treatment'
+		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+			AND d1.attribute = 'd1_mm'
+		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+			AND w1.attribute = 'w1_mm'
+		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+			AND l1.attribute = 'l1_mm'
+		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+			AND d2.attribute = 'd2_mm'
+		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+			AND l2.attribute = 'l2_mm'
+		
+		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() 
+		%s""" % (bm, conditions_it))
+	
+	if len(pre_data) > 1000:
+		frappe.throw(("Server overload possible due to {0} rows of data, kindly reduce \
+			the lines by selecting filters").format(len(pre_data)))
+	
+	query = """SELECT it.name, IF(it.re_order_level=0,NULL,it.re_order_level),
+		
+		(SELECT (SUM(sle.actual_qty)*-1)
+			FROM `tabStock Ledger Entry` sle WHERE sle.voucher_type IN 
+			('Delivery Note', 'Sales Invoice') AND sle.is_cancelled = "No" 
+			AND sle.item_code = it.name %s), 
+		
+		(SELECT COUNT(DISTINCT(so.customer))
+			FROM `tabSales Order` so, `tabSales Order Item` sod
+			WHERE sod.parent = so.name 
+			AND so.docstatus = 1 
+			AND sod.item_code = it.name %s
+			GROUP BY sod.item_code), 
+		
+		(SELECT SUM(sted.qty) FROM `tabStock Entry Detail` sted,
+			`tabStock Entry` ste
+			WHERE sted.parent = ste.name AND ste.docstatus = 1 
+			AND sted.s_warehouse IS NOT NULL
+			AND sted.t_warehouse IS NULL
+			AND sted.item_code = it.name %s),
+		
+		null, null,null, null, 
+		
+		IF((SELECT COUNT(DISTINCT(so.name)) FROM `tabSales Order` so,
+			`tabSales Order Item` sod WHERE so.name = sod.parent
+			AND sod.item_code = it.name AND so.docstatus = 1 %s)=0, NULL,
+			(SELECT COUNT(DISTINCT(so.name)) FROM `tabSales Order` so,
+			`tabSales Order Item` sod WHERE so.name = sod.parent
+			AND sod.item_code = it.name AND so.docstatus = 1 %s)),
+		
+		IFNULL(bm.attribute_value, "-"), IFNULL(brand.attribute_value, "-"), 
+		IFNULL(quality.attribute_value, "-"),
+		IFNULL(tt.attribute_value, "-"), IFNULL(spl.attribute_value, "-"), 
+		CAST(d1.attribute_value AS DECIMAL(8,3)), 
+		CAST(w1.attribute_value AS DECIMAL(8,3)), 
+		CAST(l1.attribute_value AS DECIMAL(8,3)), 
+		CAST(d2.attribute_value AS DECIMAL(8,3)), 
+		CAST(l2.attribute_value AS DECIMAL(8,3)), it.description
+		
+		FROM `tabItem` it
+		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
+			AND rm.attribute = 'Is RM'
+		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
+			AND quality.attribute = '%s Quality'
+		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
+			AND brand.attribute = 'Brand'
+		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+			AND tt.attribute = 'Tool Type'
+		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
+			AND spl.attribute = 'Special Treatment'
+		LEFT JOIN `tabItem Variant Attribute` purpose ON it.name = purpose.parent
+			AND purpose.attribute = 'Purpose'
+		LEFT JOIN `tabItem Variant Attribute` type ON it.name = type.parent
+			AND type.attribute = 'Type Selector'
+		LEFT JOIN `tabItem Variant Attribute` mtm ON it.name = mtm.parent
+			AND mtm.attribute = 'Material to Machine'
+		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+			AND d1.attribute = 'd1_mm'
+		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+			AND w1.attribute = 'w1_mm'
+		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+			AND l1.attribute = 'l1_mm'
+		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+			AND d2.attribute = 'd2_mm'
+		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+			AND l2.attribute = 'l2_mm'
+		
+		
+		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
+		ORDER BY bm.attribute_value, quality.attribute_value, 
+		tt.attribute_value, CAST(d1.attribute_value AS DECIMAL(8,3)),
+		CAST(w1.attribute_value AS DECIMAL(8,3)),
+		CAST(d2.attribute_value AS DECIMAL(8,3)),
+		CAST(l2.attribute_value AS DECIMAL(8,3))""" \
+		% (conditions_sle, conditions_so, conditions_ste, conditions_so, \
+		conditions_so, bm,conditions_it)
 
-	cust_nos = frappe.db.sql("""select sod.item_code, count(DISTINCT(so.customer))
-	FROM `tabSales Order` so, `tabSales Order Item` sod
-	WHERE sod.parent = so.name and so.docstatus = 1 %s
-	group by sod.item_code order by sod.item_code"""
-	% conditions_so, as_list=1)
-
-	data = frappe.db.sql("""select it.name, it.description, if(it.re_order_level=0,NULL,it.re_order_level),
-	it.base_material, it.tool_type, it.quality, it.height_dia, it.width, it.length, it.d1, it.l1
-	FROM `tabItem` it WHERE ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
-	ORDER BY it.base_material, it.quality, it.tool_type, it.height_dia,
-	it.width, it.length, it.d1, it.l1, it.brand"""
-	% conditions_it, as_list=1)
-
-
-	SE_Qty = frappe.db.sql("""select sted.item_code, sum(sted.qty)
-	from `tabStock Entry` ste, `tabStock Entry Detail` sted where sted.parent = ste.name
-	and ste.docstatus = 1 and sted.s_warehouse IS NOT NULL and sted.t_warehouse IS NULL %s
-	group by sted.item_code order by sted.item_code"""
-	% conditions_ste, as_list=1)
-
-	No_of_DN = frappe.db.sql("""select sle.item_code, (count(DISTINCT sle.voucher_no))*1
-	from `tabStock Ledger Entry` sle where sle.voucher_type = "Delivery Note" and sle.is_cancelled = "No" %s
-	group by sle.item_code order by sle.item_code"""
-	% conditions, as_list=1)
-
-	for i in data:
-		#Below loop would add the Qty of DN to the data
-		if any (i[0] in s for s in DN_Qty):
-			for j in DN_Qty:
-				if i[0] == j[0]:
-					if j[1] is None:
-						i.insert (3,None)
-					else:
-						i.insert (3,j[1])
+	data = frappe.db.sql(query, as_list=1)
+	
+	diff = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days
+	if diff < 0:
+		frappe.throw("From date should be before To Date")
+	
+	for i in range(len(data)):
+		sold = None
+		cons = None
+		si_avg = None
+		tot_avg = None
+		con_avg = None
+		change =  None
+		rol = None
+		
+		rol = data[i][1]
+		sold = data[i][2]
+		cons = data[i][4] 
+		if sold:
+			si_avg = ((sold/diff)*30)
+		if cons:
+			con_avg = ((cons/diff)*30)
+		if si_avg:
+			if con_avg:
+				tot_avg = con_avg + si_avg
+			else:
+				tot_avg = si_avg
 		else:
-			i.insert (3,None)
-
-		#Below loop would add the number of customers buying the item
-		if any (i[0] in t for t in cust_nos):
-			for k in cust_nos:
-				if i[0] == k[0]:
-					if k[1] is None:
-						i.insert(4,None)
-					else:
-						i.insert (4,k[1])
+			if con_avg:
+				tot_avg = con_avg
+			else:
+				tot_avg = None
+				
+		if rol:
+			if tot_avg:
+				change = tot_avg - rol
+			else:
+				change = -rol
 		else:
-			i.insert (4,None)
-
-			#Below loop would add the No of DNs to the data
-		if any (i[0] in t for t in No_of_DN):
-			for k in No_of_DN:
-				if i[0] == k[0]:
-					if k[1] is None:
-						i.insert(5,None)
-					else:
-						i.insert (5,k[1])
-		else:
-			i.insert (5,None)
-
-			#Below loop would add the Qty of Item Consumed to the data
-		if any (i[0] in v for v in SE_Qty):
-			for m in SE_Qty:
-				if i[0] == m[0]:
-					if m[1] is None:
-						i.insert (6,None)
-					else:
-						i.insert(6, m[1])
-		else:
-			i.insert (6,None)
-
-	#frappe.msgprint(type(data[1][3]))
-	for i in range(0, len(data)):
-
-		DN = data[i][3]
-		STE = data[i][6]
-
-
-
-		#Add Average DN Qty
-		if type(DN) is float:
-			data[i].insert (7,((DN/diff)*30))
-		else:
-			data[i].insert (7,None)
-
-		#Add Averange Consumed Qty
-		if type(STE) is float:
-			data[i].insert (8,((STE/diff)*30))
-		else:
-			data[i].insert (8,None)
-
-		DN_Avg = data[i][7]
-		STE_Avg = data[i][8]
-		ROL = data[i][2]
-
-		if type(DN_Avg) is float and type(STE_Avg) is float:
-			total = DN_Avg + STE_Avg
-		elif type(DN_Avg) is float:
-			total = DN_Avg
-		elif type(STE_Avg) is float:
-			total = STE_Avg
-		else:
-			total =None
-
-		#Add Total Average of Consumption and Sale
-		data[i].insert (9,total)
-
-		#Add Difference between actual ROL and Calculated ROL
-		if type(total) is float and type(ROL) is float:
-			change = total - ROL
-		elif type(total) is float:
-			change = total
-		elif type(ROL) is float:
-			change = -ROL
-		else:
-			change = None
-		data[i].insert (10,change)
-
-	for i in range(0,len(data)):
-		for j in range(0,len(data[i])):
-			if type(data[i][j])is float:
-				if data[i][j] ==0:
-					data[i][j] = None
+			if tot_avg:
+				change = tot_avg
+			else:
+				change = None
+		
+		data[i][5] = si_avg
+		data[i][6] = con_avg
+		data[i][7] = tot_avg
+		data[i][8] = change
 
 	return data
 
 def get_conditions(filters):
-	conditions = ""
-
-	if filters.get("from_date"):
-		conditions += " and sle.posting_date >= '%s'" % filters["from_date"]
-
-	if filters.get("to_date"):
-		conditions += " and sle.posting_date <= '%s'" % filters["to_date"]
-
-	return conditions
-
-def get_conditions_ste(filters):
+	conditions_it = ""
+	conditions_so = ""
+	conditions_sle = ""
 	conditions_ste = ""
 
-	if filters.get("from_date"):
-		conditions_ste += " and ste.posting_date >= '%s'" % filters["from_date"]
-
-	if filters.get("to_date"):
-		conditions_ste += " and ste.posting_date <= '%s'" % filters["to_date"]
-
-	return conditions_ste
-
-def get_conditions_it(filters):
-	conditions_it = ""
-
 	if filters.get("item"):
-		conditions_it += " and it.name = '%s'" % filters["item"]
+		conditions_it += " AND it.name = '%s'" % filters["item"]
 
-	if filters.get("is_rm"):
-		conditions_it += " and it.is_rm = '%s'" % filters["is_rm"]
+	if filters.get("rm"):
+		conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
 
-	if filters.get("base_material"):
-		conditions_it += " and it.base_material = '%s'" % filters["base_material"]
+	if filters.get("bm"):
+		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
 
-	if filters.get("tool_type"):
-		conditions_it += " and it.tool_type = '%s'" % filters["tool_type"]
+	if filters.get("brand"):
+		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
 
 	if filters.get("quality"):
-		conditions_it += " and it.quality = '%s'" % filters["quality"]
+		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
 
-	return conditions_it
+	if filters.get("spl"):
+		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
 
-def get_conditions_so(filters):
-	conditions_so = ""
+	if filters.get("purpose"):
+		conditions_it += " AND purpose.attribute_value = '%s'" % filters["purpose"]
+		
+	if filters.get("type"):
+		conditions_it += " AND type.attribute_value = '%s'" % filters["type"]
+		
+	if filters.get("mtm"):
+		conditions_it += " AND mtm.attribute_value = '%s'" % filters["mtm"]
+		
+	if filters.get("tt"):
+		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
 
 	if filters.get("from_date"):
-		conditions_so += " and so.transaction_date >= '%s'" % filters["from_date"]
+		conditions_so += " AND so.transaction_date >= '%s'" % filters["from_date"]
+		conditions_sle += " AND sle.posting_date >= '%s'" % filters["from_date"]
+		conditions_ste += " AND ste.posting_date >= '%s'" % filters["from_date"]
 
 	if filters.get("to_date"):
-		conditions_so += " and so.transaction_date <= '%s'" % filters["to_date"]
+		conditions_so += " AND so.transaction_date <= '%s'" % filters["to_date"]
+		conditions_sle += " AND sle.posting_date <= '%s'" % filters["to_date"]
+		conditions_ste += " AND ste.posting_date <= '%s'" % filters["to_date"]
+		
+	return conditions_it, conditions_so, conditions_sle, conditions_ste
 
-	return conditions_so

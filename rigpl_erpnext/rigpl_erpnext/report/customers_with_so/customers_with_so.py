@@ -29,8 +29,8 @@ def get_so_data(filters):
 		frappe.msgprint("Select from date first",raise_exception =1)
 
 	data = frappe.db.sql("""select so.customer, sum(so.net_total),
-	sum(if(so.status = "Stopped", so.net_total * so.per_delivered/100, so.net_total)), count(distinct so.name),
-	sum(if(so.status = "Stopped", so.net_total * so.per_delivered/100, so.net_total))/count(distinct so.name)
+	sum(if(so.status = "Closed", so.net_total * so.per_delivered/100, so.net_total)), count(distinct so.name),
+	sum(if(so.status = "Closed", so.net_total * so.per_delivered/100, so.net_total))/count(distinct so.name)
 	from `tabSales Order` so where so.docstatus = 1 %s group by customer
 	order by so.customer""" %conditions , as_list=1)
 

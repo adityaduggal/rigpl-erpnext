@@ -6,6 +6,7 @@ from frappe import msgprint
 def validate(doc,method):
 	c_form_tax =frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"c_form_applicable")
 	letter_head= frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"letter_head")
+	series = frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"series")
 	list_of_dns = []
 	list_of_dn_details = []
 	
@@ -13,8 +14,33 @@ def validate(doc,method):
 		frappe.msgprint("C-Form applicable selection does not match with Sales Tax", raise_exception=1)
 	if (doc.letter_head != letter_head):
 		frappe.msgprint("Letter Head selected does not match with Sales Tax", raise_exception=1)
+	if series not in doc.name:
+		frappe.throw(("Series {0} selected for Tax {1} is not permitted").\
+		format(doc.naming_series, doc.taxes_and_charges))
+	elif doc.name[:3] == 'RBJ' and series == 'RB':
+		frappe.throw(("Series {0} selected for Tax {1} is not permitted").\
+		format(doc.naming_series, doc.taxes_and_charges))
+	if doc.naming_series not in doc.name[:len(doc.naming_series)]:
+		frappe.throw(("Series {0} selected for {1} is not permitted").\
+		format(doc.naming_series, doc.name))
 		
 	for d in doc.items:
+	
+		#below code updates the CETSH number for the item in SI
+		query = """SELECT a.attribute_value FROM `tabItem Variant Attribute` a 
+			WHERE a.parent = '%s' AND a.attribute = 'CETSH Number' """ % d.item_code
+		cetsh = frappe.db.sql(query, as_list=1)
+		if cetsh:
+			if d.cetsh_number:
+				pass
+			else:
+				d.cetsh_number = cetsh[0][0]
+		else:
+			if d.cetsh_number:
+				pass
+			else:
+				d.cetsh_number = '82079090'
+		
 		if d.delivery_note not in list_of_dns:
 			list_of_dns.extend([d.delivery_note])
 		
@@ -33,7 +59,7 @@ def validate(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:
@@ -52,8 +78,9 @@ def validate(doc,method):
 			if dn is not None:
 				for dnd in dn.items:
 					if dnd.name == d.dn_detail:
-						if dnd.qty != d.qty:
-							frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
+						if d.qty > 0:
+							if dnd.qty != d.qty:
+								frappe.msgprint(("""Invoice Qty should be equal to DN Qty in line # {0}""").format(d.idx), raise_exception=1)
 	if len(list_of_dns)==1 and list_of_dns[0] == None:
 		if doc.update_stock != 1:
 			for d in doc.items:
@@ -86,7 +113,7 @@ def on_submit(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:
@@ -99,7 +126,7 @@ def on_cancel(doc,method):
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:
 				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.prevdoc_detail_docname
+				sod = dnd.so_detail
 				query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
 				name = frappe.db.sql(query, as_list=1)
 				if name:

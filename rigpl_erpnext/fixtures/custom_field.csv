@@ -1,0 +1,61 @@
+Data Import Template,,,,,,,,,,,,,,,,,,,,,,,,
+Table:,Custom Field,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,
+Notes:,,,,,,,,,,,,,,,,,,,,,,,,
+Please do not change the template headings.,,,,,,,,,,,,,,,,,,,,,,,,
+First data column must be blank.,,,,,,,,,,,,,,,,,,,,,,,,
+"If you are uploading new records, leave the ""name"" (ID) column blank.",,,,,,,,,,,,,,,,,,,,,,,,
+"If you are uploading new records, ""Naming Series"" becomes mandatory, if present.",,,,,,,,,,,,,,,,,,,,,,,,
+Only mandatory fields are necessary for new records. You can delete non-mandatory columns if you wish.,,,,,,,,,,,,,,,,,,,,,,,,
+"For updating, you can update only selective columns.",,,,,,,,,,,,,,,,,,,,,,,,
+You can only upload upto 5000 records in one go. (may be less in some cases),,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,
+DocType:,Custom Field,,,,,,,,,,,,,,,,,,,,,,,
+Column Labels:,ID,Document,Field Type,Label,Insert After,Precision,Options,Field Description,Fieldname,Permission Level,Is Mandatory Field,Unique,Read Only,Ignore User Permissions,Width,Default Value,Hidden,Depends On,Print Hide,No Copy,Allow on Submit,In Report Filter,In List View,Report Hide
+Column Name:,name,dt,fieldtype,label,insert_after,precision,options,description,fieldname,permlevel,reqd,unique,read_only,ignore_user_permissions,width,default,hidden,depends_on,print_hide,no_copy,allow_on_submit,in_filter,in_list_view,report_hide
+Mandatory:,Yes,Yes,Yes,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No
+Type:,Data (text),Link,Select,Data,Select,Select,Text,Text,Data,Int,Check,Check,Check,Check,Data,Text,Check,Data,Check,Check,Check,Check,Check,Check
+Info:,,Valid DocType,"One of: Attach, Button, Check, Code, Column Break, Currency, Data, Date, Datetime, Dynamic Link, Float, HTML, Image, Int, Link, Long Text, Password, Percent, Read Only, Section Break, Select, Small Text, Table, Text, Text Editor, Time",,,"One of: 1, 2, 3, 4, 5, 6, 7, 8, 9",,,,Integer,0 or 1,0 or 1,0 or 1,0 or 1,,,0 or 1,,0 or 1,0 or 1,0 or 1,0 or 1,0 or 1,0 or 1
+Start entering data below this line,,,,,,,,,,,,,,,,,,,,,,,,
+,"""Item Attribute Value-description""",Item Attribute Value,Text,Description,abbr,,,,description,0,1,0,0,0,,,0,,0,0,0,0,1,0
+,"""Item Attribute Value-long_description""",Item Attribute Value,Text,Long Description,description,,,,long_description,0,1,0,0,0,,,0,,0,0,0,0,1,0
+,"""Item Attribute Value-serial""",Item Attribute Value,Data,Serial,long_description,,,,serial,0,1,0,1,0,,1,0,,0,0,0,0,0,0
+,"""Item Attribute-use_in_item_code""",Item Attribute,Check,Use in Item Code,,,,,use_in_item_code,0,0,0,0,0,,1,0,eval:!doc.numeric_values,0,0,0,0,1,0
+,"""Item Attribute-column_break_1""",Item Attribute,Column Break,,,,,,column_break_1,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Item Attribute-relation""",Item Attribute,Dynamic Link,Relation,,,source,,relation,0,0,0,0,0,,,0,eval:doc.hidden,0,0,0,0,0,0
+,"""Item Attribute-source""",Item Attribute,Link,Source,,,DocType,,source,0,0,0,0,0,,,0,eval:doc.virtual,0,0,0,0,0,0
+,"""Item Attribute-update_from""",Item Attribute,Link,Update From,,,Item Attribute,,update_from,0,0,0,0,0,,,0,eval:doc.hidden,0,0,0,0,0,0
+,"""Item Attribute-hidden""",Item Attribute,Check,Hidden,,,,,hidden,0,0,0,0,0,,,0,eval:!doc.virtual,0,0,0,0,1,0
+,"""Item Attribute-virtual""",Item Attribute,Check,Virtual,,,,,virtual,0,0,0,0,0,,,0,,0,0,0,0,1,0
+,"""Item Variant Attribute-use_in_description""",Item Variant Attribute,Check,Use in Description,,,,,use_in_description,0,0,0,0,0,,1,0,,0,0,0,0,0,0
+,"""Item Variant Attribute-suffix""",Item Variant Attribute,Text,Suffix,field_name,,,,suffix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,1,0
+,"""Item Variant Attribute-field_name""",Item Variant Attribute,Data,Field Name,cb,,,,field_name,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,0,0
+,"""Item Variant Attribute-cb""",Item Variant Attribute,Column Break,,attribute,,,,cb,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Item Variant Attribute-prefix""",Item Variant Attribute,Text,Prefix,attribute,,,,prefix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,1,0
+,"""UOM-uoms""",UOM,Table,UOMS,,,UOM Conversion Detail,,uoms,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Attendance-overtime""",Attendance,Float,Overtime,att,2,,,overtime,0,0,0,1,0,,,0,,0,1,0,0,0,0
+,"""Attendance-att""",Attendance,Section Break,Time Details,,,,,att,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Attendance-shift""",Attendance,Link,Shift,att_date,,Shift Details,,shift,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Deduction Type-percentage""",Deduction Type,Percent,Percentage,earning,2,,,percentage,0,0,0,0,0,,,0,eval:doc.based_on_earning == 1,0,0,0,0,0,0
+,"""Deduction Type-earning""",Deduction Type,Link,Earning,based_on_earning,,Earning Type,,earning,0,0,0,0,0,,,0,eval:doc.based_on_earning == 1,0,0,0,0,0,0
+,"""Deduction Type-based_on_earning""",Deduction Type,Check,Based on Earning,deduction_name,,,,based_on_earning,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Attendance-attendance_time""",Attendance,Table,Attendance Time,,,Attendance Time Table,,attendance_time,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Employee-pan_number""",Employee,Data,PAN Number,company_email,,,,pan_number,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Sales Partner-pan""",Sales Partner,Text,PAN,partner_type,,,Enter the Permanent Account Number for TDS,pan,0,0,0,0,0,,,0,,0,1,0,0,0,0
+,"""Sales Partner-user""",Sales Partner,Link,User,,,User,,user,0,0,1,0,0,,,0,,0,0,0,0,0,0
+,"""Item-item_variant_restrictions""",Item,Table,Item Variant Restrictions,attributes,,Item Variant Restrictions,,item_variant_restrictions,9,0,0,0,0,,,0,eval: doc.has_variants,0,0,0,0,0,0
+,"""Item-Stock Maintained""",Item,Select,TOD Given,brand,,"No
+Yes",,stock_maintained,1,0,0,0,0,,No,0,,0,1,0,1,0,0
+,"""Item-pl_item""",Item,Select,PL Item,stock_maintained,,"No
+Yes",Whether the item is Mentioned on Price List and Catalog and inherently this item would also show on the Website if this field is Selected as Yes.,pl_item,1,0,0,0,0,,No,0,,0,1,0,0,0,0
+,"""Item-variant_limit""",Item,Int,Variant Limit,pl_item,,,Maximum Number of Variants Allowed under this ,variant_limit,9,1,0,0,0,,30,0,eval: doc.has_variants,0,1,0,0,0,0
+,"""Sales Taxes and Charges Master-c_form_applicable""",Sales Taxes and Charges Template,Select,C Form Applicable,disabled,,"No
+Yes",,c_form_applicable,0,1,0,0,0,,,0,,0,1,0,0,0,0
+,"""Sales Taxes and Charges Master-letter_head""",Sales Taxes and Charges Template,Link,Letter Head,company,,Letter Head,,letter_head,0,1,0,0,0,,,0,,0,0,0,0,0,0
+,"""Sales Taxes and Charges Template-series""",Sales Taxes and Charges Template,Select,Series,c_form_applicable,,"AD
+OG
+RB
+RBJ
+RU",Match with the Sereis Selected in the Invoice,series,0,0,0,0,0,,,0,,0,1,0,0,0,0
+,"""Customer-customer_login_id""",Customer,Link,Customer Login Id,website,,User,,customer_login_id,2,0,0,0,0,,,0,,0,1,0,0,0,0

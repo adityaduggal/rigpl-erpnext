@@ -12,86 +12,156 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Item:Link/Item:130", "Brand::80", "TT::80", "BM::60", "QLT::60",
-		"Zn:Float:60", "SPL Treat::60", "D:Float:50", "D In::50", "D1:Float:50",
-		"D1 In::50", "W:Float:50","W In::50", "L:Float:50", "L In::50",
-		"L1:Float:50","L1 In::50", "D2:Float:5","D2 In::50","L2:Float:50",
-		"L2 In:Float:50","A1:Int:30","A2:Int:30", "A3:Int:30", "R1:Float:30",
-		"DType::40","DI::30","D1I::30","WI::30","LI::30","L1I::30", "D2I::30",
-		"L2I::30", "Description::300", "Item Group:Link/Item Group:250", "RM::60",
-		"PL::60", "TOD::30", "EOL:Date:30", "Item Name::300","Show in Web::60", "Web WH::80",
-		"Weightage:Int:60", "Web Image::80", "Web Desc::100"
+		"Item:Link/Item:130", "RM::30", "BM::60","Brand::50","Quality::70", "SPL::50", 
+		"TT::150", "MTM::60", "Purpose::60", "Type::60",
+		"D1:Float:50","W1:Float:50", "L1:Float:60", 
+		"D2:Float:50", "L2:Float:50", "Zn:Int:30",
+		"D3:Float:50", "L3:Float:50", "A1_DEG:Float:50",
+		"D1_Inch::50", "W1_Inch::50", "L1_Inch::50", "Is PL::50", "ROL:Int:60",
+		"CETSH::70", "Template or Variant Of:Link/Item:300", "Description::400",
+		"EOL:Date:100", "Created By:Link/User:150", "Creation:Date:150"
 	]
 
 def get_items(filters):
-	conditions = get_conditions(filters)
+	conditions_it = get_conditions(filters)
+	bm = filters["bm"]
 	
-	query = """SELECT t.name, IFNULL(t.brand,"-"), IFNULL(t.tool_type,"-"),
-		IFNULL(t.base_material,"-"), IFNULL(t.quality,"-"), if(t.no_of_flutes=0,NULL,t.no_of_flutes),
-		ifnull(t.special_treatment,"-"),
-		if(t.height_dia=0,NULL,t.height_dia), ifnull(t.height_dia_inch,"-"),
-		if(t.d1=0,NULL,t.d1), ifnull(t.d1_inch,"-"),
-		if(t.width=0,NULL,t.width), ifnull(t.width_inch,"-"),
-		if(t.length=0,NULL,t.length), ifnull(t.length_inch,"-"),
-		if(t.l1=0,NULL,t.l1), ifnull(t.l1_inch,"-"),
-		if(t.d2=0,NULL,t.d2), ifnull(t.d2_inch,"-"),
-		if(t.l2=0,NULL,t.l2), ifnull(t.l2_inch,"-"),
-		if(t.a1=0,NULL,t.a1), if(t.a2=0,NULL,t.a2), if(t.a3=0,NULL,t.a3), if(t.r1=0,NULL,t.r1),
-		ifnull(t.drill_type,"-"), if(t.inch_h=1,1,"-"), if(t.inch_d1,1,"-"), if(t.inch_w,1,"-"),
-		if(t.inch_l,1,"-"), if(t.inch_l1,1,"-"), if(t.inch_d2,1,"-"), if(t.inch_l2,1,"-"),
-		ifnull(t.description,"-"), ifnull(t.item_group,"-"), ifnull(t.is_rm,"-"),
-		ifnull(t.pl_item,"-"), ifnull(t.stock_maintained,"-"), ifnull(t.end_of_life,'2099-12-31'),
-		ifnull(t.item_name,"--"), ifnull(t.show_in_website,2),ifnull(t.website_warehouse,"--"),
-		ifnull(t.weightage,0), ifnull(t.website_image,"--"), ifnull(web_long_description,"--")
-		FROM `tabItem` t where ifnull(t.end_of_life, '2099-12-31') > CURDATE() %s
-		ORDER BY
-		t.is_rm, t.base_material, t.quality, t.tool_type, t.no_of_flutes, t.special_treatment,
-		t.d1, t.l1, t.height_dia, t.width, t.length, t.d2, t.l2""" % conditions
-
+	query = """SELECT it.name, 
+		IFNULL(rm.attribute_value, "-"), IFNULL(bm.attribute_value, "-"),
+		IFNULL(brand.attribute_value, "-"), IFNULL(quality.attribute_value, "-"),
+		IFNULL(spl.attribute_value, "-"), IFNULL(tt.attribute_value, "-"),
+		IFNULL(mtm.attribute_value, "-"), IFNULL(purpose.attribute_value, "-"),
+		IFNULL(type.attribute_value, "-"), 
+		CAST(d1.attribute_value AS DECIMAL(8,3)), 
+		CAST(w1.attribute_value AS DECIMAL(8,3)), 
+		CAST(l1.attribute_value AS DECIMAL(8,3)), 
+		CAST(d2.attribute_value AS DECIMAL(8,3)), 
+		CAST(l2.attribute_value AS DECIMAL(8,3)),
+		CAST(zn.attribute_value AS UNSIGNED),
+		CAST(d3.attribute_value AS DECIMAL(8,3)), 
+		CAST(l3.attribute_value AS DECIMAL(8,3)),
+		CAST(a1.attribute_value AS DECIMAL(8,3)), 
+		IFNULL(d1_inch.attribute_value, "-"),
+		IFNULL(w1_inch.attribute_value, "-"),
+		IFNULL(l1_inch.attribute_value, "-"),
+		IFNULL(it.pl_item, "-"), IF(it.re_order_level =0, NULL, it.re_order_level),
+		IFNULL(cetsh.attribute_value, "-"), it.variant_of, 
+		it.description, IFNULL(it.end_of_life, '2099-12-31'), 
+		it.owner, it.creation
+		
+		FROM `tabItem` it
+		
+		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
+			AND rm.attribute = 'Is RM'
+		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
+			AND quality.attribute = '%s Quality'
+		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
+			AND brand.attribute = 'Brand'
+		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+			AND tt.attribute = 'Tool Type'
+		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
+			AND spl.attribute = 'Special Treatment'
+		LEFT JOIN `tabItem Variant Attribute` mtm ON it.name = mtm.parent
+			AND mtm.attribute = 'Material to Machine'
+		LEFT JOIN `tabItem Variant Attribute` type ON it.name = type.parent
+			AND type.attribute = 'Type Selector'
+		LEFT JOIN `tabItem Variant Attribute` purpose ON it.name = purpose.parent
+			AND purpose.attribute = 'Purpose'
+		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+			AND d1.attribute = 'd1_mm'
+		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+			AND w1.attribute = 'w1_mm'
+		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+			AND l1.attribute = 'l1_mm'
+		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+			AND d2.attribute = 'd2_mm'
+		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+			AND l2.attribute = 'l2_mm'
+		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
+			AND zn.attribute = 'Number of Flutes (Zn)'
+		LEFT JOIN `tabItem Variant Attribute` d3 ON it.name = d3.parent
+			AND d3.attribute = 'd3_mm'
+		LEFT JOIN `tabItem Variant Attribute` l3 ON it.name = l3.parent
+			AND l3.attribute = 'l3_mm'
+		LEFT JOIN `tabItem Variant Attribute` a1 ON it.name = a1.parent
+			AND a1.attribute = 'a1_deg'
+		LEFT JOIN `tabItem Variant Attribute` d1_inch ON it.name = d1_inch.parent
+			AND d1_inch.attribute = 'd1_inch'
+		LEFT JOIN `tabItem Variant Attribute` w1_inch ON it.name = w1_inch.parent
+			AND w1_inch.attribute = 'w1_inch'
+		LEFT JOIN `tabItem Variant Attribute` l1_inch ON it.name = l1_inch.parent
+			AND l1_inch.attribute = 'l1_inch'
+		LEFT JOIN `tabItem Variant Attribute` cetsh ON it.name = cetsh.parent
+			AND cetsh.attribute = 'CETSH Number' %s
+		
+		ORDER BY rm.attribute_value, bm.attribute_value, brand.attribute_value,
+			quality.attribute_value, spl.attribute_value, tt.attribute_value, 
+			CAST(d1.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(w1.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(l1.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(d2.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(l2.attribute_value AS DECIMAL(8,3)) ASC,
+			CAST(d3.attribute_value AS DECIMAL(8,3)) ASC, 
+			CAST(l3.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it)
 	
-	data= frappe.db.sql(query, as_list=1)
 
+	data = frappe.db.sql(query, as_list=1)
+	
+	attributes = ['Is RM', 'Base Material', 'Brand', '%Quality', 'Special Treatment',
+		'Tool Type', 'Material to Machine', 'Purpose', 'Type Selector',
+		'd1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm', 'd3_mm', 'l3_mm',
+		'a1_deg',
+		'd1_inch', 'w1_inch', 'l1_inch',
+		'CETSH Number',]
+	
+	float_fields = ['d1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm', 
+		'd3_mm', 'l3_mm', 'a1_deg']
 
 	return data
 
 def get_conditions(filters):
-	conditions = ""
+	conditions_it = ""
 
-	a= filters.get("brand")
-	b= filters.get("material")
-	c= filters.get("quality")
-	d= filters.get("tool_type")
-	e= filters.get("is_rm")
-	f= filters.get("special")
+	if filters.get("eol"):
+		conditions_it += "WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
+	
+	if filters.get("rm"):
+		conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
 
-	if f is None:
-		if b is None or c is None or d is None or e is None:
-			frappe.msgprint("Please select ALL of Material, Quality, Tool Type, Is RM", raise_exception=1)
+	if filters.get("bm"):
+		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
 
 	if filters.get("brand"):
-		conditions += " and t.brand = '%s'" % filters["brand"]
-
-	if filters.get("material"):
-		conditions += " and t.base_material = '%s'" % filters["material"]
+		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
 
 	if filters.get("quality"):
-		conditions += " and t.quality = '%s'" % filters["quality"]
+		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
 
-	if filters.get("tool_type"):
-		conditions += " and t.tool_type = '%s'" % filters["tool_type"]
+	if filters.get("spl"):
+		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
 
-	if filters.get("is_rm"):
-		if filters.get("is_rm")=="Yes":
-			conditions += " and t.is_rm = '%s'" % filters["is_rm"]
-		else:
-			conditions += " and t.is_rm in ('%s' , NULL)" % filters["is_rm"]
+	if filters.get("purpose"):
+		conditions_it += " AND purpose.attribute_value = '%s'" % filters["purpose"]
+		
+	if filters.get("type"):
+		conditions_it += " AND type.attribute_value = '%s'" % filters["type"]
+		
+	if filters.get("mtm"):
+		conditions_it += " AND mtm.attribute_value = '%s'" % filters["mtm"]
+		
+	if filters.get("tt"):
+		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
 
 
 	if filters.get("show_in_website") ==1:
-		conditions += " and t.show_in_website =%s" % filters["show_in_website"]
+		conditions_it += " and it.show_in_website =%s" % filters["show_in_website"]
 
 	if filters.get("item"):
-		conditions += " and t.name = '%s'" % filters["item"]
+		conditions_it += " and it.name = '%s'" % filters["item"]
+	
+	if filters.get("variant_of"):
+		conditions_it += " and it.variant_of = '%s'" % filters["variant_of"]
 
-
-	return conditions
+	return conditions_it

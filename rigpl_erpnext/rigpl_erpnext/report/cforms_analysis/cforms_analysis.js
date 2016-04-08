@@ -23,7 +23,8 @@ frappe.query_reports["CForms Analysis"] = {
 			"fieldname":"status",
 			"label": "Status",
 			"fieldtype": "Select",
-			"options": "Not Received\nReceived"
+			"options": "Not Received\nReceived",
+			"reqd" : 1
 		},
 		{
 			"fieldname":"letter_head",

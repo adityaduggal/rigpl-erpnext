@@ -1,40 +1,59 @@
 frappe.query_reports["Items For Production"] = {
 	"filters": [
 		{
-			"fieldname":"item",
-			"label": "Item Code",
-			"fieldtype": "Link",
-			"options": "Item"
-		},
-		{
-			"fieldname":"is_rm",
+			"fieldname":"rm",
 			"label": "Is RM",
-			"fieldtype": "Select",
-			"options": "\nYes\nNo"
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_rm_query"}}
 		},
 		{
-			"fieldname":"quality",
-			"label": "Quality",
+			"fieldname":"bm",
+			"label": "Base Material",
 			"fieldtype": "Link",
-			"options": "Quality"
-		},
-		{
-			"fieldname":"tool_type",
-			"label": "Tool Type",
-			"fieldtype": "Link",
-			"options": "Tool Type"
+			"options": "Item Attribute Value",
+			"reqd": 1,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
 		},
 		{
 			"fieldname":"brand",
 			"label": "Brand",
 			"fieldtype": "Link",
-			"options": "Brand"
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_brand_query"}}
+		},
+
+		{
+			"fieldname":"quality",
+			"label": "Quality",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_quality_query"}}
 		},
 		{
-			"fieldname":"special_treatment",
+			"fieldname":"tt",
+			"label": "Tool Type",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
+		},
+		{
+			"fieldname":"spl",
 			"label": "Special Treatment",
-			"fieldtype": "Select",
-			"options": "\nACX\nCRY\nHard\nNone\nTiAlN\nTiN"
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_spl_query"}}
+		},
+		{
+			"fieldname":"item",
+			"label": "Item Code",
+			"fieldtype": "Link",
+			"options": "Item",
+			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
 		}
 	]
 }

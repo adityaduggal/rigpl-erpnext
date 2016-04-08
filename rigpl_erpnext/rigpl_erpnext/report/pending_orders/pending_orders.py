@@ -38,9 +38,10 @@ def get_so_entries(filters):
 	FROM
 	 `tabSales Order` so, `tabSales Order Item` sod
 	WHERE
-	 sod.`parent` = so.`name`
-	 and so.status = "Submitted"
-	 and ifnull(sod.delivered_qty,0) < ifnull(sod.qty,0) %s
+	 sod.parent = so.name
+	 AND so.docstatus = 1
+	 AND so.status <> "Closed"
+	 AND ifnull(sod.delivered_qty,0) < ifnull(sod.qty,0) %s
 	order by so.transaction_date desc """ % conditions
 	
 	so = frappe.db.sql(query, as_list =1)

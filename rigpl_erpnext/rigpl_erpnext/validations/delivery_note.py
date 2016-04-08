@@ -3,6 +3,29 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 
+def validate(doc,method):
+	#Check if the Item has a Stock Reconciliation after the date and time or NOT.
+	#if there is a Stock Reconciliation then the Update would FAIL
+	for dnd in doc.get("items"):
+		sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` 
+			WHERE item_code = '%s' AND warehouse = '%s' AND voucher_type = 'Stock Reconciliation'
+			AND posting_date > '%s'""" %(dnd.item_code, dnd.warehouse, doc.posting_date), as_list=1)
+		if sr:
+			frappe.throw(("There is a Reconciliation for Item \
+			Code: {0} after the posting date").format(dnd.item_code))
+		else:
+			sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` 
+			WHERE item_code = '%s' AND warehouse = '%s' AND voucher_type = 'Stock Reconciliation'
+			AND posting_date = '%s' AND posting_time >= '%s'""" \
+			%(dnd.item_code, dnd.warehouse, doc.posting_date, doc.posting_time), as_list=1)
+			if sr:
+				frappe.throw(("There is a Reconciliation for Item \
+				Code: {0} after the posting time").format(dnd.item_code))
+			else:
+				pass
+	
+	
+
 def on_submit(doc, method):
 	for dnd in doc.get("items"):
 		if dnd.so_detail and dnd.against_sales_order:
@@ -18,6 +41,7 @@ def on_submit(doc, method):
 				
 def on_cancel(doc, method):
 	for dnd in doc.get("items"):
+		#Code to update the status in Trial Tracking
 		if dnd.so_detail and dnd.against_sales_order:
 			so = frappe.get_doc("Sales Order", dnd.against_sales_order)
 			sod = frappe.get_doc("Sales Order Item", dnd.so_detail)

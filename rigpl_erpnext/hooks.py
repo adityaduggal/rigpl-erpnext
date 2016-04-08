@@ -7,7 +7,7 @@ app_color = "#007AFF"
 app_email = "aditya@rigpl.com"
 app_url = "https://github.com/adityaduggal/custom_erpnext"
 app_version = "0.0.1"
-
+fixtures = ["Custom Field"]
 hide_in_installer = True
 
 # Includes in <head>
@@ -79,6 +79,7 @@ doc_events = {
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_cancel"
 	},
 	"Delivery Note": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.validate",
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
 	},
@@ -102,6 +103,18 @@ doc_events = {
 	},
 	"Holiday List":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.holiday_list.validate"
+	},
+	"Item Group":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"
+	},
+	"Stock Reconciliation":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"
+	},
+	"Quotation":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate"
+	},
+	"Opportunity":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
 	},
 }
 

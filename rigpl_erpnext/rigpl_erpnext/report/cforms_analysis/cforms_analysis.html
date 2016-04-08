@@ -1,0 +1,45 @@
+<div style="margin-bottom: 7px;" class="text-center">
+	{%= frappe.boot.letter_heads[filters.letter_head || frappe.defaults.get_default("letter_head")] %}
+</div>
+<h2 class="text-center">{%= __("C-Forms ") + (filters.status) + " " + (filters.customer || "") %}</h2>
+<h4 class="text-center">{%= (filters.fiscal_year || "") + " " + (filters.quarter || "") %}</h4>
+<hr>
+<table class="table table-bordered">
+	<thead>
+		<tr>
+			{% if (filters.summary) { %}
+				<th style="width: 60%">{%= __("Customer") %}</th>
+				<th style="width: 25%">{%= __("Grand Total") %}</th>
+				<th style="width: 15%">{%= __("Fiscal Year") %}</th>
+			{% } else { %}
+				<th style="width: 35%">{%= __("Customer") %}</th>
+				<th style="width: 15%">{%= __("Invoice Date") %}</th>
+				<th style="width: 15%">{%= __("Invoice #") %}</th>
+				<th style="width: 15%">{%= __("Grand Total") %}</th>
+				<th style="width: 15%">{%= __("Fiscal Year") %}</th>
+				<th style="width: 5%">{%= __("Quarter") %}</th>
+			{% } %}
+
+		</tr>
+	</thead>
+	<tbody>
+		{% for(var i=0, l=data.length; i<l; i++) { %}
+		<tr>
+			{% if (filters.summary){ %}
+				<td>{%= (data[i][__("Customer")]) %}</td>
+				<td>{%= format_currency(data[i][__("Grand Total")]) %}</td>
+				<td>{%= (data[i][__("Fiscal Year")]) %}</td>
+			{% } else { %}
+				<td>{%= (data[i][__("Customer")]) %}</td>
+				<td>{%= dateutil.str_to_user(data[i][__("Invoice Date")]) %}</td>
+				<td>{%= (data[i][__("Invoice#")]) %}</td>
+				<td>{%= format_currency(data[i][__("Grand Total")]) %}</td>
+				<td>{%= (data[i][__("Fiscal Year")]) %}</td>
+				<td>{%= (data[i][__("Q")]) %}</td>
+			{% } %}
+			
+		</tr>
+		{% } %}
+	</tbody>
+</table>
+<p class="text-right text-muted">Printed On {%= dateutil.str_to_user(dateutil.get_datetime_as_string()) %}</p>

@@ -29,6 +29,12 @@ frappe.query_reports["Trial Tracking"] = {
 			"label": "To Date",
 			"fieldtype": "Date",
 			"default": get_today()
+		},
+		{
+			"fieldname":"status",
+			"label": "Status",
+			"fieldtype": "Select",
+			"options": "\nDraft\nSubmitted\nCancelled"
 		}
 	]
 }
