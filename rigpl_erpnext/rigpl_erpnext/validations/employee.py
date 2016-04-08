@@ -2,14 +2,15 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
+from frappe.utils import getdate
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import time
 
 def validate(doc,method):
 	#Validation for Age of Employee should be Greater than 18 years at the time of Joining.
-	dob = doc.date_of_birth
-	doj = doc.date_of_joining
+	dob = getdate(doc.date_of_birth)
+	doj = getdate(doc.date_of_joining)
 	if relativedelta(doj, dob).years < 18:
 		frappe.msgprint("Not Allowed to Create Employees under 18 years of Age", raise_exception = 1)
 	if doc.relieving_date:
