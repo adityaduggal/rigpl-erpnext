@@ -22,23 +22,22 @@ _logger = logging.getLogger(frappe.__name__)
 @frappe.whitelist()
 def create_todo(owner, assigned_by, description, date,reference_name,reference_type):
         """allow any logged user to post toDo via interaction master"""
-        todo = frappe.new_doc("ToDo")
-        todo.owner = owner
-        todo.assigned_by = assigned_by
-        todo.description = description
-        todo.date = date
-        todo.reference_type = reference_type
-        todo.reference_name = reference_name
-        todo.insert(ignore_permissions=True)
+        emp = frappe.db.get_value("ToDo",{"owner":owner, "reference_name": reference_name},"owner")
+        if not emp:
+                todo = frappe.new_doc("ToDo")
+                todo.owner = owner
+                todo.assigned_by = assigned_by
+                todo.description = description
+                todo.date = date
+                todo.reference_type = reference_type
+                todo.reference_name = reference_name
+                todo.insert(ignore_permissions=True)
 
 @frappe.whitelist()
 def add_expense_claim(doc):
         doc_json=json.loads(doc)
         emp = frappe.db.get_value("Employee",{"user_id":doc_json['responsible']},"name")
         doc_json['employee'] = emp
-        print "1111111111111111111111111"
-        print emp
-        print doc_json
         """allow any logged user to post a comment"""
         doc = frappe.get_doc(doc_json)
 
