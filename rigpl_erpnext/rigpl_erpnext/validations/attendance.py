@@ -4,15 +4,21 @@ from __future__ import division
 import frappe
 from frappe import msgprint
 from frappe.utils import cstr
+from frappe.utils import getdate
 from datetime import datetime, timedelta
 
+def on_update(doc,method):
+	validate(doc,method)
+
 def validate(doc,method):
-	check_employee (doc, method)
-	get_shift(doc,method)
+	global att_date
 	att_tt = []
 	att_time = []
-	att_date = datetime.strptime(doc.att_date, '%Y-%m-%d').date()
+	att_date = getdate(doc.att_date)
 
+	check_employee (doc, method)
+	get_shift(doc,method)
+	
 	for d in doc.attendance_time:
 		att_tt.append(cstr(d.time_type))
 		att_time.append(cstr(d.date_time))
@@ -79,18 +85,17 @@ def check_employee(doc, method):
 	#Check if the employee is Active for the Dates
 	emp = frappe.get_doc("Employee", doc.employee)
 	if emp.status == "Left":
-		doc.att_date = datetime.strptime(doc.att_date, '%Y-%m-%d').date()
-		if emp.relieving_date < doc.att_date:
+		if emp.relieving_date < att_date:
 			frappe.msgprint(frappe._("Cannot create attendance for {0} as he/she has left on {1}").format(emp.employee_name, emp.relieving_date), raise_exception=1)
 
 #Function to check the shift and update the same from roster.
 def get_shift(doc,method):
 	query = """SELECT ro.name, ro.shift FROM `tabRoster` ro, `tabRoster Details` rod
 		WHERE rod.parent = ro.name AND ro.from_date <= '%s' AND ro.to_date >= '%s' 
-		AND rod.employee = '%s' """%(doc.att_date, doc.att_date, doc.employee)
+		AND rod.employee = '%s' """%(att_date, att_date, doc.employee)
 	roster = frappe.db.sql(query, as_list=1)
 	if len(roster)<1:
-		frappe.throw(("No Roster defined for {0} for date {1}").format(doc.employee, doc.att_date))
+		frappe.throw(("No Roster defined for {0} for date {1}").format(doc.employee, att_date))
 	else:
 		doc.shift = roster[0][1]
 			
