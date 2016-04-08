@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 
-def on_update(doc,methdo):
+def on_update(doc,method):
 	doc.total_deduction = 0
 	doc.total_earning = 0
 	doc.net_pay = 0
