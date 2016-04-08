@@ -116,6 +116,9 @@ doc_events = {
 	"Opportunity":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
 	},
+	"Salary Structure":{
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.on_update"
+	},
 }
 
 # Scheduled Tasks
