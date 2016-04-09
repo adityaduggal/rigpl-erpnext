@@ -59,6 +59,7 @@ def on_update(doc,method):
 	doc.rounded_total = myround(doc.net_pay, 10)
 	company_currency = get_company_currency(doc.company)
 	doc.total_in_words = money_in_words(doc.rounded_total, company_currency)
+	doc.payment_days = total_days_in_month - doc.leave_without_pay - doc.unauthorized_leaves
 	
 def myround(x, base=5):
     return int(base * round(float(x)/base))
