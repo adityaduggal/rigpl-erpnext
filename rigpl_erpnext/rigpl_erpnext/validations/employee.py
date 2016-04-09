@@ -2,14 +2,15 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
+from frappe.utils import getdate
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import time
 
 def validate(doc,method):
 	#Validation for Age of Employee should be Greater than 18 years at the time of Joining.
-	dob = datetime.strptime(doc.date_of_birth, "%Y-%m-%d")
-	doj = datetime.strptime(doc.date_of_joining, "%Y-%m-%d")
+	dob = getdate(doc.date_of_birth)
+	doj = getdate(doc.date_of_joining)
 	if relativedelta(doj, dob).years < 18:
 		frappe.msgprint("Not Allowed to Create Employees under 18 years of Age", raise_exception = 1)
 	if doc.relieving_date:
@@ -22,7 +23,7 @@ def validate(doc,method):
 	#XXXX = Serial Number of the employee from the ID this is NUMBERIC only
 	#C= Check DIGIT
 	if doc.date_of_joining:
-		doj = doc.date_of_joining[:4]+doc.date_of_joining[5:7]
+		doj = str(doj.year) + str(doj.month).zfill(2)
 		id = ""
 		for i in range(len(doc.name)):
 			if doc.name[i].isdigit():

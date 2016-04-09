@@ -59,3 +59,9 @@ RB
 RBJ
 RU",Match with the Sereis Selected in the Invoice,series,0,0,0,0,0,,,0,,0,1,0,0,0,0
 ,"""Customer-customer_login_id""",Customer,Link,Customer Login Id,website,,User,,customer_login_id,2,0,0,0,0,,,0,,0,1,0,0,0,0
+,"""Earning Type-only_for_deductions""",Earning Type,Check,Only for Deductions,earning_name,,,,only_for_deductions,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Salary Slip-total_overtime""",Salary Slip,Float,Total Overtime,totals,,,,total_overtime,0,0,0,1,0,,,0,,0,0,0,0,0,0
+,"""Earning Type-based_on_overtime""",Earning Type,Check,Based on Overtime,only_for_deductions,,,,based_on_overtime,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Earning Type-overtime_rate""",Earning Type,Link,Overtime Rate,based_on_overtime,,Earning Type,,overtime_rate,0,0,0,0,0,,,0,based_on_overtime,0,0,0,0,0,0
+,"""Salary Slip-unauthorized_leaves""",Salary Slip,Int,Unauthorized Leaves,total_overtime,,,,unauthorized_leaves,0,0,0,1,0,,,0,,0,0,0,0,0,0
+,"""Salary Slip-overtime_deducted""",Salary Slip,Float,Overtime Deducted,column_break_25,,,,overtime_deducted,0,0,0,1,0,,,0,,0,0,0,0,0,0
