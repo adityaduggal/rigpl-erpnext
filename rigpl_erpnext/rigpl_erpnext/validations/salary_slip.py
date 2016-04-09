@@ -16,15 +16,18 @@ def on_update(doc,method):
 	total_days_in_month = m["month_days"]
 	holiday_list = get_holiday_list_for_employee(doc.employee)
 	holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND 
-		holiday_date >= '%s' AND holiday_date <= '%s'""" %(holiday_list, m.month_start_date, m.month_end_date), as_list=1)
+		holiday_date >= '%s' AND holiday_date <= '%s'""" %(holiday_list, \
+			m.month_start_date, m.month_end_date), as_list=1)
 
-	att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` WHERE employee = '%s' 
-		AND att_date >= '%s' AND att_date <= '%s' AND status = 'Present' AND docstatus=1""" \
+	att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` 
+		WHERE employee = '%s' AND att_date >= '%s' AND att_date <= '%s' 
+		AND status = 'Present' AND docstatus=1""" \
 		%(doc.employee,m.month_start_date, m.month_end_date),as_list=1)
 
 	doc.total_overtime = att[0][0]
 	total_presents = att[0][1]
-	doc.unauthorized_leaves = total_days_in_month - total_presents - doc.leave_without_pay - holidays[0][0]
+	doc.unauthorized_leaves = total_days_in_month - total_presents - \
+		doc.leave_without_pay - holidays[0][0]
 	doc.overtime_deducted = round(8*doc.unauthorized_leaves,1)
 	
 	for d in doc.earnings:
@@ -36,8 +39,8 @@ def on_update(doc,method):
 					d.e_modified_amount = d2.e_amount * (doc.total_overtime - doc.overtime_deducted)
 		else:
 			if earn.only_for_deductions <> 1:
-				d.e_modified_amount = round(d.e_amount * (total_days_in_month - doc.unauthorized_leaves - doc.leave_without_pay)/total_days_in_month,0)
-				frappe.msgprint(d.e_modified_amount)
+				d.e_modified_amount = round(d.e_amount * (total_days_in_month - \
+					doc.unauthorized_leaves - doc.leave_without_pay)/total_days_in_month,0)
 		if earn.only_for_deductions <> 1:
 			gross_pay += d.e_modified_amount
 		
