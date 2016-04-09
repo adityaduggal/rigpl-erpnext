@@ -94,7 +94,9 @@ doc_events = {
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update"
 	},
 	"Attendance": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate"
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
+		"update_after_submit": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update"
 	},
 	"Employee": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate"
@@ -113,6 +115,12 @@ doc_events = {
 	},
 	"Opportunity":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
+	},
+	"Salary Structure":{
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.on_update"
+	},
+	"Salary Slip":{
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_update"
 	},
 }
 
