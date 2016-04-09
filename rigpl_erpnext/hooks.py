@@ -119,6 +119,9 @@ doc_events = {
 	"Salary Structure":{
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.on_update"
 	},
+	"Salary Slip":{
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_update"
+	},
 }
 
 # Scheduled Tasks
