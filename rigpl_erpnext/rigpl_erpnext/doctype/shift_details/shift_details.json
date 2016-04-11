@@ -377,7 +377,7 @@
  "issingle": 0, 
  "istable": 0, 
  "max_attachments": 0, 
- "modified": "2016-04-07 14:26:13.403839", 
+ "modified": "2016-04-09 15:13:22.111486", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Shift Details", 
@@ -407,6 +407,7 @@
  ], 
  "read_only": 0, 
  "read_only_onload": 0, 
+ "search_fields": "title", 
  "sort_field": "in_time", 
  "sort_order": "ASC", 
  "track_seen": 0
