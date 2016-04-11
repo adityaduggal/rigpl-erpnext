@@ -12,5 +12,16 @@ def get_data():
 					"description": _("Shift Definition Details"),
 				},
 			]
+		},
+		{
+			"label": _("Setup"),
+			"icon": "icon-gear",
+			"items": [
+				{
+					"type": "doctype",
+					"name": "Roster",
+					"description": _("Define which employees are in which Shift during a period"),
+				},
+			]
 		}
 	]
