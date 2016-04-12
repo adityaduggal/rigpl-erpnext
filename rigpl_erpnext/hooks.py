@@ -117,7 +117,7 @@ doc_events = {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
 	},
 	"Salary Structure":{
-		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.on_update"
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
 	},
 	"Salary Slip":{
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_update"
