@@ -16,6 +16,13 @@ def validate(doc,method):
 	if doc.relieving_date:
 		if doc.status <> "Left":
 			frappe.msgprint("Status has to be 'LEFT' as the Relieving Date is populated",raise_exception =1)
+
+	doc.employee_number = doc.name
+
+def autoname(doc,method):
+	doj = getdate(doc.date_of_joining)
+	id = frappe.db.sql("""SELECT current FROM `tabSeries` WHERE name = '%s'""" %doc.naming_series, as_list=1)
+	id = str(id[0][0])
 	#Generate employee number on the following logic
 	#Employee Number would be YYYYMMDDXXXXC, where:
 	#YYYYMMDD = Date of Joining in YYYYMMDD format
@@ -23,16 +30,11 @@ def validate(doc,method):
 	#C= Check DIGIT
 	if doc.date_of_joining:
 		doj = str(doj.year) + str(doj.month).zfill(2)
-		id = ""
-		for i in range(len(doc.name)):
-			if doc.name[i].isdigit():
-				id = id+doc.name[i]
 		code = doj+id
 		check = fn_check_digit(doc, code)
 		code = code + str(check)
-		doc.employee_number = code
-
-		
+	doc.name = code
+	
 ###############~Code to generate the CHECK DIGIT~###############################
 #Link: https://wiki.openmrs.org/display/docs/Check+Digit+Algorithm
 ################################################################################

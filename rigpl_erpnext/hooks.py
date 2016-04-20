@@ -99,7 +99,8 @@ doc_events = {
 		"update_after_submit": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update"
 	},
 	"Employee": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate"
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate",
+		"autoname": "rigpl_erpnext.rigpl_erpnext.validations.employee.autoname"
 	},
 	"Holiday List":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.holiday_list.validate"
@@ -120,7 +121,9 @@ doc_events = {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
 	},
 	"Salary Slip":{
-		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_update"
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel"
 	},
 }
 

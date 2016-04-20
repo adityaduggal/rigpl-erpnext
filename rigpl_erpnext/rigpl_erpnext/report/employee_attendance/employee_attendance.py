@@ -10,7 +10,7 @@ from calendar import monthrange
 def execute(filters=None):
 	if not filters: filters = {}
 
-	conditions, filters = get_conditions(filters)
+	conditions, filters, conditions_hol = get_conditions(filters)
 	columns = get_columns(filters)
 	att_map = get_attendance_list(conditions, filters)
 	emp_map = get_employee_details()
@@ -21,8 +21,7 @@ def execute(filters=None):
 		if not emp_det:
 			continue
 
-		row = [emp, emp_det.employee_name, emp_det.branch, emp_det.department, emp_det.designation,
-			emp_det.company]
+		row = [emp, emp_det.employee_name]
 
 		total_p = total_a = 0.0
 		for day in range(filters["total_days_in_month"]):
@@ -45,9 +44,7 @@ def execute(filters=None):
 
 def get_columns(filters):
 	columns = [
-		_("Employee") + ":Link/Employee:120", _("Employee Name") + "::140", _("Branch")+ ":Link/Branch:120",
-		_("Department") + ":Link/Department:120", _("Designation") + ":Link/Designation:120",
-		 _("Company") + ":Link/Company:120"
+		_("Employee") + ":Link/Employee:120", _("Employee Name") + "::140"
 	]
 
 	for day in range(filters["total_days_in_month"]):
@@ -60,14 +57,22 @@ def get_attendance_list(conditions, filters):
 	attendance_list = frappe.db.sql("""select employee, day(att_date) as day_of_month,
 		status from tabAttendance where docstatus = 1 %s order by employee, att_date""" %
 		conditions, filters, as_dict=1)
-
+	holiday_list = get_holidays(conditions, filters)
 	att_map = {}
 	for d in attendance_list:
+		#frappe.msgprint(att_map)
 		att_map.setdefault(d.employee, frappe._dict()).setdefault(d.day_of_month, "")
 		att_map[d.employee][d.day_of_month] = d.status
 
 	return att_map
-	
+
+def get_holidays(conditions_hol,filters):
+
+	holiday_list = frappe.db.sql("""SELECT description, day(holiday_date) as day_of_month
+		FROM `tabHoliday`""", conditions_hol, filters, as_dict=1)
+	frappe.msgprint(holiday_list)
+	return holiday_list
+
 def get_conditions(filters):
 	if not (filters.get("month") and filters.get("year")):
 		msgprint(_("Please select month and year"), raise_exception=1)
@@ -78,11 +83,11 @@ def get_conditions(filters):
 	filters["total_days_in_month"] = monthrange(cint(filters.year), filters.month)[1]
 
 	conditions = " and month(att_date) = %(month)s and year(att_date) = %(year)s"
+	conditions_hol = " AND month(holiday_date) = %(month)s AND year(holiday_date) = %(year)s"
 
-	if filters.get("company"): conditions += " and company = %(company)s"
 	if filters.get("employee"): conditions += " and employee = %(employee)s"
 
-	return conditions, filters
+	return conditions, filters, conditions_hol
 
 def get_employee_details():
 	emp_map = frappe._dict()
