@@ -31,6 +31,18 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
+					"name": "Attendance Performance Analysis",
+					"doctype": "Attendance",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "Employee Loan Analysis",
+					"doctype": "Employee Loan",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
 					"name": "Roster",
 					"doctype": "Roster",
 				},
@@ -39,6 +51,12 @@ def get_data():
 					"is_query_report": True,
 					"name": "Leave Application Report",
 					"doctype": "Leave Application",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "List of Holidays",
+					"doctype": "Holiday List",
 				},
 				{
 					"type": "report",
