@@ -29,20 +29,20 @@ def get_entries(filters):
 	conditions = get_conditions(filters, date_field)
 	if filters.get("based_on")=="Transaction":
 		data = frappe.db.sql("""select dt.name, dt.customer, dt.territory, dt.%s, 
-			dt_item.item_code, dt_item.description, dt_item.qty, dt_item.base_rate, 
+			dt_item.item_code, dt_item.description, dt_item.qty, dt_item.base_net_rate, 
 			dt_item.base_price_list_rate, dt_item.discount_percentage, 
-			dt_item.base_amount, dt.sales_partner, 
-			dt.commission_rate, dt.commission_rate*dt_item.base_amount/100
+			dt_item.base_net_amount, dt.sales_partner, 
+			dt.commission_rate, dt.commission_rate*dt_item.base_net_amount/100
 			from `tab%s` dt, `tab%s Item` dt_item
 			where dt.name = dt_item.parent and dt.docstatus = 1 %s order by dt.customer, dt.name desc""" % 
 			(date_field, filters["doc_type"], filters["doc_type"],conditions), as_list=1)
 	elif filters.get("based_on")=="Master":
 		#msgprint(_("WIP2"), raise_exception=1)
 		data = frappe.db.sql("""select dt.name, dt.customer, cu.territory, dt.%s, 
-			dt_item.item_code, dt_item.description, dt_item.qty, dt_item.base_rate, 
+			dt_item.item_code, dt_item.description, dt_item.qty, dt_item.base_net_rate, 
 			dt_item.base_price_list_rate, dt_item.discount_percentage, 
-			dt_item.base_amount, cu.default_sales_partner, 
-			cu.default_commission_rate, cu.default_commission_rate*dt_item.base_amount/100
+			dt_item.base_net_amount, cu.default_sales_partner, 
+			cu.default_commission_rate, cu.default_commission_rate*dt_item.base_net_amount/100
 			from `tab%s` dt, `tab%s Item` dt_item, `tabCustomer` cu 
 			WHERE dt.customer = cu.name
 			AND dt.name = dt_item.parent 
