@@ -50,8 +50,9 @@ def get_items(filters):
 		it.description, IFNULL(it.end_of_life, '2099-12-31'), 
 		it.owner, it.creation
 		
-		FROM `tabItem Reorder` ro, `tabItem` it
+		FROM `tabItem` it
 		
+		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
@@ -95,10 +96,7 @@ def get_items(filters):
 		LEFT JOIN `tabItem Variant Attribute` l1_inch ON it.name = l1_inch.parent
 			AND l1_inch.attribute = 'l1_inch'
 		LEFT JOIN `tabItem Variant Attribute` cetsh ON it.name = cetsh.parent
-			AND cetsh.attribute = 'CETSH Number'
-		
-		WHERE
-			ro.parent = it.name %s
+			AND cetsh.attribute = 'CETSH Number' %s
 		
 		ORDER BY rm.attribute_value, bm.attribute_value, brand.attribute_value,
 			quality.attribute_value, spl.attribute_value, tt.attribute_value, 
@@ -129,7 +127,7 @@ def get_conditions(filters):
 	conditions_it = ""
 
 	if filters.get("eol"):
-		conditions_it += " AND IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
+		conditions_it += " WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
 	
 	if filters.get("rm"):
 		conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
