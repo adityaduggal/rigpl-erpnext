@@ -44,12 +44,13 @@ def get_items(filters):
 		IFNULL(d1_inch.attribute_value, "-"),
 		IFNULL(w1_inch.attribute_value, "-"),
 		IFNULL(l1_inch.attribute_value, "-"),
-		IFNULL(it.pl_item, "-"), IF(it.re_order_level =0, NULL, it.re_order_level),
+		IFNULL(it.pl_item, "-"),
+		IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level),
 		IFNULL(cetsh.attribute_value, "-"), it.variant_of, 
 		it.description, IFNULL(it.end_of_life, '2099-12-31'), 
 		it.owner, it.creation
 		
-		FROM `tabItem` it
+		FROM `tabItem Reorder` ro, `tabItem` it
 		
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
@@ -94,7 +95,10 @@ def get_items(filters):
 		LEFT JOIN `tabItem Variant Attribute` l1_inch ON it.name = l1_inch.parent
 			AND l1_inch.attribute = 'l1_inch'
 		LEFT JOIN `tabItem Variant Attribute` cetsh ON it.name = cetsh.parent
-			AND cetsh.attribute = 'CETSH Number' %s
+			AND cetsh.attribute = 'CETSH Number'
+		
+		WHERE
+			ro.parent = it.name %s
 		
 		ORDER BY rm.attribute_value, bm.attribute_value, brand.attribute_value,
 			quality.attribute_value, spl.attribute_value, tt.attribute_value, 
@@ -125,7 +129,7 @@ def get_conditions(filters):
 	conditions_it = ""
 
 	if filters.get("eol"):
-		conditions_it += "WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
+		conditions_it += " AND IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
 	
 	if filters.get("rm"):
 		conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]

@@ -66,7 +66,7 @@ def get_sl_entries(filters):
 		frappe.throw(("Server overload possible due to {0} rows of data, kindly reduce \
 			the lines by selecting filters").format(len(pre_data)))
 	
-	query = """SELECT it.name, IF(it.re_order_level=0,NULL,it.re_order_level),
+	query = """SELECT it.name, IF(ro.warehouse_reorder_level=0,NULL,ro.warehouse_reorder_level),
 		
 		(SELECT (SUM(sle.actual_qty)*-1)
 			FROM `tabStock Ledger Entry` sle WHERE sle.voucher_type IN 
@@ -105,7 +105,7 @@ def get_sl_entries(filters):
 		CAST(d2.attribute_value AS DECIMAL(8,3)), 
 		CAST(l2.attribute_value AS DECIMAL(8,3)), it.description
 		
-		FROM `tabItem` it
+		FROM `tabItem Reorder` ro, `tabItem` it
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
@@ -136,12 +136,15 @@ def get_sl_entries(filters):
 			AND l2.attribute = 'l2_mm'
 		
 		
-		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
-		ORDER BY bm.attribute_value, quality.attribute_value, 
-		tt.attribute_value, CAST(d1.attribute_value AS DECIMAL(8,3)),
-		CAST(w1.attribute_value AS DECIMAL(8,3)),
-		CAST(d2.attribute_value AS DECIMAL(8,3)),
-		CAST(l2.attribute_value AS DECIMAL(8,3))""" \
+		WHERE 
+			ro.parent = it.name AND
+			IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
+		ORDER BY 
+			bm.attribute_value, quality.attribute_value, 
+			tt.attribute_value, CAST(d1.attribute_value AS DECIMAL(8,3)),
+			CAST(w1.attribute_value AS DECIMAL(8,3)),
+			CAST(d2.attribute_value AS DECIMAL(8,3)),
+			CAST(l2.attribute_value AS DECIMAL(8,3))""" \
 		% (conditions_sle, conditions_so, conditions_ste, conditions_so, \
 		conditions_so, bm,conditions_it)
 
