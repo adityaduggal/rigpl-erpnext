@@ -105,7 +105,8 @@ def get_sl_entries(filters):
 		CAST(d2.attribute_value AS DECIMAL(8,3)), 
 		CAST(l2.attribute_value AS DECIMAL(8,3)), it.description
 		
-		FROM `tabItem Reorder` ro, `tabItem` it
+		FROM `tabItem` it
+		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
@@ -136,8 +137,7 @@ def get_sl_entries(filters):
 			AND l2.attribute = 'l2_mm'
 		
 		
-		WHERE 
-			ro.parent = it.name AND
+		WHERE
 			IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
 		ORDER BY 
 			bm.attribute_value, quality.attribute_value, 

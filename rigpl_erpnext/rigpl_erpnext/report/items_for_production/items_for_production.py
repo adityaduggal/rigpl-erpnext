@@ -96,7 +96,8 @@ def get_items(filters):
 		it.pl_item,
 		it.stock_maintained
 
-	FROM `tabItem Reorder` ro, `tabItem` it 
+	FROM `tabItem` it
+		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
 		LEFT JOIN `tabBin` bn ON it.name = bn.item_code
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
@@ -125,7 +126,6 @@ def get_items(filters):
 	
 	WHERE bn.item_code != ""
 		AND bn.item_code = it.name
-		AND ro.parent = it.name
 		AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
 
 	GROUP BY bn.item_code
