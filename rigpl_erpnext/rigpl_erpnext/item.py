@@ -6,6 +6,7 @@ from frappe.utils import flt
 from frappe.desk.reportview import get_match_cond
 
 def validate(doc, method):
+	validate_reoder(doc,method)
 	validate_variants(doc,method)
 	web_catalog(doc,method)
 	doc.page_name = doc.item_name
@@ -15,6 +16,12 @@ def validate(doc, method):
 		doc.item_code = doc.name
 		doc.page_name = doc.name
 		doc.description = doc.name
+
+def validate_reoder(doc,method):
+	for d in doc.reorder_levels:
+		if d.warehouse <> doc.default_warehouse:
+			frappe.throw("Re Order Level of Default Warehouses are only allowed")
+		
 def autoname(doc,method):
 	if doc.variant_of:
 		(serial, code) = generate_item_code(doc,method)

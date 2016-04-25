@@ -47,7 +47,7 @@ def get_items(filters):
 		CAST(d2.attribute_value AS DECIMAL(8,3)), 
 		CAST(l2.attribute_value AS DECIMAL(8,3)),
 		CAST(zn.attribute_value AS UNSIGNED),
-		if(it.re_order_level=0, NULL ,it.re_order_level),
+		if(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level),
 		if(sum(bn.reserved_qty)=0,NULL,sum(bn.reserved_qty)),
 		if(sum(bn.ordered_qty)=0,NULL,sum(bn.ordered_qty)),
 		if(sum(bn.planned_qty)=0,NULL,sum(bn.planned_qty)),
@@ -96,7 +96,7 @@ def get_items(filters):
 		it.pl_item,
 		it.stock_maintained
 
-	FROM `tabItem` it 
+	FROM `tabItem Reorder` ro, `tabItem` it 
 		LEFT JOIN `tabBin` bn ON it.name = bn.item_code
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
@@ -125,6 +125,7 @@ def get_items(filters):
 	
 	WHERE bn.item_code != ""
 		AND bn.item_code = it.name
+		AND ro.parent = it.name
 		AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
 
 	GROUP BY bn.item_code
