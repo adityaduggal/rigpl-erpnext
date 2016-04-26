@@ -65,3 +65,12 @@ RU",Match with the Sereis Selected in the Invoice,series,0,0,0,0,0,,,0,,0,1,0,0,
 ,"""Earning Type-overtime_rate""",Earning Type,Link,Overtime Rate,based_on_overtime,,Earning Type,,overtime_rate,0,0,0,0,0,,,0,based_on_overtime,0,0,0,0,0,0
 ,"""Salary Slip-unauthorized_leaves""",Salary Slip,Int,Unauthorized Leaves,total_overtime,,,,unauthorized_leaves,0,0,0,1,0,,,0,,0,0,0,0,0,0
 ,"""Salary Slip-overtime_deducted""",Salary Slip,Float,Overtime Deducted,column_break_25,,,,overtime_deducted,0,0,0,1,0,,,0,,0,0,0,0,0,0
+,"""Salary Slip-posting_date""",Salary Slip,Date,Posting Date,column_break0,,,,posting_date,0,1,0,0,0,,,0,,0,0,0,0,0,0
+,"""Earning Type-account""",Earning Type,Link,Account,based_on_overtime,,Account,,account,0,0,0,0,0,,,0,eval:doc.only_for_deductions==0,0,0,0,0,0,0
+,"""Deduction Type-account""",Deduction Type,Link,Account,percentage,,Account,,account,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Salary Structure-contribution""",Salary Structure,Column Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Salary Structure-contributions""",Salary Structure,Table,Contributions,contribution,,Salary Structure Contribution,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Salary Structure-total_ctc""",Salary Structure,Currency,Total CTC,net_pay,,Company:company:default_currency,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0
+,"""Salary Slip-contribution""",Salary Slip,Column Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Salary Slip-contributions""",Salary Slip,Table,Contributions,contribution,,Salary Slip Contribution,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0
+,"""Salary Slip-total_ctc""",Salary Slip,Currency,Total CTC,unauthorized_leaves,,,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0
