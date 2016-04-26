@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
+import math
 from frappe import msgprint
 from frappe.utils import money_in_words, flt
 from erpnext.setup.utils import get_company_currency
@@ -27,15 +28,20 @@ def on_cancel(doc,method):
 			frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", 0)
 	
 def validate(doc,method):
+	get_edc(doc, method)
 	gross_pay = 0
 	net_pay = 0
 	tot_ded = 0
+	tot_cont = 0
+
 	get_loan_deduction(doc,method)
 	get_expense_claim(doc,method)
 	
 	m = get_month_details(doc.fiscal_year, doc.month)
 	tdim = m["month_days"] #total days in a month
 	lwp = flt(doc.leave_without_pay)
+	
+	doc.posting_date = m.month_end_date
 	
 	holiday_list = get_holiday_list_for_employee(doc.employee)
 	holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND 
@@ -84,9 +90,11 @@ def validate(doc,method):
 		if deduct.based_on_earning:
 			for e in doc.earnings:
 				if deduct.earning == e.e_type:
-					d.d_modified_amount = round((flt(e.e_amount) * deduct.percentage * \
-						paydays/tdim)/100,0)
+					d.d_modified_amount = math.ceil(flt(e.e_modified_amount) * deduct.percentage/100)
 		tot_ded +=d.d_modified_amount
+	
+	for d in doc.contributions:
+		tot_cont += d.modified_amount
 	
 	doc.gross_pay = gross_pay
 	doc.total_deduction = tot_ded
@@ -96,6 +104,7 @@ def validate(doc,method):
 		
 	company_currency = get_company_currency(doc.company)
 	doc.total_in_words = money_in_words(doc.rounded_total, company_currency)
+	doc.total_ctc = doc.gross_pay + tot_cont
 
 def get_loan_deduction(doc,method):
 	m = get_month_details(doc.fiscal_year, doc.month)
@@ -109,7 +118,7 @@ def get_loan_deduction(doc,method):
 			eld.employee = '%s'""" %(m.month_end_date, doc.employee)
 	
 	loan_list = frappe.db.sql(query, as_list=1)
-	
+
 	for i in loan_list:
 		existing_loan = []
 		for d in doc.deductions:
@@ -121,7 +130,7 @@ def get_loan_deduction(doc,method):
 				FROM `tabSalary Slip Deduction` ssd, `tabSalary Slip` ss
 				WHERE ss.docstatus = 1 AND
 					ssd.parent = ss.name AND
-					ssd.employee_loan = '%s'""" %i[0]
+					ssd.employee_loan = '%s' and ss.employee = '%s'""" %(i[0], doc.employee)
 			deducted_amount = frappe.db.sql(query, as_list=1)
 			
 			if i[4] > deducted_amount[0][0]:
@@ -156,7 +165,54 @@ def get_expense_claim(doc,method):
 				"expense_claim": i[0], "e_type": i[4], "e_amount": (i[2]- i[3])
 			})
 
+def get_edc(doc,method):
+	#Function to get the Earnings, Deductions and Contributions (E,D,C)
+	m = get_month_details(doc.fiscal_year, doc.month)
+	emp = frappe.get_doc("Employee", doc.employee)
+	joining_date = emp.date_of_joining
+	if emp.relieving_date:
+		relieving_date = emp.relieving_date
+	else:
+		relieving_date = '2099-12-31'
 	
+	struct = frappe.db.sql("""SELECT name FROM `tabSalary Structure` WHERE employee = %s AND
+		is_active = 'Yes' AND (from_date <= %s OR from_date <= %s) AND
+		(to_date IS NULL OR to_date >= %s OR to_date >= %s)""", 
+		(doc.employee, m.month_start_date, joining_date, m.month_end_date, relieving_date))
+	
+	sstr = frappe.get_doc("Salary Structure", struct[0][0])
+	contri_amount = 0
+	doc.contributions = []
+	doc.earnings = []
+	doc.deductions = []
+	
+	for e in sstr.earnings:
+		doc.append("earnings",{
+			"e_type": e.e_type,
+			"e_amount": e.modified_value,
+			"e_modified_amount": e.modified_value
+		})
+	
+	for d in sstr.deductions:
+		doc.append("deductions",{
+			"d_type": d.d_type,
+			"d_amount": d.d_modified_amt,
+			"d_modified_amount": d.d_modified_amt
+		})
+	
+	for c in sstr.contributions:
+		contri = frappe.get_doc("Contribution Type", c.contribution_type)
+		if contri.based_on_earning == 1:
+			for e in doc.earnings:
+				if contri.earning == e.e_type:
+					contri_amount = round(contri.percentage * e.e_modified_amount/100,0)
+			
+		doc.append("contributions",{
+			"contribution_type": c.contribution_type,
+			"default_amount": c.amount,
+			"modified_amount": contri_amount
+			})
+		
 def myround(x, base=5):
     return int(base * round(float(x)/base))
 

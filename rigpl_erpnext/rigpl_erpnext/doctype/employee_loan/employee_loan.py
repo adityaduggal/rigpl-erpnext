@@ -45,3 +45,68 @@ class EmployeeLoan(Document):
 				frappe.throw(("{0} left on {1} hence cannot give advance on {2}").\
 					format(i.employee_name, rd, pd))
 			self.total_loan += i.loan_amount
+	
+	def on_update(self):
+		#check if the JV is already existing
+		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
+			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus <> 2 AND
+			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
+
+		#post JV on saving
+		jv = frappe.get_doc({
+			"doctype": "Journal Entry",
+			"entry_type": "Journal Entry",
+			"series": "JV1617",
+			"user_remark": "Loan Given against Employee Loan #" + self.name,
+			"posting_date": self.posting_date,
+			"employment_type": "Accounts Employee",
+			"accounts": [
+				{
+					"account": self.debit_account,
+					"debit_in_account_currency": self.total_loan,
+					"reference_type": "Employee Loan",
+					"reference_name": self.name
+				},
+				{
+					"account": self.credit_account,
+					"credit_in_account_currency": self.total_loan,
+					"reference_type": "Employee Loan",
+					"reference_name": self.name
+				},
+			]
+			})
+		if chk_jv:
+			name = chk_jv[0][0]
+			jv_exist = frappe.get_doc("Journal Entry", name)
+			jv_exist.posting_date = self.posting_date
+			jv_exist.user_remark = "Loan Given against Employee Loan #" + self.name
+			for d in jv_exist.accounts:
+				if d.account == self.debit_account:
+					d.debit_in_account_currency = self.total_loan
+				if d.account == self.credit_account:
+					d.credit_in_account_currency = self.total_loan
+			jv_exist.save()
+			frappe.msgprint('{0}{1}'.format("Update JV# ", jv_exist.name))
+		else:
+			jv.insert()
+			frappe.msgprint('{0}{1}'.format("Created New JV# ", jv.name))
+	
+	def on_submit(self):
+		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
+			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus = 0 AND
+			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
+		if chk_jv:
+			name = chk_jv[0][0]
+			jv_exist = frappe.get_doc("Journal Entry", name)
+			jv_exist.submit()
+			frappe.msgprint('{0}{1}'.format("Submitted JV# ", jv_exist.name))
+		
+	def on_cancel(self):
+		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
+			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus = 1 AND
+			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
+		if chk_jv:
+			name = chk_jv[0][0]
+			jv_exist = frappe.get_doc("Journal Entry", name)
+			jv_exist.cancel()
+			frappe.msgprint('{0}{1}'.format("Cancelled JV# ", jv_exist.name))
