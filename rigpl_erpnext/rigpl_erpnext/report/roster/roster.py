@@ -13,12 +13,18 @@ def execute(filters=None):
 	return columns, data
 
 def get_columns(filters):
-	return [
-		"ID:Link/Roster:80", "From Date:Date:80", "To Date:Date:80", 
-		"Shift:Link/Shift Details:100", "Shift Name::150",
-		"Employee ID:Link/Employee:100", "Employee Name::200", "Branch::80", "Department::80",
-		"Designation::100", "Shift In:Time:100", "Shift Out:Time:100", "Hours Required::80"
-		]
+	if filters.get("without_roster")<>1:
+		return [
+			"ID:Link/Roster:80", "From Date:Date:80", "To Date:Date:80", 
+			"Shift:Link/Shift Details:100", "Shift Name::150",
+			"Employee ID:Link/Employee:100", "Employee Name::200", "Branch::80", "Department::80",
+			"Designation::100", "Shift In:Time:100", "Shift Out:Time:100", "Hours Required::80"
+			]
+	else:
+		return [
+			"Employee ID:Link/Employee:100", "Employee Name::200", "Branch::80", "Department::80",
+			"Designation::100"
+			]
 
 def get_entries(filters):
 	conditions_emp = get_conditions(filters)[0]
@@ -27,7 +33,7 @@ def get_entries(filters):
 	
 	if filters.get("without_roster") <> 1:
 		query = """SELECT ro.name, ro.from_date, ro.to_date, ro.shift, sh.title,
-			rod.employee, emp.employee_name, ifnull(emp.branch,"-"), ifnull(emp.department,"-"),
+			emp.name, emp.employee_name, ifnull(emp.branch,"-"), ifnull(emp.department,"-"),
 			ifnull(emp.designation,"-"), sh.in_time, sh.out_time, sh.hours_required_per_day
 			FROM `tabRoster` ro, `tabRoster Details` rod, `tabShift Details` sh, `tabEmployee` emp
 			WHERE
@@ -36,19 +42,18 @@ def get_entries(filters):
 				emp.name = rod.employee %s %s %s
 			ORDER BY ro.name, emp.date_of_joining""" %(conditions_emp,conditions_ro, conditions_sh)
 	else:
-		query = """SELECT NULL, NULL, NULL, NULL, NULL, emp.employee, 
-			emp.employee_name, ifnull(emp.branch,"-"), ifnull(emp.department,"-"), 
-			ifnull(emp.designation,"-"), NULL, NULL, NULL
+		query = """SELECT emp.name, emp.employee_name, ifnull(emp.branch,"-"), 
+			ifnull(emp.department,"-"), ifnull(emp.designation,"-")
 			FROM `tabEmployee` emp
 			WHERE
 				emp.name NOT IN (
-				SELECT rod.employee
-				FROM `tabRoster` ro, `tabRoster Details` rod
-				WHERE rod.parent = ro.name %s
+				SELECT emp.name
+				FROM `tabRoster` ro, `tabRoster Details` rod, `tabEmployee` emp
+				WHERE rod.parent = ro.name AND rod.employee = emp.name %s
 				) AND
 				IFNULL(emp.relieving_date,'2099-12-31') > '%s' %s
 			ORDER BY emp.date_of_joining""" %(conditions_ro, filters.get("from_date"),conditions_emp)
-	
+
 	data = frappe.db.sql(query, as_list=1)
 	
 	return data

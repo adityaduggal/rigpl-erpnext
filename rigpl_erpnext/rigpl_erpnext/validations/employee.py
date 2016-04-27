@@ -18,6 +18,7 @@ def validate(doc,method):
 			frappe.msgprint("Status has to be 'LEFT' as the Relieving Date is populated",raise_exception =1)
 	add_employee(doc,method)
 	doc.employee_number = doc.name
+	doc.employee = doc.name
 
 def autoname(doc,method):
 	doj = getdate(doc.date_of_joining)
