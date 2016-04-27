@@ -16,7 +16,7 @@ def validate(doc,method):
 	if doc.relieving_date:
 		if doc.status <> "Left":
 			frappe.msgprint("Status has to be 'LEFT' as the Relieving Date is populated",raise_exception =1)
-
+	add_employee(doc,method)
 	doc.employee_number = doc.name
 
 def autoname(doc,method):
@@ -34,6 +34,35 @@ def autoname(doc,method):
 		check = fn_check_digit(doc, code)
 		code = code + str(check)
 	doc.name = code
+
+	
+def add_employee(doc,method):
+	#If leave approver is added then Employee is added to the Leave Approvers User Properties
+	#Also the employee is added to the Reports to email ID's user properties
+	allowed_ids = []
+	for d in doc.leave_approvers:
+		frappe.permissions.add_user_permission("Employee", doc.name, d.leave_approver)
+		allowed_ids.extend([d.leave_approver])
+	
+	if doc.reports_to:
+		emp = frappe.get_doc("Employee", doc.reports_to)
+		if emp.user_id:
+			frappe.permissions.add_user_permission("Employee", doc.name, emp.user_id)
+			allowed_ids.extend([emp.user_id])
+	
+	if doc.user_id:
+		frappe.permissions.add_user_permission("Employee", doc.name, doc.user_id)
+		allowed_ids.extend([doc.user_id])
+	
+	#Remove extra permissions on Employee as per the allowed list
+	extra_perm = frappe.db.sql("""SELECT name, parent from `tabDefaultValue` 
+		WHERE defkey = 'Employee' AND defvalue = '%s'""" %doc.name, as_list=1)
+	if extra_perm <> []:
+		for i in range(len(extra_perm)):
+			if extra_perm[i][1] in allowed_ids:
+				pass
+			else:
+				frappe.permissions.remove_user_permission("Employee", doc.name, extra_perm[i][1])
 	
 ###############~Code to generate the CHECK DIGIT~###############################
 #Link: https://wiki.openmrs.org/display/docs/Check+Digit+Algorithm
