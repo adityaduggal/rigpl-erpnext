@@ -23,7 +23,7 @@ def get_columns(filters):
 	else:
 		return [
 			"Employee ID:Link/Employee:100", "Employee Name::200", "Branch::80", "Department::80",
-			"Designation::100"
+			"Designation::100", "Joining Date:Date:80", "Relieving Date:Date:80"
 			]
 
 def get_entries(filters):
@@ -43,7 +43,8 @@ def get_entries(filters):
 			ORDER BY ro.name, emp.date_of_joining""" %(conditions_emp,conditions_ro, conditions_sh)
 	else:
 		query = """SELECT emp.name, emp.employee_name, ifnull(emp.branch,"-"), 
-			ifnull(emp.department,"-"), ifnull(emp.designation,"-")
+			ifnull(emp.department,"-"), ifnull(emp.designation,"-"), emp.date_of_joining,
+			IFNULL(emp.relieving_date, '2099-12-31')
 			FROM `tabEmployee` emp
 			WHERE
 				emp.name NOT IN (
