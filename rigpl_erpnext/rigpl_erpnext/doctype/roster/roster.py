@@ -12,13 +12,13 @@ class Roster(Document):
 	def validate(self):
 		#Checks to be done:
 		#From date should be greater than to date.
-		#No 2 rosters for same shift within a time period
+		#No 2 rosters for same shift within a time period (THIS IS WRONG)
 		#No repeat of employee in 1 rosters (Done)
 		#No repeat of employee in 2 concurrent rosters.(Done)
 		
 		self.validate_dates()
 		self.validate_employee()
-		self.validate_roster_date_range() #Check date range for rosters of same shift
+		#self.validate_roster_date_range() #Check date range for rosters of same shift
 		self.check_employee_across_shifts()
 	
 	def validate_dates(self):
