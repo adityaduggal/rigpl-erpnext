@@ -37,7 +37,9 @@ frappe.query_reports["Roster"] = {
 		{
 			"fieldname":"to_date",
 			"label": "To Date",
-			"fieldtype": "Date"
+			"fieldtype": "Date",
+			"reqd": 1,
+			"default": frappe.datetime.add_months(frappe.datetime.get_today(), 1)
 		},
 		{
 			"fieldname":"shift",
