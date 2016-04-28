@@ -3,8 +3,8 @@ from __future__ import unicode_literals
 from __future__ import division
 import frappe
 from frappe import msgprint
-from frappe.utils import cstr
-from frappe.utils import getdate
+from frappe.utils import getdate, cint, add_months, date_diff, add_days, nowdate, \
+	get_datetime_str, cstr, get_datetime, time_diff, time_diff_in_seconds
 from datetime import datetime, timedelta
 
 def on_update(doc,method):
@@ -17,68 +17,11 @@ def validate(doc,method):
 	att_date = getdate(doc.att_date)
 
 	check_employee (doc, method)
-	get_shift(doc,method)
+	shft = get_shift(doc,method)
+	if shft.in_out_required:
+		calculate_overtime(doc,method)
 	
-	for d in doc.attendance_time:
-		att_tt.append(cstr(d.time_type))
-		att_time.append(cstr(d.date_time))
-		
-	for i in range(len(att_tt)-1):
-		if att_tt[i] == "In Time":
-			#Checks the first Punch Data is within the Same date as that of the Attendance
-			if i < 1:
-				attendance = datetime.strptime(att_time[i], '%Y-%m-%d %H:%M:%S').date()
-				time1 = datetime.strptime(att_time[i], '%Y-%m-%d %H:%M:%S').time()
-				shift_hrs =frappe.db.get_value("Shift Details", doc.shift ,"delayed_entry_allowed_time")
-				shift_in_time = frappe.db.get_value("Shift Details", doc.shift ,"in_time").seconds
-				lunch_out = frappe.db.get_value("Shift Details", doc.shift ,"lunch_out")
-				lunch_in = frappe.db.get_value("Shift Details", doc.shift ,"lunch_in")
-				
-				check = att_date - attendance
-				
-				if check > timedelta(days=0) or check < timedelta(days = 0):
-					frappe.msgprint("Attendance date and Attendance Time Data are not in same date", raise_exception=1)
-			
-			if att_tt[i+1] <> "Out Time":
-				frappe.msgprint('{0}{1}'.format("In Time should be followed by Out Time check line #", i+2),raise_exception=1)
-			
-			diff = time_diff(att_time[i], att_time[i+1])
-			diff_allowed(diff, i,10,18)
 
-		elif att_tt[i] == "Out Time":
-			if i == 0:
-				#Check the first punch data should be IN TIME Only
-				frappe.msgprint("First Punch Data should be IN TIME Only", raise_exception = 1)
-			if att_tt[i+1] <> "In Time":
-				frappe.msgprint('{0}{1}'.format("Out Time should be followed by In Time check line #", i+2),raise_exception=1)
-			
-			diff = time_diff(att_time[i], att_time[i+1])
-			diff_allowed(diff,i,10,18)
-	
-	#Check if there is an even number of punch data
-	if doc.attendance_time:
-		for att in doc.attendance_time:
-			if (len(doc.attendance_time)) % 2 <> 0:
-				frappe.msgprint("Time Data has to be multiple of 2", raise_exception = 1)
-				
-	
-	#Calculation of Overtime based on Shift and its Rules
-	doc.overtime = 0
-	tt_in = 0
-	tt_out = 0
-	lunch_out = frappe.db.get_value("Shift Details", doc.shift ,"hours_required_per_day").seconds/3600
-	hrs_needed =frappe.db.get_value("Shift Details", doc.shift ,"hours_required_per_day").seconds/3600
-	round = frappe.db.get_value("Shift Details", doc.shift ,"time_rounding").seconds/3600
-	
-	for i in range(len(att_tt)-1):
-		if att_tt[i] == "In Time":
-			tt_in = tt_in + (time_diff(att_time[i], att_time[i+1]).seconds)/3600
-		else:
-			tt_out = tt_out + (time_diff(att_time[i], att_time[i+1]).seconds)/3600
-		if round > 0:
-			doc.overtime = (tt_in - hrs_needed)- ((tt_in - hrs_needed)%round)
-		else:
-			frappe.msgprint("Time Rounding Mentioned in Shift Details cannot be ZERO, please change the same before proceeding.")
 				
 #Function to check if the attendance is not for a NON-WORKING employee
 def check_employee(doc, method):
@@ -98,14 +41,102 @@ def get_shift(doc,method):
 		frappe.throw(("No Roster defined for {0} for date {1}").format(doc.employee, att_date))
 	else:
 		doc.shift = roster[0][1]
-			
-#Function to find the difference between 2 times
-def time_diff (time1, time2):
-	time1 = datetime.strptime(time1, '%Y-%m-%d %H:%M:%S')
-	time2 = datetime.strptime(time2, '%Y-%m-%d %H:%M:%S')
-	diff = time2 - time1
-	return diff
+	
+	shft = frappe.get_doc("Shift Details", doc.shift)
+	return shft
 
+def validate_time_with_shift(doc,method):
+	shft = frappe.get_doc("Shift Details", doc.shift)
+	if shft.in_out_required:
+		shft_hrs = shft.hours_required_per_day.seconds
+		shft_rounding = shft.time_rounding.seconds
+		shft_marg = shft.time_margin.seconds
+		
+		if shft_rounding <= 0 or shft_marg <=0:
+			frappe.throw("Shift Rounding or Shift Margin cannot be Zero")
+		
+		if shft.in_time > shft.out_time:
+			#this shows night shift
+			if shft.next_day <> 1:
+				#this shows night shift is starting on previous day
+				shft_indate = datetime.combine(add_days(att_date, -1), datetime.min.time())
+			else:
+				shft_indate = datetime.combine(att_date, datetime.min.time())
+		else:
+			shft_indate = datetime.combine(att_date, datetime.min.time())
+		
+		shft_intime = shft_indate + timedelta(0, shft.in_time.seconds)
+		shft_intime_max = shft_intime + timedelta(0, shft.delayed_entry_allowed_time.seconds)
+		shft_intime_min = shft_intime - timedelta(0, shft.early_entry_allowed_time.seconds)
+		
+		frappe.msgprint(shft_intime_max)
+		
+		if shft.lunch_out > shft.in_time:
+			shft_lunchout = shft_indate + timedelta(0, shft.lunch_in.seconds)
+			shft_lunchin = shft_indate + timedelta(0, shft.lunch_in.seconds)
+		else:
+			shft_lunchout = shft_indate + timedelta(0, 86400+shft.lunch_in.seconds)
+			shft_lunchin = shft_indate + timedelta(0, 86400+shft.lunch_in.seconds)
+		
+		for d in doc.attendance_time:
+			if d.idx == 1:
+				d.date_time = get_datetime(d.date_time)
+				if d.date_time >= shft_intime_min and d.date_time <= shft_intime_max:
+					pass
+				else:
+					frappe.throw(("Time {0} in row#1 is not allowed for Shift# {1} for {2}.\
+						Check early and delayed entry settings in Shift Master").\
+						format(d.date_time, doc.shift, doc.name))
+
+		return shft_intime, shft_lunchout, shft_lunchin, shft_hrs, shft_rounding, shft_marg
+	
+def calculate_overtime(doc,method):
+	doc.overtime = 0
+	tt_in = 0
+	tt_out = 0
+	
+	shft_intime, shft_lunchout, shft_lunchin, shft_hrs, \
+		shft_rounding, shft_marg = validate_time_with_shift(doc,method)
+	
+	pu_data = check_punch_data(doc, method)
+	
+	#only calculate the ot if there are any IN and OUT entries
+	#if doc.attendance_time:
+	for i in range(len(doc.attendance_time)-1):
+		pass
+	for i in range(len(pu_data)-1):
+		if pu_data[i][1] == 'In Time':
+			tt_in +=  time_diff_in_seconds(pu_data[i+1][2], pu_data[i][2])
+		else:
+			tt_out += time_diff_in_seconds(pu_data[i+1][2], pu_data[i][2])
+				
+	doc.overtime = ((tt_in - shft_hrs + shft_marg)- \
+		((tt_in + shft_marg - shft_hrs)%shft_rounding))/3600
+	
+def check_punch_data(doc,method):
+	
+	shft_intime, shft_lunchout, shft_lunchin, shft_hrs, \
+		shft_rounding, shft_marg = validate_time_with_shift(doc,method)
+	pu_data = []
+	
+	for d in doc.attendance_time:
+		if d.idx == 1 and d.time_type <> 'In Time':
+			frappe.throw(("First Punch Data should be In Time for {0}").format(doc.name))
+		pu_data.append([d.idx, d.time_type, d.date_time])
+
+	for i in range(len(pu_data)-1):
+		#Checks if In and Out are alternating
+		if pu_data[i][1] == pu_data[i+1][1]:
+			frappe.throw(("{1} should not be Followed by {1} for {2} check row # {3} & {4}").\
+				format(pu_data[i][1], pu_data[i][1], doc.name, pu_data[i][0], pu_data[i+1][0]))
+		#Checks if Time Data is following the minimum time difference rule in shift
+		if time_diff_in_seconds(pu_data[i+1][2], pu_data[i][2]) <= shft_marg:
+			frappe.throw(("Difference between 2 punch data cannot be less than \
+				{0} mins check row# {1} and {2} for {3}").\
+				format(shft_marg/60, pu_data[i][0], pu_data[i+1][0], doc.name))
+
+	return pu_data
+		
 #Function to define the minimum and max difference allowed between times
 def diff_allowed(time, i, min_in_mins, max_in_hours):
 	if time < timedelta(minutes=min_in_mins):

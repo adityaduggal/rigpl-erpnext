@@ -63,16 +63,19 @@ def validate(doc,method):
 	if ual < 0:
 		frappe.throw("Unauthorized Leave cannot be Negative")
 	paydays = tdim - lwp - ual + round(((wd/tdim)*holidays),0)
+	pd_ded = doc.payment_days_for_deductions
 	
 	doc.unauthorized_leaves = ual 
 	
 	ot_ded = round(8*ual,1)
 	doc.overtime_deducted = ot_ded
 	
+	#Calculate Earnings
 	for d in doc.earnings:
 		earn = frappe.get_doc("Earning Type", d.e_type)
 		if earn.based_on_overtime:
 			for d2 in doc.earnings:
+				#Calculate Overtime Value
 				if earn.overtime_rate == d2.e_type:
 					d.e_amount = flt(d2.e_amount) * t_ot
 					d.e_modified_amount = flt(d2.e_amount) * (t_ot - ot_ded)
@@ -81,10 +84,13 @@ def validate(doc,method):
 				d.e_modified_amount = round(flt(d.e_amount) * paydays/tdim,0)
 		if earn.only_for_deductions <> 1:
 			gross_pay += flt(d.e_modified_amount)
+		else:
+			d.e_modified_amount = round(flt(d.e_amount) * pd_ded/tdim,0)
 	if gross_pay < 0:
 		doc.arrear_amount = -1 * gross_pay
 	gross_pay += flt(doc.arrear_amount) + flt(doc.leave_encashment_amount)
-		
+	
+	#Calculate Deductions
 	for d in doc.deductions:
 		deduct = frappe.get_doc("Deduction Type", d.d_type)
 		if deduct.based_on_earning:
@@ -93,12 +99,21 @@ def validate(doc,method):
 					d.d_modified_amount = math.ceil(flt(e.e_modified_amount) * deduct.percentage/100)
 		tot_ded +=d.d_modified_amount
 	
-	for d in doc.contributions:
-		tot_cont += d.modified_amount
+	#Calculate Contributions
+	for c in doc.contributions:
+		cont = frappe.get_doc("Contribution Type", c.contribution_type)
+		if cont.based_on_earning:
+			for e in doc.earnings:
+				if cont.earning == e.e_type:
+					c.modified_amount = math.ceil(flt(e.e_modified_amount) * cont.percentage/100)
+
+		tot_cont += c.modified_amount
 	
 	doc.gross_pay = gross_pay
 	doc.total_deduction = tot_ded
 	doc.payment_days = paydays
+	if doc.payment_days_for_deductions == 0:
+		doc.payment_days_for_deductions = doc.payment_days
 	doc.net_pay = doc.gross_pay - doc.total_deduction
 	doc.rounded_total = myround(doc.net_pay, 10)
 		
