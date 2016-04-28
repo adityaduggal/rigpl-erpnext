@@ -40,7 +40,7 @@ def get_entries(filters):
 				rod.parent = ro.name AND
 				sh.name = ro.shift AND
 				emp.name = rod.employee %s %s %s
-			ORDER BY ro.name, emp.date_of_joining""" %(conditions_emp,conditions_ro, conditions_sh)
+			ORDER BY ro.from_date, ro.to_date,emp.date_of_joining""" %(conditions_emp,conditions_ro, conditions_sh)
 	else:
 		query = """SELECT emp.name, emp.employee_name, ifnull(emp.branch,"-"), 
 			ifnull(emp.department,"-"), ifnull(emp.designation,"-"), emp.date_of_joining,
@@ -76,12 +76,15 @@ def get_conditions(filters):
 	if filters.get("employee"):
 		conditions_emp += " AND emp.name = '%s'" % filters["employee"]
 		
-	if filters.get("from_date"):
-		conditions_ro += " AND ro.from_date <='%s'" % filters["from_date"]
-		conditions_ro += " AND ro.to_date >='%s'" % filters["from_date"]
+	if filters.get("from_date") and filters.get("to_date"):
+		if filters["from_date"] > filters["to_date"]:
+			frappe.throw("From Date cannot be after To Date")
+		else:
+			conditions_ro += " AND ((ro.from_date <='%s' AND ro.to_date <= '%s' AND \
+				ro.to_date >= '%s') OR (ro.from_date <= '%s' AND ro.to_date >= '%s'))" % \
+				(filters["from_date"], filters["to_date"], filters["from_date"], \
+				filters["to_date"], filters["from_date"])
 
-	if filters.get("to_date"):
-		conditions_ro += " AND ro.to_date >='%s'" % filters["to_date"]
 		
 	if filters.get("shift") and filters.get("without_roster") <> 1:
 		conditions_sh += " AND ro.shift ='%s'" % filters["shift"]
