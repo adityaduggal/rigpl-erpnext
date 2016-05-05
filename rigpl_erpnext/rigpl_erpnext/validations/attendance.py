@@ -69,8 +69,6 @@ def validate_time_with_shift(doc,method):
 		shft_intime_max = shft_intime + timedelta(0, shft.delayed_entry_allowed_time.seconds)
 		shft_intime_min = shft_intime - timedelta(0, shft.early_entry_allowed_time.seconds)
 		
-		frappe.msgprint(shft_intime_max)
-		
 		if shft.lunch_out > shft.in_time:
 			shft_lunchout = shft_indate + timedelta(0, shft.lunch_in.seconds)
 			shft_lunchin = shft_indate + timedelta(0, shft.lunch_in.seconds)

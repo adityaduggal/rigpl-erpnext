@@ -112,7 +112,7 @@ def validate(doc,method):
 	doc.gross_pay = gross_pay
 	doc.total_deduction = tot_ded
 	doc.payment_days = paydays
-	if doc.payment_days_for_deductions == 0:
+	if doc.payment_days_for_deductions is None:
 		doc.payment_days_for_deductions = doc.payment_days
 	doc.net_pay = doc.gross_pay - doc.total_deduction
 	doc.rounded_total = myround(doc.net_pay, 10)
@@ -158,8 +158,7 @@ def get_loan_deduction(doc,method):
 def get_expense_claim(doc,method):
 	m = get_month_details(doc.fiscal_year, doc.month)
 	#Get total Expense Claims Due for an Employee
-	query = """SELECT ec.name, ec.employee, ec.total_sanctioned_amount, ec.total_amount_reimbursed,
-		ec.earning_type
+	query = """SELECT ec.name, ec.employee, ec.total_sanctioned_amount, ec.total_amount_reimbursed
 		FROM `tabExpense Claim` ec
 		WHERE ec.docstatus = 1 AND ec.approval_status = 'Approved' AND
 			ec.total_amount_reimbursed < ec.total_sanctioned_amount AND
