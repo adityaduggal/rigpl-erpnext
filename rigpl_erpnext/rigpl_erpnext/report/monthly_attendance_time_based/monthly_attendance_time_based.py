@@ -6,6 +6,7 @@ import frappe
 from frappe.utils import cstr, cint, getdate
 from frappe import msgprint, _
 from calendar import monthrange
+from datetime import datetime
 
 def execute(filters=None):
 	if not filters: filters = {}
@@ -25,50 +26,42 @@ def execute(filters=None):
 		if not emp_det:
 			continue
 		row0 = [emp, emp_det.employee_name, "In Time"]
-		row2 =[emp, emp_det.employee_name, "Out Time"]
+		row2 = [emp, emp_det.employee_name, "Out Time"]
 		row3 = [emp, emp_det.employee_name, "Over Time"]
 		
 		rows = {}
 		for i in range(nos+1):
 			if i <> nos:
 				if is_odd(i):
-					rows["row{0}".format(i)] = row2
+					rows["row{0}".format(i)] = row2[:]
 				else:
-					rows["row{0}".format(i)] = row0
+					rows["row{0}".format(i)] = row0[:]
 			else:
-				rows["row{0}".format(i)] = row3
-		
-		total_p = total_a = 0.0
+				rows["row{0}".format(i)] = row3[:]
+
 		for day in range(filters["total_days_in_month"]):
-			for np in range(nos): #np == Number of punches in a data
-				status = att_map.get(emp).get(day + 1, "None")
-				if time_map.get(emp).get(day+1,"None") <> "None":
-					time = time_map.get(emp).get(day + 1, "None").get(np+1, "None")
-					frappe.msgprint(time)
-					
+			for np in range(nos+1):
+				row_no = "row" + `np`
+				tt = rows[row_no][2]
+				if np < nos:
+					if time_map.get(emp).get(day+1,"None") <> "None":
+						if time_map.get(emp).get(day+1, "None").get(np + 1, "None") <> "None":
+							timing = time_map.get(emp).get(day + 1, "None").get(np + 1, "None")		
+							timing_hrs = timing[tt].time().isoformat()
+							timing_hrs = timing[tt].strftime("%H:%M")
+							rows[row_no].append(timing_hrs)
+						else:
+							rows[row_no].append("")
+					else:
+						rows[row_no].append("")
 				else:
-					time = 0
-				
-				for d in rows:
-					frappe.msgprint(rows[d][2])
-				#	if time.get(rows[d][0]):
-				#		rows[d].append(time[rows[d][0]]))
-				
-				#frappe.msgprint(time[rows[d][0]])
-				status_map = {"Present": "P", "Absent": "A", "Half Day": "H", "None": ""}
-				row0.append(status_map[status])
-
-				if status == "Present":
-					total_p += 1
-				elif status == "Absent":
-					total_a += 1
-				elif status == "Half Day":
-					total_p += 0.5
-					total_a += 0.5
-
-		row0 += [total_p, total_a]
-	for d in rows:
-		data.append(rows[d])
+					if ot_map.get(emp).get(day+1, "None") <> "None":
+						ot = ot_map.get(emp).get(day+1, "")
+						rows[row_no].append(ot)
+					else:
+						rows[row_no].append("")
+		for d in rows:
+			data.append(rows[d])
 
 	return columns, data
 
@@ -78,9 +71,8 @@ def get_columns(filters):
 	]
 
 	for day in range(filters["total_days_in_month"]):
-		columns.append(cstr(day+1) +"::20")
-
-	columns += [_("Total Present") + ":Float:80", _("Total Absent") + ":Float:80"]
+		columns.append(cstr(day+1) +"::60")
+		
 	return columns
 
 def get_attendance_list(conditions, filters):
