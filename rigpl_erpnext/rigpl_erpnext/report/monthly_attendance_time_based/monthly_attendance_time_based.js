@@ -23,7 +23,7 @@ frappe.query_reports["Monthly Attendance Time Based"] = {
 			"label": __("Employee"),
 			"fieldtype": "Link",
 			"options": "Employee",
-			"reqd": 1
+			"reqd": 0
 		},
 		{
 			"fieldname":"branch",
