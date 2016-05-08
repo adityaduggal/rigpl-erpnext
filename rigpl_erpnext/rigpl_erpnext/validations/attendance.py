@@ -15,6 +15,8 @@ def validate(doc,method):
 	att_tt = []
 	att_time = []
 	att_date = getdate(doc.att_date)
+	if doc.status <> "Present":
+		frappe.throw(("Only Present Attendance is Allowed Check {0}").format(doc.name))
 
 	check_employee (doc, method)
 	shft = get_shift(doc,method)
@@ -68,8 +70,6 @@ def validate_time_with_shift(doc,method):
 		shft_intime = shft_indate + timedelta(0, shft.in_time.seconds)
 		shft_intime_max = shft_intime + timedelta(0, shft.delayed_entry_allowed_time.seconds)
 		shft_intime_min = shft_intime - timedelta(0, shft.early_entry_allowed_time.seconds)
-		
-		frappe.msgprint(shft_intime_max)
 		
 		if shft.lunch_out > shft.in_time:
 			shft_lunchout = shft_indate + timedelta(0, shft.lunch_in.seconds)
