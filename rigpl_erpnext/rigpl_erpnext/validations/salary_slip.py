@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 import math
+import datetime
 from frappe import msgprint
 from frappe.utils import money_in_words, flt
 from erpnext.setup.utils import get_company_currency
@@ -34,35 +35,49 @@ def validate(doc,method):
 	tot_ded = 0
 	tot_cont = 0
 
+	m = get_month_details(doc.fiscal_year, doc.month)
+	msd = m.month_start_date
+	med = m.month_end_date
+	emp = frappe.get_doc("Employee", doc.employee)
+	
+	if emp.relieving_date is None:
+		relieving_date = datetime.date(2099, 12, 31)
+	else:
+		relieving_date = emp.relieving_date
+	
+	if emp.date_of_joining >= msd:
+		tdim = (med - emp.date_of_joining).days
+	elif relieving_date <= med:
+		tdim = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
+	else:
+		tdim = m["month_days"] #total days in a month
+	
 	get_loan_deduction(doc,method)
 	get_expense_claim(doc,method)
+	holidays = get_holidays(doc, method, msd, med)
 	
-	m = get_month_details(doc.fiscal_year, doc.month)
-	tdim = m["month_days"] #total days in a month
-	lwp = flt(doc.leave_without_pay)
+	lwp, plw = get_leaves(doc, method, msd, med)
 	
+	doc.leave_without_pay = lwp
+		
 	doc.posting_date = m.month_end_date
-	
-	holiday_list = get_holiday_list_for_employee(doc.employee)
-	holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND 
-		holiday_date >= '%s' AND holiday_date <= '%s'""" %(holiday_list, \
-			m.month_start_date, m.month_end_date), as_list=1)
-	
-	holidays = holidays[0][0] #no of holidays in a month from the holiday list
 	wd = tdim - holidays #total working days
 	
 	att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` 
 		WHERE employee = '%s' AND att_date >= '%s' AND att_date <= '%s' 
 		AND status = 'Present' AND docstatus=1""" \
-		%(doc.employee,m.month_start_date, m.month_end_date),as_list=1)
+		%(doc.employee, msd, med),as_list=1)
 
 	t_ot = flt(att[0][0])
 	doc.total_overtime = t_ot
-	tpres = att[0][1]
-	ual = tdim - tpres - lwp - holidays
+	tpres = flt(att[0][1])
+
+	ual = tdim - tpres - lwp - holidays - plw
+	
 	if ual < 0:
 		frappe.throw("Unauthorized Leave cannot be Negative")
-	paydays = tdim - lwp - ual + round(((wd/tdim)*holidays),0)
+	
+	paydays = tpres + plw + round((tpres/wd * holidays),0)
 	pd_ded = doc.payment_days_for_deductions
 	
 	doc.unauthorized_leaves = ual 
@@ -112,7 +127,7 @@ def validate(doc,method):
 	doc.gross_pay = gross_pay
 	doc.total_deduction = tot_ded
 	doc.payment_days = paydays
-	if doc.payment_days_for_deductions is None:
+	if doc.change_deductions == 0:
 		doc.payment_days_for_deductions = doc.payment_days
 	doc.net_pay = doc.gross_pay - doc.total_deduction
 	doc.rounded_total = myround(doc.net_pay, 10)
@@ -121,6 +136,44 @@ def validate(doc,method):
 	doc.total_in_words = money_in_words(doc.rounded_total, company_currency)
 	doc.total_ctc = doc.gross_pay + tot_cont
 
+def get_leaves(doc, method, start_date, end_date):
+	#Find out the number of leaves applied by the employee only working days
+	lwp = 0 #Leaves without pay
+	plw = 0 #paid leaves
+	diff = (end_date - start_date).days
+	
+	for day in range(0, diff):
+		date = start_date + datetime.timedelta(days=day)
+		auth_leaves = frappe.db.sql("""SELECT la.name FROM `tabLeave Application` la
+			WHERE la.status = 'Approved' AND la.docstatus = 1 AND la.employee = '%s'
+			AND la.from_date <= '%s' AND la.to_date >= '%s'""" % (doc.employee, date, date), as_list=1)
+		if auth_leaves:
+			auth_leaves = auth_leaves[0][0]
+			lap = frappe.get_doc("Leave Application", auth_leaves)
+			ltype = frappe.get_doc("Leave Type", lap.leave_type)
+			hol = get_holidays(doc,method, date, date)
+			if hol:
+				pass
+			else:
+				if ltype.is_lwp == 1:
+					lwp += 1
+				else:
+					plw += 1
+	lwp = flt(lwp)
+	plw = flt(plw)
+	
+	return lwp,plw
+		
+def get_holidays(doc,method, start_date, end_date):
+	
+	holiday_list = get_holiday_list_for_employee(doc.employee)
+	holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND 
+		holiday_date >= '%s' AND holiday_date <= '%s'""" %(holiday_list, \
+			start_date, end_date), as_list=1)
+	
+	holidays = flt(holidays[0][0]) #no of holidays in a month from the holiday list
+	return holidays
+	
 def get_loan_deduction(doc,method):
 	m = get_month_details(doc.fiscal_year, doc.month)
 	#get total loan due for employee
