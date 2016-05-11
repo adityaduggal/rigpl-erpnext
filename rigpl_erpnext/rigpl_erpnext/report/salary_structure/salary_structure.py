@@ -21,7 +21,7 @@ def execute(filters=None):
 		ss_cont_map = get_ss_cont_map(salary_str)
 				
 		for ss in salary_str:
-			row = [ss.name, ss.from_date, ss.to_date, ss.employee, ss.employee_name]
+			row = [ss.name, ss.from_date, ss.to_date, ss.is_active, ss.employee, ss.employee_name]
 			
 			for e in earning_types:
 				row.append(ss_earning_map.get(ss.name, {}).get(e))
@@ -117,7 +117,7 @@ def get_columns(filters, salary_str):
 	if filters.get("without_salary_structure")<>1:
 		columns = [
 			_("Salary Structure") + ":Link/Salary Structure:60", _("From Date") + ":Date:80", 
-			_("To Date") + ":Date:80", _("Employee") + ":Link/Employee:80",
+			_("To Date") + ":Date:80", _("Active") + "::80", _("Employee") + ":Link/Employee:80",
 			_("Name") + "::150"
 		]
 		
