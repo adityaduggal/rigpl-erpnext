@@ -13,7 +13,7 @@ def execute(filters=None):
 	conditions, filters, conditions_hol, conditions_la, conditions_emp = get_conditions(filters)
 	columns = get_columns(filters)
 	att_map = get_attendance_list(conditions, filters)
-	emp_map = get_employee_details()
+	emp_map = get_employee_details(conditions_emp)
 	hol_map = get_holiday_list(conditions_hol)
 	la_map = get_leave_application(conditions_la, filters)
 
@@ -170,11 +170,12 @@ def get_leave_application(conditions_la, filters):
 
 	return la_map
 	
-def get_employee_details():
+def get_employee_details(conditions_emp):
 	emp_map = frappe._dict()
-	for d in frappe.db.sql("""select name, employee_name, designation,
-		department, branch, company
-		from tabEmployee""", as_dict=1):
+	for d in frappe.db.sql("""select emp.name, emp.employee_name, emp.designation,
+		emp.department, emp.branch, emp.company
+		from tabEmployee emp
+		WHERE emp.docstatus = 0 %s"""% conditions_emp, as_dict=1):
 		emp_map.setdefault(d.name, d)
 
 	return emp_map
