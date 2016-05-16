@@ -40,19 +40,9 @@ def validate(doc,method):
 	med = m.month_end_date
 	emp = frappe.get_doc("Employee", doc.employee)
 	
-	if emp.relieving_date is None:
-		relieving_date = datetime.date(2099, 12, 31)
-	else:
-		relieving_date = emp.relieving_date
+	tdim = get_total_days(doc,method, emp, msd, med, m)
 	
-	if emp.date_of_joining >= msd:
-		tdim = (med - emp.date_of_joining).days
-	elif relieving_date <= med:
-		tdim = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
-	else:
-		tdim = m["month_days"] #total days in a month
-	
-	get_loan_deduction(doc,method)
+	get_loan_deduction(doc,method, msd, med)
 	get_expense_claim(doc,method)
 	holidays = get_holidays(doc, method, msd, med)
 	
@@ -88,6 +78,11 @@ def validate(doc,method):
 	#Calculate Earnings
 	for d in doc.earnings:
 		earn = frappe.get_doc("Earning Type", d.e_type)
+		if earn.depends_on_lwp == 1:
+			d.e_depends_on_lwp = 1
+		else:
+			d.e_depends_on_lwp = 0
+			
 		if earn.based_on_overtime:
 			for d2 in doc.earnings:
 				#Calculate Overtime Value
@@ -97,10 +92,15 @@ def validate(doc,method):
 		else:
 			if d.e_depends_on_lwp == 1:
 				d.e_modified_amount = round(flt(d.e_amount) * paydays/tdim,0)
+			else:
+				d.e_modified_amount = d.e_amount
+		
 		if earn.only_for_deductions <> 1:
 			gross_pay += flt(d.e_modified_amount)
 		else:
-			d.e_modified_amount = round(flt(d.e_amount) * pd_ded/tdim,0)
+			if d.e_type <> "Overtime Rate":
+				d.e_modified_amount = round(flt(d.e_amount) * pd_ded/tdim,0)
+
 	if gross_pay < 0:
 		doc.arrear_amount = -1 * gross_pay
 	gross_pay += flt(doc.arrear_amount) + flt(doc.leave_encashment_amount)
@@ -136,6 +136,20 @@ def validate(doc,method):
 	doc.total_in_words = money_in_words(doc.rounded_total, company_currency)
 	doc.total_ctc = doc.gross_pay + tot_cont
 
+def get_total_days(doc,method, emp, msd, med, month):
+	if emp.relieving_date is None:
+		relieving_date = datetime.date(2099, 12, 31)
+	else:
+		relieving_date = emp.relieving_date
+	
+	if emp.date_of_joining >= msd:
+		tdim = (med - emp.date_of_joining).days
+	elif relieving_date <= med:
+		tdim = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
+	else:
+		tdim = month["month_days"] #total days in a month
+	return tdim
+	
 def get_leaves(doc, method, start_date, end_date):
 	#Find out the number of leaves applied by the employee only working days
 	lwp = 0 #Leaves without pay
@@ -174,8 +188,11 @@ def get_holidays(doc,method, start_date, end_date):
 	holidays = flt(holidays[0][0]) #no of holidays in a month from the holiday list
 	return holidays
 	
-def get_loan_deduction(doc,method):
-	m = get_month_details(doc.fiscal_year, doc.month)
+def get_loan_deduction(doc,method, msd, med):
+	existing_loan = []
+	for d in doc.deductions:
+		existing_loan.append(d.employee_loan)
+		
 	#get total loan due for employee
 	query = """SELECT el.name, eld.name, eld.emi, el.deduction_type, eld.loan_amount
 		FROM 
@@ -183,15 +200,13 @@ def get_loan_deduction(doc,method):
 		WHERE
 			eld.parent = el.name AND
 			el.docstatus = 1 AND el.posting_date <= '%s' AND
-			eld.employee = '%s'""" %(m.month_end_date, doc.employee)
-	
+			eld.employee = '%s'""" %(med, doc.employee)
+		
 	loan_list = frappe.db.sql(query, as_list=1)
 
 	for i in loan_list:
-		existing_loan = []
-		for d in doc.deductions:
-			existing_loan.append(d.employee_loan)
-
+		emi = i[2]
+		total_loan = i[4]
 		if i[0] not in existing_loan:
 			#Check if the loan has already been deducted
 			query = """SELECT SUM(ssd.d_modified_amount) 
@@ -200,13 +215,36 @@ def get_loan_deduction(doc,method):
 					ssd.parent = ss.name AND
 					ssd.employee_loan = '%s' and ss.employee = '%s'""" %(i[0], doc.employee)
 			deducted_amount = frappe.db.sql(query, as_list=1)
-			
-			if i[4] > deducted_amount[0][0]:
+
+			if total_loan > deducted_amount[0][0]:
 				#Add deduction for each loan separately
-				doc.append("deductions", {
-					"idx": len(doc.deductions)+1, "d_depends_on_lwp": 0, "d_modified_amount": i[2], \
-					"employee_loan": i[0], "d_type": i[3], "d_amount": i[2]
-				})
+				#Check if EMI is less than balance
+				balance = flt(total_loan) - flt(deducted_amount[0][0])
+				if balance > emi:
+					doc.append("deductions", {
+						"idx": len(doc.deductions)+1, "d_depends_on_lwp": 0, "d_modified_amount": emi, \
+						"employee_loan": i[0], "d_type": i[3], "d_amount": emi
+					})
+				else:
+					doc.append("deductions", {
+						"idx": len(doc.deductions)+1, "d_depends_on_lwp": 0, "d_modified_amount": balance, \
+						"employee_loan": i[0], "d_type": i[3], "d_amount": balance
+					})
+	for d in doc.deductions:
+		if d.employee_loan:
+			total_given = frappe.db.sql("""SELECT eld.loan_amount 
+				FROM `tabEmployee Loan` el, `tabEmployee Loan Detail` eld
+				WHERE eld.parent = el.name AND eld.employee = '%s' 
+				AND el.name = '%s'"""%(doc.employee, d.employee_loan), as_list=1)
+			
+			deducted = frappe.db.sql("""SELECT SUM(ssd.d_modified_amount) 
+				FROM `tabSalary Slip Deduction` ssd, `tabSalary Slip` ss
+				WHERE ss.docstatus = 1 AND ssd.parent = ss.name 
+				AND ssd.employee_loan = '%s' and ss.employee = '%s'"""%(d.employee_loan, doc.employee), as_list=1)
+			balance = flt(total_given[0][0]) - flt(deducted[0][0])
+			if balance < d.d_modified_amount:
+				frappe.throw(("Max deduction allowed {0} for Loan Deduction {1} \
+				check row # {2} in Deduction Table").format(balance, d.employee_loan, d.idx))
 
 def get_expense_claim(doc,method):
 	m = get_month_details(doc.fiscal_year, doc.month)
@@ -250,22 +288,43 @@ def get_edc(doc,method):
 	sstr = frappe.get_doc("Salary Structure", struct[0][0])
 	contri_amount = 0
 	doc.contributions = []
-	doc.earnings = []
-	doc.deductions = []
+	existing_earn = []
+	existing_ded = []
 	
+	for e in doc.earnings:
+		existing_earn.append(e.e_type)
+		
+	for d in doc.deductions:
+		existing_ded.append(d.d_type)
+		
+		
 	for e in sstr.earnings:
-		doc.append("earnings",{
-			"e_type": e.e_type,
-			"e_amount": e.modified_value,
-			"e_modified_amount": e.modified_value
-		})
+		if existing_earn.count(e.e_type) > 1 or existing_earn.count(e.e_type) == 0:
+			doc.earnings = []
+			earn = 1
+		else:
+			earn = 0
+	if earn == 1:
+		for e in sstr.earnings:
+			doc.append("earnings",{
+				"e_type": e.e_type,
+				"e_amount": e.modified_value,
+				"e_modified_amount": e.modified_value
+			})
 	
 	for d in sstr.deductions:
-		doc.append("deductions",{
-			"d_type": d.d_type,
-			"d_amount": d.d_modified_amt,
-			"d_modified_amount": d.d_modified_amt
-		})
+		if existing_ded.count(d.d_type) > 1 or existing_ded.count(d.d_type) == 0:
+			doc.earnings = []
+			ded = 1
+		else:
+			ded = 0
+	if ded == 1:
+		for d in sstr.deductions:
+			doc.append("deductions",{
+				"d_type": d.d_type,
+				"d_amount": d.d_modified_amt,
+				"d_modified_amount": d.d_modified_amt
+			})
 	
 	for c in sstr.contributions:
 		contri = frappe.get_doc("Contribution Type", c.contribution_type)
