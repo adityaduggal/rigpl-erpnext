@@ -25,8 +25,8 @@ class EmployeeLoan(Document):
 			#Check negative values:
 			if (i.loan_amount % 100 != 0 or i.emi % 100 != 0):
 				frappe.throw("Loan Amount and EMI should be multiples of 100")
-			if (i.repayment_period % 1 != 0):
-				frappe.throw("Repayment period should be an Integer")
+			#if (i.repayment_period % 1 != 0):
+			#	frappe.throw("Repayment period should be an Integer")
 			if (i.loan_amount < 0 or i.emi < 0 or i.repayment_period < 0):
 				frappe.throw("Loan Amount, EMI and Repayment Period should be greater than ZERO")
 				
