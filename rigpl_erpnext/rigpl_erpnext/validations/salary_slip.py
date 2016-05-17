@@ -63,7 +63,7 @@ def validate(doc,method):
 	tpres = flt(att[0][1])
 
 	ual = tdim - tpres - lwp - holidays - plw
-	
+
 	if ual < 0:
 		frappe.throw("Unauthorized Leave cannot be Negative")
 	
@@ -76,6 +76,11 @@ def validate(doc,method):
 	doc.overtime_deducted = ot_ded
 	
 	#Calculate Earnings
+	chk_ot = 0 #Check if there is an Overtime Rate
+	for d in doc.earnings:
+		if d.e_type == "Overtime Rate":
+			chk_ot = 1
+			
 	for d in doc.earnings:
 		earn = frappe.get_doc("Earning Type", d.e_type)
 		if earn.depends_on_lwp == 1:
@@ -91,7 +96,10 @@ def validate(doc,method):
 					d.e_modified_amount = flt(d2.e_amount) * (t_ot - ot_ded)
 		else:
 			if d.e_depends_on_lwp == 1:
-				d.e_modified_amount = round(flt(d.e_amount) * paydays/tdim,0)
+				if chk_ot == 1:
+					d.e_modified_amount = round(flt(d.e_amount) * (paydays+ual)/tdim,0)
+				else:
+					d.e_modified_amount = round(flt(d.e_amount) * (paydays)/tdim,0)
 			else:
 				d.e_modified_amount = d.e_amount
 		
@@ -143,7 +151,7 @@ def get_total_days(doc,method, emp, msd, med, month):
 		relieving_date = emp.relieving_date
 	
 	if emp.date_of_joining >= msd:
-		tdim = (med - emp.date_of_joining).days
+		tdim = (med - emp.date_of_joining).days + 1 #Joining DATE IS THE First WORKING DAY
 	elif relieving_date <= med:
 		tdim = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
 	else:
