@@ -68,7 +68,7 @@ def validate(doc,method):
 		frappe.throw("Unauthorized Leave cannot be Negative")
 	
 	paydays = tpres + plw + round((tpres/wd * holidays),0)
-	pd_ded = doc.payment_days_for_deductions
+	pd_ded = flt(doc.payment_days_for_deductions)
 	
 	doc.unauthorized_leaves = ual 
 	
@@ -311,13 +311,14 @@ def get_edc(doc,method):
 				"e_amount": e.modified_value,
 				"e_modified_amount": e.modified_value
 			})
-	
+	ded = 0
 	for d in sstr.deductions:
 		if existing_ded.count(d.d_type) > 1 or existing_ded.count(d.d_type) == 0:
 			doc.earnings = []
 			ded = 1
 		else:
 			ded = 0
+
 	if ded == 1:
 		for d in sstr.deductions:
 			doc.append("deductions",{
