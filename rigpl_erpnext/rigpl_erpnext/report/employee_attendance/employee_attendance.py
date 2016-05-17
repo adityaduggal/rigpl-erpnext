@@ -79,9 +79,9 @@ def get_columns(filters):
 
 def get_attendance_list(conditions, filters):
 	attendance_list = frappe.db.sql("""select at.employee, day(at.att_date) as day_of_month,
-		at.status, att.time_type, att.date_time, att.idx, at.overtime
-		FROM tabAttendance at, `tabAttendance Time Table` att
-		WHERE at.docstatus = 1 AND att.parent = at.name %s 
+		at.status
+		FROM tabAttendance at
+		WHERE at.docstatus = 1 %s 
 		ORDER BY at.employee, at.att_date""" %
 		conditions, filters, as_dict=1)
 
@@ -89,8 +89,7 @@ def get_attendance_list(conditions, filters):
 	
 	for d in attendance_list:
 		att_map.setdefault(d.employee, frappe._dict()).setdefault(d.day_of_month, "")
-		att_map[d.employee][d.day_of_month] = d.status
-				
+		att_map[d.employee][d.day_of_month] = d.status		
 	return att_map
 
 def get_holiday_list(conditions_hol):
