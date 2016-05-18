@@ -124,7 +124,8 @@ def validate(doc,method):
 			if deduct.based_on_lwp == 1:
 					d.d_modified_amount = math.ceil(flt(d.d_amount) * flt(doc.payment_days_for_deductions)/tdim)
 			else:
-				d.d_modified_amount = d.d_amount
+				if d.d_type <> "Loan Deduction":
+					d.d_modified_amount = d.d_amount
 		tot_ded +=d.d_modified_amount
 	
 	#Calculate Contributions
