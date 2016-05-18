@@ -34,7 +34,7 @@ def check_employee(doc, method):
 			frappe.throw(("Cannot create attendance for {0} as he/she has left on {1}").\
 			format(emp.employee_name, emp.relieving_date))
 	else:
-		if emp.date_of_joining < att_date:
+		if emp.date_of_joining > att_date:
 			frappe.throw(("Cannot create attendance for {0} as he/she has joined on {1}").\
 			format(emp.employee_name, emp.date_of_joining))
 
