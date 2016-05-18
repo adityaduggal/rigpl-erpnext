@@ -44,15 +44,15 @@ def validate(doc,method):
 	
 	get_loan_deduction(doc,method, msd, med)
 	get_expense_claim(doc,method)
-	holidays = get_holidays(doc, method, msd, med)
+	holidays = get_holidays(doc, method, msd, med, emp)
 	
-	lwp, plw = get_leaves(doc, method, msd, med)
+	lwp, plw = get_leaves(doc, method, msd, med, emp)
 	
 	doc.leave_without_pay = lwp
 		
 	doc.posting_date = m.month_end_date
 	wd = tdim - holidays #total working days
-	
+	doc.total_days_in_month = tdim
 	att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` 
 		WHERE employee = '%s' AND att_date >= '%s' AND att_date <= '%s' 
 		AND status = 'Present' AND docstatus=1""" \
@@ -63,7 +63,7 @@ def validate(doc,method):
 	tpres = flt(att[0][1])
 
 	ual = tdim - tpres - lwp - holidays - plw
-
+	
 	if ual < 0:
 		frappe.throw("Unauthorized Leave cannot be Negative")
 	
@@ -149,7 +149,7 @@ def get_total_days(doc,method, emp, msd, med, month):
 		relieving_date = datetime.date(2099, 12, 31)
 	else:
 		relieving_date = emp.relieving_date
-	
+
 	if emp.date_of_joining >= msd:
 		tdim = (med - emp.date_of_joining).days + 1 #Joining DATE IS THE First WORKING DAY
 	elif relieving_date <= med:
@@ -158,7 +158,7 @@ def get_total_days(doc,method, emp, msd, med, month):
 		tdim = month["month_days"] #total days in a month
 	return tdim
 	
-def get_leaves(doc, method, start_date, end_date):
+def get_leaves(doc, method, start_date, end_date, emp):
 	#Find out the number of leaves applied by the employee only working days
 	lwp = 0 #Leaves without pay
 	plw = 0 #paid leaves
@@ -173,7 +173,7 @@ def get_leaves(doc, method, start_date, end_date):
 			auth_leaves = auth_leaves[0][0]
 			lap = frappe.get_doc("Leave Application", auth_leaves)
 			ltype = frappe.get_doc("Leave Type", lap.leave_type)
-			hol = get_holidays(doc,method, date, date)
+			hol = get_holidays(doc,method, date, date, emp)
 			if hol:
 				pass
 			else:
@@ -186,7 +186,17 @@ def get_leaves(doc, method, start_date, end_date):
 	
 	return lwp,plw
 		
-def get_holidays(doc,method, start_date, end_date):
+def get_holidays(doc,method, start_date, end_date,emp):
+	if emp.relieving_date is None:
+		relieving_date = datetime.date(2099, 12, 31)
+	else:
+		relieving_date = emp.relieving_date
+	
+	if emp.date_of_joining > start_date:
+		start_date = emp.date_of_joining
+	
+	if relieving_date < end_date:
+		end_date = relieving_date
 	
 	holiday_list = get_holiday_list_for_employee(doc.employee)
 	holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND 
