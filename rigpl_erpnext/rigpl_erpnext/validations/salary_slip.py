@@ -67,7 +67,7 @@ def validate(doc,method):
 	if ual < 0:
 		frappe.throw("Unauthorized Leave cannot be Negative")
 	
-	paydays = tpres + plw + round((tpres/wd * holidays),0)
+	paydays = tpres + plw + math.ceil(tpres/wd * holidays)
 	pd_ded = flt(doc.payment_days_for_deductions)
 	
 	doc.unauthorized_leaves = ual 
