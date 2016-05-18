@@ -120,6 +120,11 @@ def validate(doc,method):
 			for e in doc.earnings:
 				if deduct.earning == e.e_type:
 					d.d_modified_amount = math.ceil(flt(e.e_modified_amount) * deduct.percentage/100)
+		else:
+			if deduct.based_on_lwp == 1:
+					d.d_modified_amount = math.ceil(flt(d.d_amount) * flt(doc.payment_days_for_deductions)/tdim)
+			else:
+				d.d_modified_amount = d.d_amount
 		tot_ded +=d.d_modified_amount
 	
 	#Calculate Contributions
