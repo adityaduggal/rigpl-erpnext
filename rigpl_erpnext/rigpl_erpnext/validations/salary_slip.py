@@ -40,7 +40,7 @@ def validate(doc,method):
 	med = m.month_end_date
 	emp = frappe.get_doc("Employee", doc.employee)
 	
-	tdim = get_total_days(doc,method, emp, msd, med, m)
+	tdim, twd = get_total_days(doc,method, emp, msd, med, m)
 	
 	get_loan_deduction(doc,method, msd, med)
 	get_expense_claim(doc,method)
@@ -51,7 +51,7 @@ def validate(doc,method):
 	doc.leave_without_pay = lwp
 		
 	doc.posting_date = m.month_end_date
-	wd = tdim - holidays #total working days
+	wd = twd - holidays #total working days
 	doc.total_days_in_month = tdim
 	att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` 
 		WHERE employee = '%s' AND att_date >= '%s' AND att_date <= '%s' 
@@ -62,7 +62,7 @@ def validate(doc,method):
 	doc.total_overtime = t_ot
 	tpres = flt(att[0][1])
 
-	ual = tdim - tpres - lwp - holidays - plw
+	ual = twd - tpres - lwp - holidays - plw
 	
 	if ual < 0:
 		frappe.throw("Unauthorized Leave cannot be Negative")
@@ -151,18 +151,19 @@ def validate(doc,method):
 	doc.total_ctc = doc.gross_pay + tot_cont
 
 def get_total_days(doc,method, emp, msd, med, month):
+	tdim = month["month_days"] #total days in a month
 	if emp.relieving_date is None:
 		relieving_date = datetime.date(2099, 12, 31)
 	else:
 		relieving_date = emp.relieving_date
 
 	if emp.date_of_joining >= msd:
-		tdim = (med - emp.date_of_joining).days + 1 #Joining DATE IS THE First WORKING DAY
+		twd = (med - emp.date_of_joining).days + 1 #Joining DATE IS THE First WORKING DAY
 	elif relieving_date <= med:
-		tdim = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
+		twd = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
 	else:
-		tdim = month["month_days"] #total days in a month
-	return tdim
+		twd = month["month_days"] #total days in a month
+	return tdim, twd
 	
 def get_leaves(doc, method, start_date, end_date, emp):
 	#Find out the number of leaves applied by the employee only working days

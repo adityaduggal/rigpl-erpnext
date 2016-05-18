@@ -31,7 +31,12 @@ def check_employee(doc, method):
 	emp = frappe.get_doc("Employee", doc.employee)
 	if emp.status == "Left":
 		if emp.relieving_date < att_date:
-			frappe.msgprint(frappe._("Cannot create attendance for {0} as he/she has left on {1}").format(emp.employee_name, emp.relieving_date), raise_exception=1)
+			frappe.throw(("Cannot create attendance for {0} as he/she has left on {1}").\
+			format(emp.employee_name, emp.relieving_date))
+	else:
+		if emp.date_of_joining < att_date:
+			frappe.throw(("Cannot create attendance for {0} as he/she has joined on {1}").\
+			format(emp.employee_name, emp.date_of_joining))
 
 #Function to check the shift and update the same from roster.
 def get_shift(doc,method):
