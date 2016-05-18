@@ -51,9 +51,9 @@ def get_entries(filters):
 				SELECT emp.name
 				FROM `tabRoster` ro, `tabRoster Details` rod, `tabEmployee` emp
 				WHERE rod.parent = ro.name AND rod.employee = emp.name %s
-				) AND
+				) AND emp.date_of_joining < '%s' AND
 				IFNULL(emp.relieving_date,'2099-12-31') > '%s' %s
-			ORDER BY emp.date_of_joining""" %(conditions_ro, filters.get("from_date"),conditions_emp)
+			ORDER BY emp.date_of_joining""" %(conditions_ro, filters.get("to_date"), filters.get("from_date"),conditions_emp)
 
 	data = frappe.db.sql(query, as_list=1)
 	
