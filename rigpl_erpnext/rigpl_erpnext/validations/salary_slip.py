@@ -58,16 +58,22 @@ def validate(doc,method):
 		AND status = 'Present' AND docstatus=1""" \
 		%(doc.employee, msd, med),as_list=1)
 
+	half_day = frappe.db.sql("""SELECT count(name) FROM `tabAttendance` 
+		WHERE employee = '%s' AND att_date >= '%s' AND att_date <= '%s' 
+		AND status = 'Half Day' AND docstatus=1""" \
+		%(doc.employee, msd, med),as_list=1)
+	
+	t_hd = flt(half_day[0][0])
 	t_ot = flt(att[0][0])
 	doc.total_overtime = t_ot
 	tpres = flt(att[0][1])
 
-	ual = twd - tpres - lwp - holidays - plw
+	ual = twd - tpres - lwp - holidays - plw - (t_hd/2)
 	
 	if ual < 0:
 		frappe.throw("Unauthorized Leave cannot be Negative")
 	
-	paydays = tpres + plw + math.ceil(tpres/wd * holidays)
+	paydays = tpres + (t_hd/2) + plw + math.ceil((tpres+(t_hd/2))/wd * holidays)
 	pd_ded = flt(doc.payment_days_for_deductions)
 	
 	doc.unauthorized_leaves = ual 
