@@ -51,7 +51,24 @@ class EmployeeLoan(Document):
 		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
 			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus <> 2 AND
 			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
-
+		
+		jv_acc_lst = []
+		jv_db_dict = {}
+		jv_db_dict.setdefault("account", self.debit_account)
+		jv_db_dict.setdefault("debit_in_account_currency", self.total_loan)
+		jv_db_dict.setdefault("reference_type", "Employee Loan")
+		jv_db_dict.setdefault("reference_name", self.name)
+		
+		jv_acc_lst.append(jv_db_dict)
+		
+		jv_cr_dict = {}
+		jv_cr_dict.setdefault("account", self.credit_account)
+		jv_cr_dict.setdefault("credit_in_account_currency", self.total_loan)
+		jv_cr_dict.setdefault("reference_type", "Employee Loan")
+		jv_cr_dict.setdefault("reference_name", self.name)
+		
+		jv_acc_lst.append(jv_cr_dict)
+		
 		#post JV on saving
 		jv = frappe.get_doc({
 			"doctype": "Journal Entry",
@@ -60,32 +77,19 @@ class EmployeeLoan(Document):
 			"user_remark": "Loan Given against Employee Loan #" + self.name,
 			"posting_date": self.posting_date,
 			"employment_type": "Accounts Employee",
-			"accounts": [
-				{
-					"account": self.debit_account,
-					"debit_in_account_currency": self.total_loan,
-					"reference_type": "Employee Loan",
-					"reference_name": self.name
-				},
-				{
-					"account": self.credit_account,
-					"credit_in_account_currency": self.total_loan,
-					"reference_type": "Employee Loan",
-					"reference_name": self.name
-				},
-			]
+			"accounts": [jv_db_dict, jv_cr_dict]
 			})
 		if chk_jv:
 			name = chk_jv[0][0]
 			jv_exist = frappe.get_doc("Journal Entry", name)
 			jv_exist.posting_date = self.posting_date
 			jv_exist.user_remark = "Loan Given against Employee Loan #" + self.name
-			for d in jv_exist.accounts:
-				if d.account == self.debit_account:
-					d.debit_in_account_currency = self.total_loan
-				if d.account == self.credit_account:
-					d.credit_in_account_currency = self.total_loan
+			jv_exist.accounts= []
+			jv_exist.append("accounts", jv_cr_dict)
+			jv_exist.append("accounts", jv_db_dict)
 			jv_exist.save()
+			for i in jv_acc_lst:
+				jv_exist.append("accounts", i)
 			frappe.msgprint('{0}{1}'.format("Update JV# ", jv_exist.name))
 		else:
 			jv.insert()

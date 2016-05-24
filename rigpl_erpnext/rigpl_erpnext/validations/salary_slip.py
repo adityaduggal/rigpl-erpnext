@@ -69,16 +69,19 @@ def validate(doc,method):
 	tpres = flt(att[0][1])
 
 	ual = twd - tpres - lwp - holidays - plw - (t_hd/2)
+	d_ual = int(t_ot/8)
 	
 	if ual < 0:
 		frappe.throw("Unauthorized Leave cannot be Negative")
 	
-	paydays = tpres + (t_hd/2) + plw + math.ceil((tpres+(t_hd/2))/wd * holidays)
+	paydays = tpres + (t_hd/2) + plw + round((tpres+(t_hd/2))/wd * holidays)
 	pd_ded = flt(doc.payment_days_for_deductions)
 	
 	doc.unauthorized_leaves = ual 
 	
 	ot_ded = round(8*ual,1)
+	if ot_ded > t_ot:
+		ot_ded = t_ot
 	doc.overtime_deducted = ot_ded
 	
 	#Calculate Earnings
@@ -103,7 +106,7 @@ def validate(doc,method):
 		else:
 			if d.e_depends_on_lwp == 1:
 				if chk_ot == 1:
-					d.e_modified_amount = round(flt(d.e_amount) * (paydays+ual)/tdim,0)
+					d.e_modified_amount = round(flt(d.e_amount) * (paydays+d_ual)/tdim,0)
 				else:
 					d.e_modified_amount = round(flt(d.e_amount) * (paydays)/tdim,0)
 			else:
@@ -288,7 +291,7 @@ def get_expense_claim(doc,method):
 	
 	
 	ec_list = frappe.db.sql(query, as_list=1)
-		
+
 	for i in ec_list:
 		existing_ec = []
 		for e in doc.earnings:
@@ -298,11 +301,17 @@ def get_expense_claim(doc,method):
 			#Add earning claim for each EC separately:
 			doc.append("earnings", {
 				"idx": len(doc.earnings)+1, "e_depends_on_lwp": 0, "e_modified_amount": (i[2]-i[3]), \
-				"expense_claim": i[0], "e_type": i[4], "e_amount": (i[2]- i[3])
+				"expense_claim": i[0], "e_type": "Expense Claim", "e_amount": (i[2]- i[3])
 			})
 
 def get_edc(doc,method):
+	#Earning Table should be replaced if there is any change in the Earning Composition
+	#Change can be of 3 types in the earning table
+	#1. If a user removes a type of earning
+	#2. If a user adds a type of earning
+	#3. If a user deletes and adds a type of another earning
 	#Function to get the Earnings, Deductions and Contributions (E,D,C)
+
 	m = get_month_details(doc.fiscal_year, doc.month)
 	emp = frappe.get_doc("Employee", doc.employee)
 	joining_date = emp.date_of_joining
@@ -315,47 +324,69 @@ def get_edc(doc,method):
 		is_active = 'Yes' AND (from_date <= %s OR from_date <= %s) AND
 		(to_date IS NULL OR to_date >= %s OR to_date >= %s)""", 
 		(doc.employee, m.month_start_date, joining_date, m.month_end_date, relieving_date))
-	
-	sstr = frappe.get_doc("Salary Structure", struct[0][0])
+	if struct:
+		sstr = frappe.get_doc("Salary Structure", struct[0][0])
+	else:
+		frappe.throw("No active Salary Structure for this period")
+		
 	contri_amount = 0
 	doc.contributions = []
-	existing_earn = []
 	existing_ded = []
 	
-	for e in doc.earnings:
-		existing_earn.append(e.e_type)
-		
+
+			
 	for d in doc.deductions:
 		existing_ded.append(d.d_type)
+	
+	earn = 0
+	#Update Earning Table if the Earning table is empty
+	if doc.earnings:
+		pass
+	else:
+		earn = 1
 		
-		
-	for e in sstr.earnings:
-		if existing_earn.count(e.e_type) > 1 or existing_earn.count(e.e_type) == 0:
-			doc.earnings = []
-			earn = 1
-		else:
-			earn = 0
+	for e in doc.earnings:
+		found = 0
+		for ess in sstr.earnings:
+			if e.e_type == ess.e_type and e.idx == ess.idx and found== 0:
+				found = 1
+		if found == 0 and earn == 0:
+			if e.e_type <> "Expense Claim":
+				earn = 1
+	
 	if earn == 1:
+		doc.earnings = []
 		for e in sstr.earnings:
 			doc.append("earnings",{
 				"e_type": e.e_type,
 				"e_amount": e.modified_value,
-				"e_modified_amount": e.modified_value
+				"e_modified_amount": e.modified_value,
+				"idx": e.idx
 			})
+			
 	ded = 0
-	for d in sstr.deductions:
-		if existing_ded.count(d.d_type) > 1 or existing_ded.count(d.d_type) == 0:
-			doc.earnings = []
-			ded = 1
-		else:
-			ded = 0
+	if doc.deductions:
+		pass
+	else:
+		ded = 1
 
+	for d in doc.deductions:
+		found = 0
+		for dss in sstr.deductions:
+			if d.d_type == dss.d_type and d.idx == dss.idx and found == 0:
+				found = 1
+		if found == 0 and ded == 0:
+			if d.d_type <> "Loan Deduction":
+				ded = 1
+				
 	if ded == 1:
+		doc.deductions = []
 		for d in sstr.deductions:
 			doc.append("deductions",{
 				"d_type": d.d_type,
 				"d_amount": d.d_modified_amt,
-				"d_modified_amount": d.d_modified_amt
+				"d_modified_amount": d.d_modified_amt,
+				"d.idx": d.idx
 			})
 	
 	for c in sstr.contributions:
