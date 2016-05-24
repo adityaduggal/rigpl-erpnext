@@ -126,12 +126,16 @@ def validate(doc,method):
 	for d in doc.deductions:
 		deduct = frappe.get_doc("Deduction Type", d.d_type)
 		if deduct.based_on_earning:
+			d.d_modified_amount = 0
 			for e in doc.earnings:
-				if deduct.earning == e.e_type:
-					d.d_modified_amount = math.ceil(flt(e.e_modified_amount) * deduct.percentage/100)
+				en = frappe.get_doc("Earning Type", e.e_type)
+				if en.only_for_deductions == 1:
+					for link in en.deduction_table:
+						if link.deduction_type == d.d_type:
+							d.d_modified_amount += round((flt(e.e_modified_amount) * link.percentage/100),0)
 		else:
 			if deduct.based_on_lwp == 1:
-					d.d_modified_amount = math.ceil(flt(d.d_amount) * flt(doc.payment_days_for_deductions)/tdim)
+					d.d_modified_amount = round((flt(d.d_amount) * flt(doc.payment_days_for_deductions)/tdim),0)
 			else:
 				if d.d_type <> "Loan Deduction":
 					d.d_modified_amount = d.d_amount
@@ -141,10 +145,13 @@ def validate(doc,method):
 	for c in doc.contributions:
 		cont = frappe.get_doc("Contribution Type", c.contribution_type)
 		if cont.based_on_earning:
+			c.modified_amount = 0
 			for e in doc.earnings:
-				if cont.earning == e.e_type:
-					c.modified_amount = math.ceil(flt(e.e_modified_amount) * cont.percentage/100)
-
+				en = frappe.get_doc("Earning Type", e.e_type)
+				if en.only_for_deductions == 1:
+					for link in en.contribution_table:
+						if link.contribution_type == c.contribution_type:
+							c.modified_amount += round((flt(e.e_modified_amount) * link.percentage/100),0)
 		tot_cont += c.modified_amount
 	
 	doc.gross_pay = gross_pay
