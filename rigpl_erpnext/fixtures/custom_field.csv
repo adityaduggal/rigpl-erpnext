@@ -74,4 +74,4 @@ RU",Match with the Sereis Selected in the Invoice,series,0,0,0,0,0,,,0,,0,1,0,0,
 ,"""Salary Slip-contribution""",Salary Slip,Column Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0
 ,"""Salary Slip-contributions""",Salary Slip,Table,Contributions,contribution,,Salary Slip Contribution,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0
 ,"""Salary Slip-total_ctc""",Salary Slip,Currency,Total CTC,unauthorized_leaves,,,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0
-,"""Salary Slip-payment_days_for_deductions""",Salary Slip,Int,Payment Days for Deductions,company,,,"Use this field to match the deductions and contributions for ESI, ideally it should be equal to Payment days but can be different due to adjustment of leaves.\",payment_days_for_deductions,0,1,0,0,0,,,0,,0,0,0,0,0,0
+,"""Salary Slip-payment_days_for_deductions""",Salary Slip,Float,Payment Days for Deductions,company,,,"Use this field to match the deductions and contributions for ESI, ideally it should be equal to Payment days but can be different due to adjustment of leaves.\",payment_days_for_deductions,0,1,0,0,0,,,0,,0,0,0,0,0,0
