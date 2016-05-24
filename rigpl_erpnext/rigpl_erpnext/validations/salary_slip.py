@@ -74,14 +74,14 @@ def validate(doc,method):
 		frappe.throw(("Unauthorized Leave cannot be Negative for Employee {0}").\
 			format(doc.employee_name))
 	
-	paydays = tpres + (t_hd/2) + plw + round((tpres+(t_hd/2))/wd * holidays)
+	paydays = tpres + (t_hd/2) + plw + math.ceil((tpres+(t_hd/2))/wd * holidays)
 	pd_ded = flt(doc.payment_days_for_deductions)
 	
 	doc.unauthorized_leaves = ual 
 	
 	ot_ded = round(8*ual,1)
 	if ot_ded > t_ot:
-		ot_ded = t_ot
+		ot_ded = (int(t_ot/8))*8
 	doc.overtime_deducted = ot_ded
 	d_ual = int(ot_ded/8)
 	#Calculate Earnings
