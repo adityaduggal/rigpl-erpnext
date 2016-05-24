@@ -125,6 +125,9 @@ doc_events = {
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_submit",
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel"
 	},
+	"Leave Application":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate"
+	},
 }
 
 # Scheduled Tasks
