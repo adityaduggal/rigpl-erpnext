@@ -69,10 +69,10 @@ def validate(doc,method):
 	tpres = flt(att[0][1])
 
 	ual = twd - tpres - lwp - holidays - plw - (t_hd/2)
-	d_ual = int(t_ot/8)
 	
 	if ual < 0:
-		frappe.throw("Unauthorized Leave cannot be Negative")
+		frappe.throw(("Unauthorized Leave cannot be Negative for Employee {0}").\
+			format(doc.employee_name))
 	
 	paydays = tpres + (t_hd/2) + plw + round((tpres+(t_hd/2))/wd * holidays)
 	pd_ded = flt(doc.payment_days_for_deductions)
@@ -83,7 +83,7 @@ def validate(doc,method):
 	if ot_ded > t_ot:
 		ot_ded = t_ot
 	doc.overtime_deducted = ot_ded
-	
+	d_ual = int(ot_ded/8)
 	#Calculate Earnings
 	chk_ot = 0 #Check if there is an Overtime Rate
 	for d in doc.earnings:
