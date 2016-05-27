@@ -18,7 +18,6 @@ def execute(filters=None):
 	emp_map = get_employee_details(conditions_emp)
 	hol_map = get_holiday_list(conditions_hol)
 	la_map = get_leave_application(conditions_la, filters)
-	
 	data = []
 	
 	for emp in sorted(att_map):
@@ -58,44 +57,25 @@ def execute(filters=None):
 							rows[row_no].append(timing_hrs)
 						else:
 						#attendance is there but there is no punch data
-							rows[row_no].append("")
+							rows[row_no].append("YELO")
 					else:
 						#here there is no attendance for emp for a day, so check if the day is
 						#HOLIDAY LIST or IN LEAVE APPLICATION
-						if hol_map:
-							if hol_map.get(emp):
-								hol = hol_map.get(emp).get(day+1, "None")
-								if hol <> "None":
-									rows[row_no].append(hol)
-								else:
-									if la_map:
-										if la_map.get(emp):
-											la = la_map.get(emp).get(day+1, "None")
-											if la <> "None":
-												rows[row_no].append(la)
-										else:
-											rows[row_no].append("X")
-									else:
-										rows[row_no].append("X")
-							else:
-								rows[row_no].append("X")
+						if hol_map and hol_map.get(emp) and hol_map.get(emp).get(day+1, "None") <> "None":
+							hol = hol_map.get(emp).get(day+1, "None")
+							rows[row_no].append(hol)
+						elif la_map and la_map.get(emp) and la_map.get(emp).get(day+1, "None")<> "None":
+							la = la_map.get(emp).get(day+1, "None")
+							rows[row_no].append(la)
 						else:
-							if la_map:
-								if la_map.get(emp):
-									la = la_map.get(emp).get(day+1, "None")
-									if la <> "None":
-										rows[row_no].append(la)
-								else:
-									rows[row_no].append("X")
-							else:
-								rows[row_no].append("X")
+							rows[row_no].append("X")
 				else:
 					if ot_map.get(emp).get(day+1, "None") <> "None": 
 					#Checks if the attendance for that day exists
 						ot = ot_map.get(emp).get(day+1, "")
 						rows[row_no].append(ot)
 					else:
-						rows[row_no].append("")
+						rows[row_no].append(0)
 		for d in rows:
 			data.append(rows[d])
 
@@ -211,11 +191,11 @@ def get_leave_application(conditions_la, filters):
 				AND la.to_date >= '%s' %s""" %((day+1), date, date, conditions_la)
 		la2 = (frappe.db.sql(query, as_dict=1))
 		if la2:
-			la.append(la2[0])
-	for d in la:
-		la_map.setdefault(d.employee, frappe._dict()).setdefault(d.day_of_month, "")
-		la_map[d.employee][d.day_of_month] = d.leave_type
-
+			for d in la2:
+				la.append(d)
+		for d in la:
+			la_map.setdefault(d.employee, frappe._dict()).setdefault(d.day_of_month, "")
+			la_map[d.employee][d.day_of_month] = d.leave_type
 	return la_map
 
 def get_holiday_list(conditions_hol):

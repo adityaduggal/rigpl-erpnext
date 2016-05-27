@@ -100,7 +100,8 @@ doc_events = {
 	},
 	"Employee": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate",
-		"autoname": "rigpl_erpnext.rigpl_erpnext.validations.employee.autoname"
+		"autoname": "rigpl_erpnext.rigpl_erpnext.validations.employee.autoname",
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.employee.on_update",
 	},
 	"Holiday List":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.holiday_list.validate"

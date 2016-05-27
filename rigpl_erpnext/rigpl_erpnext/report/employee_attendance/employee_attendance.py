@@ -162,7 +162,8 @@ def get_leave_application(conditions_la, filters):
 				AND la.to_date >= '%s' %s""" %((day+1), date, date, conditions_la)
 		la2 = (frappe.db.sql(query, as_dict=1))
 		if la2:
-			la.append(la2[0])
+			for d in la2:
+				la.append(d)
 	for d in la:
 		la_map.setdefault(d.employee, frappe._dict()).setdefault(d.day_of_month, "")
 		la_map[d.employee][d.day_of_month] = d.leave_type
