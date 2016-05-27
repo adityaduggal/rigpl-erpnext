@@ -28,8 +28,8 @@ def get_entries(filters):
 		la.leave_balance, la.posting_date, la.owner, la.creation
 		FROM `tabLeave Application` la, `tabEmployee` emp
 		WHERE la.docstatus <> 2 AND
-			la.employee = emp.name %s""" %conditions
-	
+			la.employee = emp.name %s
+		ORDER BY la.from_date, la.to_date, emp.date_of_joining""" %conditions
 	data = frappe.db.sql(query, as_list=1)
 	
 	return data
@@ -47,10 +47,10 @@ def get_conditions(filters):
 		conditions += " AND emp.name = '%s'" % filters["employee"]
 		
 	if filters.get("from_date"):
-		conditions += " AND la.from_date >='%s'" % filters["from_date"]
+		conditions += " AND (la.from_date >='%s' OR la.to_date >= '%s')" % (filters["from_date"], filters["from_date"])
 
 	if filters.get("to_date"):
-		conditions += " AND la.to_date <='%s'" % filters["to_date"]
+		conditions += " AND (la.to_date <='%s' OR la.from_date <='%s')" % (filters["to_date"], filters["to_date"])
 		
 	if filters.get("status"):
 		if filters.get("status") == "Approved":
