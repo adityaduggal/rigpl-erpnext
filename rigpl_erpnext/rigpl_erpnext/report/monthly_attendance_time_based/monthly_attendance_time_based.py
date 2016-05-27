@@ -57,7 +57,7 @@ def execute(filters=None):
 							rows[row_no].append(timing_hrs)
 						else:
 						#attendance is there but there is no punch data
-							rows[row_no].append("YELO")
+							rows[row_no].append("")
 					else:
 						#here there is no attendance for emp for a day, so check if the day is
 						#HOLIDAY LIST or IN LEAVE APPLICATION
