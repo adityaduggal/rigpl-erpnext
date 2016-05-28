@@ -185,8 +185,7 @@ def get_leaves(doc, method, start_date, end_date, emp):
 	#Find out the number of leaves applied by the employee only working days
 	lwp = 0 #Leaves without pay
 	plw = 0 #paid leaves
-	diff = (end_date - start_date).days
-	
+	diff = (end_date - start_date).days + 1
 	for day in range(0, diff):
 		date = start_date + datetime.timedelta(days=day)
 		auth_leaves = frappe.db.sql("""SELECT la.name FROM `tabLeave Application` la
@@ -206,7 +205,6 @@ def get_leaves(doc, method, start_date, end_date, emp):
 					plw += 1
 	lwp = flt(lwp)
 	plw = flt(plw)
-	
 	return lwp,plw
 		
 def get_holidays(doc,method, start_date, end_date,emp):
