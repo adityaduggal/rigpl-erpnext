@@ -49,6 +49,12 @@ frappe.query_reports["Salary Register"] = {
 			"options": "Letter Head"
 		},
 		{
+			"fieldname":"salary_mode",
+			"label": "Salary Mode",
+			"fieldtype": "Select",
+			"options": "\nBank\nCash\nCheque",
+		},
+		{
 			"fieldname":"without_salary_slip",
 			"label": "Emp w/o SS",
 			"fieldtype": "Check"
