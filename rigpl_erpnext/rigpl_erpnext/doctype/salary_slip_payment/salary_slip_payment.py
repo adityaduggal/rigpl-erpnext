@@ -178,6 +178,7 @@ class SalarySlipPayment(Document):
 		jvd_temp = {}
 		jvd_temp.setdefault("account", self.salary_slip_accrual_account)
 		jvd_temp.setdefault("credit_in_account_currency", total_rounded)
+		jvd_temp.setdefault("cost_center", "Default CC Ledger - RIGPL")
 		jvd_temp.setdefault("reference_type", "Salary Slip Payment")
 		jvd_temp.setdefault("reference_name", self.name)
 		jvd_dict.append(jvd_temp)
@@ -187,6 +188,7 @@ class SalarySlipPayment(Document):
 			jvd_temp = {}
 			jvd_temp.setdefault("account", self.rounding_account)
 			jvd_temp.setdefault("credit_in_account_currency", sne*(-1))
+			jvd_temp.setdefault("cost_center", "Default CC Ledger - RIGPL")
 			jvd_temp.setdefault("reference_type", "Salary Slip Payment")
 			jvd_temp.setdefault("reference_name", self.name)
 			jvd_dict.append(jvd_temp)
@@ -194,6 +196,7 @@ class SalarySlipPayment(Document):
 			jvd_temp = {}
 			jvd_temp.setdefault("account", self.rounding_account)
 			jvd_temp.setdefault("debit_in_account_currency", sne)
+			jvd_temp.setdefault("cost_center", "Default CC Ledger - RIGPL")
 			jvd_temp.setdefault("reference_type", "Salary Slip Payment")
 			jvd_temp.setdefault("reference_name", self.name)
 			jvd_dict.append(jvd_temp)
