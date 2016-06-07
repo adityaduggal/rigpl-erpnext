@@ -64,19 +64,7 @@ def execute(filters=None):
 				row = row
 			else:
 				row += [ss.total_deduction, ss.net_pay, ss.rounded_total]
-			
-			if filters.get("summary") == 1:
-				book_gross = 0
-				book_ded = 0
-				book_net = 0
-				for e in earning_types:
-					book_gross += flt(ss_earning_map.get(ss.name, {}).get(e))
-				for d in ded_types:
-					book_ded += flt(ss_ded_map.get(ss.name, {}).get(d))
-				book_net = book_gross - book_ded
-				row += [ss.rounded_total, book_net]
-			
-			
+						
 			data.append(row)
 	else:
 		columns = [
@@ -156,8 +144,11 @@ def get_columns(salary_slips, filters):
 		columns = columns + [(e + ":Currency:90") for e in earning_types] + \
 			["Arrear Amt:Currency:90", "Leave Amt:Currency:90", 
 			"Gross Pay:Currency:100"] + [(d + ":Currency:90") for d in ded_types] + \
-			["Total Deduction:Currency:100", "Net Pay:Currency:100", "Rounded Pay:Currency:100"]
-			
+			["Total Deduction:Currency:100", "Net Pay:Currency:100"]
+	
+	if filters.get("summary") <> 1 and filters.get("bank_only") <> 1 and filters.get("without_salary_slip") <> 1:
+		columns = columns + ["Rounded Pay:Currency:100"]
+	
 	if filters.get("bank_only") == 1:
 		columns = columns + ["Bank Name::100", "Bank Account #::100", 
 		"Bank IFSC::100"]
@@ -274,5 +265,8 @@ def get_conditions(filters):
 	if filters.get("company_registered_with"):
 		conditions_emp += " AND emp.company_registered_with = '%s'" % filters["company_registered_with"]
 	
+	if filters.get("salary_mode"):
+		conditions_emp += " AND emp.salary_mode = '%s'" % filters["salary_mode"]
+		
 	return conditions_ss, filters, conditions_emp, mdetail
 	
