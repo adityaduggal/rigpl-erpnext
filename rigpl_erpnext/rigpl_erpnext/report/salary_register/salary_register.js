@@ -58,5 +58,10 @@ frappe.query_reports["Salary Register"] = {
 			"label": "Bank Only",
 			"fieldtype": "Check"
 		},
+		{
+			"fieldname":"summary",
+			"label": "Summary",
+			"fieldtype": "Check"
+		},
 	]
 }

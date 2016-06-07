@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
+from frappe.utils import money_in_words, flt
 
 def validate(doc,method):
 	doc.total_deduction = 0
@@ -19,7 +20,7 @@ def validate(doc,method):
 	for e in doc.earnings:
 		earn = frappe.get_doc("Earning Type", e.e_type)
 		if earn.only_for_deductions <> 1:
-			doc.total_earning += e.modified_value
+			doc.total_earning += flt(e.modified_value)
 	
 	for c in doc.contributions:
 		cont = frappe.get_doc("Contribution Type", c.contribution_type)
