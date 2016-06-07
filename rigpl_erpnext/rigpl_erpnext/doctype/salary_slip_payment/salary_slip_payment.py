@@ -5,10 +5,13 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.model.document import Document
+from datetime import datetime
+from frappe.utils import getdate, cint, add_months, date_diff, add_days, nowdate, \
+	get_datetime_str, cstr, get_datetime, time_diff, time_diff_in_seconds
 
 class SalarySlipPayment(Document):
 	def validate(self):
-	
+		ssp_date = getdate(self.posting_date)
 		for d in self.salary_slip_payment_details:
 			#Validate if the Salary Slip has not been paid earlier or later
 			old_ssp = frappe.db.sql("""SELECT ssp.name, sspd.salary_slip 
@@ -25,7 +28,11 @@ class SalarySlipPayment(Document):
 			d.total_deductions = ss.total_deduction
 			d.net_pay = ss.net_pay
 			d.rounded_pay = ss.rounded_total
-			
+			ss_date = getdate(d.posting_date)
+			if ss_date != ssp_date:
+				frappe.throw(("Posting Date in Row # {1} is different from Posting Date \
+				of Salary Slip Payment").format(d.employee, d.idx))
+
 	def on_update(self):
 		jvd_dict = self.get_jv_accounts()
 		chk_jv = self.get_existing_jv()
@@ -40,7 +47,6 @@ class SalarySlipPayment(Document):
 			"employment_type": "Accounts Employee",
 			"accounts": jvd_dict
 			})
-			
 		if chk_jv:
 			name = chk_jv[0][0]
 			jv_exist = frappe.get_doc("Journal Entry", name)
@@ -53,7 +59,6 @@ class SalarySlipPayment(Document):
 		else:
 			jv_accrue.insert()
 			frappe.msgprint('{0}{1}'.format("Created New JV# ", jv_accrue.name))
-	
 	
 	def on_submit(self):
 		chk_jv = self.get_existing_jv()
@@ -188,7 +193,7 @@ class SalarySlipPayment(Document):
 		else:
 			jvd_temp = {}
 			jvd_temp.setdefault("account", self.rounding_account)
-			jvd_temp.setdefault("credit_in_account_currency", sne)
+			jvd_temp.setdefault("debit_in_account_currency", sne)
 			jvd_temp.setdefault("reference_type", "Salary Slip Payment")
 			jvd_temp.setdefault("reference_name", self.name)
 			jvd_dict.append(jvd_temp)

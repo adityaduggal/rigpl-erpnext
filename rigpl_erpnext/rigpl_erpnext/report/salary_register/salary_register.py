@@ -11,44 +11,72 @@ def execute(filters=None):
 	if not filters: filters = {}
 	conditions_ss, filters, conditions_emp, mdetail = get_conditions(filters)
 	emp_lst = get_employee(filters, conditions_emp)
+	
 	if filters.get("without_salary_slip") <> 1:
 		salary_slips = get_salary_slips(filters, conditions_ss, emp_lst)
 		columns, earning_types, ded_types = get_columns(salary_slips, filters)
 		ss_earning_map = get_ss_earning_map(salary_slips, filters)
 		ss_ded_map = get_ss_ded_map(salary_slips)
-
+				
 		data = []
 		for ss in salary_slips:
+		
 			row = [ss.employee, ss.employee_name, ss.name]
 			
-			for e in earning_types:
-				row.append(ss_earning_map.get(ss.name, {}).get(e))
-			if filters.get("bank_only") == 1:
+			if filters.get("bank_only") == 1 or filters.get("summary") == 1:
 				book_gross = 0
 				for e in earning_types:
 					book_gross += flt(ss_earning_map.get(ss.name, {}).get(e))
-				row += ["", "", book_gross]
-			else:
-				row += [ss.arrear_amount, ss.leave_encashment_amount, ss.gross_pay]
-			
-			for d in ded_types:
-				row.append(ss_ded_map.get(ss.name, {}).get(d))
-			
-			if filters.get("bank_only") == 1:
 				book_ded = 0
 				book_net = 0
+				
 				for d in ded_types:
 					book_ded += flt(ss_ded_map.get(ss.name, {}).get(d))
 				book_net = book_gross - book_ded
+
+				
+			for emp in emp_lst:
+				if emp.name == ss.employee:
+					row += [emp.branch, emp.department, emp.designation]
+									
+			if filters.get("summary") <> 1:						
+				for e in earning_types:
+					row.append(ss_earning_map.get(ss.name, {}).get(e))
+
+			if filters.get("bank_only") == 1:
+				row += ["", "", book_gross]
+			elif filters.get("summary") == 1:
+				row += [ss.rounded_total, book_net, (ss.rounded_total - book_net)]
+			else:
+				row += [ss.arrear_amount, ss.leave_encashment_amount, ss.gross_pay]
+			if filters.get("summary") <> 1:
+				for d in ded_types:
+					row.append(ss_ded_map.get(ss.name, {}).get(d))
+			
+			if filters.get("bank_only") == 1:
 				for emp in emp_lst:
 					if ss.employee == emp.name:
 						bank_name = emp.bank_name
 						bank_acc = emp.bank_ac_no
 						bank_ifsc = emp.bank_ifsc_code
 				row += [book_ded, book_net, bank_name, bank_acc, bank_ifsc]
+			elif filters.get("summary") == 1:
+				row = row
 			else:
-				row += [ss.total_deduction, ss.net_pay]
-				
+				row += [ss.total_deduction, ss.net_pay, ss.rounded_total]
+			
+			if filters.get("summary") == 1:
+				book_gross = 0
+				book_ded = 0
+				book_net = 0
+				for e in earning_types:
+					book_gross += flt(ss_earning_map.get(ss.name, {}).get(e))
+				for d in ded_types:
+					book_ded += flt(ss_ded_map.get(ss.name, {}).get(d))
+				book_net = book_gross - book_ded
+				row += [ss.rounded_total, book_net]
+			
+			
 			data.append(row)
 	else:
 		columns = [
@@ -81,49 +109,58 @@ def get_columns(salary_slips, filters):
 		]
 		earning_types = []
 		ded_types = []
+	elif filters.get("summary") == 1:
+		columns = [
+			_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140",
+			_("Salary Slip") + ":Link/Salary Slip:80", 
+			_("Branch") + "::80", _("Department") + "::80", _("Designation") + "::80",
+			_("Actual Payment") + ":Currency:100", _("Books Payment") + ":Currency:100",
+			_("Balance Cash") + ":Currency:100"
+		]
 	else:
 		columns = [
 			_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140", 
-			_("Salary Slip") + ":Link/Salary Slip:120"
+			_("Salary Slip") + ":Link/Salary Slip:80", _("Branch") + "::80", 
+			_("Department") + "::80", _("Designation") + "::80",
 		]
-		if filters.get("bank_only") == 1:
-			earning_types = frappe.db.sql_list("""SELECT DISTINCT sse.e_type 
-				FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
-				WHERE sse.e_modified_amount != 0 AND sse.e_type = et.name AND et.books= 1 
-				AND sse.parent in (%s)
-				ORDER BY sse.idx""" % 
-				(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
-				
-			ded_types = frappe.db.sql_list("""select DISTINCT ssd.d_type 
-				FROM `tabSalary Slip Deduction` ssd, `tabDeduction Type` dt
-				WHERE ssd.d_modified_amount != 0 AND dt.name = ssd.d_type 
-				AND dt.books = 1 AND ssd.parent in (%s)
-				ORDER BY ssd.idx""" % 
-				(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
-		else:
-			earning_types = frappe.db.sql_list("""SELECT DISTINCT sse.e_type 
-				FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
-				WHERE sse.e_modified_amount != 0 AND sse.e_type = et.name AND et.books= 0
-				AND sse.parent in (%s)
-				ORDER BY sse.idx""" % 
-				(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
-				
-			ded_types = frappe.db.sql_list("""select DISTINCT ssd.d_type 
-				FROM `tabSalary Slip Deduction` ssd, `tabDeduction Type` dt
-				WHERE ssd.d_modified_amount != 0 AND dt.name = ssd.d_type 
-				AND ssd.parent in (%s)
-				ORDER BY ssd.idx""" % 
-				(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))		
-
+	if filters.get("bank_only") == 1 or filters.get("summary") == 1:
+		earning_types = frappe.db.sql_list("""SELECT DISTINCT sse.e_type 
+			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
+			WHERE sse.e_modified_amount != 0 AND sse.e_type = et.name AND et.books= 1 
+			AND sse.parent in (%s)
+			ORDER BY sse.idx""" % 
+			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
 			
+		ded_types = frappe.db.sql_list("""select DISTINCT ssd.d_type 
+			FROM `tabSalary Slip Deduction` ssd, `tabDeduction Type` dt
+			WHERE ssd.d_modified_amount != 0 AND dt.name = ssd.d_type 
+			AND dt.books = 1 AND ssd.parent in (%s)
+			ORDER BY ssd.idx""" % 
+			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
+	else:
+		earning_types = frappe.db.sql_list("""SELECT DISTINCT sse.e_type 
+			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
+			WHERE sse.e_modified_amount != 0 AND sse.e_type = et.name AND et.books= 0
+			AND sse.parent in (%s)
+			ORDER BY sse.idx""" % 
+			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
+			
+		ded_types = frappe.db.sql_list("""select DISTINCT ssd.d_type 
+			FROM `tabSalary Slip Deduction` ssd, `tabDeduction Type` dt
+			WHERE ssd.d_modified_amount != 0 AND dt.name = ssd.d_type 
+			AND ssd.parent in (%s)
+			ORDER BY ssd.idx""" % 
+			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))		
+
+	if filters.get("summary") <> 1:		
 		columns = columns + [(e + ":Currency:90") for e in earning_types] + \
 			["Arrear Amt:Currency:90", "Leave Amt:Currency:90", 
 			"Gross Pay:Currency:100"] + [(d + ":Currency:90") for d in ded_types] + \
-			["Total Deduction:Currency:100", "Net Pay:Currency:100"]
+			["Total Deduction:Currency:100", "Net Pay:Currency:100", "Rounded Pay:Currency:100"]
 			
-		if filters.get("bank_only") == 1:
-			columns = columns + ["Bank Name::100", "Bank Account #::100", 
-			"Bank IFSC::100"]
+	if filters.get("bank_only") == 1:
+		columns = columns + ["Bank Name::100", "Bank Account #::100", 
+		"Bank IFSC::100"]
 
 	return columns, earning_types, ded_types
 
@@ -160,6 +197,12 @@ def get_ss_earning_map(salary_slips, filters):
 			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
 			WHERE et.name = sse.e_type AND et.books = 1 AND sse.parent in (%s)""" %
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
+	
+	elif filters.get("summary")== 1:
+		ss_earnings = frappe.db.sql("""SELECT sse.parent, sse.e_type, sse.e_modified_amount
+			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
+			WHERE et.name = sse.e_type AND et.books = 1 AND sse.parent in (%s)""" %
+			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
 	else:
 		ss_earnings = frappe.db.sql("""SELECT sse.parent, sse.e_type, sse.e_modified_amount
 			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
@@ -182,7 +225,6 @@ def get_ss_ded_map(salary_slips):
 		(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
 	
 	ss_ded_map = {}
-	#frappe.msgprint(ss_deductions)
 	for d in ss_deductions:
 		ss_ded_map.setdefault(d.parent, frappe._dict()).setdefault(d.d_type, [])
 		if ss_ded_map[d.parent][d.d_type]:
@@ -197,6 +239,13 @@ def get_conditions(filters):
 	conditions_ss = ""
 	conditions_emp = ""
 	fy = filters.get("fiscal_year")
+	
+	if filters.get("without_salary_slip") == 1:
+		if filters.get("bank_only") == 1 or filters.get("summary") == 1:
+			frappe.throw("Only one check box Allowed to be Checked")
+	elif filters.get("bank_only")==1:
+		if filters.get("without_salary_slip") == 1 or filters.get("summary") == 1:
+			frappe.throw("Only one check box Allowed to be Checked")
 	
 	if filters.get("month"):
 		month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", 
