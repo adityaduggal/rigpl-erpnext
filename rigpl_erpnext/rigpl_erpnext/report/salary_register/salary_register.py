@@ -18,7 +18,6 @@ def execute(filters=None):
 		ss_earning_map = get_ss_earning_map(salary_slips, filters)
 		ss_ded_map = get_ss_ded_map(salary_slips)
 		ssp_map = get_ssp_map(salary_slips)
-		frappe.msgprint(ssp_map)	
 		data = []
 		for ss in salary_slips:
 		
@@ -240,10 +239,8 @@ def get_ssp_map(salary_slips):
 		WHERE ssp.name = sspd.parent AND ssp.docstatus <> 2 AND sspd.salary_slip in (%s)""" %
 		(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
 	ssp_map = {}
-	frappe.msgprint(ssp)
 	for d in ssp:
 		ssp_map.setdefault(d.salary_slip, d.name)
-	#frappe.msgprint(ssp_map)
 	return ssp_map
 
 	
