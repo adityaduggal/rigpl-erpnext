@@ -11,15 +11,28 @@ from frappe.utils import getdate, cint, add_months, date_diff, add_days, nowdate
 
 class SalarySlipPayment(Document):
 	def validate(self):
+		self.validate_salary_slip()
+	
+	def validate_salary_slip(self):
 		ssp_date = getdate(self.posting_date)
 		for d in self.salary_slip_payment_details:
+			
 			#Validate if the Salary Slip has not been paid earlier or later
 			old_ssp = frappe.db.sql("""SELECT ssp.name, sspd.salary_slip 
 				FROM `tabSalary Slip Payment` ssp, `tabSalary Slip Payment Details` sspd
-				WHERE ssp.name = sspd.parent AND ssp.docstatus =  1""", as_dict=1)
-			if d.salary_slip in old_ssp:
+				WHERE ssp.name = sspd.parent AND ssp.docstatus <> 2 
+				AND sspd.salary_slip = '%s' AND ssp.name <> '%s'""" % (d.salary_slip, self.name), as_dict=1)
+			if old_ssp:
+				old_ssp = old_ssp[0]
 				frappe.throw(("Salary Slip {0} is already paid vide Salary Slip \
-					Payment # {1} in Row # {2}").format(d.salary_slip, ssp.name, d.idx))
+					Payment # {1} in Row # {2}").format(d.salary_slip, old_ssp.name, d.idx))
+			
+			#Checks if the same Salary Slip is not entered in the Salary Slip Payment more than once
+			for x in self.salary_slip_payment_details:
+				if d.salary_slip == x.salary_slip and d.idx <> x.idx:
+					frappe.throw(("Salary Slip {0} already entered in Row # {1} for Employee {2}")\
+					.format(d.salary_slip, x.idx, d.employee_name))
+			
 			ss = frappe.get_doc("Salary Slip", d.salary_slip)
 			d.posting_date = ss.posting_date
 			d.employee = ss.employee

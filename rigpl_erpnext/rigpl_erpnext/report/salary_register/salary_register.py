@@ -17,7 +17,8 @@ def execute(filters=None):
 		columns, earning_types, ded_types = get_columns(salary_slips, filters)
 		ss_earning_map = get_ss_earning_map(salary_slips, filters)
 		ss_ded_map = get_ss_ded_map(salary_slips)
-				
+		ssp_map = get_ssp_map(salary_slips)
+		frappe.msgprint(ssp_map)	
 		data = []
 		for ss in salary_slips:
 		
@@ -64,7 +65,11 @@ def execute(filters=None):
 				row = row
 			else:
 				row += [ss.total_deduction, ss.net_pay, ss.rounded_total]
-						
+			if ssp_map.get(ss.name):
+				row += [ssp_map.get(ss.name)]
+			else:
+				row += ["-"]
+			
 			data.append(row)
 	else:
 		columns = [
@@ -103,7 +108,8 @@ def get_columns(salary_slips, filters):
 			_("Salary Slip") + ":Link/Salary Slip:80", 
 			_("Branch") + "::80", _("Department") + "::80", _("Designation") + "::80",
 			_("Actual Payment") + ":Currency:100", _("Books Payment") + ":Currency:100",
-			_("Balance Cash") + ":Currency:100"
+			_("Balance Cash") + ":Currency:100", 
+			_("Salary Slip Payment") + ":Link/Salary Slip Payment:150"
 		]
 	else:
 		columns = [
@@ -147,11 +153,12 @@ def get_columns(salary_slips, filters):
 			["Total Deduction:Currency:100", "Net Pay:Currency:100"]
 	
 	if filters.get("summary") <> 1 and filters.get("bank_only") <> 1 and filters.get("without_salary_slip") <> 1:
-		columns = columns + ["Rounded Pay:Currency:100"]
+		columns = columns + ["Rounded Pay:Currency:100", \
+		"Salary Slip Payment:Link/Salary Slip Payment:150"]
 	
 	if filters.get("bank_only") == 1:
 		columns = columns + ["Bank Name::100", "Bank Account #::100", 
-		"Bank IFSC::100"]
+		"Bank IFSC::100", "Salary Slip Payment:Link/Salary Slip Payment:150"]
 
 	return columns, earning_types, ded_types
 
@@ -214,7 +221,7 @@ def get_ss_ded_map(salary_slips):
 	ss_deductions = frappe.db.sql("""select parent, d_type, d_modified_amount
 		from `tabSalary Slip Deduction` where parent in (%s)""" %
 		(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
-	
+	#frappe.throw(ss_deductions)
 	ss_ded_map = {}
 	for d in ss_deductions:
 		ss_ded_map.setdefault(d.parent, frappe._dict()).setdefault(d.d_type, [])
@@ -222,9 +229,23 @@ def get_ss_ded_map(salary_slips):
 			ss_ded_map[d.parent][d.d_type] += flt(d.d_modified_amount)
 		else:
 			ss_ded_map[d.parent][d.d_type] = flt(d.d_modified_amount)
-
+	#frappe.throw(ss_ded_map)
 	
 	return ss_ded_map
+
+def get_ssp_map(salary_slips):
+	#frappe.throw(salary_slips)
+	ssp = frappe.db.sql("""SELECT ssp.name, sspd.salary_slip
+		FROM `tabSalary Slip Payment` ssp, `tabSalary Slip Payment Details` sspd
+		WHERE ssp.name = sspd.parent AND ssp.docstatus <> 2 AND sspd.salary_slip in (%s)""" %
+		(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
+	ssp_map = {}
+	frappe.msgprint(ssp)
+	for d in ssp:
+		ssp_map.setdefault(d.salary_slip, d.name)
+	#frappe.msgprint(ssp_map)
+	return ssp_map
+
 	
 def get_conditions(filters):
 	conditions_ss = ""
