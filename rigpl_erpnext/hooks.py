@@ -129,6 +129,12 @@ doc_events = {
 	"Leave Application":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate"
 	},
+	"Purchase Order":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate"
+	},
+	"Production Order":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.production_order.validate"
+	},	
 }
 
 # Scheduled Tasks
