@@ -41,8 +41,6 @@ cur_frm.add_custom_button(__('Production Order'),
                     row.uom = res.message[0]['stock_uom'];
                     row.stock_uom = res.message[0]['stock_uom'];
                     row.conversion_factor = 1;
-					row.prevdoc_doctype = "Production Order";
-					row.prevdoc_docname = res.message[0]['name']
                 refresh_field("items");
             }
         }

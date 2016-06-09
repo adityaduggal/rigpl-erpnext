@@ -99,8 +99,8 @@ class CreateBulkProductionOrders(Document):
 				if self.get_items_from == "Sales Order":
 					pi.sales_order		= p['parent']
 			else:
-				frappe.msgprint(("For SO# {0} and Item Description: {1} Production Orders \
-				have already been made hence this item is not included in the \
+				frappe.msgprint(("For SO# {0} \n Item Description: {1} \n \
+				Production Orders have already been made hence this item is not included in the \
 				Item List").format(p['parent'], p['description']))
 				
 	def get_item_details(self, item):
@@ -152,7 +152,6 @@ class CreateBulkProductionOrders(Document):
 				"sales_order"			: d.sales_order,
 				"material_request"		: d.material_request,
 				"material_request_item"	: d.material_request_item,
-				"bom_no"				: d.bom_no,
 				"description"			: d.description,
 				"item_description"		: d.description,
 				"rm_description"		: d.description,
@@ -161,9 +160,10 @@ class CreateBulkProductionOrders(Document):
 				"wip_warehouse"			: d.warehouse,
 				"fg_warehouse"			: d.warehouse,
 				"status"				: "Draft",
-				"so_detail"				: d.so_detail
+				"so_detail"				: d.so_detail,
+				"qty"					: d.planned_qty
 			}
-
+			#frappe.throw(item_dict)
 			""" Club similar BOM and item for processing in case of Sales Orders """
 			if self.get_items_from == "Material Request":
 				item_details.update({
@@ -173,10 +173,10 @@ class CreateBulkProductionOrders(Document):
 
 			else:
 				item_details.update({
-					"qty":flt(item_dict.get((d.item_code, d.sales_order, d.warehouse),{})
+					"qty":flt(item_dict.get((d.item_code, d.so_detail, d.warehouse),{})
 						.get("qty")) + flt(d.planned_qty)
 				})
-				item_dict[(d.item_code, d.sales_order, d.warehouse)] = item_details
+				item_dict[(d.item_code, d.so_detail, d.warehouse)] = item_details
 
 		return item_dict
 
