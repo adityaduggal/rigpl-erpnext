@@ -14,7 +14,8 @@ def validate(doc,method):
 			d.description = sod.description
 
 def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
-	return frappe.db.sql("""SELECT prd.name, prd.sales_order, prd.production_order_date,
+
+	return frappe.db.sql("""SELECT DISTINCT(prd.name), prd.sales_order, prd.production_order_date,
 	prd.item_description
 	FROM `tabProduction Order` prd, `tabSales Order` so, `tabSales Order Item` soi
 	WHERE 
@@ -24,9 +25,11 @@ def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
 		AND so.status <> "Closed"
 		AND soi.qty > soi.delivered_qty
 		AND prd.sales_order = so.name
+		AND (prd.name like %(txt)s
+			or prd.sales_order like %(txt)s)
 		{mcond}
 	order by
-		if(locate(%(_txt)s, prd.name), locate(%(_txt)s, prd.name), 9)
+		if(locate(%(_txt)s, prd.name), locate(%(_txt)s, prd.name), 1)
 	limit %(start)s, %(page_len)s""".format(**{
 		'key': searchfield,
 		'mcond': get_match_cond(doctype)
