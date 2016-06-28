@@ -1,0 +1,51 @@
+<style type="text/css">
+	@page {
+	  size: A4;
+	  margin: 5;
+	}
+	@media print {
+	  html, body {
+		width: 210;
+		height: 297mm;
+	  }
+    table { page-break-inside:avoid }
+    tr    { page-break-inside:avoid; page-break-after:auto }
+    thead { display:table-header-group }
+    tfoot { display:table-footer-group }
+	}
+</style>
+{% for(var i=0, l=data.length; i<l; i++) { %}
+	<table class="table table-striped">
+		<tr>
+			<th scope="col">{%= __("PRD # ") %} {%= (data[i][__("PRD No")]) %}</th>
+			<th scope="col">{%= __("Date ") %} {%= dateutil.str_to_user(data[i][__("PRD Date")]) %}</th>
+			<th scope="col">{%= __("Priority: ") %} {%= (data[i][__("Priority")]) %}</th>
+			<th scope="col">{%= __("WH: ") %} {%= (data[i][__("WH")]) %}</th>
+		</tr>
+		<tr>
+			<td>{%= __("Item Code: ") %} {%= (data[i][__("Item Code")]) %}</td>
+			<td colspan=2>{%= __("Description: ") %} {%= (data[i][__("Item Description")]) %}</td>
+			<td>{%= __("Pending Qty= ") %} <strong>{%= (data[i][__("PPRD")]) %} </strong></td>
+		</tr>
+		<tr>
+			<td colspan=2>{%= __("RM to Use- ") %} {%= (data[i][__("RM to Use")]) %}</td>
+			<td colspan=2>{%= __("RM Used Details- ") %} {%"Hello"%}</td>
+		</tr>
+		<tr>
+			<td>&nbsp;</td>
+			<td>&nbsp;</td>
+			<td>&nbsp;</td>
+			<td>&nbsp;</td>
+		</tr>
+		<tr>
+			<td colspan=2>{%= __("Remarks") %} {%= (data[i][__("Remarks")]) %}</td>
+			<td>{%= __("SO#: ") %} {%= (data[i][__("SO#")]) %}</td>
+			<td>{%= __("STE#") %} {%"Hello"%}</td>
+		</tr>
+		<tr>
+			<td colspan=3>&nbsp;</td>
+			<td>&nbsp;</td>
+		</tr>
+	</table>
+{% } %}
+<tfoot class="text-right text-muted">Printed On {%= dateutil.str_to_user(dateutil.get_datetime_as_string()) %}</tfoot>
