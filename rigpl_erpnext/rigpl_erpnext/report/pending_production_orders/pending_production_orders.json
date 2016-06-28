@@ -1,0 +1,19 @@
+{
+ "add_total_row": 0, 
+ "apply_user_permissions": 1, 
+ "creation": "2012-12-22 16:19:54", 
+ "disabled": 0, 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "idx": 0, 
+ "is_standard": "Yes", 
+ "modified": "2016-06-28 11:26:05.051704", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "Pending Production Orders", 
+ "owner": "aditya@rigpl.com", 
+ "query": "select \n `tabProduction Order`.name as \"PRD No:Link/Production Order:130\",\n `tabProduction Order`.fg_warehouse as \"WH::90\",\n `tabProduction Order`.production_order_date as \"PRD Date:Date:80\",\n `tabProduction Order`.priority as \"Priority::10\",\n `tabProduction Order`.production_item as \"Item Code:Link/Item:150\",\n `tabProduction Order`.item_description as \"Item Description::280\",\n (ifnull(`tabProduction Order`.qty,0)- ifnull(`tabProduction Order`.produced_qty,0)) as \"PPRD:Float:50\",\n `tabProduction Order`.qty as \"Qty:Float:50\",\n `tabProduction Order`.produced_qty as \"PRD:Float:50\",\n `tabProduction Order`.stock_uom as \"UoM::10\",\n `tabProduction Order`.rm_description as \"RM to Use::300\",\n `tabProduction Order`.remarks as \"Remarks::200\",\n `tabProduction Order`.owner as \"Owner::100\",\n `tabProduction Order`.modified_by as \"Modified By::100\"\n\nfrom\n `tabProduction Order`\nwhere\n`tabProduction Order`.status = \"Submitted\"\n or `tabProduction Order`.status = \"In Process\"\n and `tabProduction Order`.production_order_date <= curdate()+1\n and (ifnull(`tabProduction Order`.qty,0)- ifnull(`tabProduction Order`.produced_qty,0)) > 0\norder by `tabProduction Order`.priority asc", 
+ "ref_doctype": "Production Order", 
+ "report_name": "Pending Production Orders", 
+ "report_type": "Script Report"
+}
