@@ -31,6 +31,8 @@ def get_items(filters, conditions_prd):
 		
 		FROM
 			`tabProduction Order` prd
+		LEFT JOIN `tabItem Variant Attribute` bm ON prd.production_item = bm.parent
+			AND bm.attribute = 'Base Material'
 		WHERE
 			prd.docstatus = 1 AND
 			prd.status <> "Stopped" AND
@@ -61,5 +63,8 @@ def get_conditions(filters):
 		
 	if filters.get("warehouse"):
 		conditions_prd += " AND prd.fg_warehouse = '%s'" % filters["warehouse"]
+	
+	if filters.get("bm"):
+		conditions_prd += " AND bm.attribute_value = '%s'" % filters["bm"]
 	
 	return conditions_prd

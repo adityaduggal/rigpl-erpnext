@@ -18,6 +18,13 @@ frappe.query_reports["Pending Production Orders"] = {
 			"get_query": function(){ return {'filters': [['Item', 'is_sales_item','=', 1]]}}
 		},
 		{
+			"fieldname":"bm",
+			"label": "Base Material",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
+		},
+		{
 			"fieldname":"warehouse",
 			"label": "Warehouse",
 			"fieldtype": "Link",
