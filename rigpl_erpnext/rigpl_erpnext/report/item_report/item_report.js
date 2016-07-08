@@ -16,6 +16,14 @@ frappe.query_reports["Item Report"] = {
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
 		},
 		{
+			"fieldname":"series",
+			"label": "Series",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_series_query"}}
+		},
+		{
 			"fieldname":"brand",
 			"label": "Brand",
 			"fieldtype": "Link",

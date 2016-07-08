@@ -468,7 +468,7 @@ def attribute_brand_query(doctype, txt, searchfield, start, page_len, filters):
 		})
 def attribute_quality_query(doctype, txt, searchfield, start, page_len, filters):
 	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
-		where (parent = 'HSS Quality' OR parent = 'Carbide Quality')
+		where (parent = 'HSS Quality' OR parent = 'Carbide Quality' OR parent = 'Tool Steel Quality')
 			AND ({key} like %(txt)s
 				or attribute_value like %(txt)s)
 			{mcond}
@@ -564,6 +564,25 @@ def attribute_type_query(doctype, txt, searchfield, start, page_len, filters):
 def attribute_mtm_query(doctype, txt, searchfield, start, page_len, filters):
 	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
 		where parent = "Material to Machine" 
+			AND ({key} like %(txt)s
+				or attribute_value like %(txt)s)
+			{mcond}
+		order by
+			if(locate(%(_txt)s, name), locate(%(_txt)s, name), 99999),
+			if(locate(%(_txt)s, attribute_value), locate(%(_txt)s, attribute_value), 99999),
+			attribute_value
+		limit %(start)s, %(page_len)s""".format(**{
+			'key': searchfield,
+			'mcond': get_match_cond(doctype)
+		}), {
+			'txt': "%%%s%%" % txt,
+			'_txt': txt.replace("%", ""),
+			'start': start,
+			'page_len': page_len,
+		})
+def attribute_series_query(doctype, txt, searchfield, start, page_len, filters):
+	return frappe.db.sql("""select attribute_value, parent from `tabItem Attribute Value`
+		where parent = "Series" 
 			AND ({key} like %(txt)s
 				or attribute_value like %(txt)s)
 			{mcond}

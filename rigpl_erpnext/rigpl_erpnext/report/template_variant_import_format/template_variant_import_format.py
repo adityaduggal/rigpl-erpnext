@@ -28,7 +28,7 @@ def get_items(filters):
 			`tabItem` it, `tabItem Variant Attribute` iva
 		WHERE 
 			iva.parent = it.name %s""" %(conditions_it)
-	frappe.msgprint(query)
+
 	data = frappe.db.sql(query, as_list=1)
 	
 	return data
