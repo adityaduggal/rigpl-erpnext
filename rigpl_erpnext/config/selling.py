@@ -21,6 +21,12 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
+					"name": "Compare Pricing",
+					"doctype": "Price List",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
 					"name": "Customers with SO",
 					"doctype": "Campaign",
 				},

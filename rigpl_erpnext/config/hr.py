@@ -37,14 +37,14 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Employee Loan Analysis",
-					"doctype": "Employee Loan",
+					"name": "Employee Attendance",
+					"doctype": "Attendance",
 				},
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Roster",
-					"doctype": "Roster",
+					"name": "Employee Loan Analysis",
+					"doctype": "Employee Loan",
 				},
 				{
 					"type": "report",
@@ -61,21 +61,27 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
+					"name": "Monthly Attendance Time Based",
+					"doctype": "Attendance",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "Roster",
+					"doctype": "Roster",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
 					"name": "Salary Structure",
 					"doctype": "Salary Structure",
 				},
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Employee Attendance",
-					"doctype": "Attendance",
-				},
-				{
-					"type": "report",
-					"is_query_report": True,
-					"name": "Monthly Attendance Time Based",
-					"doctype": "Attendance",
-				},
+					"name": "Salary Register",
+					"doctype": "Salary Slip",
+				}
 			]
 		}
 	]
