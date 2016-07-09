@@ -7,13 +7,15 @@ frappe.query_reports["Sales Partner Commission Details"] = {
 			"fieldname":"doc_type",
 			"label": "Transaction Type",
 			"fieldtype": "Select",
-			"options": "\nSales Order\nDelivery Note\nSales Invoice"
+			"options": "\nSales Order\nDelivery Note\nSales Invoice",
+			"reqd": 1
 		},
 		{
 			"fieldname":"based_on",
 			"label": "Based On",
 			"fieldtype": "Select",
-			"options": "\nMaster\nTransaction"
+			"options": "\nMaster\nTransaction",
+			"reqd": 1
 		},
 		{
 			"fieldname":"sales_partner",
