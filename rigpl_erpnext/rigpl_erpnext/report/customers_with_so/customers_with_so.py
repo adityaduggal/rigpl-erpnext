@@ -120,6 +120,9 @@ def get_conditions_cust(filters):
 	if filters.get("customer"):
 		conditions_cust += " AND cu.name = '%s'" % filters["customer"]
 	
+	if filters.get("sales_partner"):
+		conditions_cust += " AND cu.default_sales_partner = '%s'" % filters["sales_partner"]
+	
 	if filters.get("territory"):
 		territory = frappe.get_doc("Territory", filters["territory"])
 		if territory.is_group == "Yes":
