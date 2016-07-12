@@ -62,15 +62,39 @@ def get_conditions(filters, date_field):
 		filters["customer"].replace("'", "\'")
 	
 	if filters.get("based_on") == "Transaction":
-		if filters.get("territory"): conditions += " and dt.territory = '%s'" % \
-			filters["territory"].replace("'", "\'")
+		if filters.get("territory"):
+			territory = frappe.get_doc("Territory", filters["territory"])
+			if territory.is_group == "Yes":
+				child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
+					WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
+				for i in child_territories:
+					if child_territories[0] == i:
+						conditions += " AND (dt.territory = '%s'" %i[0]
+					elif child_territories[len(child_territories)-1] == i:
+						conditions += " OR dt.territory = '%s')" %i[0]
+					else:
+						conditions += " OR dt.territory = '%s'" %i[0]
+			else:
+				conditions += " and dt.territory = '%s'" % filters["territory"]
 
 		if filters.get("sales_partner"): conditions += " and dt.sales_partner = '%s'" % \
 		 	filters["sales_partner"].replace("'", "\'")
+	
 	elif filters.get("based_on") == "Master":
-		#msgprint(_("WIP"), raise_exception=1)
-		if filters.get("territory"): conditions += " and cu.territory = '%s'" % \
-			filters["territory"].replace("'", "\'")
+		if filters.get("territory"):
+			territory = frappe.get_doc("Territory", filters["territory"])
+			if territory.is_group == "Yes":
+				child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
+					WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
+				for i in child_territories:
+					if child_territories[0] == i:
+						conditions += " AND (cu.territory = '%s'" %i[0]
+					elif child_territories[len(child_territories)-1] == i:
+						conditions += " OR cu.territory = '%s')" %i[0]
+					else:
+						conditions += " OR cu.territory = '%s'" %i[0]
+			else:
+				conditions += " and cu.territory = '%s'" % filters["territory"]
 
 		if filters.get("sales_partner"): conditions += " and cu.default_sales_partner = '%s'" % \
 		 	filters["sales_partner"].replace("'", "\'")
