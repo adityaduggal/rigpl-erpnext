@@ -12,7 +12,7 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Item:Link/Item:130", "RM::30", "BM::60","Brand::50","Quality::70", "SPL::50", 
+		"Item:Link/Item:130", "Series::60", "RM::30", "BM::60","Brand::50","Quality::70", "SPL::50", 
 		"TT::150", "MTM::60", "Purpose::60", "Type::60",
 		"D1:Float:50","W1:Float:50", "L1:Float:60", 
 		"D2:Float:50", "L2:Float:50", "Zn:Int:30",
@@ -26,7 +26,7 @@ def get_items(filters):
 	conditions_it = get_conditions(filters)
 	bm = filters["bm"]
 	
-	query = """SELECT it.name, 
+	query = """SELECT it.name, IFNULL(series.attribute_value, "NO-SERIES"),
 		IFNULL(rm.attribute_value, "-"), IFNULL(bm.attribute_value, "-"),
 		IFNULL(brand.attribute_value, "-"), IFNULL(quality.attribute_value, "-"),
 		IFNULL(spl.attribute_value, "-"), IFNULL(tt.attribute_value, "-"),
@@ -57,6 +57,8 @@ def get_items(filters):
 			AND rm.attribute = 'Is RM'
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
 			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` series ON it.name = series.parent
+			AND series.attribute = 'Series'
 		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
 			AND quality.attribute = '%s Quality'
 		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
@@ -134,6 +136,9 @@ def get_conditions(filters):
 
 	if filters.get("bm"):
 		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
+		
+	if filters.get("series"):
+		conditions_it += " AND series.attribute_value = '%s'" % filters["series"]
 
 	if filters.get("brand"):
 		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
