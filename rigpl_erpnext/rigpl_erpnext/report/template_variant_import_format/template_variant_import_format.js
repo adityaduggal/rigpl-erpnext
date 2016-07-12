@@ -14,8 +14,7 @@ frappe.query_reports["Template Variant Import Format"] = {
 			"fieldname":"item",
 			"label": "Item Code",
 			"fieldtype": "Link",
-			"options": "Item",
-			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
+			"options": "Item"
 		},
 		{
 			"fieldname":"variant_of",
