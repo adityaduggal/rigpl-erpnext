@@ -48,7 +48,7 @@ def get_items(filters):
 				iva.parent = it.name %s
 			ORDER BY
 				it.name, iva.idx""" %(conditions_it)
-
+	frappe.msgprint(query)
 	data = frappe.db.sql(query, as_list=1)
 	
 	return data
@@ -66,7 +66,7 @@ def get_conditions(filters):
 		conditions_it += " AND it.name = '%s'" % filters["item"]
 	
 	if filters.get("variant_of"):
-		conditions_it += " AND it.variant_of = '%s'" % filters["variant_of"]
+		conditions_it += " AND it.variant_of LIKE '%s%s%s'" % ('%', filters["variant_of"], '%')
 	
 	if filters.get("template"):
 		conditions_it += " AND it.has_variants = '%s'" % filters["template"]
