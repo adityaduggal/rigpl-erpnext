@@ -5,6 +5,7 @@ frappe.query_reports["Calculate ROL"] = {
 			"label": "From Date",
 			"fieldtype": "Date",
 			"reqd": 1,
+			"default": frappe.datetime.add_months(frappe.datetime.get_today(), -12),
 		},
 		{
 			"fieldname":"to_date",

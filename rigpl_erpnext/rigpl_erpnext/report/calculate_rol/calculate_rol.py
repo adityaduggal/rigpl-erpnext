@@ -13,19 +13,17 @@ def execute(filters=None):
 def get_columns():
 	return [
 		"Item:Link/Item:130", "ROL:Int:50", "SOLD:Int:50",
-		"#Cust:Int:50", "CON:Int:50", "SI Avg:Int:50", "CON Avg:Int:50",
-		"TotA:Int:50", "Diff:Int:40", "# SO:Int:40", "BM::60", "Brand::60",
-		"Quality::60", "TT::130", "SPL::50", 
+		"#Cust:Int:50", "CON:Int:50", "CON SR:Int:60", "SI Avg:Int:50",
+		"CON Avg:Int:50", "TotA:Int:50", "Diff:Int:40", "# SO:Int:40", 
+		"BM::60", "Brand::60", "Quality::60", "TT::130", "SPL::50", 
 		"D1 MM:Float:50", "W1 MM:Float:50", "L1 MM:Float:60", 
 		"D2 MM:Float:50","L2 MM:Float:60",
 		"Description::450"
 	]
 
 def get_sl_entries(filters):
-	conditions_it = get_conditions(filters)[0]
-	conditions_so = get_conditions(filters)[1]
-	conditions_sle = get_conditions(filters)[2]
-	conditions_ste = get_conditions(filters)[3]
+	conditions_it, conditions_so, conditions_sle, conditions_ste, conditions_sr = \
+		get_conditions(filters)
 	bm = filters["bm"]
 
 	if (filters.get("from_date")):
@@ -62,7 +60,7 @@ def get_sl_entries(filters):
 		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() 
 		%s""" % (bm, conditions_it))
 	
-	if len(pre_data) > 1000:
+	if len(pre_data) > 1500:
 		frappe.throw(("Server overload possible due to {0} rows of data, kindly reduce \
 			the lines by selecting filters").format(len(pre_data)))
 	
@@ -84,8 +82,18 @@ def get_sl_entries(filters):
 			`tabStock Entry` ste
 			WHERE sted.parent = ste.name AND ste.docstatus = 1 
 			AND sted.s_warehouse IS NOT NULL
-			AND sted.t_warehouse IS NULL
+			AND (sted.t_warehouse IS NULL OR sted.t_warehouse = "")
 			AND sted.item_code = it.name %s),
+		
+		(SELECT SUM(srd.current_qty - srd.qty) 
+			FROM `tabStock Reconciliation` sr, `tabStock Reconciliation Item` srd
+			
+			WHERE 
+			srd.parent = sr.name AND sr.docstatus = 1 
+			AND srd.qty <> srd.current_qty
+			AND srd.current_valuation_rate = srd.valuation_rate
+			AND srd.item_code = it.name
+			AND sr.posting_time <> '23:59:59' %s),
 		
 		null, null,null, null, 
 		
@@ -145,7 +153,7 @@ def get_sl_entries(filters):
 			CAST(w1.attribute_value AS DECIMAL(8,3)),
 			CAST(d2.attribute_value AS DECIMAL(8,3)),
 			CAST(l2.attribute_value AS DECIMAL(8,3))""" \
-		% (conditions_sle, conditions_so, conditions_ste, conditions_so, \
+		% (conditions_sle, conditions_so, conditions_ste, conditions_sr, conditions_so, \
 		conditions_so, bm,conditions_it)
 
 	data = frappe.db.sql(query, as_list=1)
@@ -163,13 +171,14 @@ def get_sl_entries(filters):
 		change =  None
 		rol = None
 		
-		rol = data[i][1]
-		sold = data[i][2]
-		cons = data[i][4] 
+		rol = flt(data[i][1])
+		sold = flt(data[i][2])
+		cons = flt(data[i][4])
+		sr = flt(data[i][5])
 		if sold:
-			si_avg = ((sold/diff)*30)
-		if cons:
-			con_avg = ((cons/diff)*30)
+			si_avg = (sold/diff)*30	
+		if cons or sr:
+			con_avg = ((cons+sr)/diff)*30
 		if si_avg:
 			if con_avg:
 				tot_avg = con_avg + si_avg
@@ -192,10 +201,10 @@ def get_sl_entries(filters):
 			else:
 				change = None
 		
-		data[i][5] = si_avg
-		data[i][6] = con_avg
-		data[i][7] = tot_avg
-		data[i][8] = change
+		data[i][6] = si_avg
+		data[i][7] = con_avg
+		data[i][8] = tot_avg
+		data[i][9] = change
 
 	return data
 
@@ -204,6 +213,7 @@ def get_conditions(filters):
 	conditions_so = ""
 	conditions_sle = ""
 	conditions_ste = ""
+	conditions_sr = ""
 
 	if filters.get("item"):
 		conditions_it += " AND it.name = '%s'" % filters["item"]
@@ -239,11 +249,13 @@ def get_conditions(filters):
 		conditions_so += " AND so.transaction_date >= '%s'" % filters["from_date"]
 		conditions_sle += " AND sle.posting_date >= '%s'" % filters["from_date"]
 		conditions_ste += " AND ste.posting_date >= '%s'" % filters["from_date"]
+		conditions_sr += " AND sr.posting_date >= '%s'" % filters["from_date"]
 
 	if filters.get("to_date"):
 		conditions_so += " AND so.transaction_date <= '%s'" % filters["to_date"]
 		conditions_sle += " AND sle.posting_date <= '%s'" % filters["to_date"]
 		conditions_ste += " AND ste.posting_date <= '%s'" % filters["to_date"]
+		conditions_sr += " AND sr.posting_date <= '%s'" % filters["to_date"]
 		
-	return conditions_it, conditions_so, conditions_sle, conditions_ste
+	return conditions_it, conditions_so, conditions_sle, conditions_ste, conditions_sr
 
