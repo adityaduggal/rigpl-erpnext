@@ -25,11 +25,13 @@
 		<tr>
 			<td>{%= __("Item Code: ") %} {%= (data[i][__("Item Code")]) %}</td>
 			<td colspan=2>{%= __("Description: ") %} {%= (data[i][__("Item Description")]) %}</td>
-			<td>{%= __("Pending Qty= ") %} <strong>{%= (data[i][__("PPRD")]) %} </strong></td>
+			<td><strong>{%= __("Pending Qty= ") %} {%= (data[i][__("PPRD")]) %} </strong></td>
 		</tr>
 		<tr>
-			<td colspan=2>{%= __("RM to Use- ") %} {%= (data[i][__("RM to Use")]) %}</td>
-			<td colspan=2>{%= __("RM Used Details- ") %} {%"Hello"%}</td>
+			<td colspan=3>{%= __("RM Details- ") %} {%= (data[i][__("RM to Use")]) %}</td>
+			<td colspan=1><strong>
+				{%= __("Status of PRD- ") %} {%= __(filters.status || "") %}
+			</strong></td>
 		</tr>
 		<tr>
 			<td>&nbsp;</td>
