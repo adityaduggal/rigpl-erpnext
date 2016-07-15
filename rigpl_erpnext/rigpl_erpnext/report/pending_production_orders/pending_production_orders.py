@@ -33,9 +33,9 @@ def get_items(filters, conditions_prd):
 			`tabProduction Order` prd
 		LEFT JOIN `tabItem Variant Attribute` bm ON prd.production_item = bm.parent
 			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` tt ON prd.production_item = tt.parent
+			AND tt.attribute = 'Tool Type'
 		WHERE
-			prd.docstatus = 1 AND
-			prd.status <> "Stopped" AND
 			prd.production_order_date <= CURDATE()+1 AND
 			(IFNULL(prd.qty,0)- IFNULL(prd.produced_qty,0)) > 0 %s
 		
@@ -60,11 +60,16 @@ def get_conditions(filters):
 		
 	if filters.get("to_date"):
 		conditions_prd += " AND prd.production_order_date <= '%s'" % filters["to_date"]
-		
-	if filters.get("warehouse"):
-		conditions_prd += " AND prd.fg_warehouse = '%s'" % filters["warehouse"]
 	
 	if filters.get("bm"):
 		conditions_prd += " AND bm.attribute_value = '%s'" % filters["bm"]
+		
+	if filters.get("tt"):
+		conditions_prd += " AND tt.attribute_value = '%s'" % filters["tt"]
+		
+	if filters.get("status") == "Submitted":
+		conditions_prd += "AND prd.docstatus = 1 AND prd.status <> 'Stopped'"
+	else:
+		conditions_prd += "AND prd.docstatus = 0"
 	
 	return conditions_prd

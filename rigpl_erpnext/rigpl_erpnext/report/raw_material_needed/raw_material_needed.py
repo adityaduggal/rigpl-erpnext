@@ -21,7 +21,7 @@ def get_columns():
 		"RM::30", "Brand::60", "Qual::80", "SPL::50", "TT::120",
 		"D1:Float:50", "W1:Float:50", "L1:Float:50",
 		###Above are Attribute fields
-		"URG::100",
+		"Future Stock::100", "Current Stock::100",
 		{"label": "Total", "fieldtype": "Float", "precision": 2, "width": 50},
 		"RO:Int:40", "SO:Int:40", "PO:Int:40",
 		"PL:Int:40", "IND:Int:40",
@@ -133,34 +133,62 @@ def get_items(filters):
 
 		stock = DRM + BRM
 		prod = total - stock
+		fut_stock = "X"
 
-		if ROL >=100:
+		if ROL <10:
+			ROL = 3*ROL
+		elif 10<=ROL < 20:
+			ROL = 2*ROL
+		elif 20<=ROL<50:
 			ROL = 1.5*ROL
 
+		if total < SO:
+			fut_stock = "Raise More PO and Indent"
+		elif total < SO + ROL:
+			fut_stock = "1<30 Days"
+		elif total < SO + 2*ROL:
+			fut_stock = "2<60 Days"
+		elif total < SO + 3*ROL:
+			fut_stock = "3<90 Days"
+		elif total < SO + 4*ROL:
+			fut_stock = "4<120 Days"
+		elif total < SO + 5*ROL:
+			fut_stock = "5<150 Days"
+		elif total < SO + 6*ROL:
+			fut_stock = "6<180 Days"
+		elif total > SO + 6*ROL:
+			if ROL >0:
+				fut_stock = "7 Over Stocked >180 Days"
+			else:
+				fut_stock = "-"
+		else:
+			fut_stock = "-"
+			
 		if stock < SO:
-			prd = "NO STOCK"
+			cur_stock = "NO STOCK"
 		elif stock < SO + ROL:
-			prd = "1<30 days"
+			cur_stock = "1<30 Days"
 		elif stock < SO + 2*ROL:
-			prd = "2<60 days"
+			cur_stock = "2<60 Days"
 		elif stock < SO + 3*ROL:
-			prd = "3<90 days"
+			cur_stock = "3<90 Days"
 		elif stock < SO + 4*ROL:
-			prd = "4<120 days"
+			cur_stock = "4<120 Days"
 		elif stock < SO + 5*ROL:
-			prd = "5<150 days"
+			cur_stock = "5<150 Days"
 		elif stock < SO + 6*ROL:
-			prd = "6<180 days"
+			cur_stock = "6<180 Days"
 		elif stock > SO + 6*ROL:
 			if ROL >0:
-				prd = "7 Over Stocked >180 days"
+				cur_stock = "7 Over Stocked >180 Days"
 			else:
-				prd = ""
+				cur_stock = "-"
 		else:
-			prd = ""
+			cur_stock = "-"
 
-		data[i].insert (9, prd)
-		data[i].insert (10, total)
+		data[i].insert (9, fut_stock)
+		data[i].insert(10, cur_stock)
+		data[i].insert (11, total)
 
 	for j in range(0,len(data)):
 		for k in range(0, len(data[j])):
