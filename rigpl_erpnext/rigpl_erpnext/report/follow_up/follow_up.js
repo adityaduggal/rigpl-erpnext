@@ -4,7 +4,8 @@ frappe.query_reports["Follow Up"] = {
 			"fieldname":"doc_type",
 			"label": "Follow Up Type",
 			"fieldtype": "Select",
-			"options": "\nLead\nCustomer"
+			"options": "\nLead\nCustomer",
+			"reqd": 1
 		},
 		{
 			"fieldname":"owner",
