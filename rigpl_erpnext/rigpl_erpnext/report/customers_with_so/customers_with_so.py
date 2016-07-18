@@ -15,7 +15,8 @@ def get_columns():
 		"Customer ID:Link/Customer:150", "Territory:Link/Territory:150", "Total SO Val:Currency:120",
 		"Sale Considered:Currency:120", "# of SO:Int:80", "Avg SO Value:Currency:120",
 		"Last SO Date:Date:100", "#Days Since Last SO:Int:80", "Sales Partner:Link/Sales Partner:100", 
-		"Sales Person:Link/Sales Person:100", "Allocated %:Float:50"
+		"Sales Person:Link/Sales Person:100", "Allocated %:Float:50", "Customer Rating::100",
+		"Customer Group:Link/Customer Group:200"
 	]
 
 def get_so_data(filters):
@@ -39,7 +40,8 @@ def get_so_data(filters):
 	
 	
 	cust_query = """SELECT cu.name, cu.territory, IFNULL(cu.default_sales_partner, "-"), 
-		IFNULL(st.sales_person, "-"), IFNULL(st.allocated_percentage,0)
+		IFNULL(st.sales_person, "-"), IFNULL(st.allocated_percentage,0), 
+		IFNULL(cu.customer_rating,"-"),cu.customer_group
 		FROM `tabCustomer` cu
 			LEFT JOIN `tabSales Team` st ON st.parent = cu.name AND st.parenttype = 'Customer'
 		WHERE 
