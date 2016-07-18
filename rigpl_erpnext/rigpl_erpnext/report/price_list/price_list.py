@@ -16,7 +16,7 @@ def get_columns():
 		"List Price:Currency:70", "Cur::40", 
 		"BM::60", "Brand::60", "QLT::80", "SPL::50", "TT::150",
 		"D1:Float:50", "W1:Float:50", "L1:Float:50", "Zn:Float:50", "D2:Float:50",
-		"L2:Float:50", "A1:Float:50", "Is PL::50", "Description::400"
+		"L2:Float:50", "A1:Float:50", "Is PL::50", "Description::400", "ROL:Int:50"
 	]
 
 def get_item_data(filters):
@@ -37,7 +37,8 @@ def get_item_data(filters):
 		CAST(zn.attribute_value AS UNSIGNED),
 		CAST(d2.attribute_value AS DECIMAL(8,3)),
 		CAST(l2.attribute_value AS DECIMAL(8,3)),
-		CAST(a1.attribute_value AS DECIMAL(8,3)), it.pl_item, it.description
+		CAST(a1.attribute_value AS DECIMAL(8,3)), it.pl_item, it.description,
+		itr.warehouse_reorder_level
 		
 	FROM `tabItem` it
 	
@@ -72,6 +73,8 @@ def get_item_data(filters):
 			AND type.attribute = 'Type Selector'
 		LEFT JOIN `tabItem Variant Attribute` mtm ON it.name = mtm.parent
 			AND mtm.attribute = 'Material to Machine'
+		LEFT JOIN `tabItem Reorder` itr ON it.name = itr.parent
+			AND itr.warehouse = it.default_warehouse
 	
 	WHERE
 		IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s

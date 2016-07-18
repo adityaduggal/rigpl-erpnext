@@ -36,20 +36,22 @@ def get_data(filters):
 
 	if filters.get("doc_type") == "Lead":
 		if filters.get("status") is None:
-			data = frappe.db.sql("""SELECT ld.name, ld.company_name, ld.lead_name, ifnull(ld.mobile_no,"-"),
+			query = """SELECT ld.name, ld.company_name, ld.lead_name, ifnull(ld.mobile_no,"-"),
 			ifnull(ld.email_id,"-"), ld.custom_status, ld.requirement, ifnull(ld.territory,"-"),
 			ifnull(ld.contact_date,'1900-01-01'), ifnull(ld.lead_owner,"-"), ifnull(ld.contact_by,"-")
 			FROM `tabLead` ld
 			WHERE ld.docstatus=0 AND ld.custom_status != 'Lost' AND ld.custom_status != 'Converted' %s
-			ORDER BY ld.name""" %conditions_lead , as_list=1)
+			ORDER BY ld.name""" %conditions_lead
+			
 		else:
-			data = frappe.db.sql("""SELECT ld.name, ld.company_name, ld.lead_name,ifnull(ld.mobile_no,"-"),
+			query = """SELECT ld.name, ld.company_name, ld.lead_name,ifnull(ld.mobile_no,"-"),
 			ld.custom_status, ld.requirement, ifnull(ld.territory,"-"), ifnull(ld.contact_date,'1900-01-01'),
 			ifnull(ld.lead_owner,"-"), ifnull(ld.contact_by,"-")
 			FROM `tabLead` ld
 			WHERE ld.docstatus=0 %s
-			ORDER BY ld.name""" %conditions_lead , as_list=1)
-
+			ORDER BY ld.name""" %conditions_lead
+		
+		data = frappe.db.sql(query , as_list=1)
 		comm = frappe.db.sql("""SELECT com.name, com.owner, com.parent, com.parenttype,
 			ifnull(MAX(DATE(com.communication_date)),'1900-01-01'), ifnull(com.communication_medium,"-")
 			FROM `tabCommunication` com
@@ -157,10 +159,35 @@ def get_conditions_cust(filters):
 	conditions_cust = ""
 
 	if filters.get("territory"):
-		conditions_cust += " and cu.territory = '%s'" % filters["territory"]
+		territory = frappe.get_doc("Territory", filters["territory"])
+		if territory.is_group == "Yes" or territory.is_group == 1:
+			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
+				WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
+			for i in child_territories:
+				if child_territories[0] == i:
+					conditions_cust += " AND (cu.territory = '%s'" %i[0]
+				elif child_territories[len(child_territories)-1] == i:
+					conditions_cust += " OR cu.territory = '%s')" %i[0]
+				else:
+					conditions_cust += " OR cu.territory = '%s'" %i[0]
+		else:
+			conditions_cust += " AND cu.territory = '%s'" % filters["territory"]
 
 	if filters.get("sales_person"):
-		conditions_cust += " and st.sales_person = '%s'" % filters["sales_person"]
+		sales_person = frappe.get_doc("Sales Person", filters["sales_person"])
+		if sales_person.is_group == "Yes" or sales_person.is_group == 1:
+			child_sp = frappe.db.sql("""SELECT name FROM `tabSales Person`
+				WHERE lft >= %s AND rgt <= %s""" %(sales_person.lft, sales_person.rgt), as_list = 1)
+				
+			for i in child_sp:
+				if child_sp[0] == i:
+					conditions_cust += " AND (st.sales_person = '%s'" %i[0]
+				elif child_sp[len(child_sp)-1] == i:
+					conditions_cust += " OR st.sales_person = '%s')" %i[0]
+				else:
+					conditions_cust += " OR st.sales_person = '%s'" %i[0]
+		else:
+			conditions_cust += " AND st.sales_person = '%s'" % filters["sales_person"]
 
 	if filters.get("status"):
 		conditions_cust += " AND cu.customer_rating = '%s'" % filters["status"]
@@ -179,12 +206,41 @@ def get_conditions_lead(filters):
 	if filters.get("status"):
 		conditions_lead += " AND ld.custom_status = '%s'" % filters["status"]
 
+	if filters.get("territory"):
+		territory = frappe.get_doc("Territory", filters["territory"])
+		if territory.is_group == "Yes" or territory.is_group == 1:
+			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
+				WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
+			for i in child_territories:
+				if child_territories[0] == i:
+					conditions_lead += " AND (ld.territory = '%s'" %i[0]
+				elif child_territories[len(child_territories)-1] == i:
+					conditions_lead += " OR ld.territory = '%s')" %i[0]
+				else:
+					conditions_lead += " OR ld.territory = '%s'" %i[0]
+		else:
+			conditions_lead += " AND ld.territory = '%s'" % filters["territory"]
+					
 	return conditions_lead
 
 def get_conditions_st(filters):
 	conditions_st = ""
 
 	if filters.get("sales_person"):
-		conditions_st += " AND st.sales_person = '%s'" % filters["sales_person"]
+		sales_person = frappe.get_doc("Sales Person", filters["sales_person"])
+		if sales_person.is_group == "Yes" or sales_person.is_group == 1:
+			child_sp = frappe.db.sql("""SELECT name FROM `tabSales Person`
+				WHERE lft >= %s AND rgt <= %s""" %(sales_person.lft, sales_person.rgt), as_list = 1)
+				
+			for i in child_sp:
+				if child_sp[0] == i:
+					conditions_st += " AND (st.sales_person = '%s'" %i[0]
+				elif child_sp[len(child_sp)-1] == i:
+					conditions_st += " OR st.sales_person = '%s')" %i[0]
+				else:
+					conditions_st += " OR st.sales_person = '%s'" %i[0]
+		else:
+			conditions_st += " AND st.sales_person = '%s'" % filters["sales_person"]
+
 
 	return conditions_st
