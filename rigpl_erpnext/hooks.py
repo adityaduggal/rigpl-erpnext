@@ -134,29 +134,29 @@ doc_events = {
 	},
 	"Production Order":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.production_order.validate"
-	},	
+	},
 }
 
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"rigpl_erpnext.tasks.all"
-# 	],
+scheduler_events = {
+#	"all": [
+# 		#"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
+# 	]
 # 	"daily": [
-# 		"rigpl_erpnext.tasks.daily"
+# 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
 # 	],
-# 	"hourly": [
-# 		"rigpl_erpnext.tasks.hourly"
-# 	],
+ 	"hourly": [
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
+ 	],
 # 	"weekly": [
 # 		"rigpl_erpnext.tasks.weekly"
 # 	]
 # 	"monthly": [
 # 		"rigpl_erpnext.tasks.monthly"
 # 	]
-# }
+ }
 
 # Testing
 # -------

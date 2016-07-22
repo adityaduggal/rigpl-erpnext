@@ -75,3 +75,13 @@ RU",Match with the Sereis Selected in the Invoice,series,0,0,0,0,0,,,0,,0,1,0,0,
 ,"""Salary Slip-contributions""",Salary Slip,Table,Contributions,contribution,,Salary Slip Contribution,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0
 ,"""Salary Slip-total_ctc""",Salary Slip,Currency,Total CTC,unauthorized_leaves,,,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0
 ,"""Salary Slip-payment_days_for_deductions""",Salary Slip,Float,Payment Days for Deductions,company,,,"Use this field to match the deductions and contributions for ESI, ideally it should be equal to Payment days but can be different due to adjustment of leaves.\",payment_days_for_deductions,0,1,0,0,0,,,0,,0,0,0,0,0,0
+,"""Communication-follow_up""",Communication,Check,Follow Up,sender,,,,follow_up,0,0,0,0,0,,0,0,,0,0,0,0,0,0
+,"""Communication-next_action_date""",Communication,Datetime,Next Action Date,user,,,,next_action_date,0,0,0,0,0,176,,0,,0,0,0,0,0,0
+,"""Communication-communication_subtype""",Communication,Select,Communication Subtype,communication_type,,"
+C-Form Reminder
+Payment Reminder
+Sales Related",,communication_subtype,0,0,0,1,0,162,,1,,0,0,0,0,0,0
+,"""ToDo-type""",ToDo,Select,Type,reference_name,,"
+C-Form Reminder
+Payment Reminder
+Sales Related",,type,0,0,0,1,0,,,0,,0,0,0,0,0,0
