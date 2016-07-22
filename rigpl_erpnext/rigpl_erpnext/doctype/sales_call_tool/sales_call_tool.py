@@ -9,16 +9,20 @@ from datetime import datetime, date, timedelta
 from frappe.utils import getdate, add_days, nowdate
 
 class SalesCallTool(Document):
+	#TODO: Move Many of the COmmunications' Validatoins to Comm
 	def create_communication(self):
 		self.validate()
+		self.update_lead()
 		comm = frappe.new_doc("Communication")
 		comm.owner = self.created_by
 		comm.user = self.next_action_by
 		comm.communication_date = self.date_of_communication
 		#add custom field for next_action_date in Communication
 		#add custom field for communication_subtype in Communication
-		#comm.next_action_date = self.next_action_date #This would add a TODO to USER fields' account on that day
-		#comm.communication_subtype = "Sales Related"
+		if self.no_action_required <> 1:
+		comm.follow_up = 1
+		comm.next_action_date = self.next_action_date #This would add a TODO to USER fields' account on that day
+		comm.communication_subtype = "Sales Related"
 		comm.communication_medium = self.type_of_communication 
 		#Change the above Select field by customize form view in Communication
 		comm.communication_type = "Communication"
@@ -38,7 +42,7 @@ class SalesCallTool(Document):
 		else:
 			frappe.throw("Error Contact aditya@rigpl.com")
 		comm.insert()
-		#self.clear_form()
+		self.clear_form()
 		frappe.msgprint("Created New Communication")
 
 	def validate(self):
@@ -55,21 +59,33 @@ class SalesCallTool(Document):
 					frappe.throw("Customer is Mandatory")
 				if self.lead:
 					frappe.throw("Lead for Customer Communication is not allowed")
-			if self.document == "Lead":
+			elif self.document == "Lead":
 				if self.customer or self.contact:
 					frappe.throw("Contact and Customer not allowed for Lead Communication")
+				#Check if Lead is converted
+				if self.lead:
+					lead = frappe.get_doc("Lead", self.lead)
+					if lead.status == "Converted":
+						customer = frappe.db.sql("""SELECT name FROM `tabCustomer` 
+							WHERE lead_name = '%s'""" %(self.lead), as_list=1)
+						frappe.throw(("Selected Lead is already converted to {0}. \n\
+							Please select the customer and not this Lead.").format(customer[0][0]))
+				else:
+					frappe.throw("Lead Mandatory")
 			if self.date_of_communication:
 				d = getdate(self.date_of_communication)
-				d0 = add_days(d, -5)
 				d1 = getdate(nowdate())
+				d0 = add_days(d1, -5)
 				if d >= d0 and d <= d1:
 					pass
 				else:
-					frappe.throw("Communication Date should be Today or T-5 days only")
+					frappe.throw(("Communication Date should be between {0} and {1}").format(d0,d1))
+			else:
+				frappe.throw("Date of Communication is Mandatory")
 			if self.next_action_date:
 				d2 = getdate(self.next_action_date)
-				if d2 < d1:
-					frappe.throw("Next Action Date Cannot be Less than Communication Date")
+				if d2 <= d1:
+					frappe.throw("Next Action Date should be a Future Date")
 		else:
 			frappe.throw("Select Document before creating a Communication")
 		
@@ -84,7 +100,20 @@ class SalesCallTool(Document):
 			frappe.throw("Mandatory Field Next Action By")
 			
 		if self.no_action_required == 1:
+			#Check only System Managers can do this Entry
+			user = frappe.session.user
+			roles = frappe.db.sql("""SELECT role from `tabUserRole` where parent = '%s' """ \
+				%user, as_list=1)
 			self.next_action_date = ""
+		else:
+			if not self.next_action_date:
+				frappe.throw("Please add a Next Action Date")
 			
 	def clear_form(self):
 		self.document = ""
+		self.lead = ""
+		self.customer = ""
+		
+	def update_lead(self):
+		if self.document == "Lead":
+			frappe.db.set_value("Lead", self.lead, "custom_status", self.status_of_lead)

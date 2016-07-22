@@ -135,24 +135,21 @@ doc_events = {
 	"Production Order":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.production_order.validate"
 	},
-	"Communication":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
-	},
 }
 
 # Scheduled Tasks
 # ---------------
 
 scheduler_events = {
- 	"all": [
- 		#"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
- 	]
+#	"all": [
+# 		#"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
+# 	]
 # 	"daily": [
-# 		"rigpl_erpnext.tasks.daily"
+# 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
 # 	],
-# 	"hourly": [
-# 		"rigpl_erpnext.tasks.hourly"
-# 	],
+ 	"hourly": [
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
+ 	],
 # 	"weekly": [
 # 		"rigpl_erpnext.tasks.weekly"
 # 	]
