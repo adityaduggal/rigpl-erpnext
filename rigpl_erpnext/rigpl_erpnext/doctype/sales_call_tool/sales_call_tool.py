@@ -20,7 +20,7 @@ class SalesCallTool(Document):
 		#add custom field for next_action_date in Communication
 		#add custom field for communication_subtype in Communication
 		if self.no_action_required <> 1:
-		comm.follow_up = 1
+			comm.follow_up = 1
 		comm.next_action_date = self.next_action_date #This would add a TODO to USER fields' account on that day
 		comm.communication_subtype = "Sales Related"
 		comm.communication_medium = self.type_of_communication 
