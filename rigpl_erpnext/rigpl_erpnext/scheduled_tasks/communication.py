@@ -15,7 +15,7 @@ def daily():
 	#and next_action_date IS NOT NULL
 	comm = frappe.db.sql ("""SELECT name FROM `tabCommunication` 
 		WHERE communication_type = 'Communication' AND follow_up = 1 
-		AND DATE(next_action_date) = CURDATE()""", as_list= 1)
+		AND DATE(next_action_date) <= CURDATE()""", as_list= 1)
 	
 	for i in comm:
 		#Check if the communication is already in TODO for the user and Open.
@@ -66,5 +66,4 @@ def send_follow_up_email(user, sender, subject, content, ref_doc, ref_name):
 	frappe.sendmail(recipients=user,
 		sender=sender,
 		subject="Follow Up for: " + subject, 
-		content= content + "\n"  + ref_doc + " " + ref_name, \
-		bulk=True)
+		content= content + "\n"  + ref_doc + " " + ref_name)

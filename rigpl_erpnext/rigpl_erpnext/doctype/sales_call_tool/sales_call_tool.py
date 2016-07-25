@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe.model.document import Document
 from datetime import datetime, date, timedelta
-from frappe.utils import getdate, add_days, nowdate
+from frappe.utils import getdate, add_days, now_datetime, nowtime, get_datetime, time_diff_in_seconds
 
 class SalesCallTool(Document):
 	#TODO: Move Many of the COmmunications' Validatoins to Comm
@@ -65,6 +65,8 @@ class SalesCallTool(Document):
 				#Check if Lead is converted
 				if self.lead:
 					lead = frappe.get_doc("Lead", self.lead)
+					self.lead_contact_name = lead.lead_name
+					self.lead_organisation_name = lead.company_name
 					if lead.status == "Converted":
 						customer = frappe.db.sql("""SELECT name FROM `tabCustomer` 
 							WHERE lead_name = '%s'""" %(self.lead), as_list=1)
@@ -73,19 +75,22 @@ class SalesCallTool(Document):
 				else:
 					frappe.throw("Lead Mandatory")
 			if self.date_of_communication:
-				d = getdate(self.date_of_communication)
-				d1 = getdate(nowdate())
+				d = get_datetime(self.date_of_communication)
+				d1 = now_datetime()
 				d0 = add_days(d1, -5)
-				if d >= d0 and d <= d1:
+				if d.date() >= d0.date() and d.date() <= d1.date():
 					pass
 				else:
-					frappe.throw(("Communication Date should be between {0} and {1}").format(d0,d1))
+					frappe.throw(("Communication Date should be between {0} and {1}").format(d0.date(),d1.date()))
 			else:
 				frappe.throw("Date of Communication is Mandatory")
 			if self.next_action_date:
-				d2 = getdate(self.next_action_date)
-				if d2 <= d1:
-					frappe.throw("Next Action Date should be a Future Date")
+				d2 = get_datetime(self.next_action_date)
+				if d2.date() < d1.date():
+					frappe.throw("Next Action Date cannot be less than Today's Date")
+				if d2.date() == d1.date():
+					if time_diff_in_seconds(d2, d1) < 3600:
+						frappe.throw("Next Action Time has to be 1 hour after the current time")
 		else:
 			frappe.throw("Select Document before creating a Communication")
 		
