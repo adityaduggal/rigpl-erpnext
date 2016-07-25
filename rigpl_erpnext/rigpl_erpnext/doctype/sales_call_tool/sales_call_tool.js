@@ -38,6 +38,7 @@ cur_frm.cscript.no_action_required = function(doc, cdt, cdn) {
 
 cur_frm.cscript.document = function(doc, cdt, cdn) {
 	cur_frm.doc.customer = ""
+	cur_frm.doc.lead = ""
 	cur_frm.doc.contact = ""
 	cur_frm.doc.type_of_communication = ""
 	cur_frm.doc.date_of_communication = ""
@@ -45,7 +46,9 @@ cur_frm.cscript.document = function(doc, cdt, cdn) {
 	cur_frm.doc.details = ""
 	cur_frm.doc.lead_contact_name = ""
 	cur_frm.doc.lead_organisation_name = ""
+	cur_frm.doc.status_of_lead = ""
 	refresh_field("customer");
+	refresh_field("lead");
 	refresh_field("contact");
 	refresh_field("type_of_communication");
 	refresh_field("date_of_communication");
@@ -53,6 +56,7 @@ cur_frm.cscript.document = function(doc, cdt, cdn) {
 	refresh_field("details");
 	refresh_field("lead_contact_name");
 	refresh_field("lead_organisation_name");
+	refresh_field("status_of_lead");
 	
 	if (cur_frm.doc.document == "Customer"){
 		cur_frm.toggle_reqd("customer", true);
