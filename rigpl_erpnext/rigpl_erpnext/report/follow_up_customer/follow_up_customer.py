@@ -17,7 +17,7 @@ def get_columns(filters):
 	if filters.get("details") == 1:
 		return [
 			"Customer:Link/Customer:150", "Contact:Link/Contact:120", "Mobile #::100", "Email::100",
-			"Rating::100", "Territory:Link/Territory:100", "Last Comm Date:Date:100", "Next Date::100", 
+			"Rating::100", "Territory:Link/Territory:100", "Last Comm Date:Date:100", "Next Date:Date:100", 
 			"Medium::60", "Last Comm Details::200", "Link Comm:Link/Communication:120",
 			"Comm Owner::120", "Comm Next Contact By::120", "Sales Person:Link/Sales Person:120"
 		]
@@ -25,8 +25,7 @@ def get_columns(filters):
 		return [
 			"Customer:Link/Customer:150", "Contact:Link/Contact:120", "Mobile #::100", "Email::100",
 			"Rating::100", "Territory:Link/Territory:100", "Requirement:Currency:100", 
-			"SO Days:Int:50", "Comm Days:Int:50", "Last Comm Date:Date:100", "Next Date::100",
-			"Last Comm Details::200", "Link Comm:Link/Communication:120", 
+			"SO Days:Int:50", "Comm Days:Int:50", "Last Comm Date:Date:100", "Next Date:Date:100", 
 			"Sales Person:Link/Sales Person:120"
 		]
 	
@@ -78,11 +77,11 @@ def get_data(filters):
 				#Get Communication Details
 				lcom_chieck = 0
 				for lcomd in comm_days:
-					if lcomd.customer == cu.name:
-						row += [lcomd.com_days, lcomd.last, lcomd.next, lcomd.content, lcomd.name]
+					if lcomd["customer"] == cu.name:
+						row += [lcomd["com_days"], lcomd["last"], lcomd["next"]]
 						lcom_chieck += 1
 				if lcom_chieck == 0:
-					row += [36500, '1900-01-01', "-", "-", "-"]
+					row += [36500, '1900-01-01', "1900-01-01"]
 			
 			#Get Sales Person (Only One)
 			sp_count = 0
@@ -150,15 +149,43 @@ def get_comm_days(customers):
 	comm_days = frappe.db.sql("""SELECT com.reference_name as customer, 
 	DATEDIFF(CURDATE(), MAX(com.communication_date)) as com_days, 
 	MAX(com.communication_date) as last,
-	MAX(com.next_action_date) as next, 
-	com.content, com.name
+	MAX(IFNULL(com.next_action_date, '1900-01-01')) as next
 	FROM `tabCommunication` com 
 	WHERE com.communication_type = 'Communication' AND
 		com.reference_doctype = 'Customer' AND com.reference_name IN (%s)
 	GROUP BY com.reference_name ORDER BY com.reference_name""" %(", ".join(['%s']*len(customers))), \
 		tuple([d.name for d in customers]), as_dict=1)
 	
-	return comm_days
+	comm_days2 = frappe.db.sql("""SELECT com.timeline_name as customer, 
+	DATEDIFF(CURDATE(), MAX(com.communication_date)) as com_days, 
+	MAX(com.communication_date) as last,
+	MAX(IFNULL(com.next_action_date, '1900-01-01')) as next
+	FROM `tabCommunication` com 
+	WHERE com.communication_type = 'Communication' AND
+		com.timeline_doctype = 'Customer' AND com.timeline_name IN (%s)
+	GROUP BY com.timeline_name ORDER BY com.timeline_name""" %(", ".join(['%s']*len(customers))), \
+		tuple([d.name for d in customers]), as_dict=1)
+	result = []
+	temp = {}
+	for cust in customers:
+		if any(d["customer"] == cust.name for d in comm_days):
+			for ref in comm_days:
+				if cust.name == ref.customer:
+					result.append(ref.copy())
+		else:
+			temp["customer"] = cust.name
+			temp["com_days"] = 36500
+			temp["last"] = '1900-01-01'
+			temp["next"] = '1900-01-01'
+			result.append(temp.copy())
+
+	for cust in result:
+		if (any(d["customer"] == cust["customer"] for d in comm_days2)):
+			for time in comm_days2:
+				if time.customer == cust["customer"]:
+					if getdate(time.last) > getdate(cust["last"]):
+						result[result.index(cust)] = time
+	return result
 
 def get_comm(filters, conditions_comm):
 	cust = filters.get("customer")
