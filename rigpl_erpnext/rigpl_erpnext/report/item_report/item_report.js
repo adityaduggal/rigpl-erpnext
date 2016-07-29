@@ -16,6 +16,14 @@ frappe.query_reports["Item Report"] = {
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
 		},
 		{
+			"fieldname":"tt",
+			"label": "Tool Type",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 1,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
+		},
+		{
 			"fieldname":"series",
 			"label": "Series",
 			"fieldtype": "Link",
@@ -24,29 +32,12 @@ frappe.query_reports["Item Report"] = {
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_series_query"}}
 		},
 		{
-			"fieldname":"brand",
-			"label": "Brand",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"reqd": 0,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_brand_query"}}
-		},
-
-		{
 			"fieldname":"quality",
 			"label": "Quality",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_quality_query"}}
-		},
-		{
-			"fieldname":"tt",
-			"label": "Tool Type",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"reqd": 1,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{
 			"fieldname":"spl",
