@@ -18,17 +18,17 @@ Mandatory:,Yes,Yes,Yes,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,
 Type:,Data (text),Link,Select,Data,Select,Select,Text,Text,Data,Int,Check,Check,Check,Check,Data,Text,Check,Data,Check,Check,Check,Check,Check,Check,Datetime
 Info:,,Valid DocType,"One of: Attach, Button, Check, Code, Column Break, Currency, Data, Date, Datetime, Dynamic Link, Float, HTML, Image, Int, Link, Long Text, Password, Percent, Read Only, Section Break, Select, Small Text, Table, Text, Text Editor, Time",,,"One of: 1, 2, 3, 4, 5, 6, 7, 8, 9",,,,Integer,0 or 1,0 or 1,0 or 1,0 or 1,,,0 or 1,,0 or 1,0 or 1,0 or 1,0 or 1,0 or 1,0 or 1,
 Start entering data below this line,,,,,,,,,,,,,,,,,,,,,,,,,
-,"""Attendance-att""",Attendance,Section Break,Time Details,amended_from,,,,att,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Attendance-shift""",Attendance,Link,Shift,att_date,,Shift Details,,shift,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Attendance-attendance_time""",Attendance,Table,Attendance Time,overtime,,Attendance Time Table,,attendance_time,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Attendance-overtime""",Attendance,Float,Overtime,att,2,,,overtime,0,0,0,1,0,,,0,,0,1,0,0,0,0,25-04-2016 11:05
-,"""Communication-follow_up""",Communication,Check,Follow Up,sender,,,,follow_up,0,0,0,0,0,,0,0,,0,0,0,0,0,0,23-07-2016 19:17
-,"""Communication-next_action_date""",Communication,Datetime,Next Action Date,follow_up,,,,next_action_date,0,0,0,0,0,176,,0,,0,0,0,0,0,0,23-07-2016 20:25
+,"""Attendance-att""",Attendance,Section Break,Time Details,amended_from,,,,att,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:50
+,"""Attendance-shift""",Attendance,Link,Shift,att_date,,Shift Details,,shift,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:53
+,"""Attendance-attendance_time""",Attendance,Table,Attendance Time,overtime,,Attendance Time Table,,attendance_time,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:54
+,"""Attendance-overtime""",Attendance,Float,Overtime,att,2,,,overtime,0,0,0,1,0,,,0,,0,1,0,0,0,0,25-04-2016 11:05:56
+,"""Communication-follow_up""",Communication,Check,Follow Up,sender,,,,follow_up,0,0,0,0,0,,0,0,,0,0,0,0,0,0,23-07-2016 19:17:38
+,"""Communication-next_action_date""",Communication,Datetime,Next Action Date,follow_up,,,,next_action_date,0,0,0,0,0,176,,0,,0,0,0,0,0,0,23-07-2016 20:25:58
 ,"""Communication-communication_subtype""",Communication,Select,Communication Subtype,communication_type,,"General
 C-Form Reminder
 Payment Reminder
-Sales Related",,communication_subtype,0,0,0,1,0,162,,1,,0,0,0,0,0,0,24-07-2016 02:03
-,"""Customer-notes""",Customer,Text,Notes,column_break0,,,,notes,0,0,0,0,0,71,,0,,0,0,0,1,0,0,02-05-2012 10:03
+Sales Related",,communication_subtype,0,0,0,1,0,162,,1,,0,0,0,0,0,0,24-07-2016 02:03:33
+,"""Customer-notes""",Customer,Text,Notes,column_break0,,,,notes,0,0,0,0,0,71,,0,,0,0,0,1,0,0,02-05-2012 10:03:05
 ,"""Customer-payment_terms""",Customer,Select,Payment Terms,column_break2,,"Against Pro forma Invoice
 Against Post Dated Cheque
 Against Letter of Credit
@@ -38,69 +38,81 @@ Open Credit 30 days
 Open Credit 45 days
 Open Credit 60 days
 Open Credit 75 days
-Open Credit 90 days",,payment_terms,0,1,0,0,0,,,0,,0,0,0,0,0,0,31-08-2012 00:36
-,"""Customer-letter_head""",Customer,Link,Letter Head,more_info,,Letter Head,,letter_head,0,1,0,0,0,,,0,,0,0,0,0,0,0,31-08-2012 11:34
-,"""Customer-sales_team_custom""",Customer,Link,Sales Team,sales_team_section_break,,Employment Type,,sales_team_custom,2,0,0,0,0,,,0,,0,1,0,1,0,0,24-01-2013 23:03
+Open Credit 90 days",,payment_terms,0,1,0,0,0,,,0,,0,0,0,0,0,0,31-08-2012 00:36:51
+,"""Customer-letter_head""",Customer,Link,Letter Head,more_info,,Letter Head,,letter_head,0,1,0,0,0,,,0,,0,0,0,0,0,0,31-08-2012 11:34:55
+,"""Customer-sales_team_custom""",Customer,Link,Sales Team,sales_team_section_break,,Employment Type,,sales_team_custom,2,0,0,0,0,,,0,,0,1,0,1,0,0,24-01-2013 23:03:58
 ,"""Customer-customer_rating""",Customer,Select,Customer Rating,territory,,"OK
 Black Listed
 Changed Business
 Through Dealer
 Trial In Progress
 Trial Passed
-Trial Failed",,customer_rating,2,0,0,0,0,,OK,0,,0,1,0,0,1,0,29-05-2013 10:56
-,"""Customer-next_contact_date""",Customer,Date,Next Contact Date,default_currency,,,,next_contact_date,0,0,0,0,0,,,0,,0,1,0,0,0,0,23-03-2014 18:30
-,"""Customer-requirement""",Customer,Currency,Requirement,lead_name,,,Enter the expected Sales per month for the Customer,requirement,1,0,0,0,0,,,0,,0,1,0,1,0,0,23-03-2014 18:32
-,"""Customer-cb""",Customer,Column Break,,is_frozen,,,,cb,0,0,0,0,0,,,0,,0,0,0,0,0,0,15-12-2015 19:17
-,"""Customer-customer_login_id""",Customer,Link,Customer Login Id,website,,User,,customer_login_id,2,0,0,0,0,,,0,,0,1,0,0,0,0,11-02-2016 19:38
-,"""Employee-pan_number""",Employee,Data,PAN Number,company_email,,,,pan_number,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Employee-bank_ifsc_code""",Employee,Data,Bank IFSC Code,bank_ac_no,,,,bank_ifsc_code,0,0,0,0,0,,,0,eval:doc.salary_mode == 'Bank',0,0,0,0,0,0,17-05-2016 18:52
-,"""Employee-company_registered_with""",Employee,Link,Company Registered With,bank_ifsc_code,,Letter Head,,company_registered_with,0,0,0,0,0,,,0,eval:doc.salary_mode == 'Bank',0,0,0,0,0,0,17-05-2016 18:52
-,"""Item-variant_limit""",Item,Int,Variant Limit,pl_item,,,Maximum Number of Variants Allowed under this ,variant_limit,9,1,0,0,0,,30,0,eval: doc.has_variants,0,1,0,0,0,0,01-03-2012 12:28
+Trial Failed",,customer_rating,2,0,0,0,0,,OK,0,,0,1,0,0,1,0,29-05-2013 10:56:53
+,"""Customer-next_contact_date""",Customer,Date,Next Contact Date,default_currency,,,,next_contact_date,0,0,0,0,0,,,0,,0,1,0,0,0,0,23-03-2014 18:30:37
+,"""Customer-requirement""",Customer,Currency,Requirement,lead_name,,,Enter the expected Sales per month for the Customer,requirement,1,0,0,0,0,,,0,,0,1,0,1,0,0,23-03-2014 18:32:40
+,"""Customer-cb""",Customer,Column Break,,is_frozen,,,,cb,0,0,0,0,0,,,0,,0,0,0,0,0,0,15-12-2015 19:17:32
+,"""Customer-customer_login_id""",Customer,Link,Customer Login Id,website,,User,,customer_login_id,2,0,0,0,0,,,0,,0,1,0,0,0,0,11-02-2016 19:38:03
+,"""Employee-pan_number""",Employee,Data,PAN Number,company_email,,,,pan_number,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:56
+,"""Employee-bank_ifsc_code""",Employee,Data,Bank IFSC Code,bank_ac_no,,,,bank_ifsc_code,0,0,0,0,0,,,0,eval:doc.salary_mode == 'Bank',0,0,0,0,0,0,17-05-2016 18:52:03
+,"""Employee-company_registered_with""",Employee,Link,Company Registered With,bank_ifsc_code,,Letter Head,,company_registered_with,0,0,0,0,0,,,0,eval:doc.salary_mode == 'Bank',0,0,0,0,0,0,17-05-2016 18:52:03
+,"""Item-variant_limit""",Item,Int,Variant Limit,pl_item,,,Maximum Number of Variants Allowed under this ,variant_limit,9,1,0,0,0,,30,0,eval: doc.has_variants,0,1,0,0,0,0,01-03-2012 12:28:08
 ,"""Item-Stock Maintained""",Item,Select,TOD Given,brand,,"No
-Yes",,stock_maintained,1,0,0,0,0,,No,0,,0,1,0,1,0,0,12-10-2015 16:27
+Yes",,stock_maintained,1,0,0,0,0,,No,0,,0,1,0,1,0,0,12-10-2015 16:27:36
 ,"""Item-pl_item""",Item,Select,PL Item,stock_maintained,,"No
-Yes",Whether the item is Mentioned on Price List and Catalog and inherently this item would also show on the Website if this field is Selected as Yes.,pl_item,1,0,0,0,0,,No,0,,0,1,0,0,0,0,13-10-2015 18:46
-,"""Item-item_variant_restrictions""",Item,Table,Item Variant Restrictions,attributes,,Item Variant Restrictions,,item_variant_restrictions,9,0,0,0,0,,,0,eval: doc.has_variants,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Attribute-column_break_1""",Item Attribute,Column Break,,,,,,column_break_1,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Attribute-hidden""",Item Attribute,Check,Hidden,,,,,hidden,0,0,0,0,0,,,0,eval:!doc.virtual,0,0,0,0,1,0,25-04-2016 11:05
-,"""Item Attribute-relation""",Item Attribute,Dynamic Link,Relation,hidden,,source,,relation,0,0,0,0,0,,,0,eval:doc.hidden,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Attribute-source""",Item Attribute,Link,Source,relation,,DocType,,source,0,0,0,0,0,,,0,eval:doc.virtual,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Attribute-update_from""",Item Attribute,Link,Update From,source,,Item Attribute,,update_from,0,0,0,0,0,,,0,eval:doc.hidden,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Attribute-use_in_item_code""",Item Attribute,Check,Use in Item Code,update_from,,,,use_in_item_code,0,0,0,0,0,,1,0,eval:!doc.numeric_values,0,0,0,0,1,0,25-04-2016 11:05
-,"""Item Attribute-virtual""",Item Attribute,Check,Virtual,use_in_item_code,,,,virtual,0,0,0,0,0,,,0,,0,0,0,0,1,0,25-04-2016 11:05
-,"""Item Attribute Value-description""",Item Attribute Value,Text,Description,abbr,,,,description,0,1,0,0,0,,,0,,0,0,0,0,1,0,25-04-2016 11:05
-,"""Item Attribute Value-long_description""",Item Attribute Value,Text,Long Description,description,,,,long_description,0,1,0,0,0,,,0,,0,0,0,0,1,0,25-04-2016 11:05
-,"""Item Attribute Value-serial""",Item Attribute Value,Data,Serial,long_description,,,,serial,0,1,0,1,0,,1,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Variant Attribute-use_in_description""",Item Variant Attribute,Check,Use in Description,,,,,use_in_description,0,0,0,0,0,,1,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Variant Attribute-prefix""",Item Variant Attribute,Text,Prefix,attribute,,,,prefix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,1,0,25-04-2016 11:05
-,"""Item Variant Attribute-cb""",Item Variant Attribute,Column Break,,prefix,,,,cb,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Variant Attribute-field_name""",Item Variant Attribute,Data,Field Name,cb,,,,field_name,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,0,0,25-04-2016 11:05
-,"""Item Variant Attribute-suffix""",Item Variant Attribute,Text,Suffix,field_name,,,,suffix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,1,0,25-04-2016 11:05
-,"""Salary Slip-total_overtime""",Salary Slip,Float,Total Overtime,totals,,,,total_overtime,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08
-,"""Salary Slip-unauthorized_leaves""",Salary Slip,Int,Unauthorized Leaves,total_overtime,,,,unauthorized_leaves,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08
-,"""Salary Slip-overtime_deducted""",Salary Slip,Float,Overtime Deducted,column_break_25,,,,overtime_deducted,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08
-,"""Salary Slip-posting_date""",Salary Slip,Date,Posting Date,column_break0,,,,posting_date,0,1,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09
-,"""Salary Slip-contribution""",Salary Slip,Section Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09
-,"""Salary Slip-contributions""",Salary Slip,Table,Contributions,contribution,,Salary Detail,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09
-,"""Salary Slip-total_ctc""",Salary Slip,Currency,Total CTC,unauthorized_leaves,,,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09
-,"""Salary Slip-payment_days_for_deductions""",Salary Slip,Float,Payment Days for Deductions,company,,,"Use this field to match the deductions and contributions for ESI, ideally it should be equal to Payment days but can be different due to adjustment of leaves.\",payment_days_for_deductions,0,1,0,0,0,,,0,,0,0,0,0,0,0,28-04-2016 18:35
-,"""Salary Slip-change_deductions""",Salary Slip,Check,Change Deductions,payment_days_for_deductions,,,,change_deductions,0,0,0,0,0,,,0,,0,0,0,0,0,0,14-05-2016 13:13
-,"""Salary Structure-contribution""",Salary Structure,Section Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09
-,"""Salary Structure-contributions""",Salary Structure,Table,Contributions,contribution,,Salary Detail,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09
-,"""Salary Structure-total_ctc""",Salary Structure,Currency,Total CTC,net_pay,,Company:company:default_currency,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09
-,"""Salary Structure-total_contribution""",Salary Structure,Currency,Total Contribution,total_deduction,,Company:company:default_currency,,total_contribution,0,0,0,1,0,,,0,,0,0,0,0,0,0,31-07-2016 16:56
-,"""Sales Partner-pan""",Sales Partner,Text,PAN,partner_type,,,Enter the Permanent Account Number for TDS,pan,0,0,0,0,0,,,0,,0,1,0,0,0,0,25-04-2016 11:05
-,"""Sales Partner-user""",Sales Partner,Link,User,,,User,,user,0,0,1,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05
-,"""Sales Taxes and Charges Master-letter_head""",Sales Taxes and Charges Template,Link,Letter Head,company,,Letter Head,,letter_head,0,1,0,0,0,,,0,,0,0,0,0,0,0,30-08-2012 18:39
+Yes",Whether the item is Mentioned on Price List and Catalog and inherently this item would also show on the Website if this field is Selected as Yes.,pl_item,1,0,0,0,0,,No,0,,0,1,0,0,0,0,13-10-2015 18:46:00
+,"""Item-item_variant_restrictions""",Item,Table,Item Variant Restrictions,attributes,,Item Variant Restrictions,,item_variant_restrictions,9,0,0,0,0,,,0,eval: doc.has_variants,0,0,0,0,0,0,25-04-2016 11:05:57
+,"""Item Attribute-column_break_1""",Item Attribute,Column Break,,,,,,column_break_1,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:40
+,"""Item Attribute-hidden""",Item Attribute,Check,Hidden,,,,,hidden,0,0,0,0,0,,,0,eval:!doc.virtual,0,0,0,0,1,0,25-04-2016 11:05:41
+,"""Item Attribute-relation""",Item Attribute,Dynamic Link,Relation,hidden,,source,,relation,0,0,0,0,0,,,0,eval:doc.hidden,0,0,0,0,0,0,25-04-2016 11:05:42
+,"""Item Attribute-source""",Item Attribute,Link,Source,relation,,DocType,,source,0,0,0,0,0,,,0,eval:doc.virtual,0,0,0,0,0,0,25-04-2016 11:05:43
+,"""Item Attribute-update_from""",Item Attribute,Link,Update From,source,,Item Attribute,,update_from,0,0,0,0,0,,,0,eval:doc.hidden,0,0,0,0,0,0,25-04-2016 11:05:44
+,"""Item Attribute-use_in_item_code""",Item Attribute,Check,Use in Item Code,update_from,,,,use_in_item_code,0,0,0,0,0,,1,0,eval:!doc.numeric_values,0,0,0,0,1,0,25-04-2016 11:05:45
+,"""Item Attribute-virtual""",Item Attribute,Check,Virtual,use_in_item_code,,,,virtual,0,0,0,0,0,,,0,,0,0,0,0,1,0,25-04-2016 11:05:46
+,"""Item Attribute Value-description""",Item Attribute Value,Text,Description,abbr,,,,description,0,1,0,0,0,,,0,,0,0,0,0,1,0,25-04-2016 11:05:44
+,"""Item Attribute Value-long_description""",Item Attribute Value,Text,Long Description,description,,,,long_description,0,1,0,0,0,,,0,,0,0,0,0,1,0,25-04-2016 11:05:45
+,"""Item Attribute Value-serial""",Item Attribute Value,Data,Serial,long_description,,,,serial,0,1,0,1,0,,1,0,,0,0,0,0,0,0,25-04-2016 11:05:46
+,"""Item Variant Attribute-use_in_description""",Item Variant Attribute,Check,Use in Description,,,,,use_in_description,0,0,0,0,0,,1,0,,0,0,0,0,0,0,25-04-2016 11:05:40
+,"""Item Variant Attribute-prefix""",Item Variant Attribute,Text,Prefix,attribute,,,,prefix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,1,0,25-04-2016 11:05:41
+,"""Item Variant Attribute-cb""",Item Variant Attribute,Column Break,,prefix,,,,cb,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:42
+,"""Item Variant Attribute-field_name""",Item Variant Attribute,Data,Field Name,cb,,,,field_name,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,0,0,25-04-2016 11:05:43
+,"""Item Variant Attribute-suffix""",Item Variant Attribute,Text,Suffix,field_name,,,,suffix,0,0,0,0,0,,,0,eval:parent.has_variants,0,0,0,0,1,0,25-04-2016 11:05:44
+,"""Salary Component-is_earning""",Salary Component,Check,Is Earning,description,,,,is_earning,0,0,0,0,0,,,0,eval:doc.is_deduction == 0 && doc.is_contribution == 0,0,0,0,0,0,0,30-07-2016 11:30:34
+,"""Salary Component-is_contribution""",Salary Component,Check,Is Contribution,is_deduction,,,,is_contribution,0,0,0,0,0,,,0,eval:doc.is_deduction == 0 && doc.is_earning == 0,0,0,0,0,0,0,30-07-2016 11:30:35
+,"""Salary Component-is_deduction""",Salary Component,Check,Is Deduction,is_earning,,,,is_deduction,0,0,0,0,0,,,0,eval:doc.is_earning == 0 && doc.is_contribution == 0,0,0,0,0,0,0,30-07-2016 11:30:35
+,"""Salary Component-only_for_deductions""",Salary Component,Check,Only for Deductions,is_contribution,,,,only_for_deductions,0,0,0,0,0,,,0,eval:doc.is_earning == 1 && doc.based_on_earning != 1,0,0,0,0,0,0,30-07-2016 11:45:57
+,"""Salary Component-based_on_earning""",Salary Component,Check,Based on Earning,only_for_deductions,,,,based_on_earning,0,0,0,0,0,,,0,eval:doc.is_earning == 1 && doc.only_for_deductions != 1,0,0,0,0,0,0,30-07-2016 12:01:14
+,"""Salary Component-earning""",Salary Component,Link,Earning,books,,Salary Component,,earning,0,0,0,0,0,,,0,eval:doc.based_on_earning == 1,0,0,0,0,0,0,30-07-2016 12:01:14
+,"""Salary Component-depends_on_lwp""",Salary Component,Check,Depends on LWP,based_on_earning,,,,depends_on_lwp,0,0,0,0,0,,,0,eval:doc.is_earning == 1 || doc.is_deduction == 1,0,0,0,0,0,0,30-07-2016 12:40:13
+,"""Salary Component-books""",Salary Component,Check,Books,depends_on_lwp,,,,books,0,0,0,0,0,,,0,eval:doc.is_earning == 1 || doc.is_deduction == 1,0,0,0,0,0,0,30-07-2016 12:43:16
+,"""Salary Component-account""",Salary Component,Link,Account,earning,,Account,,account,0,0,0,0,0,,,0,eval:doc.only_for_deductions != 1 && (doc.is_earning == 1 || doc.is_deduction == 1 || doc.is_contribution == 1),0,0,0,0,0,0,30-07-2016 12:58:49
+,"""Salary Component-sb0""",Salary Component,Section Break,Deductions and Contributions,liability_account,,,,sb0,0,0,0,0,0,,,0,eval:doc.only_for_deductions == 1,0,0,0,0,0,0,30-07-2016 13:08:13
+,"""Salary Component-deduction_contribution_formula""",Salary Component,Table,Deduction Contribution Formula,sb0,,Deduction Contribution Formula,,deduction_contribution_formula,0,0,0,0,0,,,0,,0,0,0,0,0,0,30-07-2016 13:08:13
+,"""Salary Component-liability_account""",Salary Component,Link,Liability Account,account,,Account,,liability_account,0,0,0,0,0,,,0,eval:doc.is_contribution == 1,0,0,0,0,0,0,30-07-2016 15:10:40
+,"""Salary Slip-total_overtime""",Salary Slip,Float,Total Overtime,totals,,,,total_overtime,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:34
+,"""Salary Slip-unauthorized_leaves""",Salary Slip,Int,Unauthorized Leaves,total_overtime,,,,unauthorized_leaves,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:35
+,"""Salary Slip-overtime_deducted""",Salary Slip,Float,Overtime Deducted,column_break_25,,,,overtime_deducted,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:35
+,"""Salary Slip-posting_date""",Salary Slip,Date,Posting Date,column_break0,,,,posting_date,0,1,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:14
+,"""Salary Slip-contribution""",Salary Slip,Section Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
+,"""Salary Slip-contributions""",Salary Slip,Table,Contributions,contribution,,Salary Detail,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
+,"""Salary Slip-total_ctc""",Salary Slip,Currency,Total CTC,unauthorized_leaves,,,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
+,"""Salary Slip-payment_days_for_deductions""",Salary Slip,Float,Payment Days for Deductions,company,,,"Use this field to match the deductions and contributions for ESI, ideally it should be equal to Payment days but can be different due to adjustment of leaves.\",payment_days_for_deductions,0,1,0,0,0,,,0,,0,0,0,0,0,0,28-04-2016 18:35:20
+,"""Salary Slip-change_deductions""",Salary Slip,Check,Change Deductions,payment_days_for_deductions,,,,change_deductions,0,0,0,0,0,,,0,,0,0,0,0,0,0,14-05-2016 13:13:29
+,"""Salary Structure-contribution""",Salary Structure,Section Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:10
+,"""Salary Structure-contributions""",Salary Structure,Table,Contributions,contribution,,Salary Detail,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:11
+,"""Salary Structure-total_ctc""",Salary Structure,Currency,Total CTC,net_pay,,Company:company:default_currency,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:12
+,"""Salary Structure-total_contribution""",Salary Structure,Currency,Total Contribution,total_deduction,,Company:company:default_currency,,total_contribution,0,0,0,1,0,,,0,,0,0,0,0,0,0,31-07-2016 16:56:12
+,"""Sales Partner-pan""",Sales Partner,Text,PAN,partner_type,,,Enter the Permanent Account Number for TDS,pan,0,0,0,0,0,,,0,,0,1,0,0,0,0,25-04-2016 11:05:56
+,"""Sales Partner-user""",Sales Partner,Link,User,,,User,,user,0,0,1,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:57
+,"""Sales Taxes and Charges Master-letter_head""",Sales Taxes and Charges Template,Link,Letter Head,company,,Letter Head,,letter_head,0,1,0,0,0,,,0,,0,0,0,0,0,0,30-08-2012 18:39:55
 ,"""Sales Taxes and Charges Master-c_form_applicable""",Sales Taxes and Charges Template,Select,C Form Applicable,disabled,,"No
-Yes",,c_form_applicable,0,1,0,0,0,,,0,,0,1,0,0,0,0,03-09-2014 16:36
+Yes",,c_form_applicable,0,1,0,0,0,,,0,,0,1,0,0,0,0,03-09-2014 16:36:40
 ,"""Sales Taxes and Charges Template-series""",Sales Taxes and Charges Template,Select,Series,c_form_applicable,,"AD
 OG
 RB
 RBJ
-RU",Match with the Sereis Selected in the Invoice,series,0,0,0,0,0,,,0,,0,1,0,0,0,0,23-11-2015 12:50
+RU",Match with the Sereis Selected in the Invoice,series,0,0,0,0,0,,,0,,0,1,0,0,0,0,23-11-2015 12:50:41
 ,"""ToDo-type""",ToDo,Select,Type,reference_name,,"General
 C-Form Reminder
 Payment Reminder
-Sales Related",,type,0,0,0,1,0,,,0,,0,0,0,0,0,0,24-07-2016 02:18
-,"""UOM-uoms""",UOM,Table,UOMS,,,UOM Conversion Detail,,uoms,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05
+Sales Related",,type,0,0,0,1,0,,,0,,0,0,0,0,0,0,24-07-2016 02:18:25
+,"""UOM-uoms""",UOM,Table,UOMS,,,UOM Conversion Detail,,uoms,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:53
