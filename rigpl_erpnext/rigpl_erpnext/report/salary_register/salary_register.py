@@ -117,30 +117,30 @@ def get_columns(salary_slips, filters):
 			_("Department") + "::80", _("Designation") + "::80",
 		]
 	if filters.get("bank_only") == 1 or filters.get("summary") == 1:
-		earning_types = frappe.db.sql_list("""SELECT DISTINCT sse.e_type 
-			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
-			WHERE sse.e_modified_amount != 0 AND sse.e_type = et.name AND et.books= 1 
-			AND sse.parent in (%s)
+		earning_types = frappe.db.sql_list("""SELECT DISTINCT sse.salary_component 
+			FROM `tabSalary Detail` sse, `tabSalary Component` et
+			WHERE sse.amount != 0 AND sse.salary_component = et.name AND et.books= 1
+			AND et.is_earning = 1 AND sse.parent in (%s)
 			ORDER BY sse.idx""" % 
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
 			
-		ded_types = frappe.db.sql_list("""select DISTINCT ssd.d_type 
-			FROM `tabSalary Slip Deduction` ssd, `tabDeduction Type` dt
-			WHERE ssd.d_modified_amount != 0 AND dt.name = ssd.d_type 
-			AND dt.books = 1 AND ssd.parent in (%s)
+		ded_types = frappe.db.sql_list("""select DISTINCT ssd.salary_component 
+			FROM `tabSalary Detail` ssd, `tabSalary Component` dt
+			WHERE ssd.amount != 0 AND dt.name = ssd.salary_component 
+			AND dt.books = 1 AND dt.is_deduction = 1 AND ssd.parent in (%s)
 			ORDER BY ssd.idx""" % 
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
 	else:
-		earning_types = frappe.db.sql_list("""SELECT DISTINCT sse.e_type 
-			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
-			WHERE sse.e_modified_amount != 0 AND sse.e_type = et.name AND et.books= 0
-			AND sse.parent in (%s)
+		earning_types = frappe.db.sql_list("""SELECT DISTINCT sse.salary_component 
+			FROM `tabSalary Detail` sse, `tabSalary Component` et
+			WHERE sse.amount != 0 AND sse.salary_component = et.name AND et.books= 0
+			AND et.is_earning = 1 AND sse.parent in (%s)
 			ORDER BY sse.idx""" % 
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))
 			
-		ded_types = frappe.db.sql_list("""select DISTINCT ssd.d_type 
-			FROM `tabSalary Slip Deduction` ssd, `tabDeduction Type` dt
-			WHERE ssd.d_modified_amount != 0 AND dt.name = ssd.d_type 
+		ded_types = frappe.db.sql_list("""select DISTINCT ssd.salary_component 
+			FROM `tabSalary Detail` ssd, `tabSalary Component` dt
+			WHERE ssd.amount != 0 AND dt.name = ssd.salary_component AND dt.is_deduction = 1
 			AND ssd.parent in (%s)
 			ORDER BY ssd.idx""" % 
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))		
@@ -190,44 +190,47 @@ def get_salary_slips(filters, conditions_ss, emp_lst):
 	
 def get_ss_earning_map(salary_slips, filters):
 	if filters.get("bank_only") == 1:
-		ss_earnings = frappe.db.sql("""SELECT sse.parent, sse.e_type, sse.e_modified_amount
-			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
-			WHERE et.name = sse.e_type AND et.books = 1 AND sse.parent in (%s)""" %
+		ss_earnings = frappe.db.sql("""SELECT sse.parent, sse.salary_component, sse.amount
+			FROM `tabSalary Detail` sse, `tabSalary Component` et
+			WHERE et.name = sse.salary_component AND et.books = 1 
+			AND et.is_earning = 1 AND sse.parent in (%s)""" %
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
 	
 	elif filters.get("summary")== 1:
-		ss_earnings = frappe.db.sql("""SELECT sse.parent, sse.e_type, sse.e_modified_amount
-			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
-			WHERE et.name = sse.e_type AND et.books = 1 AND sse.parent in (%s)""" %
+		ss_earnings = frappe.db.sql("""SELECT sse.parent, sse.salary_component, sse.amount
+			FROM `tabSalary Detail` sse, `tabSalary Component` et
+			WHERE et.name = sse.salary_component AND et.books = 1 AND 
+			et.is_earning = 1 AND sse.parent in (%s)""" %
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
 	else:
-		ss_earnings = frappe.db.sql("""SELECT sse.parent, sse.e_type, sse.e_modified_amount
-			FROM `tabSalary Slip Earning` sse, `tabEarning Type` et
-			WHERE et.name = sse.e_type AND et.books = 0 AND sse.parent in (%s)""" %
+		ss_earnings = frappe.db.sql("""SELECT sse.parent, sse.salary_component, sse.amount
+			FROM `tabSalary Detail` sse, `tabSalary Component` et
+			WHERE et.name = sse.salary_component AND et.books = 0 
+			AND et.is_earning = 1 AND sse.parent in (%s)""" %
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
 
 	ss_earning_map = {}
 	for d in ss_earnings:
-		ss_earning_map.setdefault(d.parent, frappe._dict()).setdefault(d.e_type, [])
-		if ss_earning_map[d.parent][d.e_type]:
-			ss_earning_map[d.parent][d.e_type] += flt(d.e_modified_amount)
+		ss_earning_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
+		if ss_earning_map[d.parent][d.salary_component]:
+			ss_earning_map[d.parent][d.salary_component] += flt(d.amount)
 		else:
-			ss_earning_map[d.parent][d.e_type] = flt(d.e_modified_amount)
+			ss_earning_map[d.parent][d.salary_component] = flt(d.amount)
 
 	return ss_earning_map
 
 def get_ss_ded_map(salary_slips):
-	ss_deductions = frappe.db.sql("""select parent, d_type, d_modified_amount
-		from `tabSalary Slip Deduction` where parent in (%s)""" %
+	ss_deductions = frappe.db.sql("""select parent, salary_component, amount
+		from `tabSalary Detail` where parent in (%s)""" %
 		(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
 	#frappe.throw(ss_deductions)
 	ss_ded_map = {}
 	for d in ss_deductions:
-		ss_ded_map.setdefault(d.parent, frappe._dict()).setdefault(d.d_type, [])
-		if ss_ded_map[d.parent][d.d_type]:
-			ss_ded_map[d.parent][d.d_type] += flt(d.d_modified_amount)
+		ss_ded_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
+		if ss_ded_map[d.parent][d.salary_component]:
+			ss_ded_map[d.parent][d.salary_component] += flt(d.amount)
 		else:
-			ss_ded_map[d.parent][d.d_type] = flt(d.d_modified_amount)
+			ss_ded_map[d.parent][d.salary_component] = flt(d.amount)
 	#frappe.throw(ss_ded_map)
 	
 	return ss_ded_map

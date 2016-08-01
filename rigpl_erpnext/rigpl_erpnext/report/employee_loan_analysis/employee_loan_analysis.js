@@ -35,5 +35,10 @@ frappe.query_reports["Employee Loan Analysis"] = {
 			"default": frappe.datetime.get_today(),
 			"reqd": 1
 		},
+		{
+			"fieldname":"details",
+			"label": "Details",
+			"fieldtype": "Check"
+		},
 	]
 }

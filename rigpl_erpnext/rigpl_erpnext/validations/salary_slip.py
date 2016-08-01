@@ -17,7 +17,7 @@ def on_submit(doc,method):
 		if i.expense_claim:
 			ec = frappe.get_doc("Expense Claim", i.expense_claim)
 			frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", \
-				i.e_modified_amount)
+				i.amount)
 
 			
 
@@ -76,6 +76,10 @@ def validate(doc,method):
 	
 	paydays = tpres + (t_hd/2) + plw + math.ceil((tpres+(t_hd/2))/wd * holidays)
 	pd_ded = flt(doc.payment_days_for_deductions)
+	doc.payment_days = paydays
+	
+	if doc.change_deductions == 0:
+		doc.payment_days_for_deductions = doc.payment_days
 	
 	doc.unauthorized_leaves = ual 
 	
@@ -84,39 +88,39 @@ def validate(doc,method):
 		ot_ded = (int(t_ot/8))*8
 	doc.overtime_deducted = ot_ded
 	d_ual = int(ot_ded/8)
+	
 	#Calculate Earnings
 	chk_ot = 0 #Check if there is an Overtime Rate
 	for d in doc.earnings:
-		if d.e_type == "Overtime Rate":
+		if d.salary_component == "Overtime Rate":
 			chk_ot = 1
 			
 	for d in doc.earnings:
-		earn = frappe.get_doc("Earning Type", d.e_type)
+		earn = frappe.get_doc("Salary Component", d.salary_component)
 		if earn.depends_on_lwp == 1:
-			d.e_depends_on_lwp = 1
+			d.depends_on_lwp = 1
 		else:
-			d.e_depends_on_lwp = 0
-			
-		if earn.based_on_overtime:
+			d.depends_on_lwp = 0
+		
+		if earn.based_on_earning:
 			for d2 in doc.earnings:
 				#Calculate Overtime Value
-				if earn.overtime_rate == d2.e_type:
-					d.e_amount = flt(d2.e_amount) * t_ot
-					d.e_modified_amount = flt(d2.e_amount) * (t_ot - ot_ded)
+				if earn.earning == d2.salary_component:
+					d.default_amount = flt(d2.amount) * t_ot
+					d.amount = flt(d2.amount) * (t_ot - ot_ded)
 		else:
-			if d.e_depends_on_lwp == 1:
+			if d.depends_on_lwp == 1 and earn.books == 0:
 				if chk_ot == 1:
-					d.e_modified_amount = round(flt(d.e_amount) * (paydays+d_ual)/tdim,0)
+					d.amount = round(flt(d.default_amount) * (paydays+d_ual)/tdim,0)
 				else:
-					d.e_modified_amount = round(flt(d.e_amount) * (paydays)/tdim,0)
+					d.amount = round(flt(d.default_amount) * (paydays)/tdim,0)
+			elif d.depends_on_lwp == 1 and earn.books == 1:
+				d.amount = round(flt(d.default_amount) * flt(doc.payment_days_for_deductions)/ tdim,0)
 			else:
-				d.e_modified_amount = d.e_amount
+				d.amount = d.default_amount
 		
 		if earn.only_for_deductions <> 1:
-			gross_pay += flt(d.e_modified_amount)
-		else:
-			if d.e_type <> "Overtime Rate":
-				d.e_modified_amount = round(flt(d.e_amount) * pd_ded/tdim,0)
+			gross_pay += flt(d.amount)
 
 	if gross_pay < 0:
 		doc.arrear_amount = -1 * gross_pay
@@ -124,41 +128,37 @@ def validate(doc,method):
 	
 	#Calculate Deductions
 	for d in doc.deductions:
-		deduct = frappe.get_doc("Deduction Type", d.d_type)
-		if deduct.based_on_earning:
-			d.d_modified_amount = 0
-			for e in doc.earnings:
-				en = frappe.get_doc("Earning Type", e.e_type)
-				if en.only_for_deductions == 1:
-					for link in en.deduction_table:
-						if link.deduction_type == d.d_type:
-							d.d_modified_amount += round((flt(e.e_modified_amount) * link.percentage/100),0)
-		else:
-			if deduct.based_on_lwp == 1:
-					d.d_modified_amount = round((flt(d.d_amount) * flt(doc.payment_days_for_deductions)/tdim),0)
-			else:
-				if d.d_type <> "Loan Deduction":
-					d.d_modified_amount = d.d_amount
-		tot_ded +=d.d_modified_amount
+		#Check if deduction is in any earning's formula
+		chk = 0
+		for e in doc.earnings:
+			earn = frappe.get_doc("Salary Component", e.salary_component)
+			for form in earn.deduction_contribution_formula:
+				if d.salary_component == form.salary_component:
+					chk = 1
+					d.amount = 0
+		for e in doc.earnings:
+			earn = frappe.get_doc("Salary Component", e.salary_component)
+			for form in earn.deduction_contribution_formula:
+				if d.salary_component == form.salary_component:
+					d.amount += flt(e.amount) * flt(form.percentage)/100
+		d.amount = round(d.amount,0)
+		tot_ded +=d.amount
 	
 	#Calculate Contributions
 	for c in doc.contributions:
-		cont = frappe.get_doc("Contribution Type", c.contribution_type)
-		if cont.based_on_earning:
-			c.modified_amount = 0
-			for e in doc.earnings:
-				en = frappe.get_doc("Earning Type", e.e_type)
-				if en.only_for_deductions == 1:
-					for link in en.contribution_table:
-						if link.contribution_type == c.contribution_type:
-							c.modified_amount += round((flt(e.e_modified_amount) * link.percentage/100),0)
-		tot_cont += c.modified_amount
+		#Check if contribution is in any earning's formula
+		chk = 0
+		for e in doc.earnings:
+			earn = frappe.get_doc("Salary Component", e.salary_component)
+			for form in earn.deduction_contribution_formula:
+				if c.salary_component == form.salary_component:
+					chk = 1
+		if chk == 1:
+			c.amount = round((flt(c.default_amount) * flt(doc.payment_days_for_deductions)/tdim),0)
+		tot_cont += c.amount
 	
 	doc.gross_pay = gross_pay
 	doc.total_deduction = tot_ded
-	doc.payment_days = paydays
-	if doc.change_deductions == 0:
-		doc.payment_days_for_deductions = doc.payment_days
 	doc.net_pay = doc.gross_pay - doc.total_deduction
 	doc.rounded_total = myround(doc.net_pay, 10)
 		
@@ -248,8 +248,8 @@ def get_loan_deduction(doc,method, msd, med):
 		total_loan = i[4]
 		if i[0] not in existing_loan:
 			#Check if the loan has already been deducted
-			query = """SELECT SUM(ssd.d_modified_amount) 
-				FROM `tabSalary Slip Deduction` ssd, `tabSalary Slip` ss
+			query = """SELECT SUM(ssd.amount) 
+				FROM `tabSalary Detail` ssd, `tabSalary Slip` ss
 				WHERE ss.docstatus = 1 AND
 					ssd.parent = ss.name AND
 					ssd.employee_loan = '%s' and ss.employee = '%s'""" %(i[0], doc.employee)
@@ -261,13 +261,13 @@ def get_loan_deduction(doc,method, msd, med):
 				balance = flt(total_loan) - flt(deducted_amount[0][0])
 				if balance > emi:
 					doc.append("deductions", {
-						"idx": len(doc.deductions)+1, "d_depends_on_lwp": 0, "d_modified_amount": emi, \
-						"employee_loan": i[0], "d_type": i[3], "d_amount": emi
+						"idx": len(doc.deductions)+1, "depends_on_lwp": 0, "default_amount": emi, \
+						"employee_loan": i[0], "salary_component": i[3], "amount": emi
 					})
 				else:
 					doc.append("deductions", {
-						"idx": len(doc.deductions)+1, "d_depends_on_lwp": 0, "d_modified_amount": balance, \
-						"employee_loan": i[0], "d_type": i[3], "d_amount": balance
+						"idx": len(doc.deductions)+1, "d_depends_on_lwp": 0, "default_amount": balance, \
+						"employee_loan": i[0], "salary_component": i[3], "amount": balance
 					})
 	for d in doc.deductions:
 		if d.employee_loan:
@@ -276,12 +276,12 @@ def get_loan_deduction(doc,method, msd, med):
 				WHERE eld.parent = el.name AND eld.employee = '%s' 
 				AND el.name = '%s'"""%(doc.employee, d.employee_loan), as_list=1)
 			
-			deducted = frappe.db.sql("""SELECT SUM(ssd.d_modified_amount) 
-				FROM `tabSalary Slip Deduction` ssd, `tabSalary Slip` ss
+			deducted = frappe.db.sql("""SELECT SUM(ssd.amount) 
+				FROM `tabSalary Detail` ssd, `tabSalary Slip` ss
 				WHERE ss.docstatus = 1 AND ssd.parent = ss.name 
 				AND ssd.employee_loan = '%s' and ss.employee = '%s'"""%(d.employee_loan, doc.employee), as_list=1)
 			balance = flt(total_given[0][0]) - flt(deducted[0][0])
-			if balance < d.d_modified_amount:
+			if balance < d.amount:
 				frappe.throw(("Max deduction allowed {0} for Loan Deduction {1} \
 				check row # {2} in Deduction Table").format(balance, d.employee_loan, d.idx))
 
@@ -296,7 +296,6 @@ def get_expense_claim(doc,method):
 	
 	
 	ec_list = frappe.db.sql(query, as_list=1)
-
 	for i in ec_list:
 		existing_ec = []
 		for e in doc.earnings:
@@ -305,8 +304,8 @@ def get_expense_claim(doc,method):
 		if i[0] not in existing_ec:
 			#Add earning claim for each EC separately:
 			doc.append("earnings", {
-				"idx": len(doc.earnings)+1, "e_depends_on_lwp": 0, "e_modified_amount": (i[2]-i[3]), \
-				"expense_claim": i[0], "e_type": "Expense Claim", "e_amount": (i[2]- i[3])
+				"idx": len(doc.earnings)+1, "depends_on_lwp": 0, "default_amount": (i[2]-i[3]), \
+				"expense_claim": i[0], "salary_component": "Expense Claim", "amount": (i[2]- i[3])
 			})
 
 def get_edc(doc,method):
@@ -335,13 +334,33 @@ def get_edc(doc,method):
 		frappe.throw("No active Salary Structure for this period")
 		
 	contri_amount = 0
-	doc.contributions = []
-	existing_ded = []
-	
 
-			
+	existing_ded = []
+	existing_earn = []
+	existing_cont = []
+	
+	dict = {}	
 	for d in doc.deductions:
-		existing_ded.append(d.d_type)
+		dict['salary_component'] = d.salary_component
+		dict['idx'] = d.idx
+		dict['default_amount'] = d.default_amount
+		existing_ded.append(dict.copy())
+	
+	dict = {}
+	for e in doc.earnings:
+		dict['salary_component'] = e.salary_component
+		dict['idx'] = e.idx
+		dict['default_amount'] = e.default_amount
+		existing_earn.append(dict.copy())
+	
+	dict = {}
+	for c in doc.contributions:
+		dict['salary_component'] = c.salary_component
+		dict['idx'] = c.idx
+		dict['default_amount'] = c.default_amount
+		existing_cont.append(dict.copy())
+	
+	doc.contributions = []
 	
 	earn = 0
 	#Update Earning Table if the Earning table is empty
@@ -349,23 +368,24 @@ def get_edc(doc,method):
 		pass
 	else:
 		earn = 1
-		
-	for e in doc.earnings:
-		found = 0
-		for ess in sstr.earnings:
-			if e.e_type == ess.e_type and e.idx == ess.idx and found== 0:
-				found = 1
-		if found == 0 and earn == 0:
-			if e.e_type <> "Expense Claim":
-				earn = 1
+	
+	chk = 0
+	for e in  sstr.earnings:
+		for ern in doc.earnings:
+			if e.salary_component == ern.salary_component and e.idx == ern.idx:
+				chk = 1
+		if chk == 0:
+			doc.earnings = []
+			get_from_str(doc, method)
+			
 	
 	if earn == 1:
 		doc.earnings = []
 		for e in sstr.earnings:
 			doc.append("earnings",{
-				"e_type": e.e_type,
-				"e_amount": e.modified_value,
-				"e_modified_amount": e.modified_value,
+				"salary_component": e.salary_component,
+				"default_amount": e.amount,
+				"amount": e.amount,
 				"idx": e.idx
 			})
 			
@@ -378,35 +398,38 @@ def get_edc(doc,method):
 	for d in doc.deductions:
 		found = 0
 		for dss in sstr.deductions:
-			if d.d_type == dss.d_type and d.idx == dss.idx and found == 0:
+			if d.salary_component == dss.salary_component and d.idx == dss.idx and found == 0:
 				found = 1
 		if found == 0 and ded == 0:
-			if d.d_type <> "Loan Deduction":
+			if d.salary_component <> "Loan Deduction":
 				ded = 1
 				
 	if ded == 1:
 		doc.deductions = []
 		for d in sstr.deductions:
 			doc.append("deductions",{
-				"d_type": d.d_type,
-				"d_amount": d.d_modified_amt,
-				"d_modified_amount": d.d_modified_amt,
+				"salary_component": d.salary_component,
+				"default_amount": d.amount,
+				"amount": d.amount,
 				"d.idx": d.idx
 			})
 	
 	for c in sstr.contributions:
-		contri = frappe.get_doc("Contribution Type", c.contribution_type)
-		if contri.based_on_earning == 1:
-			for e in doc.earnings:
-				if contri.earning == e.e_type:
-					contri_amount = round(contri.percentage * e.e_modified_amount/100,0)
+		contri = frappe.get_doc("Salary Component", c.salary_component)
+		for e in doc.earnings:
+			earn = frappe.get_doc("Salary Component", e.salary_component)
+			for cont in earn.deduction_contribution_formula:
+				if c.salary_component == cont.salary_component:
+					contri_amount += round(cont.percentage * e.amount/100,0)
 			
 		doc.append("contributions",{
-			"contribution_type": c.contribution_type,
+			"salary_component": c.salary_component,
 			"default_amount": c.amount,
-			"modified_amount": contri_amount
+			"amount": contri_amount
 			})
-		
+
+def get_from_str(doc,method):
+	pass	
 def myround(x, base=5):
     return int(base * round(float(x)/base))
 

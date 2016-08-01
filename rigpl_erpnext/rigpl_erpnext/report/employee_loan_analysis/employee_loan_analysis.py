@@ -9,9 +9,11 @@ def execute(filters=None):
 
 	columns = get_columns(filters)
 	emp_map = get_employee_details(filters)
-	open_ded = get_opening(filters)[0]
-	open_loan = get_opening(filters)[1]
+	#frappe.msgprint(str(emp_map))
+	open_ded, open_loan = get_opening(filters)
+	#frappe.msgprint(str(open_ded))
 	loan_given_map = loan_given(filters)
+	#frappe.msgprint(str(loan_given_map))
 	ss_ded = loan_deducted(filters)
 	
 	data = []
@@ -39,19 +41,38 @@ def execute(filters=None):
 			lg = 0
 		ob = ol - od
 		cb = ob + lg - ded
-		if ol > 0 or od > 0 or lg > 0 or ded > 0:
-			row = [emp, emp_det.employee_name, ol, od, ob, lg, ded, cb]
+		if filters.get("details") <> 1:
+			if ob>0 or lg>0 or ded>0 or cb>0:
+				row = [emp, emp_det.employee_name, ob, lg, ded, cb]
+				data.append(row)
+				data.sort()
+		
+	if filters.get("details") == 1:
+		details = get_details(filters)
+		row = [filters.get("from_date"), "", "Opening Balance", (ol - od), 0,"", ""]
+		data.append(row)
+		for i in details:
+			row = [i[0],emp, emp_det.employee_name, i[1], i[2], i[3], i[4]]
 			data.append(row)
-			data.sort()
+		row = [filters.get("to_date"), "", "Closing Balance", cb, 0, "", ""]
+		data.append(row)
+		row = [filters.get("to_date"), "", "Adjust", -1*cb, 0, "", ""]
+		data.append(row)
 
 	return columns, data
 
 def get_columns(filters):
-	return [
-		"Employee:Link/Employee:100", "Employee Name::180", "Loan Opening:Currency:100",
-		"Deductions Opening:Currency:100", "Balance Opening:Currency:100", 
-		"Given Loan:Currency:100", "Loan Deducted:Currency:100", "Balance Closing:Currency:100"
+	if filters.get("details") == 1:
+		return [
+		"Posting Date:Date:80", "Employee:Link/Employee:100", "Employee Name::180", 
+		"Loan Given:Currency:100", "Loan Deducted:Currency:100", 
+		"Document::120", "Document Number:Dynamic Link/Document:150"
 		]
+	else:
+		return [
+			"Employee:Link/Employee:100", "Employee Name::180", "Opening Balance:Currency:100", 
+			"Loan Given:Currency:100", "Loan Deducted:Currency:100", "Closing Balance:Currency:100"
+			]
 def get_employee_details(filters):
 	conditions_emp = get_conditions(filters)[0]
 	emp_map = frappe._dict()
@@ -67,12 +88,14 @@ def get_opening(filters):
 	open_ded = frappe._dict()
 	open_loan = frappe._dict()
 	
-	for d in frappe.db.sql("""SELECT ss.employee, SUM(ssd.d_modified_amount) as op_ded
-		FROM `tabSalary Slip` ss, `tabSalary Slip Deduction` ssd
+	dict = frappe.db.sql("""SELECT ss.employee, SUM(ssd.amount) as op_ded
+		FROM `tabSalary Slip` ss, `tabSalary Detail` ssd
 		WHERE ss.name = ssd.parent AND ss.docstatus =1 AND ssd.employee_loan IS NOT NULL
 		AND ss.posting_date < '%s'
-		GROUP BY ss.employee""" %filters["from_date"], as_dict=1):
+		GROUP BY ss.employee""" %filters["from_date"], as_dict=1)
+	for d in dict:
 		open_ded.setdefault(d.employee, d)
+	
 	
 	for d in frappe.db.sql("""SELECT eld.employee, SUM(eld.loan_amount) as op_loan
 		FROM `tabEmployee Loan` el, `tabEmployee Loan Detail` eld
@@ -86,8 +109,8 @@ def get_opening(filters):
 def loan_deducted(filters):
 	conditions_ss = get_conditions(filters)[2]
 	ss_ded = frappe._dict()
-	for d in frappe.db.sql("""SELECT ss.employee, SUM(ssd.d_modified_amount) as loan_ded
-		FROM `tabSalary Slip` ss, `tabSalary Slip Deduction` ssd
+	for d in frappe.db.sql("""SELECT ss.employee, SUM(ssd.amount) as loan_ded
+		FROM `tabSalary Slip` ss, `tabSalary Detail` ssd
 		WHERE ss.name = ssd.parent AND ss.docstatus = 1 AND ssd.employee_loan IS NOT NULL %s
 		GROUP BY ss.employee""" %conditions_ss, as_dict=1):
 		ss_ded.setdefault(d.employee,d)
@@ -104,6 +127,25 @@ def loan_given(filters):
 
 	return loan_given_map
 
+def get_details(filters):
+	conditions_emp, conditions_el, conditions_ss = get_conditions(filters)
+	loan = frappe.db.sql("""SELECT el.posting_date, eld.loan_amount, 0, 'Employee Loan', el.name
+		FROM `tabEmployee Loan` el, `tabEmployee Loan Detail` eld
+		WHERE eld.parent = el.name AND el.docstatus = 1 AND 
+			eld.employee = '%s' %s ORDER BY el.posting_date""" \
+		%(filters.get("employee"), conditions_el), as_list=1)
+		
+	ded = frappe.db.sql("""SELECT ss.posting_date, 0, SUM(ssd.amount), 'Salary Slip', ss.name
+		FROM `tabSalary Slip` ss, `tabSalary Detail` ssd
+		WHERE ssd.parent = ss.name AND ss.docstatus = 1 AND 
+			ssd.employee_loan IS NOT NULL AND ss.employee = '%s' %s
+		GROUP BY ss.name ORDER BY ss.posting_date""" \
+		%(filters.get("employee"), conditions_ss), as_list=1)
+	
+	details = sorted(loan + ded)
+	
+	return details
+	
 def get_conditions(filters):
 	conditions_emp = ""
 	conditions_el = ""
@@ -126,5 +168,10 @@ def get_conditions(filters):
 		conditions_el += " AND el.posting_date <='%s'" % filters["to_date"]
 		conditions_ss += " AND ss.posting_date <='%s'" % filters["to_date"]
 		
+	if filters.get("details"):
+		if filters.get("employee"):
+			pass
+		else:
+			frappe.throw("Please select an Employee for getting Loan Details")
 		
 	return conditions_emp, conditions_el, conditions_ss

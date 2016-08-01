@@ -118,6 +118,9 @@ doc_events = {
 	"Opportunity":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
 	},
+	"Salary Component":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_component.validate"
+	},
 	"Salary Structure":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
 	},
