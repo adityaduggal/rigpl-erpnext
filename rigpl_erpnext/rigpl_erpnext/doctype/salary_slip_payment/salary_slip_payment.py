@@ -111,21 +111,21 @@ class SalarySlipPayment(Document):
 			leave = ss.leave_encashment_amount
 			add = 0
 			for e in ss.earnings:
-				etype = frappe.get_doc("Earning Type", e.e_type)
+				etype = frappe.get_doc("Salary Component", e.salary_component)
 				if e.expense_claim is None and etype.only_for_deductions ==0:
 					if etype.account in earn_dict:
-						earn_dict[etype.account] += e.e_modified_amount
+						earn_dict[etype.account] += e.amount
 						if add == 0:
 							earn_dict[etype.account] += arrear + leave
 							add = 1
 					else:
-						earn_dict[etype.account] = e.e_modified_amount
+						earn_dict[etype.account] = e.amount
 						if add == 0:
 							earn_dict[etype.account] += arrear + leave
 							add = 1
 										
 			for e in ss.earnings:
-				etype = frappe.get_doc("Earning Type", e.e_type)
+				etype = frappe.get_doc("Salary Component", e.salary_component)
 				if e.expense_claim and etype.only_for_deductions == 0:
 					exp_claim = frappe.get_doc("Expense Claim", e.expense_claim)
 					for ec in exp_claim.expenses:
@@ -140,30 +140,30 @@ class SalarySlipPayment(Document):
 			#	earn_dict[etype.account] += (doc.gross_pay - earn_dict[etype.account])
 			
 			for d in ss.deductions:
-				dtype = frappe.get_doc("Deduction Type", d.d_type)
+				dtype = frappe.get_doc("Salary Component", d.salary_component)
 				if d.employee_loan is None:
 					if dtype.account in ded_dict:
-						ded_dict[dtype.account] += d.d_modified_amount
+						ded_dict[dtype.account] += d.amount
 					else:
-						ded_dict[dtype.account] = d.d_modified_amount
+						ded_dict[dtype.account] = d.amount
 				elif d.employee_loan:
 					eloan = frappe.get_doc("Employee Loan", d.employee_loan)
 					if eloan.debit_account in ded_dict:
-						ded_dict[eloan.debit_account] += d.d_modified_amount
+						ded_dict[eloan.debit_account] += d.amount
 					else:
-						ded_dict[eloan.debit_account] = d.d_modified_amount
+						ded_dict[eloan.debit_account] = d.amount
 			
 			for c in ss.contributions:
-				ctype = frappe.get_doc("Contribution Type", c.contribution_type)
-				if ctype.expense_account in con_dict:
-					con_dict[ctype.expense_account] += c.modified_amount
+				ctype = frappe.get_doc("Salary Component", c.salary_component)
+				if ctype.account in con_dict:
+					con_dict[ctype.account] += c.amount
 				else:
-					con_dict[ctype.expense_account] = c.modified_amount
+					con_dict[ctype.account] = c.amount
 				
 				if ctype.liability_account in con_dict:
-					con_dict[ctype.liability_account] += c.modified_amount * (-1)
+					con_dict[ctype.liability_account] += c.amount * (-1)
 				else:
-					con_dict[ctype.liability_account] = c.modified_amount * (-1)
+					con_dict[ctype.liability_account] = c.amount * (-1)
 		total_earn = 0
 		total_ded = 0
 		total_con = 0
