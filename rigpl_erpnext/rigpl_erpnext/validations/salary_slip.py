@@ -141,10 +141,17 @@ def validate(doc,method):
 				earn = frappe.get_doc("Salary Component", e.salary_component)
 				for form in earn.deduction_contribution_formula:
 					if d.salary_component == form.salary_component:
+						d.default_amount = flt(e.default_amount) * flt(form.percentage)/100
 						d.amount += flt(e.amount) * flt(form.percentage)/100
 			d.amount = round(d.amount,0)
+			d.default_amount = round(d.default_amount,0)
 		elif d.salary_component <> 'Loan Deduction':
-			d.amount = d.default_amount
+			str = frappe.get_doc("Salary Structure", doc.salary_structure)
+			for x in str.deductions:
+				if x.salary_component == d.salary_component:
+					d.default_amount = x.amount
+					d.amount = d.default_amount
+
 		tot_ded +=d.amount
 	
 	#Calculate Contributions
