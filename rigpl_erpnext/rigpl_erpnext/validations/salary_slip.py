@@ -136,12 +136,22 @@ def validate(doc,method):
 				if d.salary_component == form.salary_component:
 					chk = 1
 					d.amount = 0
-		for e in doc.earnings:
-			earn = frappe.get_doc("Salary Component", e.salary_component)
-			for form in earn.deduction_contribution_formula:
-				if d.salary_component == form.salary_component:
-					d.amount += flt(e.amount) * flt(form.percentage)/100
-		d.amount = round(d.amount,0)
+		if chk == 1:
+			for e in doc.earnings:
+				earn = frappe.get_doc("Salary Component", e.salary_component)
+				for form in earn.deduction_contribution_formula:
+					if d.salary_component == form.salary_component:
+						d.default_amount = flt(e.default_amount) * flt(form.percentage)/100
+						d.amount += flt(e.amount) * flt(form.percentage)/100
+			d.amount = round(d.amount,0)
+			d.default_amount = round(d.default_amount,0)
+		elif d.salary_component <> 'Loan Deduction':
+			str = frappe.get_doc("Salary Structure", doc.salary_structure)
+			for x in str.deductions:
+				if x.salary_component == d.salary_component:
+					d.default_amount = x.amount
+					d.amount = d.default_amount
+
 		tot_ded +=d.amount
 	
 	#Calculate Contributions
@@ -336,8 +346,6 @@ def get_edc(doc,method):
 	contri_amount = 0
 
 	existing_ded = []
-	existing_earn = []
-	existing_cont = []
 	
 	dict = {}	
 	for d in doc.deductions:
@@ -346,21 +354,8 @@ def get_edc(doc,method):
 		dict['default_amount'] = d.default_amount
 		existing_ded.append(dict.copy())
 	
-	dict = {}
-	for e in doc.earnings:
-		dict['salary_component'] = e.salary_component
-		dict['idx'] = e.idx
-		dict['default_amount'] = e.default_amount
-		existing_earn.append(dict.copy())
-	
-	dict = {}
-	for c in doc.contributions:
-		dict['salary_component'] = c.salary_component
-		dict['idx'] = c.idx
-		dict['default_amount'] = c.default_amount
-		existing_cont.append(dict.copy())
-	
 	doc.contributions = []
+	doc.earnings = []
 	
 	earn = 0
 	#Update Earning Table if the Earning table is empty
