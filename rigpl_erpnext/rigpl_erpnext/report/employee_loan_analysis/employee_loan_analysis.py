@@ -79,8 +79,7 @@ def get_employee_details(filters):
 	for d in frappe.db.sql("""select emp.name, emp.employee_name, emp.designation,
 		emp.department, emp.branch, emp.company
 		from tabEmployee emp
-		WHERE IFNULL(emp.relieving_date, '2099-12-31') >= '%s' 
-		%s""" %(filters["from_date"], conditions_emp), as_dict=1):
+		WHERE emp.docstatus = 0 %s""" %(conditions_emp), as_dict=1):
 		emp_map.setdefault(d.name, d)
 	return emp_map
 
