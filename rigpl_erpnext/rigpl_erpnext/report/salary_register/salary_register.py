@@ -33,6 +33,10 @@ def execute(filters=None):
 				for d in ded_types:
 					book_ded += flt(ss_ded_map.get(ss.name, {}).get(d))
 				book_net = book_gross - book_ded
+				if ss.rounded_total > book_net:
+					bank_payment = book_net
+				else:
+					bank_payment = 0
 
 				
 			for emp in emp_lst:
@@ -46,7 +50,7 @@ def execute(filters=None):
 			if filters.get("bank_only") == 1:
 				row += ["", "", book_gross]
 			elif filters.get("summary") == 1:
-				row += [ss.rounded_total, book_net, (ss.rounded_total - book_net)]
+				row += [ss.rounded_total, bank_payment, book_net, (ss.rounded_total - bank_payment)]
 			else:
 				row += [ss.arrear_amount, ss.leave_encashment_amount, ss.gross_pay]
 			if filters.get("summary") <> 1:
@@ -106,8 +110,8 @@ def get_columns(salary_slips, filters):
 			_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140",
 			_("Salary Slip") + ":Link/Salary Slip:80", 
 			_("Branch") + "::80", _("Department") + "::80", _("Designation") + "::80",
-			_("Actual Payment") + ":Currency:100", _("Books Payment") + ":Currency:100",
-			_("Balance Cash") + ":Currency:100", 
+			_("Actual Payment") + ":Currency:100", _("Bank Payment") + ":Currency:100",
+			_("Books Payment") + ":Currency:100", _("Balance Cash") + ":Currency:100", 
 			_("Salary Slip Payment") + ":Link/Salary Slip Payment:150"
 		]
 	else:
