@@ -65,6 +65,9 @@ doc_events = {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.asset.validate",
 		"autoname": "rigpl_erpnext.rigpl_erpnext.validations.asset.autoname"
 	},
+	"Asset Category": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.asset_category.validate"
+	},
 	"Item": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.item.validate",
 		"autoname": "rigpl_erpnext.rigpl_erpnext.item.autoname"

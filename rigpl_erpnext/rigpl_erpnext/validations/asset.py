@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from __future__ import division
 import frappe
-import erpnext
-import calendar
 from frappe import msgprint
 from frappe.utils import getdate, get_last_day, today, flt, cint, add_months
 from rigpl_erpnext.rigpl_erpnext.item import fn_next_string, fn_check_digit
