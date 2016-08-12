@@ -20,6 +20,12 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
+					"name": "Asset Analysis",
+					"doctype": "Asset Category",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
 					"name": "DN To Be Billed",
 					"doctype": "Sales Invoice",
 				},
