@@ -52,6 +52,10 @@ def get_assets(conditions):
 		ORDER BY ass.purchase_date DESC, ass.asset_category""" %(conditions)
 	
 	assets = frappe.db.sql(query, as_dict = 1)
+	if assets:
+		pass
+	else:
+		frappe.throw("No Assets in the Selected Criterion")
 	return assets
 
 def get_acc_dep(asset, cond_dep):
