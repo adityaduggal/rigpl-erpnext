@@ -140,10 +140,22 @@ doc_events = {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate"
 	},
 	"Purchase Order":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate"
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_cancel",
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_update"
+	},
+	"Purchase Receipt":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_cancel",
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_update"
 	},
 	"Production Order":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.production_order.validate"
+	},
+	"Warehouse":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.warehouse.validate"
 	},
 }
 

@@ -4,7 +4,21 @@ import frappe
 from frappe import msgprint
 
 def validate(doc,method):
+	#If STE linked to PO then status of Stock Entry cannot be different from PO 
+	#along with posting date and time
+	if doc.purchase_order:
+		po = frappe.get_doc("Purchase Order", doc.purchase_order)
+		doc.posting_date = po.transaction_date
+		doc.posting_time = '23:59:59'
 	for d in doc.items:
+		#STE for Subcontracting WH only possible for linked with PO STE
+		wh = frappe.get_doc("Warehouse", d.t_warehouse)
+		if wh.is_subcontracting_warehouse == 1:
+			if doc.purchase_order:
+				pass
+			else:
+				frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO.")
+	
 		#Check if the Item has a Stock Reconciliation after the date and time or NOT.
 		#if there is a Stock Reconciliation then the Update would FAIL
 		sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` 

@@ -19,7 +19,6 @@ cur_frm.add_custom_button(__('Production Order'),
     fd = this.dialog.fields_dict;
     this.dialog.fields_dict.get.$input.click(function() {
         value = me.dialog.get_values();
-        console.log(value.production_order,"production_order")
 
     frappe.call({    
         method: "frappe.client.get_list",
@@ -31,11 +30,13 @@ cur_frm.add_custom_button(__('Production Order'),
             },
             callback: function(res){
             if(res && res.message){
-                console.log(res.message)
-                console.log(res.message[0]['production_item'])
                     var row = frappe.model.add_child(cur_frm.doc, "Purchase Order Item", "items");
-                    row.item_code = res.message[0]['production_item'];
                     row.qty = res.message[0]['qty'];
+					if (cur_frm.doc.is_subcontracting == 1){
+						row.subcontracted_item = res.message[0]['production_item'];
+					} else{
+						row.item_code = res.message[0]['production_item'];
+					}
 					row.description = res.message[0]['item_description'];
                     row.so_detail = res.message[0]['so_detail'];
                     row.uom = res.message[0]['stock_uom'];
@@ -68,3 +69,4 @@ cur_frm.add_custom_button(__('Production Order'),
 }, __("Add items from"));
 
 });
+
