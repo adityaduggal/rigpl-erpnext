@@ -8,6 +8,11 @@ from frappe.desk.reportview import get_match_cond
 
 def validate(doc,method):
 	for d in doc.items:
+		if doc.is_subcontracting <> 1:
+			if d.subcontracted_item:
+				frappe.throw(("Subcontracted Item only allowed for Sub Contracting PO. \
+					Check Row# {0}").format(d.idx))
+	for d in doc.items:
 		item = frappe.get_doc("Item", d.item_code)
 		if doc.is_subcontracting == 1:
 			if item.is_sub_contracted_item <> 1:
@@ -39,33 +44,36 @@ def validate(doc,method):
 			check_warehouse(doc,method, d.from_warehouse)
 
 def on_submit(doc,method):
-	chk_ste = get_existing_ste(doc,method)
-	if chk_ste:
-		if len(chk_ste)>1:
-			frappe.throw("More than 1 Stock Entry Exists for the Same PO. ERROR!!!")
+	if doc.is_subcontracting == 1:
+		chk_ste = get_existing_ste(doc,method)
+		if chk_ste:
+			if len(chk_ste)>1:
+				frappe.throw("More than 1 Stock Entry Exists for the Same PO. ERROR!!!")
+			else:
+				name = chk_ste[0][0]
+				ste_exist = frappe.get_doc("Stock Entry", name)
+				ste_exist.submit()
+				frappe.msgprint('{0}{1}'.format("Submitted STE# ", ste_exist.name))
 		else:
-			name = chk_ste[0][0]
-			ste_exist = frappe.get_doc("Stock Entry", name)
-			ste_exist.submit()
-			frappe.msgprint('{0}{1}'.format("Submitted STE# ", ste_exist.name))
-	else:
-		frappe.throw("No Stock Entry Found for this PO")
+			frappe.throw("No Stock Entry Found for this PO")
 	
 def on_cancel(doc,method):
-	chk_ste = get_existing_ste(doc,method)
-	if chk_ste:
-		if len(chk_ste)>1:
-			frappe.throw("More than 1 Stock Entry Exists for the Same PO. ERROR!!!")
+	if doc.is_subcontracting == 1:
+		chk_ste = get_existing_ste(doc,method)
+		if chk_ste:
+			if len(chk_ste)>1:
+				frappe.throw("More than 1 Stock Entry Exists for the Same PO. ERROR!!!")
+			else:
+				name = chk_ste[0][0]
+				ste_exist = frappe.get_doc("Stock Entry", name)
+				ste_exist.cancel()
+				frappe.msgprint('{0}{1}'.format("Cancelled STE# ", ste_exist.name))
 		else:
-			name = chk_ste[0][0]
-			ste_exist = frappe.get_doc("Stock Entry", name)
-			ste_exist.cancel()
-			frappe.msgprint('{0}{1}'.format("Cancelled STE# ", ste_exist.name))
-	else:
-		frappe.msgprint("No Stock Entry Found for this PO")
+			frappe.msgprint("No Stock Entry Found for this PO")
 
 def on_update(doc,method):
-	create_ste(doc,method)
+	if doc.is_subcontracting == 1:
+		create_ste(doc,method)
 	
 def create_ste(doc, method):
 	ste_items = get_ste_items(doc,method)
@@ -109,7 +117,11 @@ def get_ste_items(doc,method):
 		ste_temp.setdefault("s_warehouse", d.from_warehouse)
 		ste_temp.setdefault("t_warehouse", target_warehouse)
 		ste_temp.setdefault("item_code", d.subcontracted_item)
-		ste_temp.setdefault("qty", d.qty)
+		item = frappe.get_doc("Item", d.subcontracted_item)
+		if d.stock_uom == item.stock_uom:
+			ste_temp.setdefault("qty", d.qty)
+		else:
+			ste_temp.setdefault("qty", d.conversion_factor)
 		ste_items.append(ste_temp)
 	return ste_items
 	
