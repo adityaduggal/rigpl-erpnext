@@ -78,11 +78,11 @@ def create_ste(doc, method):
 
 def get_ste_items(doc,method):
 	ste_items = []
-	ste_temp = {}
 	source_warehouse = frappe.db.sql("""SELECT name FROM `tabWarehouse` 
 		WHERE is_subcontracting_warehouse =1""", as_list=1)
 	source_warehouse = source_warehouse[0][0]
 	for d in doc.items:
+		ste_temp = {}
 		po = frappe.get_doc("Purchase Order", d.purchase_order)
 		if po.is_subcontracting == 1:
 			pod = frappe.get_doc("Purchase Order Item", d.purchase_order_item)

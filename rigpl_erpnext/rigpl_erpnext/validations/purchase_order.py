@@ -11,7 +11,8 @@ def validate(doc,method):
 		if doc.is_subcontracting <> 1:
 			if d.subcontracted_item:
 				frappe.throw(("Subcontracted Item only allowed for Sub Contracting PO. \
-					Check Row# {0}").format(d.idx))
+					Check Row# {0}. This PO is Not a Subcontracting PO check the box to \
+					make this PO as Subcontracting.").format(d.idx))
 	for d in doc.items:
 		item = frappe.get_doc("Item", d.item_code)
 		if doc.is_subcontracting == 1:
@@ -109,11 +110,11 @@ def create_ste(doc, method):
 
 def get_ste_items(doc,method):
 	ste_items = []
-	ste_temp = {}
 	target_warehouse = frappe.db.sql("""SELECT name FROM `tabWarehouse` 
 		WHERE is_subcontracting_warehouse =1""", as_list=1)
 	target_warehouse = target_warehouse[0][0]
 	for d in doc.items:
+		ste_temp = {}
 		ste_temp.setdefault("s_warehouse", d.from_warehouse)
 		ste_temp.setdefault("t_warehouse", target_warehouse)
 		ste_temp.setdefault("item_code", d.subcontracted_item)
