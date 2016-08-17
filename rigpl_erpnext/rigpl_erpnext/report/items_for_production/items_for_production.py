@@ -122,7 +122,7 @@ def get_items(filters):
 		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
 			AND l2.attribute = 'l2_mm'
 		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
-			AND zn.attribute = 'Number of Flutes (Zn)'
+			AND zn.attribute = 'Number of Flutes Zn'
 	
 	WHERE bn.item_code != ""
 		AND bn.item_code = it.name
@@ -138,7 +138,9 @@ def get_items(filters):
 			CAST(d2.attribute_value AS DECIMAL(8,3)) ASC, 
 			CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it), as_list=1)
 
-
+	subcon = frappe.db.sql("""SELECT bn.item_code, bn.actual_qty FROM `tabBin` bn, `tabWarehouse` wh
+		WHERE wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0 
+		AND wh.name = bn.warehouse""", as_dict = 1)
 	for i in range(0, len(data)):
 
 		if data[i][12] is None:
@@ -155,7 +157,12 @@ def get_items(filters):
 			PO=0
 		else:
 			PO = data[i][14]
-
+		
+		for d in subcon:
+			if d.item_code == data[i][0]:
+				data[i][14] = PO + flt(d.actual_qty)
+				PO = data[i][14]
+				
 		if data[i][15] is None:
 			PLAN=0
 		else:
