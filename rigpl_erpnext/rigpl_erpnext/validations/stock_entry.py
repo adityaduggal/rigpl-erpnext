@@ -19,9 +19,11 @@ def validate(doc,method):
 			#STE for Subcontracting WH only possible for linked with PO STE
 			if d.t_warehouse:
 				wht = frappe.get_doc("Warehouse", d.t_warehouse)
+				if wht.is_subcontracting_warehouse == 1:
+					frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO or GRN")
 			if d.s_warehouse:
 				whs = frappe.get_doc("Warehouse", d.s_warehouse)
-				if wht.is_subcontracting_warehouse == 1 or whs.is_subcontracting_warehouse == 1:
+				if whs.is_subcontracting_warehouse == 1:
 					frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO or GRN")
 	
 	#Check if the Item has a Stock Reconciliation after the date and time or NOT.
