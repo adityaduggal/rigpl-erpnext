@@ -30,7 +30,7 @@ def execute(filters=None):
 				item_map[item]["l2"], item_map[item]["rm"],
 				item_map[item]["brand"],
 				value_map.get(item,{}).get("vr"),
-				lpr_map.get(item,{}).get("lpr")
+				lpr_map.get(item,{}).get("lpr"), item_map[item]["is_purchase_item"]
 				])
 				
 
@@ -45,48 +45,38 @@ def get_columns(filters):
 	["BM::80"] + ["Qual::80"] +["TT::120"] + ["D1:Float:50"] + \
 	["W1:Float:50"] + ["L1:Float:60"] + ["D2:Float:50"] + \
 	["L2:Float:60"] + ["Is RM::50"] + ["Brand::60"] + ["Set Value:Currency:80"] + \
-	["Last PO Price:Currency:80"]
+	["Last PO Price:Currency:80"] + ["Is Purchase::80"]
 
 	return columns
 
-#get all details
-def get_stock_ledger_entries(filters, items):
-	
-	
-	return frappe.db.sql("""SELECT sle.item_code, sle.warehouse,
-		sle.posting_date, sle.posting_time, sle.qty_after_transaction ,
-		sle.valuation_rate, sle.stock_value
-		FROM `tabStock Ledger Entry` sle
-		WHERE IFNULL(sle.is_cancelled, 'No') = 'No' {condition}
-			AND sle.item_code IN (%s)
-		ORDER BY sle.posting_date, sle.posting_time,
-			sle.item_code, sle.warehouse, sle.name""".format(condition=conditions) %(", ".join(['%s']*len(items))), \
-		tuple([d.name for d in items]), as_dict=1)
-
 def get_item_warehouse_map(filters, items):
 	iwb_map = {}
-	test = {}
+	filters["date"] = datetime.strptime(filters["date"], '%Y-%m-%d').date()
 	conditions, conditions_it = get_conditions(filters)
 	wh = frappe.db.sql("""SELECT name FROM `tabWarehouse` WHERE disabled = 'No' AND is_group = 0
 		ORDER BY name""", as_list=1)
-	
-	for w in wh:
-		for it in items:
 
-			query = """SELECT sle.item_code, sle.warehouse, sle.posting_date, 
-				sle.posting_time, sle.qty_after_transaction as balance, sle.valuation_rate,
-				sle.stock_value FROM `tabStock Ledger Entry` sle
-				WHERE IFNULL(sle.is_cancelled, 'No') = 'No'
-				AND sle.warehouse = '%s' AND sle.item_code = '%s' %s
-				ORDER BY sle.posting_date DESC, sle.posting_time DESC
-				LIMIT 1"""%(w[0], it.name, conditions)
+	entries = frappe.db.sql("""SELECT sle.item_code, sle.warehouse, 
+		sle.qty_after_transaction as balance, sle.valuation_rate, sle.stock_value, 
+		TIMESTAMP(sle.posting_date, sle.posting_time) as pd_pt
+		FROM `tabStock Ledger Entry` sle, `tabWarehouse` wh
+		WHERE IFNULL(sle.is_cancelled, 'No') = 'No'
+		AND wh.name = sle.warehouse AND wh.is_group = 0
+		AND wh.disabled = 'No' {condition} AND sle.item_code IN (%s)
+		ORDER BY sle.item_code, sle.warehouse, pd_pt ASC
+		""".format(condition=conditions) %(", ".join(['%s']*len(items))), \
+		tuple([d.name for d in items]), as_dict=1)
 
-			entries = frappe.db.sql(query, as_dict=1)
+	if entries:
+		for d in entries:
+			iwb_map.setdefault(d.item_code, {}).setdefault(d.warehouse, frappe._dict({\
+					"bal_qty": 0.0, "val_rate":0.0, "value":0.0
+				}))
+			qty_dict = iwb_map[d.item_code][d.warehouse]
+			qty_dict.val_rate = flt(d.valuation_rate)
+			qty_dict.value = flt(d.stock_value)
+			qty_dict.bal_qty = flt(d.balance)
 
-			if entries:
-				iwb_map.setdefault(entries[0].item_code, {}).setdefault(entries[0].warehouse, \
-				frappe._dict({"bal_qty": entries[0].balance, "val_rate": entries[0].valuation_rate, \
-				"value": entries[0].stock_value}))
 	return iwb_map
 
 def get_item_details(filters):
@@ -101,7 +91,7 @@ def get_item_details(filters):
 		CAST(l1.attribute_value AS DECIMAL(8,3)) AS "l1",
 		CAST(d2.attribute_value AS DECIMAL(8,3)) AS "d2",
 		CAST(l2.attribute_value AS DECIMAL(8,3)) AS "l2",
-		IFNULL(rm.attribute_value, "-") AS "rm"
+		IFNULL(rm.attribute_value, "-") AS "rm", it.is_purchase_item
 		FROM `tabItem` it
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
@@ -133,6 +123,7 @@ def get_item_details(filters):
 	else:
 		frappe.throw("No Items Found in given Criterion")
 	for d in items:item_map.setdefault(d.name, d)
+
 	return items, item_map
 
 def get_pl_map(filters, items):
