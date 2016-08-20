@@ -6,3 +6,4 @@ rigpl_erpnext.patches.20160325_xss_removal
 rigpl_erpnext.patches.20160224_update_rol_table
 rigpl_erpnext.patches.20160505_update_overtime_attendance
 rigpl_erpnext.patches.20160730_copy_contribution_ss_ss
+rigpl_erpnext.patches.20160819_create_valuation_rate_carbide_rm
