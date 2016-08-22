@@ -115,7 +115,15 @@ def get_item_details(filters):
 			AND d2.attribute = 'd2_mm'
 		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
 			AND l2.attribute = 'l2_mm'
-		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s""" %conditions_it
+		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
+		ORDER BY 
+			rm.attribute_value, bm.attribute_value, h_qual.attribute_value,
+			c_qual.attribute_value, tt.attribute_value,
+			CAST(d1.attribute_value AS DECIMAL(8,3)),
+			CAST(w1.attribute_value AS DECIMAL(8,3)),
+			CAST(l1.attribute_value AS DECIMAL(8,3)),
+			CAST(d2.attribute_value AS DECIMAL(8,3)),
+			CAST(l2.attribute_value AS DECIMAL(8,3))""" %conditions_it
 	
 	items = frappe.db.sql(query , as_dict = 1)
 	if items:
