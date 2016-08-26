@@ -49,5 +49,11 @@ frappe.query_reports["Pending Production Orders"] = {
 			"fieldtype": "Date",
 			"default": get_today()
 		},
+		{
+			"fieldname":"warehouse",
+			"label": "Warehouse",
+			"fieldtype": "Link",
+			"options": "Warehouse"
+		},
 	]
 }
