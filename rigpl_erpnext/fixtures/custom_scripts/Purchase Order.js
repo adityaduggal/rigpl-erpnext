@@ -1,3 +1,17 @@
+cur_frm.cscript.is_subcontracting = function(doc, cdt, cdn) {
+	cur_frm.set_query("item_code", "items", function(){
+		if (cur_frm.doc.is_subcontracting == 1){
+			return{
+				filters:{ 'is_sub_contracted_item': 1 }
+			}
+		}
+		else {
+			return{
+				filters:{'is_purchase_item':1}
+			}
+		}
+	});
+};
 frappe.ui.form.on("Purchase Order", "refresh", function(frm) {
 
 // Get Items from Production Order
@@ -69,4 +83,3 @@ cur_frm.add_custom_button(__('Production Order'),
 }, __("Add items from"));
 
 });
-
