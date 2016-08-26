@@ -72,4 +72,6 @@ def get_conditions(filters):
 	else:
 		conditions_prd += "AND prd.docstatus = 0"
 	
+	if filters.get("warehouse"):
+		conditions_prd += " AND prd.fg_warehouse = '%s'" % filters["warehouse"]
 	return conditions_prd
