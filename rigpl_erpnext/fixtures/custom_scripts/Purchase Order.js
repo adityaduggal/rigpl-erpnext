@@ -2,11 +2,13 @@ cur_frm.cscript.is_subcontracting = function(doc, cdt, cdn) {
 	cur_frm.set_query("item_code", "items", function(){
 		if (cur_frm.doc.is_subcontracting == 1){
 			return{
+				query: "erpnext.controllers.queries.item_query",
 				filters:{ 'is_sub_contracted_item': 1 }
 			}
 		}
 		else {
 			return{
+				query: "erpnext.controllers.queries.item_query",
 				filters:{'is_purchase_item':1}
 			}
 		}
