@@ -62,6 +62,7 @@ def create_ste(doc, method):
 			ste_exist.posting_time = doc.posting_time
 			ste_exist.purpose = "Material Transfer"
 			ste_exist.purchase_receipt_no = doc.name
+			ste_exist.difference_account = "Stock Adjustment - RIGPL"
 			ste_exist.remarks = "Material Transfer Entry for GRN#" + doc.name
 			ste_exist.save()
 			frappe.msgprint('{0}{1}'.format("Updated STE# ", ste_exist.name))
@@ -72,6 +73,7 @@ def create_ste(doc, method):
 				"posting_date": doc.posting_date,
 				"posting_time": doc.posting_time,
 				"purchase_receipt_no": doc.name,
+				"difference_account": "Stock Adjustment - RIGPL",
 				"remarks": "Material Transfer Entry for GRN#" + doc.name,
 				"items": ste_items
 				})
