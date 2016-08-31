@@ -36,11 +36,11 @@ def get_items(filters, conditions_prd):
 		LEFT JOIN `tabItem Variant Attribute` tt ON prd.production_item = tt.parent
 			AND tt.attribute = 'Tool Type'
 		WHERE
-			prd.production_order_date <= CURDATE()+1 AND
 			(IFNULL(prd.qty,0)- IFNULL(prd.produced_qty,0)) > 0 %s
 		
 		ORDER BY
 			prd.production_order_date, prd.priority""" % (conditions_prd)
+	frappe.msgprint(query)
 	data = frappe.db.sql(query, as_list=1)
 		
 	
