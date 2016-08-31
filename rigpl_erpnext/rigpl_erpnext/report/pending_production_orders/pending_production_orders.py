@@ -40,7 +40,6 @@ def get_items(filters, conditions_prd):
 		
 		ORDER BY
 			prd.production_order_date, prd.priority""" % (conditions_prd)
-	frappe.msgprint(query)
 	data = frappe.db.sql(query, as_list=1)
 		
 	
