@@ -11,13 +11,13 @@ def validate(doc, method):
 	web_catalog(doc,method)
 	doc.page_name = doc.item_name
 	generate_description(doc,method)
-	make_route(doc,method)
 	if doc.variant_of is None:
 		doc.item_name = doc.name
 		doc.item_code = doc.name
 		doc.page_name = doc.name
 		doc.description = doc.name
-
+	make_route(doc,method)
+	
 def make_route(doc,method):
 	doc.route = frappe.db.get_value('Item Group', doc.item_group, 'route') + '/' + \
 		doc.scrub(doc.item_name)
