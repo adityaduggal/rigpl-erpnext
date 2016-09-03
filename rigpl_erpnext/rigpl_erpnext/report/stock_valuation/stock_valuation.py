@@ -189,7 +189,8 @@ def get_lpr_map(filters, items):
 	lpr_map={}
 	cond_po = " AND pr.posting_date <= '%s'" %filters["date"]
 	for it in items:
-		grn = frappe.db.sql("""SELECT pri.item_code, pri.base_net_rate AS lpr
+		grn = frappe.db.sql("""SELECT pr.name, pri.item_code, pri.base_net_rate AS lpr,
+			pri.base_rate, pri.rate, pri.net_rate
 			FROM `tabPurchase Receipt` pr, `tabPurchase Receipt Item` pri
 			WHERE pr.name = pri.parent AND pri.item_code = '%s' %s
 			ORDER BY pr.posting_date DESC
