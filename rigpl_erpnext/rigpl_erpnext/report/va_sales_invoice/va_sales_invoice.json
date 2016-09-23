@@ -7,9 +7,9 @@
  "modified": "2014-06-05 17:12:25.161013",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
- "name": "VA Sale Invoice",
+ "name": "VA Sales Invoice",
  "owner": "Administrator",
  "ref_doctype": "Tool Type",
- "report_name": "VA Sale Invoice",
+ "report_name": "VA Sales Invoice",
  "report_type": "Script Report"
 }

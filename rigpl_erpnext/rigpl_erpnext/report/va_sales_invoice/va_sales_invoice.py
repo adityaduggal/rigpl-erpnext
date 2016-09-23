@@ -12,90 +12,62 @@ def execute(filters=None):
 
 def get_columns():
 
-
 	return [
 		"Posting Date:Date:80", "Name:Link/Sales Invoice:150" ,"Customer:Link/Customer:250",
-		"Item Code:Link/Item:150","Description::350", "Quantity:Float/2:60",
-		"List Price:Float/2:60", "Rate*:Float/2:60", "Amount*:Float/2:90",
-		"Status::30", "DN #:Link/Delivery Note:150", "DN Date:Date:80",
-		"Base Metal::100", "Tool Type::100", "Height or Dia (mm):Float/3:60",
-		"Width (mm):Float/3:60", "Length (mm):Float/2:60", "Material::80",
-		"D1:Float/3:60", "L1:Float/3:60", "Coating::80",
+		"Item Code:Link/Item:150","Description::350", "Quantity:Float:60",
+		"List Price:Float/2:60", "Rate*:Currency:60", "Amount*:Currency:90",
+		"Base Metal::100", "Tool Type::100", "HSS Qual::100", "Carb Qual::100",
+		"D1 (mm):Float:60", "W1 (mm):Float:60", "L1 (mm):Float:60",
+		"D2:Float:60", "L2:Float:60", "Special Treatment::80",
 	]
 
 def get_va_entries(filters):
 	conditions = get_conditions(filters)
 
-	si = frappe.db.sql(""" select si.posting_date, si.name, si.customer,
-			sid.item_code, sid.description, sid.qty, sid.base_ref_rate, sid.basic_rate,
-			sid.amount, si.docstatus, sid.delivery_note
-			FROM `tabSales Invoice` si, `tabSales Invoice Item` sid
-			WHERE sid.parent = si.name and
-			si.docstatus = 1 %s
-			order by si.posting_date ASC, si.name ASC, sid.item_code ASC,
+	si = frappe.db.sql(""" SELECT 
+			si.posting_date, si.name, si.customer,
+			sid.item_code, sid.description, sid.qty, sid.base_price_list_rate, 
+			sid.base_rate, sid.base_amount, 
+			IFNULL(bm.attribute_value, "-"),
+			IFNULL(tt.attribute_value, "-"),
+			IFNULL(hss_qual.attribute_value, "-"),
+			IFNULL(car_qual.attribute_value, "-"),
+			CAST(d1.attribute_value AS DECIMAL(8,3)), 
+			CAST(w1.attribute_value AS DECIMAL(8,3)), 
+			CAST(l1.attribute_value AS DECIMAL(8,3)), 
+			CAST(d2.attribute_value AS DECIMAL(8,3)), 
+			CAST(l2.attribute_value AS DECIMAL(8,3)),
+			IFNULL(spl.attribute_value, "-")
+			
+		FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
+			LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+				AND bm.attribute = 'Base Material'
+			LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+				AND tt.attribute = 'Tool Type'
+			LEFT JOIN `tabItem Variant Attribute` hss_qual ON it.name = hss_qual.parent
+				AND hss_qual.attribute = 'HSS Quality'
+			LEFT JOIN `tabItem Variant Attribute` car_qual ON it.name = car_qual.parent
+				AND car_qual.attribute = 'Carbide Quality'
+			LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
+				AND spl.attribute = 'Special Treatment'
+			LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+				AND d1.attribute = 'd1_mm'
+			LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+				AND w1.attribute = 'w1_mm'
+			LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+				AND l1.attribute = 'l1_mm'
+			LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+				AND d2.attribute = 'd2_mm'
+			LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+				AND l2.attribute = 'l2_mm'				
+		WHERE
+			si.docstatus = 1 AND
+			sid.parent = si.name AND
+			si.docstatus = 1 AND it.name = sid.item_code %s
+		ORDER BY si.posting_date ASC, si.name ASC, sid.item_code ASC,
 			sid.description ASC""" % conditions, as_list=1)
 
-	item = frappe.db.sql("""SELECT it.name, it.base_material, it.tool_type,
-		it.height_dia, it.width, it.length, it.quality, it.d1, it.l1, it.special_treatment
-		FROM `tabItem` it ORDER BY it.name""" , as_list=1)
 
-	for i in range(0, len(si)):
-
-		if (si[i][10]):
-
-			dn_date = frappe.db.sql("""SELECT dn.posting_date FROM `tabDelivery Note` dn WHERE dn.name = '%s'""" % si[i][10], as_list=1)
-			si[i].insert(11, dn_date[0][0])
-		else:
-			si[i].insert(11, None)
-
-		for j in range (0, len(item)):
-			if si[i][3]== item[j][0]:
-				if (item[j][1]): #insert base material
-					si[i].insert(12,item[j][1])
-				else:
-					si[i].insert(12,None)
-
-				if (item[j][2]): #insert tool type
-					si[i].insert(13,item[j][2])
-				else:
-					si[i].insert(13,None)
-
-				if (item[j][3]): #insert h/d
-					si[i].insert(14,item[j][3])
-				else:
-					si[i].insert(14,None)
-
-				if (item[j][4]): #insert wd
-					si[i].insert(15,item[j][4])
-				else:
-					si[i].insert(15,None)
-
-				if (item[j][5]): #insert ln
-					si[i].insert(16,item[j][5])
-				else:
-					si[i].insert(16,None)
-
-				if (item[j][6]): #insert quality
-					si[i].insert(17,item[j][6])
-				else:
-					si[i].insert(17,None)
-
-				if (item[j][7]): #insert d1
-					si[i].insert(18,item[j][7])
-				else:
-					si[i].insert(18,None)
-
-				if (item[j][8]): #insert l1
-					si[i].insert(19,item[j][8])
-				else:
-					si[i].insert(19,None)
-
-				if (item[j][9]): #insert coating
-					si[i].insert(20,item[j][9])
-				else:
-					si[i].insert(20,None)
-	si = sorted(si, key = lambda k: (k[12], k[17], k[13], k[14],
-		k[15], k[18], k[19], k[16], k[3], k[0], k[1]))
 
 	return si
 
