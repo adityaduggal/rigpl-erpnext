@@ -7,7 +7,8 @@ from rigpl_erpnext.rigpl_erpnext.item import fn_next_string, fn_check_digit
 
 def validate(doc, method):
 	ass_cat = frappe.get_doc("Asset Category", doc.asset_category)
-	doc.expected_value_after_useful_life = round((ass_cat.residual_value_percent * doc.gross_purchase_amount)/100,2)
+	doc.expected_value_after_useful_life = round((ass_cat.residual_value_percent * \
+	doc.gross_purchase_amount)/100,2)
 	doc.total_number_of_depreciations = ass_cat.total_number_of_depreciations
 	doc.frequency_of_depreciation = ass_cat.frequency_of_depreciation
 	doc.depreciation_method = ass_cat.depreciation_method
@@ -17,7 +18,8 @@ def validate(doc, method):
 def autoname(doc, method):
 	if doc.autoname == 1:
 		ass_cat = frappe.get_doc("Asset Category", doc.asset_category)
-		fa = frappe.db.sql("""SELECT name FROM `tabItem Attribute Value` WHERE parent = 'Tool Type' AND 
+		fa = frappe.db.sql("""SELECT name FROM `tabItem Attribute Value` 
+			WHERE parent = 'Tool Type' AND 
 			attribute_value = 'Fixed Asset'""", as_list = 1)
 		att = frappe.get_doc("Item Attribute Value", fa[0][0])
 		purchase = getdate(doc.purchase_date)
@@ -30,6 +32,8 @@ def autoname(doc, method):
 		name = name + str(cd)
 		doc.name = name
 		frappe.db.set_value("Item Attribute Value", fa[0][0], "serial", next_serial)
+	else:
+		doc.name = doc.asset_name
 	doc.asset_name = doc.name
 	
 def make_dep_schedule(doc,method):
