@@ -12,15 +12,15 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"Item:Link/Item:130", 
+		"Item:Link/Item:80", 
 		
 		###Below are attribute fields
-		"RM::30", "Brand::60", "Qual::50", "SPL::50", "TT::90",
-		"D1:Float:50", "W1:Float:50", "L1:Float:50",
-		"D2:Float:50", "L2:Float:50", "Zn:Int:40",
+		"RM::30", "Brand::40", "Qual::50", "SPL::50", "TT::60",
+		"D1:Float:40", "W1:Float:40", "L1:Float:50",
+		"D2:Float:40", "L2:Float:40", "Zn:Int:40",
 		###Above are Attribute fields
 		
-		"CUT::60","URG::60",
+		"CUT::120","URG::120",
 		{"label": "Total", "fieldtype": "Float", "precision": 2, "width": 50},
 		"RO:Int:40", "SO:Int:40", "PO:Int:40",
 		"PL:Int:40","DE:Int:40", "BG:Int:40",
@@ -142,7 +142,14 @@ def get_items(filters):
 		WHERE wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0 
 		AND wh.name = bn.warehouse""", as_dict = 1)
 	for i in range(0, len(data)):
-
+		v_rate = frappe.db.sql("""SELECT valuation_rate FROM `tabValuation Rate`
+			WHERE disabled = 'No' AND item_code = '%s'""" %data[i][0], as_list=1)
+		
+		if v_rate:	
+			VR = flt(v_rate[0][0])
+		else:
+			VR = 0
+		
 		if data[i][12] is None:
 			ROL=0
 		else:
@@ -162,7 +169,7 @@ def get_items(filters):
 			if d.item_code == data[i][0]:
 				data[i][14] = PO + flt(d.actual_qty)
 				PO = data[i][14]
-				
+		
 		if data[i][15] is None:
 			PLAN=0
 		else:
@@ -233,25 +240,40 @@ def get_items(filters):
 		+ PLAN + PO)
 
 		stock = DEL + BGH
-		prd = total - stock
+		prd_qty = total - stock
 
-		if ROL >=100:
+		if 0 < ROL*VR <= 1000:
+			ROL = 5*ROL
+		elif 1000 < ROL*VR <= 2000:
+			ROL = 2.5*ROL
+		elif 2000 < ROL*VR <= 5000:
 			ROL = 1.5*ROL
 
 		if total < SO:
 			urg = "1C ORD"
-		elif total < SO + (0.7*1.8*ROL):
+		elif total < SO + (0.3 * ROL):
 			urg = "2C STK"
-		elif total < SO + (0.8*1.8*ROL):
+		elif total < SO + (0.6 * ROL):
 			urg = "3C STK"
-		elif total < SO + (0.9*1.8*ROL):
+		elif total < SO + (1 * ROL):
 			urg = "4C STK"
-		elif total < SO + (1.8*ROL):
+		elif total < SO + (1.4 * ROL):
 			urg = "5C STK"
-		elif total < SO + (1.1*1.8*ROL):
+		elif total < SO + (1.8 * ROL):
 			urg = "6C STK"
+		elif total > (SO + 2.5 * ROL):
+			if ROL > 0:
+				urg = "7 Over"
+			else:
+				urg = ""
 		else:
 			urg = ""
+		
+		#Cutting Quantity
+		if urg <> "":
+			c_qty = ((2 * ROL) + SO - total)
+			urg = urg + " Qty= " + str(c_qty)
+
 
 		if stock < SO:
 			prd = "1P ORD"
@@ -267,13 +289,22 @@ def get_items(filters):
 			prd = "6P STK"
 		elif stock < SO + 2*ROL:
 			prd = "7P STK"
-		elif stock > SO + 5*ROL:
+		elif stock > SO + 2.5*ROL:
 			if ROL >0:
 				prd = "9 OVER"
 			else:
 				prd = ""
 		else:
 			prd = ""
+
+		#Production Quantity
+		if prd <> "":
+			shortage = (2 * ROL) - stock
+			if shortage < prd_qty:
+				prd = prd + " Qty= " + str(shortage)
+			else:
+				prd = prd + " Qty = " + str(prd_qty)
+		
 
 		data[i].insert (12, urg)
 		data[i].insert (13, prd)
