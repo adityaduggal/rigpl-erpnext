@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 import frappe.permissions
+import re
 
 def on_update(doc,method):
 	allowed_ids = []
@@ -77,3 +78,20 @@ def on_update(doc,method):
 				pass
 			else:
 				frappe.permissions.remove_user_permission("Customer", doc.name, extra_perm[i][1])
+
+def validate(doc,method):
+	new_name, entered_name = check_customer_id (doc,method)
+	if doc.get('__islocal'):
+		if new_name <> doc.name:
+			doc.customer_name = entered_name
+			doc.name = new_name
+	else:
+		if new_name <> doc.name:
+			frappe.throw(("Special Characters not allowed in Customer ID.\
+				Current Customer ID: {0}-->Allowed Customer ID: {1}").format(doc.name, new_name))
+
+def check_customer_id(doc,method):
+	#Disallow Special Characters in Customer ID
+	new_name = re.sub('[^A-Za-z0-9]+', '', doc.name)
+	entered_name = doc.name
+	return new_name, entered_name

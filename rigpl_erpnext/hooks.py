@@ -98,7 +98,8 @@ doc_events = {
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update"
 	},
 	"Customer": {
-		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update"
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update",
+		"validate" : "rigpl_erpnext.rigpl_erpnext.validations.customer.validate"
 	},
 	"Attendance": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
