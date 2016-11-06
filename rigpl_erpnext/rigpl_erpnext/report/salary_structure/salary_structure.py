@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint, _
 from frappe.utils import flt, cstr
+from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
 
 def execute(filters=None):
 	if not filters: filters = {}
@@ -21,7 +22,9 @@ def execute(filters=None):
 		ss_cont_map = get_ss_cont_map(salary_str)
 				
 		for ss in salary_str:
-			row = [ss.name, ss.from_date, ss.to_date, ss.is_active, ss.employee, ss.employee_name]
+			for emp in emp_lst:
+				if ss.employee == emp.name:
+					row = [ss.name, ss.from_date, ss.to_date, ss.is_active, emp.name, emp.employee_name]
 			
 			for e in earning_types:
 				row.append(ss_earning_map.get(ss.name, {}).get(e))
@@ -42,8 +45,10 @@ def execute(filters=None):
 			WHERE
 				emp.name NOT IN (
 				SELECT emp.name
-				FROM `tabSalary Structure` ss, `tabEmployee` emp
-				WHERE emp.name = ss.employee %s
+				FROM `tabSalary Structure` ss, `tabEmployee` emp, `tabSalary Structure Employee` sse
+				WHERE 
+				sse.parent = ss.name AND
+				emp.name = sse.employee %s
 				) AND
 				IFNULL(emp.relieving_date,'2099-12-31') > '%s' %s
 			ORDER BY emp.date_of_joining""" %(conditions_ss, filters.get("from_date"),conditions_emp)
@@ -66,9 +71,11 @@ def get_employee(filters):
 def get_salary_str(filters, emp_lst):
 	conditions_emp, conditions_ss, filters = get_conditions(filters)
 	
-	salary_str = frappe.db.sql("""SELECT * from `tabSalary Structure` ss 
-		WHERE ss.docstatus = 0 {condition} AND ss.employee IN (%s)
-		ORDER BY ss.employee""".format(condition=conditions_ss) %(", ".join(['%s']*len(emp_lst))), \
+	salary_str = frappe.db.sql("""SELECT ss.name, ss.from_date, ss.to_date, ss.is_active,
+		sse.employee, sse.employee_name
+		FROM `tabSalary Structure` ss, `tabSalary Structure Employee` sse
+		WHERE ss.docstatus = 0 AND ss.name = sse.parent {condition} AND sse.employee IN (%s)
+		ORDER BY sse.employee""".format(condition=conditions_ss) %(", ".join(['%s']*len(emp_lst))), \
 		tuple([d.name for d in emp_lst]), as_dict=1)
 	
 	if salary_str:
@@ -79,19 +86,24 @@ def get_salary_str(filters, emp_lst):
 	return salary_str
 	
 def get_ss_earning_map(salary_str):
-	ss_earnings = frappe.db.sql("""SELECT parent, e_type, modified_value
-		from `tabSalary Structure Earning` where parent in (%s)""" % \
+	ss_earnings = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.amount
+		from `tabSalary Detail` sd, `tabSalary Component` sc
+		WHERE sd.salary_component = sc.name AND 
+			sc.is_earning = 1 AND sd.parent in (%s)""" % \
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]), as_dict=1)
+	frappe.msgprint(str(ss_earnings))
 	ss_earning_map = {}
 	for d in ss_earnings:
-		ss_earning_map.setdefault(d.parent, frappe._dict()).setdefault(d.e_type, [])
-		ss_earning_map[d.parent][d.e_type] = flt(d.modified_value)
-	
+		ss_earning_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
+		ss_earning_map[d.parent][d.salary_component] = flt(d.amount)
+	frappe.msgprint(str(ss_earning_map))
 	return ss_earning_map
 	
 def get_ss_ded_map(salary_str):
-	ss_deductions = frappe.db.sql("""SELECT parent, d_type, d_modified_amt 
-		from `tabSalary Structure Deduction` where parent in (%s)""" %
+	ss_deductions = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.amount 
+		from `tabSalary Detail` sd, `tabSalary Component` sc
+		WHERE sd.salary_component = sc.name AND 
+			sc.is_deduction = 1 AND sd.parent in (%s)""" %
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]), as_dict=1)
 	
 	ss_ded_map = {}
@@ -102,8 +114,10 @@ def get_ss_ded_map(salary_str):
 	return ss_ded_map
 	
 def get_ss_cont_map(salary_str):
-	ss_contri = frappe.db.sql("""SELECT parent, contribution_type, amount 
-		from `tabSalary Structure Contribution` where parent in (%s)""" %
+	ss_contri = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.amount 
+		from `tabSalary Detail` sd,  `tabSalary Component` sc
+		WHERE sd.salary_component = sc.name AND 
+			sc.is_contribution = 1 AND sd.parent in (%s)""" %
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]), as_dict=1)
 	
 	ss_cont_map = {}
@@ -121,19 +135,19 @@ def get_columns(filters, salary_str):
 			_("Name") + "::150"
 		]
 		
-		earning_types = frappe.db.sql_list("""SELECT DISTINCT e_type 
-		FROM `tabSalary Structure Earning`
-		WHERE modified_value != 0 and parent in (%s)""" % 
+		earning_types = frappe.db.sql_list("""SELECT DISTINCT sd.salary_component 
+		FROM `tabSalary Detail` sd, `tabSalary Component` sc
+		WHERE sc.name = sd.salary_component AND sc.is_earning = 1 AND sd.parent in (%s)""" % 
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]))
 		
-		ded_types = frappe.db.sql_list("""SELECT DISTINCT d_type 
-		FROM `tabSalary Structure Deduction`
-		WHERE d_modified_amt != 0 and parent in (%s)""" % 
+		ded_types = frappe.db.sql_list("""SELECT DISTINCT sd.salary_component 
+		FROM `tabSalary Detail` sd, `tabSalary Component` sc
+		WHERE sc.name = sd.salary_component AND sc.is_deduction = 1 AND sd.parent in (%s)""" % 
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]))
 		
-		cont_types = frappe.db.sql_list("""SELECT DISTINCT contribution_type 
-		FROM `tabSalary Structure Contribution`
-		WHERE amount != 0 and parent in (%s)""" % 
+		cont_types = frappe.db.sql_list("""SELECT DISTINCT sd.salary_component 
+		FROM `tabSalary Detail` sd, `tabSalary Component` sc
+		WHERE sc.name = sd.salary_component AND sc.is_contribution = 1 AND sd.parent in (%s)""" % 
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]))
 		
 		columns = columns + [(e + ":Currency:120") for e in earning_types] + \

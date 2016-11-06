@@ -4,10 +4,12 @@ import frappe
 import math
 import datetime
 from frappe import msgprint
+from frappe.model.mapper import get_mapped_doc
 from frappe.utils import money_in_words, flt
 from erpnext.setup.utils import get_company_currency
 from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
+from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
 
 def on_submit(doc,method):
 	if doc.net_pay < 0:
@@ -18,7 +20,6 @@ def on_submit(doc,method):
 			ec = frappe.get_doc("Expense Claim", i.expense_claim)
 			frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", \
 				i.amount)
-
 			
 
 def on_cancel(doc,method):
@@ -29,28 +30,24 @@ def on_cancel(doc,method):
 			frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", 0)
 	
 def validate(doc,method):
-	get_edc(doc, method)
+	get_edc(doc)
+	month, msd, med = get_month_dates(doc)
+	get_loan_deduction(doc, msd, med)
+	get_expense_claim(doc)
+	calculate_net_salary(doc, month, msd, med)
+	
+def calculate_net_salary(doc, month, msd, med):
 	gross_pay = 0
 	net_pay = 0
 	tot_ded = 0
 	tot_cont = 0
-
-	m = get_month_details(doc.fiscal_year, doc.month)
-	msd = m.month_start_date
-	med = m.month_end_date
+	
 	emp = frappe.get_doc("Employee", doc.employee)
-	
-	tdim, twd = get_total_days(doc,method, emp, msd, med, m)
-	
-	get_loan_deduction(doc,method, msd, med)
-	get_expense_claim(doc,method)
-	holidays = get_holidays(doc, method, msd, med, emp)
-	
-	lwp, plw = get_leaves(doc, method, msd, med, emp)
-	
+	tdim, twd = get_total_days(doc, emp, msd, med, month)
+	holidays = get_holidays(doc, msd, med, emp)
+	lwp, plw = get_leaves(doc, msd, med, emp)
 	doc.leave_without_pay = lwp
-		
-	doc.posting_date = m.month_end_date
+	doc.posting_date = month.month_end_date
 	wd = twd - holidays #total working days
 	doc.total_days_in_month = tdim
 	att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` 
@@ -175,23 +172,8 @@ def validate(doc,method):
 	company_currency = get_company_currency(doc.company)
 	doc.total_in_words = money_in_words(doc.rounded_total, company_currency)
 	doc.total_ctc = doc.gross_pay + tot_cont
-
-def get_total_days(doc,method, emp, msd, med, month):
-	tdim = month["month_days"] #total days in a month
-	if emp.relieving_date is None:
-		relieving_date = datetime.date(2099, 12, 31)
-	else:
-		relieving_date = emp.relieving_date
-
-	if emp.date_of_joining >= msd:
-		twd = (med - emp.date_of_joining).days + 1 #Joining DATE IS THE First WORKING DAY
-	elif relieving_date <= med:
-		twd = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
-	else:
-		twd = month["month_days"] #total days in a month
-	return tdim, twd
 	
-def get_leaves(doc, method, start_date, end_date, emp):
+def get_leaves(doc, start_date, end_date, emp):
 	#Find out the number of leaves applied by the employee only working days
 	lwp = 0 #Leaves without pay
 	plw = 0 #paid leaves
@@ -205,7 +187,7 @@ def get_leaves(doc, method, start_date, end_date, emp):
 			auth_leaves = auth_leaves[0][0]
 			lap = frappe.get_doc("Leave Application", auth_leaves)
 			ltype = frappe.get_doc("Leave Type", lap.leave_type)
-			hol = get_holidays(doc,method, date, date, emp)
+			hol = get_holidays(doc, date, date, emp)
 			if hol:
 				pass
 			else:
@@ -216,8 +198,8 @@ def get_leaves(doc, method, start_date, end_date, emp):
 	lwp = flt(lwp)
 	plw = flt(plw)
 	return lwp,plw
-		
-def get_holidays(doc,method, start_date, end_date,emp):
+	
+def get_holidays(doc, start_date, end_date,emp):
 	if emp.relieving_date is None:
 		relieving_date = datetime.date(2099, 12, 31)
 	else:
@@ -236,8 +218,46 @@ def get_holidays(doc,method, start_date, end_date,emp):
 	
 	holidays = flt(holidays[0][0]) #no of holidays in a month from the holiday list
 	return holidays
+
+def get_total_days(doc, emp, msd, med, month):
+	tdim = month["month_days"] #total days in a month
+	if emp.relieving_date is None:
+		relieving_date = datetime.date(2099, 12, 31)
+	else:
+		relieving_date = emp.relieving_date
+
+	if emp.date_of_joining >= msd:
+		twd = (med - emp.date_of_joining).days + 1 #Joining DATE IS THE First WORKING DAY
+	elif relieving_date <= med:
+		twd = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
+	else:
+		twd = month["month_days"] #total days in a month
+	return tdim, twd
+
+def get_expense_claim(doc):
+	m = get_month_details(doc.fiscal_year, doc.month)
+	#Get total Expense Claims Due for an Employee
+	query = """SELECT ec.name, ec.employee, ec.total_sanctioned_amount, ec.total_amount_reimbursed
+		FROM `tabExpense Claim` ec
+		WHERE ec.docstatus = 1 AND ec.approval_status = 'Approved' AND
+			ec.total_amount_reimbursed < ec.total_sanctioned_amount AND
+			ec.posting_date <= '%s' AND ec.employee = '%s'""" %(m.month_end_date, doc.employee)
 	
-def get_loan_deduction(doc,method, msd, med):
+	
+	ec_list = frappe.db.sql(query, as_list=1)
+	for i in ec_list:
+		existing_ec = []
+		for e in doc.earnings:
+			existing_ec.append(e.expense_claim)
+		
+		if i[0] not in existing_ec:
+			#Add earning claim for each EC separately:
+			doc.append("earnings", {
+				"idx": len(doc.earnings)+1, "depends_on_lwp": 0, "default_amount": (i[2]-i[3]), \
+				"expense_claim": i[0], "salary_component": "Expense Claim", "amount": (i[2]- i[3])
+			})
+
+def get_loan_deduction(doc, msd, med):
 	existing_loan = []
 	for d in doc.deductions:
 		existing_loan.append(d.employee_loan)
@@ -295,30 +315,14 @@ def get_loan_deduction(doc,method, msd, med):
 				frappe.throw(("Max deduction allowed {0} for Loan Deduction {1} \
 				check row # {2} in Deduction Table").format(balance, d.employee_loan, d.idx))
 
-def get_expense_claim(doc,method):
-	m = get_month_details(doc.fiscal_year, doc.month)
-	#Get total Expense Claims Due for an Employee
-	query = """SELECT ec.name, ec.employee, ec.total_sanctioned_amount, ec.total_amount_reimbursed
-		FROM `tabExpense Claim` ec
-		WHERE ec.docstatus = 1 AND ec.approval_status = 'Approved' AND
-			ec.total_amount_reimbursed < ec.total_sanctioned_amount AND
-			ec.posting_date <= '%s' AND ec.employee = '%s'""" %(m.month_end_date, doc.employee)
-	
-	
-	ec_list = frappe.db.sql(query, as_list=1)
-	for i in ec_list:
-		existing_ec = []
-		for e in doc.earnings:
-			existing_ec.append(e.expense_claim)
-		
-		if i[0] not in existing_ec:
-			#Add earning claim for each EC separately:
-			doc.append("earnings", {
-				"idx": len(doc.earnings)+1, "depends_on_lwp": 0, "default_amount": (i[2]-i[3]), \
-				"expense_claim": i[0], "salary_component": "Expense Claim", "amount": (i[2]- i[3])
-			})
+def get_month_dates(doc):
+	month = get_month_details(doc.fiscal_year, doc.month)
+	msd = month.month_start_date
+	med = month.month_end_date
+	return month, msd, med
 
-def get_edc(doc,method):
+
+def get_edc(doc):
 	#Earning Table should be replaced if there is any change in the Earning Composition
 	#Change can be of 3 types in the earning table
 	#1. If a user removes a type of earning
@@ -326,106 +330,47 @@ def get_edc(doc,method):
 	#3. If a user deletes and adds a type of another earning
 	#Function to get the Earnings, Deductions and Contributions (E,D,C)
 
-	m = get_month_details(doc.fiscal_year, doc.month)
-	emp = frappe.get_doc("Employee", doc.employee)
-	joining_date = emp.date_of_joining
-	if emp.relieving_date:
-		relieving_date = emp.relieving_date
-	else:
-		relieving_date = '2099-12-31'
-	
-	struct = frappe.db.sql("""SELECT name FROM `tabSalary Structure` WHERE employee = %s AND
-		is_active = 'Yes' AND (from_date <= %s OR from_date <= %s) AND
-		(to_date IS NULL OR to_date >= %s OR to_date >= %s)""", 
-		(doc.employee, m.month_start_date, joining_date, m.month_end_date, relieving_date))
-	if struct:
-		sstr = frappe.get_doc("Salary Structure", struct[0][0])
-	else:
-		frappe.throw("No active Salary Structure for this period")
-		
-	contri_amount = 0
-
+	sstr = frappe.get_doc("Salary Structure", doc.salary_structure)		
 	existing_ded = []
 	
-	dict = {}	
-	for d in doc.deductions:
-		dict['salary_component'] = d.salary_component
-		dict['idx'] = d.idx
-		dict['default_amount'] = d.default_amount
-		existing_ded.append(dict.copy())
-	
-	doc.contributions = []
+	dict = {}
+	for comp in doc.deductions:
+		if comp.salary_component == 'Loan Deduction':
+			dict['salary_component'] = comp.salary_component
+			dict['idx'] = comp.idx
+			dict['default_amount'] = comp.default_amount
+			dict['amount'] = comp.amount
+			dict['employee_loan'] = comp.employee_loan
+			existing_ded.append(dict.copy())
+			
+	table_list = ["earnings", "deductions", "contributions"]
 	doc.earnings = []
-	
-	earn = 0
-	#Update Earning Table if the Earning table is empty
-	if doc.earnings:
-		pass
-	else:
-		earn = 1
-	
-	chk = 0
-	for e in  sstr.earnings:
-		for ern in doc.earnings:
-			if e.salary_component == ern.salary_component and e.idx == ern.idx:
-				chk = 1
-		if chk == 0:
-			doc.earnings = []
-			get_from_str(doc, method)
-			
-	
-	if earn == 1:
-		doc.earnings = []
-		for e in sstr.earnings:
-			doc.append("earnings",{
-				"salary_component": e.salary_component,
-				"default_amount": e.amount,
-				"amount": e.amount,
-				"idx": e.idx
-			})
-			
-	ded = 0
-	if doc.deductions:
-		pass
-	else:
-		ded = 1
+	doc.deductions = []
+	doc.contributions = []
+	get_from_sal_struct(doc, sstr, table_list)
+	#Add changed loan amount to the table
+	if existing_ded:
+		doc.append("deductions", {
+			"salary_component": dict['salary_component'],
+			"default_amount": existing_ded[0]['default_amount'],
+			"amount": existing_ded[0]['amount'],
+			"idx": existing_ded[0]['idx'],
+			"employee_loan": existing_ded[0]['employee_loan']
+		})
 
-	for d in doc.deductions:
-		found = 0
-		for dss in sstr.deductions:
-			if d.salary_component == dss.salary_component and d.idx == dss.idx and found == 0:
-				found = 1
-		if found == 0 and ded == 0:
-			if d.salary_component <> "Loan Deduction":
-				ded = 1
-				
-	if ded == 1:
-		doc.deductions = []
-		for d in sstr.deductions:
-			doc.append("deductions",{
-				"salary_component": d.salary_component,
-				"default_amount": d.amount,
-				"amount": d.amount,
-				"d.idx": d.idx
-			})
-	
-	for c in sstr.contributions:
-		contri = frappe.get_doc("Salary Component", c.salary_component)
-		for e in doc.earnings:
-			earn = frappe.get_doc("Salary Component", e.salary_component)
-			for cont in earn.deduction_contribution_formula:
-				if c.salary_component == cont.salary_component:
-					contri_amount += round(cont.percentage * e.amount/100,0)
-			
-		doc.append("contributions",{
-			"salary_component": c.salary_component,
-			"default_amount": c.amount,
-			"amount": contri_amount
-			})
+def get_from_sal_struct(doc, salary_structure_doc, table_list):
+	data = SalarySlip.get_data_for_eval(doc)
 
-def get_from_str(doc,method):
-	pass	
+	for table_name in table_list:
+		for comp in salary_structure_doc.get(table_name):
+			amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
+			doc.append(table_name, {
+				"salary_component": comp.salary_component,
+				"default_amount": amount,
+				"amount": amount,
+				"idx": comp.idx,
+				"depends_on_lwp": comp.depends_on_lwp
+			})
+			
 def myround(x, base=5):
     return int(base * round(float(x)/base))
-
-	
