@@ -91,12 +91,12 @@ def get_ss_earning_map(salary_str):
 		WHERE sd.salary_component = sc.name AND 
 			sc.is_earning = 1 AND sd.parent in (%s)""" % \
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]), as_dict=1)
-	frappe.msgprint(str(ss_earnings))
+	
 	ss_earning_map = {}
 	for d in ss_earnings:
 		ss_earning_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
 		ss_earning_map[d.parent][d.salary_component] = flt(d.amount)
-	frappe.msgprint(str(ss_earning_map))
+	
 	return ss_earning_map
 	
 def get_ss_ded_map(salary_str):
@@ -108,8 +108,8 @@ def get_ss_ded_map(salary_str):
 	
 	ss_ded_map = {}
 	for d in ss_deductions:
-		ss_ded_map.setdefault(d.parent, frappe._dict()).setdefault(d.d_type, [])
-		ss_ded_map[d.parent][d.d_type] = flt(d.d_modified_amt)
+		ss_ded_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
+		ss_ded_map[d.parent][d.salary_component] = flt(d.amount)
 	
 	return ss_ded_map
 	
@@ -122,8 +122,8 @@ def get_ss_cont_map(salary_str):
 	
 	ss_cont_map = {}
 	for d in ss_contri:
-		ss_cont_map.setdefault(d.parent, frappe._dict()).setdefault(d.contribution_type, [])
-		ss_cont_map[d.parent][d.contribution_type] = flt(d.amount)
+		ss_cont_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
+		ss_cont_map[d.parent][d.salary_component] = flt(d.amount)
 	
 	return ss_cont_map
 	
