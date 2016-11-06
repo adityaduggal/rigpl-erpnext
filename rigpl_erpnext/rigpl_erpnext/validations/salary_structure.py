@@ -5,60 +5,38 @@ from frappe import msgprint
 from frappe.utils import money_in_words, flt
 
 def validate(doc,method):
-	check_edc(doc, method)
-	doc.total_deduction = 0
-	doc.total_ctc = 0
-	doc.total_contribution = 0
-	doc.total_earning = 0
-	doc.net_pay = 0
-
-	for d in doc.deductions:
-		count = 0
-		for e in doc.earnings:
-			earn = frappe.get_doc("Salary Component", e.salary_component)
-			if earn.only_for_deductions == 1:
-				for ded in earn.deduction_contribution_formula:
-					if ded.salary_component == d.salary_component:
-						if count == 0:
-							d.amount =0
-							count += 1
-						d.amount += (ded.percentage * e.amount)/100
-		d.amount = round(d.amount, 0)
-		doc.total_deduction += d.amount
+	list = ['earnings', 'deductions', 'contributions']
+	check_edc(doc, list)
 	
-	for e in doc.earnings:
-		earn = frappe.get_doc("Salary Component", e.salary_component)
-		if earn.only_for_deductions <> 1:
-			doc.total_earning += flt(e.amount)
+def check_edc(doc,tables):
+	#Only allow Earnings in Earnings Table and So On
+	for i in tables:
+		for comp in doc.get(i):
+			sal_comp = frappe.get_doc("Salary Component", comp.salary_component)
+			field = 'is_' + i[:-1]
+			comp.depends_on_lwp = sal_comp.depends_on_lwp
+			if sal_comp.get(field)<>1:
+				frappe.throw(("Only {0} are allowed in {1} table check row# \
+					{2} where {3} is not a {4}").format(i, i, comp.idx, \
+					sal_comp.salary_component, i[:-1]))
+	#Check for existing Salary Structures for Employees in Same Period
+	for emp in doc.employees:
+		if doc.to_date:
+			to_date = doc.to_date
+		else:
+			to_date = '2099-12-31'
+			
+		query = """SELECT ss.name FROM `tabSalary Structure` ss,
+			`tabSalary Structure Employee` sse WHERE sse.parent = ss.name AND
+			ss.docstatus = 0 AND ss.name != '%s' AND 
+			sse.employee = %s AND ((ss.from_date BETWEEN '%s' AND '%s') OR
+			(IFNULL(ss.to_date, '2099-12-31') BETWEEN '%s' AND '%s'))""" \
+			%(doc.name, emp.employee,doc.from_date, to_date, doc. 	from_date, to_date)
 
-	for c in doc.contributions:
-		c.amount = 0
-		for e in doc.earnings:
-			earn = frappe.get_doc("Salary Component", e.salary_component)
-			if earn.only_for_deductions == 1:
-				for cont in earn.deduction_contribution_formula:
-					if cont.salary_component == c.salary_component:
-						c.amount += cont.percentage * e.amount/100
-		c.amount = round(c.amount, 0)
-		doc.total_contribution += c.amount
-	doc.net_pay = doc.total_earning - doc.total_deduction
-	doc.total_ctc = doc.total_earning + doc.total_contribution
-	
-def check_edc(doc,method):
-	for e in doc.earnings:
-		earn = frappe.get_doc("Salary Component", e.salary_component)
-		if earn.is_earning <> 1:
-			frappe.throw(("Only Earnings are allowed in Earning Table check row# \
-				{0} where {1} is not an Earning").format(e.idx, e.salary_component))
-				
-	for d in doc.deductions:
-		ded = frappe.get_doc("Salary Component", d.salary_component)
-		if ded.is_deduction <> 1:
-			frappe.throw(("Only Deductions are allowed in Deduction Table check row# \
-				{0} where {1} is not a Deduction").format(d.idx, d.salary_component))
-				
-	for c in doc.contributions:
-		con = frappe.get_doc("Salary Component", c.salary_component)
-		if con.is_contribution <> 1:
-			frappe.throw(("Only Contributions are allowed in Contribution Table check row# \
-				{0} where {1} is not a Contribution").format(c.idx, c.salary_component))
+		existing_ss = frappe.db.sql(query, as_list=1)
+		if existing_ss:
+			frappe.throw(("For Row# {0} and Employee: {1} there is an existing \
+			Salary Structure: {2} which is overlapping with the period of the current\
+			Salary Structure. Kindly either disable Salary Structure: {3} or change the\
+			From or To Date.").format(emp.idx, emp.employee_name, existing_ss[0][0],\
+			existing_ss[0][0]))
