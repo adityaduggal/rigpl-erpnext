@@ -261,7 +261,6 @@ def get_loan_deduction(doc, msd, med):
 	existing_loan = []
 	for d in doc.deductions:
 		existing_loan.append(d.employee_loan)
-		
 	#get total loan due for employee
 	query = """SELECT el.name, eld.name, eld.emi, el.deduction_type, eld.loan_amount
 		FROM 
@@ -272,7 +271,6 @@ def get_loan_deduction(doc, msd, med):
 			eld.employee = '%s'""" %(med, doc.employee)
 		
 	loan_list = frappe.db.sql(query, as_list=1)
-
 	for i in loan_list:
 		emi = i[2]
 		total_loan = i[4]
@@ -350,13 +348,14 @@ def get_edc(doc):
 	get_from_sal_struct(doc, sstr, table_list)
 	#Add changed loan amount to the table
 	if existing_ded:
-		doc.append("deductions", {
-			"salary_component": dict['salary_component'],
-			"default_amount": existing_ded[0]['default_amount'],
-			"amount": existing_ded[0]['amount'],
-			"idx": existing_ded[0]['idx'],
-			"employee_loan": existing_ded[0]['employee_loan']
-		})
+		for i in range(len(existing_ded)):
+			doc.append("deductions", {
+				"salary_component": dict['salary_component'],
+				"default_amount": existing_ded[i]['default_amount'],
+				"amount": existing_ded[i]['amount'],
+				"idx": existing_ded[i]['idx'],
+				"employee_loan": existing_ded[i]['employee_loan']
+			})
 
 def get_from_sal_struct(doc, salary_structure_doc, table_list):
 	data = SalarySlip.get_data_for_eval(doc)
