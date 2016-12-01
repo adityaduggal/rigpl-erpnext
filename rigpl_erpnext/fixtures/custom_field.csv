@@ -100,7 +100,6 @@ Yes",Whether the item is Mentioned on Price List and Catalog and inherently this
 ,"""Salary Slip-total_overtime""",Salary Slip,Float,Total Overtime,totals,,,,total_overtime,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:34
 ,"""Salary Slip-unauthorized_leaves""",Salary Slip,Int,Unauthorized Leaves,total_overtime,,,,unauthorized_leaves,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:35
 ,"""Salary Slip-overtime_deducted""",Salary Slip,Float,Overtime Deducted,column_break_25,,,,overtime_deducted,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:35
-,"""Salary Slip-posting_date""",Salary Slip,Date,Posting Date,column_break0,,,,posting_date,0,1,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:14
 ,"""Salary Slip-contribution""",Salary Slip,Section Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
 ,"""Salary Slip-contributions""",Salary Slip,Table,Contributions,contribution,,Salary Detail,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
 ,"""Salary Slip-total_ctc""",Salary Slip,Currency,Total CTC,unauthorized_leaves,,,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15

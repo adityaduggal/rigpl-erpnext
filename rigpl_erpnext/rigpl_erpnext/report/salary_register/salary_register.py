@@ -89,7 +89,7 @@ def execute(filters=None):
 				emp.name NOT IN (
 				SELECT emp.name
 				FROM `tabSalary Slip` ss, `tabEmployee` emp
-				WHERE emp.name = ss.employee AND ss.docstatus = 1 %s
+				WHERE emp.name = ss.employee AND ss.docstatus <> 2 %s
 				) AND emp.date_of_joining <= '%s' 
 				AND IFNULL(emp.relieving_date, '2099-12-31') >= '%s' %s
 			ORDER BY emp.date_of_joining""" %(conditions_ss, mdetail.month_end_date, mdetail.month_end_date, conditions_emp)
@@ -182,7 +182,7 @@ def get_salary_slips(filters, conditions_ss, emp_lst):
 
 	salary_slips = frappe.db.sql("""SELECT * 
 		FROM `tabSalary Slip` ss
-		WHERE ss.docstatus = 1  {condition} AND ss.employee IN (%s)
+		WHERE ss.docstatus <> 2  {condition} AND ss.employee IN (%s)
 		ORDER BY ss.employee""".format(condition=conditions_ss) %(", ".join(['%s']*len(emp_lst))), \
 		tuple([d.name for d in emp_lst]), as_dict=1)
 	
