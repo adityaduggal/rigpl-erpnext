@@ -29,7 +29,7 @@ def get_columns():
 		"BRG:Int:50", "BHT:Int:50", "BFG:Int:50", "BTS:Int:50",
 		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50},
 		"DSL:Int:50", "DRG:Int:50", "DFG:Int:50", "DTS:Int:50",
-		"DRJ:Int:50", "PList::30", "TOD::30"
+		"DRJ:Int:50", "DCN:Int:50", "BCN:Int:50", "PList::30", "TOD::30"
 	]
 
 def get_items(filters):
@@ -93,6 +93,12 @@ def get_items(filters):
 		if(min(case WHEN bn.warehouse="REJ-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
 			min(case WHEN bn.warehouse="REJ-DEL20A - RIGPL" THEN bn.actual_qty end)),
 
+		if(min(case WHEN bn.warehouse="CN-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
+			min(case WHEN bn.warehouse="CN-DEL20A - RIGPL" THEN bn.actual_qty end)),
+			
+		if(min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
+			min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)),
+			
 		it.pl_item,
 		it.stock_maintained
 
@@ -234,9 +240,19 @@ def get_items(filters):
 			DTEST=0
 		else:
 			DTEST = data[i][28]
+			
+		if data[i][30] is None:
+			DCN=0
+		else:
+			DCN = data[i][30]
+
+		if data[i][31] is None:
+			BCN=0
+		else:
+			BCN = data[i][31]
 
 		total = (DEL + BGH + BRG + BHT + BFG + BTS
-		+ DSL + DRG + DFG + DTEST + DRM + BRM
+		+ DSL + DRG + DFG + DTEST + DRM + BRM + DCN + BCN
 		+ PLAN + PO)
 
 		stock = DEL + BGH
