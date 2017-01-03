@@ -9,7 +9,7 @@ from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details
 
 def execute(filters=None):
 	if not filters: filters = {}
-	conditions_ss, filters, conditions_emp, mdetail = get_conditions(filters)
+	conditions_ss, filters, conditions_emp, from_date, to_date = get_conditions(filters)
 	emp_lst = get_employee(filters, conditions_emp)
 	
 	if filters.get("without_salary_slip") <> 1:
@@ -92,7 +92,7 @@ def execute(filters=None):
 				WHERE emp.name = ss.employee AND ss.docstatus <> 2 %s
 				) AND emp.date_of_joining <= '%s' 
 				AND IFNULL(emp.relieving_date, '2099-12-31') >= '%s' %s
-			ORDER BY emp.date_of_joining""" %(conditions_ss, mdetail.month_end_date, mdetail.month_end_date, conditions_emp)
+			ORDER BY emp.date_of_joining""" %(conditions_ss, to_date, to_date, conditions_emp)
 		data = frappe.db.sql(query, as_list=1)
 	
 	return columns, data
@@ -187,8 +187,7 @@ def get_salary_slips(filters, conditions_ss, emp_lst):
 		tuple([d.name for d in emp_lst]), as_dict=1)
 	
 	if not salary_slips:
-		msgprint(_("No salary slip found for month: ") + cstr(filters.get("month")) + 
-			_(" and year: ") + cstr(filters.get("fiscal_year")), raise_exception=1)
+		msgprint(_("No salary slip found between dates"), raise_exception=1)
 	
 	return salary_slips
 	
@@ -227,7 +226,6 @@ def get_ss_ded_map(salary_slips):
 	ss_deductions = frappe.db.sql("""select parent, salary_component, amount
 		from `tabSalary Detail` where parent in (%s)""" %
 		(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]), as_dict=1)
-	#frappe.throw(ss_deductions)
 	ss_ded_map = {}
 	for d in ss_deductions:
 		ss_ded_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
@@ -235,12 +233,11 @@ def get_ss_ded_map(salary_slips):
 			ss_ded_map[d.parent][d.salary_component] += flt(d.amount)
 		else:
 			ss_ded_map[d.parent][d.salary_component] = flt(d.amount)
-	#frappe.throw(ss_ded_map)
+
 	
 	return ss_ded_map
 
 def get_ssp_map(salary_slips):
-	#frappe.throw(salary_slips)
 	ssp = frappe.db.sql("""SELECT ssp.name, sspd.salary_slip
 		FROM `tabSalary Slip Payment` ssp, `tabSalary Slip Payment Details` sspd
 		WHERE ssp.name = sspd.parent AND ssp.docstatus <> 2 AND sspd.salary_slip in (%s)""" %
@@ -254,7 +251,18 @@ def get_ssp_map(salary_slips):
 def get_conditions(filters):
 	conditions_ss = ""
 	conditions_emp = ""
-	fy = filters.get("fiscal_year")
+	
+	
+	to_date = filters.get("to_date")
+	
+	if filters.get("from_date"):
+		from_date = filters.get("from_date")
+		conditions_ss += " AND ss.start_date >= '%s'" %filters["from_date"]
+	
+	if filters.get("to_date"):
+		from_date = filters.get("to_date")
+		conditions_ss += " AND ss.end_date <= '%s'" %filters["to_date"]
+
 	
 	if filters.get("without_salary_slip") == 1:
 		if filters.get("bank_only") == 1 or filters.get("summary") == 1:
@@ -262,18 +270,7 @@ def get_conditions(filters):
 	elif filters.get("bank_only")==1:
 		if filters.get("without_salary_slip") == 1 or filters.get("summary") == 1:
 			frappe.throw("Only one check box Allowed to be Checked")
-	
-	if filters.get("month"):
-		month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", 
-			"Dec"].index(filters["month"]) + 1
-
-		filters["month"] = month
-		conditions_ss += " and ss.month = %s" % month
-	mdetail = get_month_details(fy, month)
-	
-	if filters.get("fiscal_year"): 
-		conditions_ss += " and ss.fiscal_year = '%s'" %filters["fiscal_year"]
-		
+					
 	if filters.get("employee"): 
 		conditions_ss += " and ss.employee = '%s'" % filters["employee"]
 		conditions_emp += " AND emp.name = '%s'" % filters["employee"]
@@ -293,5 +290,5 @@ def get_conditions(filters):
 	if filters.get("salary_mode"):
 		conditions_emp += " AND emp.salary_mode = '%s'" % filters["salary_mode"]
 		
-	return conditions_ss, filters, conditions_emp, mdetail
+	return conditions_ss, filters, conditions_emp, from_date, to_date
 	
