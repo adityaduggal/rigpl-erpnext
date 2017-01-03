@@ -7,9 +7,10 @@ from frappe import msgprint
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import money_in_words, flt
 from erpnext.setup.utils import get_company_currency
-from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details
+from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details, get_start_end_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
 from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
+from erpnext.accounts.utils import get_fiscal_year
 
 def on_submit(doc,method):
 	if doc.net_pay < 0:
@@ -31,23 +32,23 @@ def on_cancel(doc,method):
 	
 def validate(doc,method):
 	get_edc(doc)
-	month, msd, med = get_month_dates(doc)
+	msd, med = get_month_dates(doc)
 	get_loan_deduction(doc, msd, med)
-	get_expense_claim(doc)
-	calculate_net_salary(doc, month, msd, med)
+	get_expense_claim(doc, med)
+	calculate_net_salary(doc, msd, med)
 	
-def calculate_net_salary(doc, month, msd, med):
+def calculate_net_salary(doc, msd, med):
 	gross_pay = 0
 	net_pay = 0
 	tot_ded = 0
 	tot_cont = 0
 	
 	emp = frappe.get_doc("Employee", doc.employee)
-	tdim, twd = get_total_days(doc, emp, msd, med, month)
+	tdim, twd = get_total_days(doc, emp, msd, med)
 	holidays = get_holidays(doc, msd, med, emp)
 	lwp, plw = get_leaves(doc, msd, med, emp)
 	doc.leave_without_pay = lwp
-	doc.posting_date = month.month_end_date
+	doc.posting_date = med
 	wd = twd - holidays #total working days
 	doc.total_days_in_month = tdim
 	att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` 
@@ -219,8 +220,8 @@ def get_holidays(doc, start_date, end_date,emp):
 	holidays = flt(holidays[0][0]) #no of holidays in a month from the holiday list
 	return holidays
 
-def get_total_days(doc, emp, msd, med, month):
-	tdim = month["month_days"] #total days in a month
+def get_total_days(doc, emp, msd, med):
+	tdim = (med - msd).days + 1 #total days
 	if emp.relieving_date is None:
 		relieving_date = datetime.date(2099, 12, 31)
 	else:
@@ -231,17 +232,17 @@ def get_total_days(doc, emp, msd, med, month):
 	elif relieving_date <= med:
 		twd = (emp.relieving_date - msd).days + 1 #RELIEVING DATE IS THE LAST WORKING DAY
 	else:
-		twd = month["month_days"] #total days in a month
+		twd = tdim #total days in a month
+	doc.working_days = twd
 	return tdim, twd
 
-def get_expense_claim(doc):
-	m = get_month_details(doc.fiscal_year, doc.month)
+def get_expense_claim(doc, med):
 	#Get total Expense Claims Due for an Employee
 	query = """SELECT ec.name, ec.employee, ec.total_sanctioned_amount, ec.total_amount_reimbursed
 		FROM `tabExpense Claim` ec
 		WHERE ec.docstatus = 1 AND ec.approval_status = 'Approved' AND
 			ec.total_amount_reimbursed < ec.total_sanctioned_amount AND
-			ec.posting_date <= '%s' AND ec.employee = '%s'""" %(m.month_end_date, doc.employee)
+			ec.posting_date <= '%s' AND ec.employee = '%s'""" %(med, doc.employee)
 	
 	
 	ec_list = frappe.db.sql(query, as_list=1)
@@ -314,10 +315,13 @@ def get_loan_deduction(doc, msd, med):
 				check row # {2} in Deduction Table").format(balance, d.employee_loan, d.idx))
 
 def get_month_dates(doc):
-	month = get_month_details(doc.fiscal_year, doc.month)
-	msd = month.month_start_date
-	med = month.month_end_date
-	return month, msd, med
+	date_details = get_start_end_dates(doc.payroll_frequency, doc.start_date or doc.posting_date)
+	doc.start_date = date_details.start_date
+	doc.end_date = date_details.end_date
+
+	msd = date_details.start_date
+	med = date_details.end_date
+	return msd, med
 
 
 def get_edc(doc):
