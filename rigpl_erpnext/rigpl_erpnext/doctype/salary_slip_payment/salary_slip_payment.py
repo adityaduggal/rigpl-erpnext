@@ -4,6 +4,7 @@
 
 from __future__ import unicode_literals
 import frappe
+from frappe import msgprint, _
 from frappe.model.document import Document
 from datetime import datetime
 from frappe.utils import getdate, cint, add_months, date_diff, add_days, nowdate, \
@@ -229,4 +230,46 @@ class SalarySlipPayment(Document):
 			jvd_temp.setdefault("reference_name", self.name)
 			jvd_dict.append(jvd_temp)
 
-		return jvd_dict	
+		return jvd_dict
+		
+	def get_salary_slips(self):
+
+		if not (self.posting_date and self.salary_slip_accrual_account and self.rounding_account):
+			msgprint("Posting Date, Salary Slip Accrual Account and Rounding Account \
+				 are Mandatory")
+			return
+		condition_emp = ''
+		for d in ['branch', 'department', 'designation']:
+			if self.get(d):
+				condition_emp += " AND emp." + d + " = '" + self.get(d).replace("'", "\'") + "'"
+
+		query = """SELECT ss.name, ss.employee, ss.employee_name, ss.posting_date,
+			ss.gross_pay, ss.net_pay, ss.total_deduction, ss.rounded_total
+			FROM `tabSalary Slip` ss, `tabEmployee` emp
+			WHERE ss.employee = emp.name AND ss.posting_date = '%s' AND ss.docstatus = 1 %s
+			""" % (self.posting_date, condition_emp)
+
+		ss = frappe.db.sql(query, as_dict=1)
+					
+		self.set('salary_slip_payment_details',[])
+
+		for d in ss:
+			exist = frappe.db.sql("""SELECT ssp.name, sspd.salary_slip 
+				FROM `tabSalary Slip Payment` ssp, `tabSalary Slip Payment Details` sspd
+				WHERE ssp.name = sspd.parent AND ssp.docstatus <> 2 
+				AND sspd.salary_slip = '%s' AND ssp.name <> '%s'""" % (d.name, self.name), as_dict=1)
+			if exist:
+				pass
+			else:
+				row = self.append('salary_slip_payment_details', {})
+				row.salary_slip = d.name
+				row.employee = d.employee
+				row.employee_name = d.employee_name
+				row.posting_date = d.posting_date
+				row.gross_pay = d.gross_pay
+				row.net_pay = d.net_pay
+				row.rounded_pay = d.rounded_total
+				row.total_deductions = d.total_deduction
+
+	def clear_table(self):
+		self.set('salary_slip_payment_details',[])
