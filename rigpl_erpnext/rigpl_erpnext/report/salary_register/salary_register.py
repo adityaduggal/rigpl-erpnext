@@ -71,7 +71,7 @@ def execute(filters=None):
 			if ssp_map.get(ss.name):
 				row += [ssp_map.get(ss.name)]
 			else:
-				row += ["-"]
+				row += ["X"]
 			
 			data.append(row)
 	else:
