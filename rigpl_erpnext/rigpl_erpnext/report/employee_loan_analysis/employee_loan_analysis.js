@@ -4,6 +4,12 @@
 frappe.query_reports["Employee Loan Analysis"] = {
 	"filters": [
 		{
+			"fieldname":"company",
+			"label": __("Company Registered With"),
+			"fieldtype": "Link",
+			"options": "Letter Head"
+		},		
+		{
 			"fieldname":"employee",
 			"label": __("Employee"),
 			"fieldtype": "Link",

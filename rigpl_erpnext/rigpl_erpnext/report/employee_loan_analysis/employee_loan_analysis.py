@@ -150,6 +150,9 @@ def get_conditions(filters):
 	conditions_el = ""
 	conditions_ss = ""
 
+	if filters.get("company"):
+		conditions_emp += " AND emp.company_registered_with = '%s'" % filters["company"]
+
 	if filters.get("branch"):
 		conditions_emp += " AND emp.branch = '%s'" % filters["branch"]
 
