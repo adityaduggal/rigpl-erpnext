@@ -58,7 +58,7 @@ class SalarySlipPayment(Document):
 			"series": "JV1617",
 			"user_remark": "Salary/Wages Accural Against Salary Slip Payment #" + self.name,
 			"posting_date": self.posting_date,
-			"employment_type": "Accounts Employee",
+			"employment_type": self.employment_type,
 			"accounts": jvd_dict
 			})
 		if chk_jv:

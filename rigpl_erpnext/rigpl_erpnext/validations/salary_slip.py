@@ -92,7 +92,7 @@ def calculate_net_salary(doc, msd, med):
 	for d in doc.earnings:
 		if d.salary_component == "Overtime Rate":
 			chk_ot = 1
-			
+	
 	for d in doc.earnings:
 		earn = frappe.get_doc("Salary Component", d.salary_component)
 		if earn.depends_on_lwp == 1:
@@ -126,45 +126,15 @@ def calculate_net_salary(doc, msd, med):
 	
 	#Calculate Deductions
 	for d in doc.deductions:
-		#Check if deduction is in any earning's formula
-		chk = 0
-		for e in doc.earnings:
-			earn = frappe.get_doc("Salary Component", e.salary_component)
-			for form in earn.deduction_contribution_formula:
-				if d.salary_component == form.salary_component:
-					chk = 1
-					d.amount = 0
-		if chk == 1:
-			for e in doc.earnings:
-				earn = frappe.get_doc("Salary Component", e.salary_component)
-				for form in earn.deduction_contribution_formula:
-					if d.salary_component == form.salary_component:
-						d.default_amount = flt(e.default_amount) * flt(form.percentage)/100
-						d.amount += flt(e.amount) * flt(form.percentage)/100
-			d.amount = round(d.amount,0)
-			d.default_amount = round(d.default_amount,0)
-		elif d.salary_component <> 'Loan Deduction':
-			str = frappe.get_doc("Salary Structure", doc.salary_structure)
-			for x in str.deductions:
-				if x.salary_component == d.salary_component:
-					d.default_amount = x.amount
-					d.amount = d.default_amount
-
+		if d.salary_component <> 'Loan Deduction':
+			d.amount = int((flt(d.default_amount) * flt(doc.payment_days_for_deductions)/tdim))+1
 		tot_ded +=d.amount
 	
 	#Calculate Contributions
 	for c in doc.contributions:
-		#Check if contribution is in any earning's formula
-		chk = 0
-		for e in doc.earnings:
-			earn = frappe.get_doc("Salary Component", e.salary_component)
-			for form in earn.deduction_contribution_formula:
-				if c.salary_component == form.salary_component:
-					chk = 1
-		if chk == 1:
-			c.amount = round((flt(c.default_amount) * flt(doc.payment_days_for_deductions)/tdim),0)
+		c.amount = round((flt(c.default_amount) * flt(doc.payment_days_for_deductions)/tdim),0)
 		tot_cont += c.amount
-	
+
 	doc.gross_pay = gross_pay
 	doc.total_deduction = tot_ded
 	doc.net_pay = doc.gross_pay - doc.total_deduction
@@ -367,6 +337,9 @@ def get_from_sal_struct(doc, salary_structure_doc, table_list):
 	for table_name in table_list:
 		for comp in salary_structure_doc.get(table_name):
 			amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
+			#frappe.msgprint(str(amount))
+			#frappe.msgprint(str(comp))
+			#frappe.msgprint(str(data))
 			doc.append(table_name, {
 				"salary_component": comp.salary_component,
 				"default_amount": amount,
