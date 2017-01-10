@@ -1,0 +1,18 @@
+{
+ "add_total_row": 0, 
+ "apply_user_permissions": 1, 
+ "creation": "2017-01-10 12:33:27.551967", 
+ "disabled": 0, 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "idx": 0, 
+ "is_standard": "Yes", 
+ "modified": "2017-01-10 12:33:27.551967", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "Valuation Rate", 
+ "owner": "Administrator", 
+ "ref_doctype": "Valuation Rate", 
+ "report_name": "Valuation Rate", 
+ "report_type": "Script Report"
+}
