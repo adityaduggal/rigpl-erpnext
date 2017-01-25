@@ -136,5 +136,7 @@ def get_conditions(filters):
 	if filters.get("template"):
 		conditions_it += " AND it.variant_of = '%s'" % filters["template"]
 		
+	if filters.get("is_pl") == 1:
+		conditions_it += " AND it.pl_item = 'Yes'"
 	return conditions_it
 
