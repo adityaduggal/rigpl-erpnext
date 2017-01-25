@@ -59,7 +59,7 @@ frappe.query_reports["Compare Pricing"] = {
 		},
 		{
 			"fieldname":"pl1",
-			"label": "Price List1",
+			"label": "Base Price List",
 			"fieldtype": "Link",
 			"options": "Price List",
 			"reqd": 1

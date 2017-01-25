@@ -17,7 +17,8 @@ def get_columns():
 	return [
 		"Item:Link/Item:120", 
 		"PL1:Currency:70", "PL1 Cur::40", "PL2:Currency:70", "PL2 Cur::40", 
-		"PL3:Currency:70", "PL3 Cur::40", "Description::400",
+		"PL2 %age Diff:Float:80", "PL3:Currency:70", "PL3 Cur::40", 
+		"PL3 %age Diff:Float:80", "Description::400",
 		"BM::60", "Brand::60", "QLT::80", "SPL::50", "TT::150",
 		"D1:Float:50", "W1:Float:50", "L1:Float:50", "Zn:Float:50", "D2:Float:50",
 		"L2:Float:50", "A1:Float:50", "Is PL::50"
@@ -32,8 +33,10 @@ def get_item_data(filters):
 	query = """
 	SELECT
 		it.name, itp1.price_list_rate, IFNULL(itp1.currency, "-"),
-		itp2.price_list_rate, IFNULL(itp2.currency, "-"),
+		itp2.price_list_rate, IFNULL(itp2.currency, "-"), IF(itp1.price_list_rate > 0, 
+		((itp2.price_list_rate-itp1.price_list_rate)/itp1.price_list_rate)*100,0),
 		itp3.price_list_rate, IFNULL(itp3.currency, "-"),
+		IF(itp1.price_list_rate > 0, ((itp3.price_list_rate-itp1.price_list_rate)/itp1.price_list_rate)*100,0),
 		it.description,
 		IFNULL(bm.attribute_value, "-"), IFNULL(brand.attribute_value, "-"),
 		IFNULL(quality.attribute_value, "-"), IFNULL(spl.attribute_value, "-"),
