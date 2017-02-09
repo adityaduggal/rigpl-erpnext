@@ -127,7 +127,12 @@ def calculate_net_salary(doc, msd, med):
 	#Calculate Deductions
 	for d in doc.deductions:
 		if d.salary_component <> 'Loan Deduction':
-			d.amount = int((flt(d.default_amount) * flt(doc.payment_days_for_deductions)/tdim))+1
+			sal_comp_doc = frappe.get_doc("Salary Component", d.salary_component)
+			if sal_comp_doc.depends_on_lwp == 1:
+				if sal_comp_doc.round_up == 1:
+					d.amount = int(flt(d.default_amount) * flt(doc.payment_days_for_deductions)/tdim)+1
+				else:
+					d.amount = round(flt(d.default_amount) * flt(doc.payment_days_for_deductions)/tdim,0)
 		tot_ded +=d.amount
 	
 	#Calculate Contributions

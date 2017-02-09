@@ -21,13 +21,6 @@ frappe.ui.form.on('Salary Component', {
 				}
 			};
 		});
-		frm.set_query("salary_component", "deduction_contribution_formula", function(doc, cdt, cdn) {
-			return {
-				"filters": {
-					"is_earning": 0,
-				}
-			};
-		});
 	},
 });
 cur_frm.add_fetch("salary_component", "is_deduction", "is_deduction");
