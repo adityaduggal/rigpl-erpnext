@@ -85,9 +85,9 @@ Yes",Whether the item is Mentioned on Price List and Catalog and inherently this
 ,Purchase Order-is_subcontracting,Purchase Order,Check,Is Subcontracting,transaction_date,,,,is_subcontracting,0,0,0,0,0,,,0,,0,0,0,0,0,0,13-08-2016 17:11:41
 ,Purchase Order Item-subcontracted_item,Purchase Order Item,Link,Subcontracted Item,item_code,,Item,,subcontracted_item,0,0,0,0,0,,,0,,0,0,0,0,0,0,13-08-2016 17:27:02
 ,Purchase Order Item-from_warehouse,Purchase Order Item,Link,From Warehouse,schedule_date,,Warehouse,,from_warehouse,0,0,0,0,0,,,0,,0,0,0,0,0,0,13-08-2016 17:33:45
-,"""Salary Component-is_earning""",Salary Component,Check,Is Earning,description,,,,is_earning,0,0,0,0,0,,,0,eval:doc.is_deduction == 0 && doc.is_contribution == 0,0,0,0,0,0,0,30-07-2016 11:30:34
-,"""Salary Component-is_contribution""",Salary Component,Check,Is Contribution,is_deduction,,,,is_contribution,0,0,0,0,0,,,0,eval:doc.is_deduction == 0 && doc.is_earning == 0,0,0,0,0,0,0,30-07-2016 11:30:35
-,"""Salary Component-is_deduction""",Salary Component,Check,Is Deduction,is_earning,,,,is_deduction,0,0,0,0,0,,,0,eval:doc.is_earning == 0 && doc.is_contribution == 0,0,0,0,0,0,0,30-07-2016 11:30:35
+,"""Salary Component-is_earning""",Salary Component,Check,Is Earning,description,,,,is_earning,0,0,0,0,0,,,0,eval:doc.is_deduction != 1 && doc.is_contribution != 1,0,0,0,0,0,0,30-07-2016 11:30:34
+,"""Salary Component-is_contribution""",Salary Component,Check,Is Contribution,is_deduction,,,,is_contribution,0,0,0,0,0,,,0,eval:doc.is_deduction != 1 && doc.is_earning != 1,0,0,0,0,0,0,30-07-2016 11:30:35
+,"""Salary Component-is_deduction""",Salary Component,Check,Is Deduction,is_earning,,,,is_deduction,0,0,0,0,0,,,0,eval:doc.is_earning != 1 && doc.is_contribution != 1,0,0,0,0,0,0,30-07-2016 11:30:35
 ,"""Salary Component-only_for_deductions""",Salary Component,Check,Only for Deductions,is_contribution,,,,only_for_deductions,0,0,0,0,0,,,0,eval:doc.is_earning == 1 && doc.based_on_earning != 1,0,0,0,0,0,0,30-07-2016 11:45:57
 ,"""Salary Component-based_on_earning""",Salary Component,Check,Based on Earning,only_for_deductions,,,,based_on_earning,0,0,0,0,0,,,0,eval:doc.is_earning == 1 && doc.only_for_deductions != 1,0,0,0,0,0,0,30-07-2016 12:01:14
 ,"""Salary Component-earning""",Salary Component,Link,Earning,books,,Salary Component,,earning,0,0,0,0,0,,,0,eval:doc.based_on_earning == 1,0,0,0,0,0,0,30-07-2016 12:01:14
