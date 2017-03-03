@@ -25,7 +25,6 @@ def execute(filters=None):
 			for emp in emp_lst:
 				if ss.employee == emp.name:
 					row = [ss.name, ss.from_date, ss.to_date, ss.is_active, emp.name, emp.employee_name]
-			
 			for e in earning_types:
 				row.append(ss_earning_map.get(ss.name, {}).get(e))
 			row += [ss.total_earning]
@@ -71,7 +70,7 @@ def get_employee(filters):
 def get_salary_str(filters, emp_lst):
 	conditions_emp, conditions_ss, filters = get_conditions(filters)
 	
-	salary_str = frappe.db.sql("""SELECT ss.name, ss.from_date, ss.to_date, ss.is_active,
+	salary_str = frappe.db.sql("""SELECT ss.name, sse.from_date, sse.to_date, ss.is_active,
 		sse.employee, sse.employee_name
 		FROM `tabSalary Structure` ss, `tabSalary Structure Employee` sse
 		WHERE ss.docstatus = 0 AND ss.name = sse.parent {condition} AND sse.employee IN (%s)
@@ -84,9 +83,9 @@ def get_salary_str(filters, emp_lst):
 		frappe.throw("No Salary Structure found for given criterion")
 	
 	return salary_str
-	
+			
 def get_ss_earning_map(salary_str):
-	ss_earnings = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.amount
+	ss_earnings = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.abbr, sd.amount, sd.condition, sd.formula
 		from `tabSalary Detail` sd, `tabSalary Component` sc
 		WHERE sd.salary_component = sc.name AND 
 			sc.is_earning = 1 AND sd.parent in (%s)""" % \
@@ -94,13 +93,12 @@ def get_ss_earning_map(salary_str):
 	
 	ss_earning_map = {}
 	for d in ss_earnings:
-		ss_earning_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
-		ss_earning_map[d.parent][d.salary_component] = flt(d.amount)
-	
+		ss_earning_map.setdefault(d.parent, frappe._dict()).setdefault(d.abbr, [])
+		ss_earning_map[d.parent][d.abbr] = flt(d.amount)
 	return ss_earning_map
 	
 def get_ss_ded_map(salary_str):
-	ss_deductions = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.amount 
+	ss_deductions = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.abbr, sd.amount 
 		from `tabSalary Detail` sd, `tabSalary Component` sc
 		WHERE sd.salary_component = sc.name AND 
 			sc.is_deduction = 1 AND sd.parent in (%s)""" %
@@ -109,12 +107,12 @@ def get_ss_ded_map(salary_str):
 	ss_ded_map = {}
 	for d in ss_deductions:
 		ss_ded_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
-		ss_ded_map[d.parent][d.salary_component] = flt(d.amount)
+		ss_ded_map[d.parent][d.abbr] = flt(d.amount)
 	
 	return ss_ded_map
 	
 def get_ss_cont_map(salary_str):
-	ss_contri = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.amount 
+	ss_contri = frappe.db.sql("""SELECT sd.parent, sd.salary_component, sd.abbr, sd.amount 
 		from `tabSalary Detail` sd,  `tabSalary Component` sc
 		WHERE sd.salary_component = sc.name AND 
 			sc.is_contribution = 1 AND sd.parent in (%s)""" %
@@ -123,7 +121,7 @@ def get_ss_cont_map(salary_str):
 	ss_cont_map = {}
 	for d in ss_contri:
 		ss_cont_map.setdefault(d.parent, frappe._dict()).setdefault(d.salary_component, [])
-		ss_cont_map[d.parent][d.salary_component] = flt(d.amount)
+		ss_cont_map[d.parent][d.abbr] = flt(d.amount)
 	
 	return ss_cont_map
 	
@@ -131,30 +129,30 @@ def get_columns(filters, salary_str):
 	if filters.get("without_salary_structure")<>1:
 		columns = [
 			_("Salary Structure") + ":Link/Salary Structure:60", _("From Date") + ":Date:80", 
-			_("To Date") + ":Date:80", _("Active") + "::80", _("Employee") + ":Link/Employee:80",
+			_("To Date") + ":Date:80", _("Active") + "::40", _("Employee") + ":Link/Employee:80",
 			_("Name") + "::150"
 		]
 		
-		earning_types = frappe.db.sql_list("""SELECT DISTINCT sd.salary_component 
+		earning_types = frappe.db.sql_list("""SELECT DISTINCT sd.abbr, sd.salary_component 
 		FROM `tabSalary Detail` sd, `tabSalary Component` sc
 		WHERE sc.name = sd.salary_component AND sc.is_earning = 1 AND sd.parent in (%s)""" % 
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]))
 		
-		ded_types = frappe.db.sql_list("""SELECT DISTINCT sd.salary_component 
+		ded_types = frappe.db.sql_list("""SELECT DISTINCT sd.abbr, sd.salary_component 
 		FROM `tabSalary Detail` sd, `tabSalary Component` sc
 		WHERE sc.name = sd.salary_component AND sc.is_deduction = 1 AND sd.parent in (%s)""" % 
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]))
 		
-		cont_types = frappe.db.sql_list("""SELECT DISTINCT sd.salary_component 
+		cont_types = frappe.db.sql_list("""SELECT DISTINCT sd.abbr, sd.salary_component 
 		FROM `tabSalary Detail` sd, `tabSalary Component` sc
 		WHERE sc.name = sd.salary_component AND sc.is_contribution = 1 AND sd.parent in (%s)""" % 
 		(', '.join(['%s']*len(salary_str))), tuple([d.name for d in salary_str]))
 		
-		columns = columns + [(e + ":Currency:120") for e in earning_types] + \
+		columns = columns + [(e + ":Currency:80") for e in earning_types] + \
 			["Total Earning:Currency:100"] + \
-			[(d + ":Currency:120") for d in ded_types] + ["Total Deductions:Currency:100"] + \
+			[(d + ":Currency:80") for d in ded_types] + ["Total Deductions:Currency:100"] + \
 			["Net Pay:Currency:100"] + \
-			[(c + ":Currency:120") for c in cont_types] + ["Total CTC:Currency:100"]
+			[(c + ":Currency:80") for c in cont_types] + ["Total CTC:Currency:100"]
 	else:
 		columns = [
 			"Employee ID:Link/Employee:100", "Employee Name::200", "Branch::80", "Department::80",
@@ -186,8 +184,8 @@ def get_conditions(filters):
 		if filters["from_date"] > filters["to_date"]:
 			frappe.throw("From Date cannot be after To Date")
 		else:
-			conditions_ss += " AND ((ss.from_date <='%s' AND ss.to_date <= '%s' AND \
-				ss.to_date >= '%s') OR (ss.from_date <= '%s' AND ss.to_date >= '%s'))" % \
+			conditions_ss += " AND ((sse.from_date <='%s' AND sse.to_date <= '%s' AND \
+				sse.to_date >= '%s') OR (sse.from_date <= '%s' AND sse.to_date >= '%s'))" % \
 				(filters["from_date"], filters["to_date"], filters["from_date"], \
 				filters["to_date"], filters["from_date"])
 		
