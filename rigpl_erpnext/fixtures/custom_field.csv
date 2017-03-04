@@ -96,7 +96,8 @@ Yes",Whether the item is Mentioned on Price List and Catalog and inherently this
 ,"""Salary Component-account""",Salary Component,Link,Account,earning,,Account,,account,0,0,0,0,0,,,0,eval:doc.only_for_deductions != 1 && (doc.is_earning == 1 || doc.is_deduction == 1 || doc.is_contribution == 1),0,0,0,0,0,0,30-07-2016 12:58:49
 ,"""Salary Component-sb0""",Salary Component,Section Break,Deductions and Contributions,liability_account,,,,sb0,0,0,0,0,0,,,0,eval:doc.only_for_deductions == 1,0,0,0,0,0,0,30-07-2016 13:08:13
 ,"""Salary Component-liability_account""",Salary Component,Link,Liability Account,account,,Account,,liability_account,0,0,0,0,0,,,0,eval:doc.is_contribution == 1,0,0,0,0,0,0,30-07-2016 15:10:40
-,Salary Component-round_up,Salary Component,Check,Round Up,depends_on_lwp,,,,round_up,0,0,0,0,0,,,0,eval:doc.depends_on_lwp == 1,0,0,0,0,0,0,
+,Salary Component-round_up,Salary Component,Check,Round Up,depends_on_lwp,,,,round_up,0,0,0,0,0,,,0,eval:doc.depends_on_lwp == 1,0,0,0,0,0,0,02-03-2017 18:13:23.23
+,Salary Component-manual,Salary Component,Check,Manual,books,,,,manual,0,0,0,0,0,,,0,eval:doc.is_earning == 1 && doc.only_for_deductions == 1 && doc.books == 1,0,0,0,0,0,0,04-03-2017 15:11:14
 ,"""Salary Slip-total_overtime""",Salary Slip,Float,Total Overtime,totals,,,,total_overtime,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:34
 ,"""Salary Slip-unauthorized_leaves""",Salary Slip,Int,Unauthorized Leaves,total_overtime,,,,unauthorized_leaves,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:35
 ,"""Salary Slip-overtime_deducted""",Salary Slip,Float,Overtime Deducted,column_break_25,,,,overtime_deducted,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:35
