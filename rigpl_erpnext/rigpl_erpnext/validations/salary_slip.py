@@ -12,6 +12,7 @@ from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
 from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
 from erpnext.accounts.utils import get_fiscal_year
 
+
 def on_submit(doc,method):
 	if doc.net_pay < 0:
 		frappe.throw("Negative Net Pay Not Allowed")
@@ -36,13 +37,22 @@ def validate(doc,method):
 	get_loan_deduction(doc, msd, med)
 	get_expense_claim(doc, med)
 	calculate_net_salary(doc, msd, med)
+	table = ['earnings', 'deductions', 'contributions']
+	recalculate_formula(doc, table)
+	
+def recalculate_formula(doc, table):
+	data = SalarySlip.get_data_for_eval(doc)
+	salary_structure_doc = frappe.get_doc("Salary Structure", doc.salary_structure)
+	for table_name in table:
+		for comp in salary_structure_doc.get(table_name):
+			amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
 	
 def calculate_net_salary(doc, msd, med):
 	gross_pay = 0
 	net_pay = 0
 	tot_ded = 0
 	tot_cont = 0
-	
+	tot_books = 0
 	emp = frappe.get_doc("Employee", doc.employee)
 	tdim, twd = get_total_days(doc, emp, msd, med)
 	holidays = get_holidays(doc, msd, med, emp)
@@ -78,6 +88,9 @@ def calculate_net_salary(doc, msd, med):
 	
 	if doc.change_deductions == 0:
 		doc.payment_days_for_deductions = doc.payment_days
+		
+	if doc.payment_days_for_deductions == doc.payment_days:
+		doc.change_deductions = 0
 	
 	doc.unauthorized_leaves = ual 
 	
@@ -86,7 +99,7 @@ def calculate_net_salary(doc, msd, med):
 		ot_ded = (int(t_ot/8))*8
 	doc.overtime_deducted = ot_ded
 	d_ual = int(ot_ded/8)
-	
+
 	#Calculate Earnings
 	chk_ot = 0 #Check if there is an Overtime Rate
 	for d in doc.earnings:
@@ -99,7 +112,7 @@ def calculate_net_salary(doc, msd, med):
 			d.depends_on_lwp = 1
 		else:
 			d.depends_on_lwp = 0
-		
+
 		if earn.based_on_earning:
 			for d2 in doc.earnings:
 				#Calculate Overtime Value
@@ -114,15 +127,18 @@ def calculate_net_salary(doc, msd, med):
 					d.amount = round(flt(d.default_amount) * (paydays)/tdim,0)
 			elif d.depends_on_lwp == 1 and earn.books == 1:
 				d.amount = round(flt(d.default_amount) * flt(doc.payment_days_for_deductions)/ tdim,0)
+			elif earn.manual == 1:
+				d.default_amount = d.amount
 			else:
 				d.amount = d.default_amount
+		if earn.books == 1:
+			tot_books += flt(d.amount)
 		
 		if earn.only_for_deductions <> 1:
 			gross_pay += flt(d.amount)
 
 	if gross_pay < 0:
-		doc.arrear_amount = -1 * gross_pay
-	gross_pay += flt(doc.arrear_amount) + flt(doc.leave_encashment_amount)
+		frappe.throw(("Gross Pay Cannot be Less than Zero for Employee: {0}").format(emp.employee_name))
 	
 	#Calculate Deductions
 	for d in doc.deductions:
@@ -144,6 +160,7 @@ def calculate_net_salary(doc, msd, med):
 	doc.total_deduction = tot_ded
 	doc.net_pay = doc.gross_pay - doc.total_deduction
 	doc.rounded_total = myround(doc.net_pay, 10)
+	doc.net_pay_books = tot_books - doc.total_deduction
 		
 	company_currency = get_company_currency(doc.company)
 	doc.total_in_words = money_in_words(doc.rounded_total, company_currency)
@@ -300,7 +317,7 @@ def get_month_dates(doc):
 
 
 def get_edc(doc):
-	#Earning Table should be replaced if there is any change in the Earning Composition
+	#Earning Table should be replaced if there is any change in the Earning Composition except manual
 	#Change can be of 3 types in the earning table
 	#1. If a user removes a type of earning
 	#2. If a user adds a type of earning
@@ -309,7 +326,18 @@ def get_edc(doc):
 
 	sstr = frappe.get_doc("Salary Structure", doc.salary_structure)		
 	existing_ded = []
+	manual_earn = []
 	
+	earn_dict = {}
+	for comp in doc.earnings:
+		earn_doc = frappe.get_doc("Salary Component", comp.salary_component)
+		if earn_doc.manual == 1:
+			earn_dict['salary_component'] = comp.salary_component
+			earn_dict['idx'] = comp.idx
+			earn_dict['default_amount'] = comp.amount
+			earn_dict['amount'] = comp.amount
+			manual_earn.append(earn_dict.copy())
+	#Only Loan Deduction is Not Overwritten so that Loan Deduction can be Changed Later by user
 	dict = {}
 	for comp in doc.deductions:
 		if comp.salary_component == 'Loan Deduction':
@@ -325,6 +353,15 @@ def get_edc(doc):
 	doc.deductions = []
 	doc.contributions = []
 	get_from_sal_struct(doc, sstr, table_list)
+	
+	#Add Changed Manual Earning Amount to the Table
+	if manual_earn:
+		for i in range(len(manual_earn)):
+			for comp in doc.earnings:
+				if comp.salary_component == earn_dict['salary_component']:
+					comp.default_amount = manual_earn[i]['amount']
+					comp.amount = manual_earn[i]['amount']
+					
 	#Add changed loan amount to the table
 	if existing_ded:
 		for i in range(len(existing_ded)):
@@ -342,9 +379,6 @@ def get_from_sal_struct(doc, salary_structure_doc, table_list):
 	for table_name in table_list:
 		for comp in salary_structure_doc.get(table_name):
 			amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
-			#frappe.msgprint(str(amount))
-			#frappe.msgprint(str(comp))
-			#frappe.msgprint(str(data))
 			doc.append(table_name, {
 				"salary_component": comp.salary_component,
 				"default_amount": amount,
