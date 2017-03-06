@@ -21,17 +21,17 @@ def check_edc(doc,tables):
 					sal_comp.salary_component, i[:-1]))
 	#Check for existing Salary Structures for Employees in Same Period
 	for emp in doc.employees:
-		if doc.to_date:
-			to_date = doc.to_date
+		if emp.to_date:
+			to_date = emp.to_date
 		else:
 			to_date = '2099-12-31'
 			
 		query = """SELECT ss.name FROM `tabSalary Structure` ss,
 			`tabSalary Structure Employee` sse WHERE sse.parent = ss.name AND
 			ss.docstatus = 0 AND ss.name != '%s' AND 
-			sse.employee = %s AND ((ss.from_date BETWEEN '%s' AND '%s') OR
-			(IFNULL(ss.to_date, '2099-12-31') BETWEEN '%s' AND '%s'))""" \
-			%(doc.name, emp.employee,doc.from_date, to_date, doc. 	from_date, to_date)
+			sse.employee = %s AND ((sse.from_date BETWEEN '%s' AND '%s') OR
+			(IFNULL(sse.to_date, '2099-12-31') BETWEEN '%s' AND '%s'))""" \
+			%(doc.name, emp.employee,emp.from_date, to_date, emp.from_date, to_date)
 
 		existing_ss = frappe.db.sql(query, as_list=1)
 		if existing_ss:
