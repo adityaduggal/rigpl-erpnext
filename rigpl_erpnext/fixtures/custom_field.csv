@@ -106,6 +106,7 @@ Yes",Whether the item is Mentioned on Price List and Catalog and inherently this
 ,"""Salary Slip-total_ctc""",Salary Slip,Currency,Total CTC,unauthorized_leaves,,,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
 ,"""Salary Slip-payment_days_for_deductions""",Salary Slip,Float,Payment Days for Deductions,company,,,"Use this field to match the deductions and contributions for ESI, ideally it should be equal to Payment days but can be different due to adjustment of leaves.\",payment_days_for_deductions,0,1,0,0,0,,,0,,0,0,0,0,0,0,28-04-2016 18:35:20
 ,"""Salary Slip-change_deductions""",Salary Slip,Check,Change Deductions,payment_days_for_deductions,,,,change_deductions,0,0,0,0,0,,,0,,0,0,0,0,0,0,14-05-2016 13:13:29
+,Salary Slip-net_pay_books,Salary Slip,Currency,Net Pay Books,net_pay,,,,net_pay_books,0,0,0,1,0,,,0,,0,0,0,0,0,0,06-03-2017 10:50:39
 ,"""Salary Structure-contribution""",Salary Structure,Section Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:10
 ,"""Salary Structure-contributions""",Salary Structure,Table,Contributions,contribution,,Salary Detail,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:11
 ,"""Salary Structure-total_ctc""",Salary Structure,Currency,Total CTC,net_pay,,Company:company:default_currency,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:12
