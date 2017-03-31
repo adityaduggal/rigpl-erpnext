@@ -66,7 +66,7 @@ Trial Failed",,customer_rating,2,0,0,0,0,,OK,0,,0,1,0,0,1,0,29-05-2013 10:56:53
 Yes",,stock_maintained,1,0,0,0,0,,No,0,,0,1,0,1,0,0,12-10-2015 16:27:36
 ,"""Item-pl_item""",Item,Select,PL Item,stock_maintained,,"No
 Yes",Whether the item is Mentioned on Price List and Catalog and inherently this item would also show on the Website if this field is Selected as Yes.,pl_item,1,0,0,0,0,,No,0,,0,1,0,0,0,0,13-10-2015 18:46:00
-,"""Item-item_variant_restrictions""",Item,Table,Item Variant Restrictions,attributes,,Item Variant Restrictions,,item_variant_restrictions,9,0,0,0,0,,,0,eval: doc.has_variants,0,0,0,0,0,0,25-04-2016 11:05:57
+,"""Item-item_variant_restrictions""",Item,Table,Item Variant Restrictions,attributes,,Item Variant Restrictions,,item_variant_restrictions,1,0,0,0,0,,,0,eval: doc.has_variants,0,0,0,0,0,0,25-04-2016 11:05:57
 ,"""Item Attribute-column_break_1""",Item Attribute,Column Break,,,,,,column_break_1,0,0,0,0,0,,,0,,0,0,0,0,0,0,25-04-2016 11:05:40
 ,"""Item Attribute-hidden""",Item Attribute,Check,Hidden,,,,,hidden,0,0,0,0,0,,,0,eval:!doc.virtual,0,0,0,0,1,0,25-04-2016 11:05:41
 ,"""Item Attribute-relation""",Item Attribute,Dynamic Link,Relation,hidden,,source,,relation,0,0,0,0,0,,,0,eval:doc.hidden,0,0,0,0,0,0,25-04-2016 11:05:42
