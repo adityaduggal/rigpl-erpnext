@@ -11,10 +11,10 @@ def on_update(doc,method):
 	validate(doc,method)
 
 def validate(doc,method):
-	global att_date
+	global attendance_date
 	att_tt = []
 	att_time = []
-	att_date = getdate(doc.att_date)
+	attendance_date = getdate(doc.attendance_date)
 	if doc.status <> "Present" and doc.status <> "Half Day":
 		frappe.throw(("Only Present or Half Day Attendance is Allowed Check {0}").format(doc.name))
 
@@ -30,11 +30,11 @@ def check_employee(doc, method):
 	#Check if the employee is Active for the Dates
 	emp = frappe.get_doc("Employee", doc.employee)
 	if emp.status == "Left":
-		if emp.relieving_date < att_date:
+		if emp.relieving_date < attendance_date:
 			frappe.throw(("Cannot create attendance for {0} as he/she has left on {1}").\
 			format(emp.employee_name, emp.relieving_date))
 	else:
-		if emp.date_of_joining > att_date:
+		if emp.date_of_joining > attendance_date:
 			frappe.throw(("Cannot create attendance for {0} as he/she has joined on {1}").\
 			format(emp.employee_name, emp.date_of_joining))
 
@@ -42,10 +42,10 @@ def check_employee(doc, method):
 def get_shift(doc,method):
 	query = """SELECT ro.name, ro.shift FROM `tabRoster` ro, `tabRoster Details` rod
 		WHERE rod.parent = ro.name AND ro.from_date <= '%s' AND ro.to_date >= '%s' 
-		AND rod.employee = '%s' """%(att_date, att_date, doc.employee)
+		AND rod.employee = '%s' """%(attendance_date, attendance_date, doc.employee)
 	roster = frappe.db.sql(query, as_list=1)
 	if len(roster)<1:
-		frappe.throw(("No Roster defined for {0} for date {1}").format(doc.employee, att_date))
+		frappe.throw(("No Roster defined for {0} for date {1}").format(doc.employee, attendance_date))
 	else:
 		doc.shift = roster[0][1]
 	
@@ -66,11 +66,11 @@ def validate_time_with_shift(doc,method):
 			#this shows night shift
 			if shft.next_day <> 1:
 				#this shows night shift is starting on previous day
-				shft_indate = datetime.combine(add_days(att_date, -1), datetime.min.time())
+				shft_indate = datetime.combine(add_days(attendance_date, -1), datetime.min.time())
 			else:
-				shft_indate = datetime.combine(att_date, datetime.min.time())
+				shft_indate = datetime.combine(attendance_date, datetime.min.time())
 		else:
-			shft_indate = datetime.combine(att_date, datetime.min.time())
+			shft_indate = datetime.combine(attendance_date, datetime.min.time())
 		
 		shft_intime = shft_indate + timedelta(0, shft.in_time.seconds)
 		shft_intime_max = shft_intime + timedelta(0, shft.delayed_entry_allowed_time.seconds)
