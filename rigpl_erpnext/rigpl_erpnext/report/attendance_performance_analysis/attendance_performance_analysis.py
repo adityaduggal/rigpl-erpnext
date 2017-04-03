@@ -38,10 +38,10 @@ def get_entries(filters):
 			hol.holiday_date <= '%s' AND hol.holiday_date >= '%s'), 
 		
 		(SELECT count(name) FROM `tabAttendance` 
-			WHERE employee = emp.name AND docstatus = 1 AND att_date <= '%s' AND att_date >= '%s'), 
+			WHERE employee = emp.name AND docstatus = 1 AND attendance_date <= '%s' AND attendance_date >= '%s'), 
 		
 		(SELECT sum(overtime) FROM `tabAttendance` 
-			WHERE employee = emp.name AND docstatus = 1 AND att_date <= '%s' AND att_date >= '%s'), 
+			WHERE employee = emp.name AND docstatus = 1 AND attendance_date <= '%s' AND attendance_date >= '%s'), 
 		
 		(SELECT sum(total_leave_days) FROM `tabLeave Application` WHERE status = 'Approved' 
 			AND docstatus = 1 AND employee = emp.name AND from_date <= '%s') as auth_leave, NULL
@@ -92,10 +92,10 @@ def get_conditions(filters):
 		conditions_emp += " AND emp.name = '%s'" % filters["employee"]
 		
 	if filters.get("from_date"):
-		conditions_att += " AND att.att_date >='%s'" % filters["from_date"]
+		conditions_att += " AND att.attendance_date >='%s'" % filters["from_date"]
 
 	if filters.get("to_date"):
-		conditions_att += " AND att.att_date <='%s'" % filters["to_date"]
+		conditions_att += " AND att.attendance_date <='%s'" % filters["to_date"]
 		
 		
 	return conditions_emp, conditions_att

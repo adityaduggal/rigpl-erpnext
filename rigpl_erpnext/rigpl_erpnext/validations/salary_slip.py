@@ -62,12 +62,12 @@ def calculate_net_salary(doc, msd, med):
 	wd = twd - holidays #total working days
 	doc.total_days_in_month = tdim
 	att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` 
-		WHERE employee = '%s' AND att_date >= '%s' AND att_date <= '%s' 
+		WHERE employee = '%s' AND attendance_date >= '%s' AND attendance_date <= '%s' 
 		AND status = 'Present' AND docstatus=1""" \
 		%(doc.employee, msd, med),as_list=1)
 
 	half_day = frappe.db.sql("""SELECT count(name) FROM `tabAttendance` 
-		WHERE employee = '%s' AND att_date >= '%s' AND att_date <= '%s' 
+		WHERE employee = '%s' AND attendance_date >= '%s' AND attendance_date <= '%s' 
 		AND status = 'Half Day' AND docstatus=1""" \
 		%(doc.employee, msd, med),as_list=1)
 	
