@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import frappe
+import frappe, erpnext
 import math
 import datetime
 from frappe import msgprint
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import money_in_words, flt
-from erpnext.setup.utils import get_company_currency
+#from erpnext.setup.utils import get_company_currency
 from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details, get_start_end_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
 from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
@@ -162,7 +162,7 @@ def calculate_net_salary(doc, msd, med):
 	doc.rounded_total = myround(doc.net_pay, 10)
 	doc.net_pay_books = tot_books - doc.total_deduction
 		
-	company_currency = get_company_currency(doc.company)
+	company_currency = erpnext.get_company_currency(doc.company)
 	doc.total_in_words = money_in_words(doc.rounded_total, company_currency)
 	doc.total_ctc = doc.gross_pay + tot_cont
 	
