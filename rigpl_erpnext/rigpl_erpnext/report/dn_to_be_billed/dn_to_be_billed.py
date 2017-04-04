@@ -18,7 +18,7 @@ def get_columns():
 		"DN Price:Currency:70", "DN Amount:Currency:80", "Taxes::100", "SO #:Link/Sales Order:140",
 		"SO Date:Date:80", "Sales Person::150",
 		"Unbilled Qty:Float:80", "Unbilled Amount:Currency:80",
-		"Trial:Int:60"
+		"Trial::60"
 	]
 
 def get_dn_entries(filters):
@@ -40,9 +40,7 @@ def get_dn_entries(filters):
         	where sid.delivery_note = dn.name and
 			sid.parent = si.name and
 			sid.qty > 0 AND
-        	sid.dn_detail = dni.name %s), 0)),
-
-	dni.item_name, dni.description, so.track_trial
+        	sid.dn_detail = dni.name %s), 0)), IF(so.track_trial = 1, "Yes", "No")
 	
 	FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order` so, `tabSales Team` st
 
@@ -58,6 +56,7 @@ def get_dn_entries(filters):
 				AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
 	
 	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, so_cond, si_cond, conditions)
+
 	dn = frappe.db.sql(query ,as_list=1)
 
 	return dn
@@ -81,12 +80,15 @@ def get_conditions(filters):
 		conditions += " and dn.posting_date <= '%s'" % filters["to_date"]
 		si_cond += " AND si.posting_date <= '%s'" % filters ["to_date"]
 		
-	if filters.get("draft")=="Yes":
+	if filters.get("sales_person"):
+		conditions += "AND st.sales_person = '%s'" % filters["sales_person"]
+		
+	if filters.get("draft")== 1:
 		si_cond += " and si.docstatus != 2"
 	else:
 		si_cond += " and si.docstatus = 1"
 	
-	if filters.get("trial") == "Yes":
+	if filters.get("trial") == 1:
 		so_cond = "and so.track_trial = 1"
 	else:
 		so_cond = "and (so.track_trial <> 1 or so.track_trial is null)"
