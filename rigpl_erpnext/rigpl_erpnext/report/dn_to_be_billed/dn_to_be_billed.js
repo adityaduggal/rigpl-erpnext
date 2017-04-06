@@ -18,16 +18,20 @@ frappe.query_reports["DN To Be Billed"] = {
 			"default": get_today()
 		},
 		{
+			"fieldname":"sales_person",
+			"label": "Sales Person",
+			"fieldtype": "Link",
+			"options": "Sales Person"
+		},
+		{
 			"fieldname":"draft",
-			"label": "Consider Draft Invoices",
-			"fieldtype": "Select",
-			"options": "Yes\nNo"
+			"label": "Draft",
+			"fieldtype": "Check"			
 		},
 		{
 			"fieldname":"trial",
 			"label": "Trial",
-			"fieldtype": "Select",
-			"options": "No\nYes"
+			"fieldtype": "Check"
 		},
 	]
 }

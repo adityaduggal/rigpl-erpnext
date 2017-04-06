@@ -1,5 +1,5 @@
 {
- "add_total_row": 1, 
+ "add_total_row": 0, 
  "apply_user_permissions": 1, 
  "creation": "2016-05-17 15:17:27.336045", 
  "disabled": 0, 
@@ -7,12 +7,23 @@
  "doctype": "Report", 
  "idx": 0, 
  "is_standard": "Yes", 
- "modified": "2016-05-17 15:17:27.336045", 
+ "modified": "2017-04-06 18:44:05.516485", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Salary Register", 
  "owner": "Administrator", 
  "ref_doctype": "Salary Slip", 
  "report_name": "Salary Register", 
- "report_type": "Script Report"
+ "report_type": "Script Report", 
+ "roles": [
+  {
+   "role": "System Manager"
+  }, 
+  {
+   "role": "HR User"
+  }, 
+  {
+   "role": "HR Manager"
+  }
+ ]
 }
