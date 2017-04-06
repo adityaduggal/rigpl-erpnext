@@ -20,7 +20,7 @@ def execute(filters=None):
 		ss_earning_map = get_ss_earning_map(salary_str)
 		ss_ded_map = get_ss_ded_map(salary_str)
 		ss_cont_map = get_ss_cont_map(salary_str)
-				
+
 		for ss in salary_str:
 			for emp in emp_lst:
 				if ss.employee == emp.name:
@@ -33,7 +33,7 @@ def execute(filters=None):
 					WHERE is_earning = 1 AND only_for_deductions <> 1 
 					AND salary_component_abbr = '%s'""" %(e), as_list=1)
 				if add_to_total:
-					tot_earn += ss_earning_map.get(ss.name,{}).get(e)
+					tot_earn += flt(ss_earning_map.get(ss.name,{}).get(e))
 			row += [tot_earn]
 			for d in ded_types:
 				row.append(ss_ded_map.get(ss.name, {}).get(d))
@@ -77,7 +77,7 @@ def get_employee(filters):
 def get_salary_str(filters, emp_lst):
 	conditions_emp, conditions_ss, filters = get_conditions(filters)
 	
-	salary_str = frappe.db.sql("""SELECT ss.name, sse.from_date, sse.to_date, ss.is_active,
+	salary_str = frappe.db.sql("""SELECT ss.name, sse.from_date, IFNULL(sse.to_date, '2099-12-31') as to_date, ss.is_active,
 		sse.employee, sse.employee_name
 		FROM `tabSalary Structure` ss, `tabSalary Structure Employee` sse
 		WHERE ss.docstatus = 0 AND ss.name = sse.parent {condition} AND sse.employee IN (%s)
@@ -235,9 +235,9 @@ def get_conditions(filters):
 		if filters["from_date"] > filters["to_date"]:
 			frappe.throw("From Date cannot be after To Date")
 		else:
-			conditions_ss += " AND ((sse.from_date <='%s' AND sse.to_date <= '%s' AND \
-				sse.to_date >= '%s') OR (sse.from_date <= '%s' AND sse.to_date >= '%s'))" % \
+			conditions_ss += " AND ((sse.from_date <='%s' AND IFNULL(sse.to_date, '2099-12-31') <= '%s' AND \
+				IFNULL(sse.to_date, '2099-12-31') >= '%s') OR (sse.from_date <= '%s' AND IFNULL(sse.to_date, '2099-12-31') >= '%s'))" % \
 				(filters["from_date"], filters["to_date"], filters["from_date"], \
 				filters["to_date"], filters["from_date"])
-		
+
 	return conditions_emp, conditions_ss, filters
