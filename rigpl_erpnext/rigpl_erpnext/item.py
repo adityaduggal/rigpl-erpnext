@@ -40,8 +40,13 @@ def web_catalog(doc,method):
 	validate_restriction(doc,method)
 	if doc.pl_item == "Yes":
 		doc.show_in_website = 1
+		if doc.has_variants == 0:
+			doc.show_variant_in_website = 1
+		else:
+			doc.show_variant_in_website = 0
 	else:
 		doc.show_in_website = 0
+		doc.show_variant_in_website = 0
 		
 	if doc.show_in_website == 1:
 		rol = frappe.db.sql("""SELECT warehouse_reorder_level FROM `tabItem Reorder` WHERE parent ='%s' """%(doc.name), as_list=1)
@@ -64,6 +69,7 @@ def validate_restriction(doc,method):
 						attribute {0}").format(d.attribute))
 
 def validate_stock_fields(doc,method):
+	#As per Company Policy on FIFO method of Valuation is to be Used.
 	if doc.is_stock_item ==1:
 		if doc.valuation_method <> 'FIFO':
 			frappe.throw("Select Valuation method as FIFO for Stock Item")
