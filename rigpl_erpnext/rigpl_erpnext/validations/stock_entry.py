@@ -29,6 +29,8 @@ def validate(doc,method):
 	#Check if the Item has a Stock Reconciliation after the date and time or NOT.
 	#if there is a Stock Reconciliation then the Update would FAIL
 	for d in doc.items:
+		#Get the Adjustment Account (this account is static to Stock Adjustment - RIGPL)
+		d.expense_account = 'Stock Adjustment - RIGPL'
 		sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` 
 			WHERE item_code = '%s' AND warehouse = '%s' AND voucher_type = 'Stock Reconciliation'
 			AND posting_date > '%s'""" %(d.item_code, d.s_warehouse, doc.posting_date), as_list=1)
@@ -73,4 +75,4 @@ def validate(doc,method):
 			vr = frappe.get_doc("Valuation Rate", vr_name[0][0])
 			if d.item_code == vr.item_code:
 				d.basic_rate = vr.valuation_rate
-				d.valuation_rate = vr.valuation_rate
+				d.valuation_rate = vr.valuation_rate		
