@@ -103,10 +103,16 @@ class SalarySlipPayment(Document):
 		con_dict = {}
 		jvd_dict = []
 		total_rounded = 0
+		ec_not_posted = 0
 		sne = 0
 		
+		#Below loop would check all the salary slips and get their amounts in total
+		#individually for each employee for expenses payable.
+		#total rounded is posted in expenses payable with employee individually
 		for d in self.salary_slip_payment_details:
 			ss = frappe.get_doc("Salary Slip", d.salary_slip)
+			exp_payable = 0
+			exp_payable = d.rounded_pay
 			total_rounded += d.rounded_pay
 			arrear = ss.arrear_amount
 			leave = ss.leave_encashment_amount
@@ -124,17 +130,39 @@ class SalarySlipPayment(Document):
 						if add == 0:
 							earn_dict[etype.account] += arrear + leave
 							add = 1
+			frappe.msgprint(str(earn_dict))
 										
 			for e in ss.earnings:
 				etype = frappe.get_doc("Salary Component", e.salary_component)
 				if e.expense_claim and etype.only_for_deductions == 0:
-					exp_claim = frappe.get_doc("Expense Claim", e.expense_claim)
-					for ec in exp_claim.expenses:
-						ec_type = frappe.get_doc("Expense Claim Type", ec.expense_type)
-						if ec_type.default_account in earn_dict:
-							earn_dict[ec_type.default_account] += ec.sanctioned_amount
-						else:
-							earn_dict[ec_type.default_account] = ec.sanctioned_amount
+					#Check if the Expense Claim is already posted and also is it posted in
+					#Expenses Payable or NOT.
+					posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` 
+						WHERE voucher_type = 'Expense Claim' AND voucher_no = '%s'
+						AND docstatus = 1""" %(e.expense_claim), as_list=1)
+					#If the expense claim is not posted then post it with SSP else
+					#reduce the netpayable by EC amount so that there is balance in JV
+					if posted is None:
+						exp_claim = frappe.get_doc("Expense Claim", e.expense_claim)
+						for ec in exp_claim.expenses:
+							ec_type = frappe.get_doc("Expense Claim Type", ec.expense_type)
+							if ec_type.default_account in earn_dict:
+								earn_dict[ec_type.default_account] += ec.sanctioned_amount
+							else:
+								earn_dict[ec_type.default_account] = ec.sanctioned_amount
+					else:
+						ec_not_posted += e.default_amount
+						exp_payable = d.rounded_pay - e.default_amount
+			jvd_temp = {}
+			jvd_temp.setdefault("account", self.salary_slip_accrual_account)
+			jvd_temp.setdefault("credit_in_account_currency", exp_payable)
+			jvd_temp.setdefault("cost_center", "Default CC Ledger - RIGPL")
+			jvd_temp.setdefault("reference_type", "Salary Slip Payment")
+			jvd_temp.setdefault("reference_name", self.name)
+			jvd_temp.setdefault("party_type", "Employee")
+			jvd_temp.setdefault("party", d.employee)
+			jvd_dict.append(jvd_temp)
+			frappe.msgprint(str(jvd_dict))
 			
 			#add for leave encashment and arrears
 			#if gross_earn < earn_dict[etype.account]:
@@ -148,7 +176,7 @@ class SalarySlipPayment(Document):
 					else:
 						ded_dict[dtype.account] = d.amount
 				elif d.employee_loan:
-					eloan = frappe.get_doc("Employee Loan", d.employee_loan)
+					eloan = frappe.get_doc("Employee Advance", d.employee_loan)
 					if eloan.debit_account in ded_dict:
 						ded_dict[eloan.debit_account] += d.amount
 					else:
@@ -178,7 +206,7 @@ class SalarySlipPayment(Document):
 			jvd_temp.setdefault("reference_type", "Salary Slip Payment")
 			jvd_temp.setdefault("reference_name", self.name)
 			jvd_dict.append(jvd_temp)
-		
+			
 		for key in ded_dict:
 			jvd_temp = {}
 			total_ded += ded_dict[key]
@@ -189,15 +217,9 @@ class SalarySlipPayment(Document):
 			jvd_temp.setdefault("reference_name", self.name)
 			jvd_dict.append(jvd_temp)
 						
-		jvd_temp = {}
-		jvd_temp.setdefault("account", self.salary_slip_accrual_account)
-		jvd_temp.setdefault("credit_in_account_currency", total_rounded)
-		jvd_temp.setdefault("cost_center", "Default CC Ledger - RIGPL")
-		jvd_temp.setdefault("reference_type", "Salary Slip Payment")
-		jvd_temp.setdefault("reference_name", self.name)
-		jvd_dict.append(jvd_temp)
+
 		
-		sne = total_rounded - (total_earn - total_ded)
+		sne = total_rounded - (total_earn - total_ded) - ec_not_posted
 		if sne < 0:
 			jvd_temp = {}
 			jvd_temp.setdefault("account", self.rounding_account)
@@ -229,7 +251,7 @@ class SalarySlipPayment(Document):
 			jvd_temp.setdefault("reference_type", "Salary Slip Payment")
 			jvd_temp.setdefault("reference_name", self.name)
 			jvd_dict.append(jvd_temp)
-
+		frappe.msgprint(str(jvd_dict))
 		return jvd_dict
 		
 	def get_salary_slips(self):

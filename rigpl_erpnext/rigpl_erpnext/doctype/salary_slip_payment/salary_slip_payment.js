@@ -2,6 +2,22 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Salary Slip Payment', {
+	onload: function(frm){
+		frm.set_query("salary_slip_accrual_account", function() {
+			return {
+				"filters": {
+					"account_type": "Payable",
+				}
+			};
+		});
+		frm.set_query("rounding_account", function() {
+			return {
+				"filters": {
+					"account_type": "Round Off",
+				}
+			};
+		});
+	},
 	get_salary_slips: function(frm) {
 		return frappe.call({
 			method: "get_salary_slips",
