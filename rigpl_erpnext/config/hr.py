@@ -3,6 +3,28 @@ from frappe import _
 def get_data():
 	return [
 		{
+			"label": _("Employee Loan Management"),
+			"icon": "icon-gear",
+			"items": [
+				{
+					"type": "doctype",
+					"name": "Employee Advance",
+					"description": _("Employee Advance"),
+				},
+			]
+		},
+		{
+			"label": _("Payroll"),
+			"icon": "icon-gear",
+			"items": [
+				{
+					"type": "doctype",
+					"name": "Salary Slip Payment",
+					"description": _("Salary Slip Payment"),
+				},
+			]
+		},
+		{
 			"label": _("Setup"),
 			"icon": "icon-gear",
 			"items": [
@@ -44,7 +66,7 @@ def get_data():
 					"type": "report",
 					"is_query_report": True,
 					"name": "Employee Loan Analysis",
-					"doctype": "Employee Loan",
+					"doctype": "Employee Advance",
 				},
 				{
 					"type": "report",

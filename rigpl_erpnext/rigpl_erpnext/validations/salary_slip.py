@@ -15,21 +15,23 @@ from erpnext.accounts.utils import get_fiscal_year
 
 def on_submit(doc,method):
 	if doc.net_pay < 0:
-		frappe.throw("Negative Net Pay Not Allowed")
+		frappe.throw(("Negative Net Pay Not Allowed for {0}").format(doc.name))
+		
 	#Update the expense claim amount cleared so that no new JV can be made
 	for i in doc.earnings:
 		if i.expense_claim:
 			ec = frappe.get_doc("Expense Claim", i.expense_claim)
 			frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", \
 				i.amount)
+			frappe.db.set_value("Expense Claim", i.expense_claim, "status", "Paid")
 			
-
 def on_cancel(doc,method):
 	#Update the expense claim amount cleared so that no new JV can be made
 	for i in doc.earnings:
 		if i.expense_claim:
 			ec = frappe.get_doc("Expense Claim", i.expense_claim)
 			frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", 0)
+			frappe.db.set_value("Expense Claim", i.expense_claim, "status", "Unpaid")
 	
 def validate(doc,method):
 	get_edc(doc)
@@ -39,6 +41,25 @@ def validate(doc,method):
 	calculate_net_salary(doc, msd, med)
 	table = ['earnings', 'deductions', 'contributions']
 	recalculate_formula(doc, table)
+	validate_ec_posting(doc)
+	
+def validate_ec_posting(doc):
+	for e in doc.earnings:
+		if e.expense_claim:
+			#Check if the expense claim is properly posted in  Expenses Payable
+			posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` 
+					WHERE voucher_type = 'Expense Claim' AND voucher_no = '%s'
+					AND docstatus = 1""" %(e.expense_claim), as_list=1)
+			if posted:
+				for ec_claim in posted:
+					#Check Credit Entry's account should be Expenses Payable - RIGPL
+					debit = frappe.db.sql("""SELECT name, credit, account
+						FROM `tabGL Entry` WHERE name = '%s'"""%(ec_claim[0]), as_list=1)
+						
+					if debit[0][1] > 0:
+						if debit[0][2] != "Expenses Payable - RIGPL":
+							frappe.throw(("Expense Claim {0} in Salary Slip {1} is not posted \
+							correctly").format(e.expense_claim, doc.name))
 	
 def recalculate_formula(doc, table):
 	data = SalarySlip.get_data_for_eval(doc)
