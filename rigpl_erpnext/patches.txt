@@ -9,3 +9,4 @@ rigpl_erpnext.patches.20160730_copy_contribution_ss_ss
 rigpl_erpnext.patches.20160819_create_valuation_rate_carbide_rm
 rigpl_erpnext.patches.20161016_insert_sales_person_in_customer
 rigpl_erpnext.patches.20170103_salary_slip_fields
+rigpl_erpnext.patches.20170415_emp_loan_changes

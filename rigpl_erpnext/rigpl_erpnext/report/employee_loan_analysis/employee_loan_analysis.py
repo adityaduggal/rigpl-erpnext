@@ -97,7 +97,7 @@ def get_opening(filters):
 	
 	
 	for d in frappe.db.sql("""SELECT eld.employee, SUM(eld.loan_amount) as op_loan
-		FROM `tabEmployee Loan` el, `tabEmployee Loan Detail` eld
+		FROM `tabEmployee Advance` el, `tabEmployee Loan Detail` eld
 		WHERE el.name = eld.parent AND el.docstatus =1
 		AND el.posting_date < '%s'
 		GROUP BY eld.employee""" %filters["from_date"], as_dict=1):
@@ -119,7 +119,7 @@ def loan_given(filters):
 	conditions_el = get_conditions(filters)[1]
 	loan_given_map = frappe._dict()
 	for d in frappe.db.sql("""SELECT eld.employee, SUM(eld.loan_amount) as loan_given
-		FROM `tabEmployee Loan` el, `tabEmployee Loan Detail` eld
+		FROM `tabEmployee Advance` el, `tabEmployee Loan Detail` eld
 		WHERE el.name = eld.parent AND el.docstatus = 1 %s
 		GROUP BY eld.employee""" %conditions_el, as_dict=1):
 		loan_given_map.setdefault(d.employee,d)
@@ -129,7 +129,7 @@ def loan_given(filters):
 def get_details(filters):
 	conditions_emp, conditions_el, conditions_ss = get_conditions(filters)
 	loan = frappe.db.sql("""SELECT el.posting_date, eld.loan_amount, 0, 'Employee Loan', el.name
-		FROM `tabEmployee Loan` el, `tabEmployee Loan Detail` eld
+		FROM `tabEmployee Advance` el, `tabEmployee Loan Detail` eld
 		WHERE eld.parent = el.name AND el.docstatus = 1 AND 
 			eld.employee = '%s' %s ORDER BY el.posting_date""" \
 		%(filters.get("employee"), conditions_el), as_list=1)
