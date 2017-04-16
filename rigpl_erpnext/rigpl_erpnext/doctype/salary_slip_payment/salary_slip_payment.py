@@ -130,7 +130,6 @@ class SalarySlipPayment(Document):
 						if add == 0:
 							earn_dict[etype.account] += arrear + leave
 							add = 1
-			frappe.msgprint(str(earn_dict))
 										
 			for e in ss.earnings:
 				etype = frappe.get_doc("Salary Component", e.salary_component)
@@ -162,7 +161,6 @@ class SalarySlipPayment(Document):
 			jvd_temp.setdefault("party_type", "Employee")
 			jvd_temp.setdefault("party", d.employee)
 			jvd_dict.append(jvd_temp)
-			frappe.msgprint(str(jvd_dict))
 			
 			#add for leave encashment and arrears
 			#if gross_earn < earn_dict[etype.account]:
@@ -251,7 +249,6 @@ class SalarySlipPayment(Document):
 			jvd_temp.setdefault("reference_type", "Salary Slip Payment")
 			jvd_temp.setdefault("reference_name", self.name)
 			jvd_dict.append(jvd_temp)
-		frappe.msgprint(str(jvd_dict))
 		return jvd_dict
 		
 	def get_salary_slips(self):
