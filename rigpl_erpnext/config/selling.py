@@ -21,14 +21,14 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Compare Pricing",
-					"doctype": "Price List",
+					"name": "Customers with SO",
+					"doctype": "Campaign",
 				},
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Customers with SO",
-					"doctype": "Campaign",
+					"name": "Compare Pricing",
+					"doctype": "Price List",
 				},
 				{
 					"type": "report",
@@ -39,13 +39,7 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Sales Partner SO Analysis",
-					"doctype": "Sales Order",
-				},
-				{
-					"type": "report",
-					"is_query_report": True,
-					"name": "Trial Tracking",
+					"name": "Pending Orders",
 					"doctype": "Sales Order",
 				},
 				{
@@ -57,7 +51,19 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Pending Orders",
+					"name": "Sales Partner SO Analysis",
+					"doctype": "Sales Order",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "Stock Status",
+					"doctype": "Item",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "Trial Tracking",
 					"doctype": "Sales Order",
 				},
 			]
