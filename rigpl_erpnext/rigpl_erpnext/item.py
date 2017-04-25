@@ -7,8 +7,8 @@ from frappe.desk.reportview import get_match_cond
 
 def validate(doc, method):
 	validate_reoder(doc,method)
-	validate_variants(doc,method)
 	web_catalog(doc,method)
+	validate_variants(doc,method)
 	doc.page_name = doc.item_name
 	generate_description(doc,method)
 	if doc.variant_of is None:
@@ -16,6 +16,8 @@ def validate(doc, method):
 		doc.item_code = doc.name
 		doc.page_name = doc.name
 		doc.description = doc.name
+	else:
+		set_website_specs(doc,method)
 	make_route(doc,method)
 	
 def make_route(doc,method):
@@ -38,6 +40,8 @@ def autoname(doc,method):
 def web_catalog(doc,method):
 	validate_stock_fields(doc,method)
 	validate_restriction(doc,method)
+	doc.website_image = doc.thumbnail
+	doc.image = doc.thumbnail
 	if doc.pl_item == "Yes":
 		doc.show_in_website = 1
 		if doc.has_variants == 0:
@@ -51,7 +55,6 @@ def web_catalog(doc,method):
 	if doc.show_in_website == 1:
 		rol = frappe.db.sql("""SELECT warehouse_reorder_level FROM `tabItem Reorder` WHERE parent ='%s' """%(doc.name), as_list=1)
 		doc.website_warehouse = doc.default_warehouse
-		doc.website_image = doc.image
 		if rol:
 			doc.weightage = rol[0][0]
 		
@@ -80,8 +83,8 @@ def validate_variants(doc,method):
 	roles = frappe.db.sql(query, as_list=1)
 	
 	if doc.show_in_website == 1:
-		if not (doc.image or doc.website_image):
-			frappe.throw("For Website Items Image is Mandatory")
+		if not (doc.website_image):
+			frappe.throw("For Website Items Website Image is Mandatory")
 	
 	if doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
@@ -407,6 +410,42 @@ def fn_check_digit(doc,id_without_check):
 	# check digit is amount needed to reach next number
 	# divisible by ten. Return an integer
 	return int((10 - (sum % 10)) % 10)
+
+#Set the Website Specifications automatically from Template, Attribute and Variant Table
+#This is done only for Variants which are shown on website
+def set_website_specs(doc,method):
+	if doc.show_variant_in_website == 1:
+		template = frappe.get_doc("Item", doc.variant_of)
+		web_spec = []
+		for temp_att in template.attributes:
+			temp = []
+			if temp_att.use_in_description == 1:				
+				attribute_doc = frappe.get_doc("Item Attribute", temp_att.attribute)
+				att_val = frappe.db.sql("""SELECT attribute_value 
+					FROM `tabItem Variant Attribute`
+					WHERE parent = '%s' AND attribute = '%s'"""% \
+					(doc.name, temp_att.attribute), as_list=1)
+
+				if attribute_doc.numeric_values == 1 and att_val[0][0] is not None:
+					temp.insert(0,temp_att.field_name)
+					temp.insert(1,str(att_val[0][0]))
+					web_spec.append(temp)
+				else:
+					desc = frappe.db.sql("""SELECT long_description FROM `tabItem Attribute Value`
+						WHERE parent = '%s' AND attribute_value = '%s' """ \
+						%(temp_att.attribute, att_val[0][0]), as_list=1)
+					if desc[0][0][1:-1] != "":
+						temp.insert(0,temp_att.field_name)
+						temp.insert(1,desc[0][0][1:-1])
+						web_spec.append(temp)	
+		doc.set("website_specifications", [])
+		for label, desc in web_spec:
+			row = doc.append("website_specifications")
+			row.label = label
+			row.description = desc
+					
+		
+
 
 @frappe.whitelist()
 def get_uom_factors(from_uom, to_uom):
