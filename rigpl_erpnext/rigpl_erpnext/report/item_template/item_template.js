@@ -74,6 +74,13 @@ frappe.query_reports["Item Template"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_mtm_query"}}
-		}
+		},
+		{
+			"fieldname":"template",
+			"label": "Template",
+			"fieldtype": "Link",
+			"options": "Item",
+			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 1]]}}
+		},
 	]
 }
