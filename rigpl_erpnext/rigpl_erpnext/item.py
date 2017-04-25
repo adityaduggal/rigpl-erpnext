@@ -82,10 +82,12 @@ def validate_variants(doc,method):
 	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
 	
+	'''
+	Temporarirly removed the Show in Website Validation with Image
 	if doc.show_in_website == 1:
-		if not (doc.website_image):
-			frappe.throw("For Website Items Website Image is Mandatory")
-	
+		if doc.thumbnail is None:
+			frappe.throw("For Website Items, Website Image is Mandatory")
+	'''
 	if doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
 		template = frappe.get_doc("Item", doc.variant_of)
