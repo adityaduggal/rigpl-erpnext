@@ -210,7 +210,7 @@ def get_conditions(bm, filters):
 		conditions_it += " AND ToolType.attribute_value = '%s'" % filters["tt"]
 
 	if filters.get("show_in_website") ==1:
-		conditions_it += " and it.show_in_website =%s" % filters["show_in_website"]
+		conditions_it += " and it.show_variant_in_website =%s" % filters["show_in_website"]
 
 	if filters.get("item"):
 		conditions_it += " and it.name = '%s'" % filters["item"]

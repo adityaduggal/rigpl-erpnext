@@ -16,7 +16,7 @@ def get_columns():
 		"Item:Link/Item:300", "# Variants:Int:50", "Limit:Int:50", "Is RM::50",
 		"BM::60", "Brand::60", "Quality::60", "SPL::60", "TT::150", "MTM::60",
 		"Purpose::60", "Item Group::200", "WH::150", "Valuation::60",
-		"Tolerance:Int:40", "PUR:Int:40", "SALE:Int:40", "WEB:Int:40", "PL::40",
+		"Tolerance:Int:40", "PUR:Int:40", "SALE:Int:40", "WEB:Int:40", "Web Variants:Int:40","PL::40",
 		"PRD:Int:40", "CETSH::100", "D1_MM::50", "W1_MM::50", "L1_MM::50",
 		"Image::200"
 	]
@@ -41,7 +41,9 @@ def get_items(filters):
 		IFNULL(mtm.allowed_values, "-"), IFNULL(purpose.allowed_values, "-"),
 		it.item_group, it.default_warehouse, it.valuation_method,
 		it.tolerance, it.is_purchase_item,
-		it.is_sales_item, it.show_in_website, it.pl_item, it.is_pro_applicable,
+		it.is_sales_item, it.show_in_website, 
+		(SELECT COUNT(name) FROM `tabItem` WHERE show_variant_in_website = 1 AND variant_of = it.name), 
+		it.pl_item, it.is_pro_applicable,
 		IFNULL(cetsh.allowed_values, "-"), NULL, NULL, NULL, IFNULL(it.image, "-")
 		
 		FROM `tabItem` it
@@ -68,7 +70,7 @@ def get_items(filters):
 			
 			
 		WHERE it.has_variants = 1 %s """ % (bm, conditions_it) , as_list = 1)
-		
+				
 	return data
 	
 def get_conditions(filters):
@@ -100,5 +102,8 @@ def get_conditions(filters):
 		
 	if filters.get("tt"):
 		conditions_it += " AND tt.allowed_values = '%s'" % filters["tt"]
+		
+	if filters.get("template"):
+		conditions_it += " AND it.name = '%s'" % filters["template"]
 
 	return conditions_it
