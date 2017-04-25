@@ -23,7 +23,7 @@ def get_columns():
 		"D2:Float:50", "L2:Float:60",
 		###Above are Attribute fields
 		
-		"Description::400", "Ready Stock:Int:100"
+		"Description::400", "Ready Stock:Int:100", "WIP1:Int:50", "WIP2:Int:50"
 	]
 
 def get_items(filters):
@@ -74,7 +74,14 @@ def get_items(filters):
 		it.description,
 		
 		sum(if(bn.warehouse = "BGH655 - RIGPL" OR bn.warehouse = "DEL20A - RIGPL", 
-			(bn.actual_qty), 0)) AS qty
+			(bn.actual_qty), 0)) AS qty,
+			
+		sum(if(bn.warehouse <> "BGH655 - RIGPL" AND bn.warehouse <> "DEL20A - RIGPL" 
+			AND bn.warehouse <> "REJ-DEL20A - RIGPL",
+			(bn.actual_qty + bn.ordered_qty + bn.planned_qty), 0)),
+			
+		sum(if(bn.warehouse = "BGH655 - RIGPL" OR bn.warehouse = "DEL20A - RIGPL", 
+			(bn.ordered_qty + bn.planned_qty), 0))
 
 	FROM `tabItem` it
 		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
