@@ -7,12 +7,20 @@
  "doctype": "Report", 
  "idx": 0, 
  "is_standard": "Yes", 
- "modified": "2016-04-16 10:15:28.402723", 
+ "modified": "2017-04-28 11:21:24.533289", 
  "modified_by": "Administrator", 
  "module": "RIGPL ERPNext", 
  "name": "Employee Loan Analysis", 
  "owner": "Administrator", 
- "ref_doctype": "Employee Loan", 
+ "ref_doctype": "Employee Advance", 
  "report_name": "Employee Loan Analysis", 
- "report_type": "Script Report"
+ "report_type": "Script Report", 
+ "roles": [
+  {
+   "role": "HR User"
+  }, 
+  {
+   "role": "System Manager"
+  }
+ ]
 }
