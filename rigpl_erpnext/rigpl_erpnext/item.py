@@ -40,8 +40,8 @@ def autoname(doc,method):
 def web_catalog(doc,method):
 	validate_stock_fields(doc,method)
 	validate_restriction(doc,method)
-	doc.website_image = doc.thumbnail
-	doc.image = doc.thumbnail
+	doc.website_image = doc.image
+	doc.thumbnail = doc.image	
 	if doc.pl_item == "Yes":
 		doc.show_in_website = 1
 		if doc.has_variants == 0:
@@ -82,12 +82,11 @@ def validate_variants(doc,method):
 	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
 	
-	'''
-	Temporarirly removed the Show in Website Validation with Image
+	
+	##Temporarirly removed the Show in Website Validation with Image
 	if doc.show_in_website == 1:
 		if doc.thumbnail is None:
 			frappe.throw("For Website Items, Website Image is Mandatory")
-	'''
 	if doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
 		template = frappe.get_doc("Item", doc.variant_of)
