@@ -6,177 +6,12 @@ import datetime
 from frappe import msgprint
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import money_in_words, flt
-from erpnext.accounts.general_ledger import make_gl_entries, delete_gl_entries
-from erpnext.accounts.utils import get_fiscal_years, validate_fiscal_year, get_account_currency
+#from erpnext.setup.utils import get_company_currency
 from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details, get_start_end_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
 from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
 from erpnext.accounts.utils import get_fiscal_year
 
-def post_gl_entry(doc):
-	comp_doc = frappe.get_doc("Company", doc.company)
-	gl_map = []
-	fiscal_year = get_fy(doc)
-	ec_ded = 0
-	
-	for earn in doc.earnings:
-		earn_doc = frappe.get_doc("Salary Component", earn.salary_component)
-		if earn.amount <> 0 and earn.expense_claim is None and earn_doc.only_for_deductions != 1:
-			#Condition for Earning Posting which is actually paid and not just for calculation
-			gl_dict = frappe._dict({
-				'company': doc.company,
-				'posting_date' : doc.posting_date,
-				'fiscal_year': fiscal_year,
-				'voucher_type': 'Salary Slip',
-				'voucher_no': doc.name,
-				'account': earn_doc.account,
-				'cost_center': comp_doc.cost_center,
-				'debit': flt(earn.amount),
-				'debit_in_account_currency': flt(earn.amount),
-				'against': comp_doc.default_payroll_payable_account
-			})
-			gl_map.append(gl_dict)
-		elif earn.expense_claim and earn.amount > 0:
-			ec_gl_map = []
-			ec_ded += earn.amount
-			#Check if the expense claim is already posted if not then post the expense claim
-			#separately
-			ec_posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` WHERE docstatus =1 AND
-				voucher_type = 'Expense Claim' AND voucher_no = '%s'
-				"""%(earn.expense_claim), as_list=1)
-			if not ec_posted:
-				
-				#Post the Expense Claim Separately.	
-				ec_doc = frappe.get_doc("Expense Claim", earn.expense_claim)
-				for exp in ec_doc.expenses:
-					ecfy = get_fy(ec_doc)
-					ec_gl_dict = frappe._dict({
-						'company': ec_doc.company,
-						'posting_date' : ec_doc.posting_date,
-						'fiscal_year': ecfy,
-						'voucher_type': 'Expense Claim',
-						'voucher_no': ec_doc.name,
-						'account': exp.default_account,
-						'cost_center': comp_doc.cost_center,
-						'debit': flt(exp.sanctioned_amount),
-						'debit_in_account_currency': flt(exp.sanctioned_amount),
-						'against': ec_doc.employee
-					})
-					ec_gl_map.append(ec_gl_dict)
-				ec_gl_dict = frappe._dict({
-					'company': ec_doc.company,
-					'posting_date' : ec_doc.posting_date,
-					'fiscal_year': ecfy,
-					'voucher_type': 'Expense Claim',
-					'voucher_no': ec_doc.name,
-					'account': (ec_doc.payable_account or comp_doc.default_payroll_payable_account),
-					'cost_center': (ec_doc.cost_center or comp_doc.cost_center),
-					'party_type': 'Employee',
-					'party': ec_doc.employee,
-					'credit': flt(ec_doc.total_sanctioned_amount),
-					'credit_in_account_currency': flt(ec_doc.total_sanctioned_amount)
-				})
-				ec_gl_map.append(ec_gl_dict)
-				make_gl_entries(ec_gl_map, cancel=0, adv_adj=0)
-				frappe.msgprint(("Posted Expense Claim # {0}").format(earn.expense_claim))
-				
-	for ded in doc.deductions:
-		ded_doc = frappe.get_doc("Salary Component", ded.salary_component)
-		if ded.amount > 0 and ded.employee_loan is None:
-			gl_dict = frappe._dict({
-				'company': doc.company,
-				'posting_date' : doc.posting_date,
-				'fiscal_year': fiscal_year,
-				'voucher_type': 'Salary Slip',
-				'voucher_no': doc.name,
-				'account': ded_doc.account,
-				'credit': flt(ded.amount),
-				'credit_in_account_currency': flt(ded.amount),
-				'against': comp_doc.default_payroll_payable_account
-			})
-			gl_map.append(gl_dict)
-		elif ded.amount > 0 and ded.employee_loan is not None:
-			gl_dict = frappe._dict({
-				'company': doc.company,
-				'posting_date' : doc.posting_date,
-				'fiscal_year': fiscal_year,
-				'voucher_type': 'Salary Slip',
-				'voucher_no': doc.name,
-				'account': ded_doc.account,
-				'credit': flt(ded.amount),
-				'credit_in_account_currency': flt(ded.amount),
-				'party_type': 'Employee',
-				'party': doc.employee,
-				'against': ded.employee_loan
-			})
-			gl_map.append(gl_dict)
-	if gl_map:	
-		gl_dict = frappe._dict({
-			'company': doc.company,
-			'posting_date' : doc.posting_date,
-			'fiscal_year': fiscal_year,
-			'voucher_type': 'Salary Slip',
-			'voucher_no': doc.name,
-			'account': comp_doc.default_payroll_payable_account,
-			'credit': flt(doc.rounded_total - ec_ded),
-			'credit_in_account_currency': flt(doc.rounded_total - ec_ded),
-			'party_type': 'Employee',
-			'party': doc.employee,
-			'against': comp_doc.default_payroll_payable_account
-		})
-		gl_map.append(gl_dict)
-		gl_dict = frappe._dict({
-			'company': doc.company,
-			'posting_date' : doc.posting_date,
-			'fiscal_year': fiscal_year,
-			'voucher_type': 'Salary Slip',
-			'voucher_no': doc.name,
-			'account': comp_doc.round_off_account,
-			'cost_center': comp_doc.round_off_cost_center,
-			'debit': flt(doc.rounded_total - doc.net_pay),
-			'debit_in_account_currency': flt(doc.rounded_total - doc.net_pay),
-			'against': comp_doc.default_payroll_payable_account
-		})
-		gl_map.append(gl_dict)
-			
-	for cont in doc.contributions:
-		if cont.amount > 0:
-			cont_doc = frappe.get_doc("Salary Component", cont.salary_component)
-			gl_dict = frappe._dict({
-				'company': doc.company,
-				'posting_date' : doc.posting_date,
-				'fiscal_year': fiscal_year,
-				'voucher_type': 'Salary Slip',
-				'voucher_no': doc.name,
-				'account': cont_doc.account,
-				'cost_center': comp_doc.cost_center,
-				'debit': flt(cont.amount),
-				'debit_in_account_currency': flt(cont.amount),
-				'against': cont_doc.liability_account
-			})
-			gl_map.append(gl_dict)
-			gl_dict = frappe._dict({
-				'company': doc.company,
-				'posting_date' : doc.posting_date,
-				'fiscal_year': fiscal_year,
-				'voucher_type': 'Salary Slip',
-				'voucher_no': doc.name,
-				'account': cont_doc.liability_account,
-				'credit': flt(cont.amount),
-				'credit_in_account_currency': flt(cont.amount),
-				'against': cont_doc.account
-			})
-			gl_map.append(gl_dict)
-	make_gl_entries(gl_map, cancel=0, adv_adj=0)
-		
-def get_fy(document):
-	fiscal_years = get_fiscal_years(document.posting_date, company=document.company)
-	if len(fiscal_years) > 1:
-		frappe.throw(_("Multiple fiscal years exist for the date {0}. \
-			Please set company in Fiscal Year").format(formatdate(document.posting_date)))
-	else:
-		fiscal_year = fiscal_years[0][0]
-	return fiscal_year
 
 def on_submit(doc,method):
 	if doc.net_pay < 0:
@@ -189,9 +24,6 @@ def on_submit(doc,method):
 			frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", \
 				i.amount)
 			frappe.db.set_value("Expense Claim", i.expense_claim, "status", "Paid")
-
-	#post the salary slip to GL entry table
-	post_gl_entry(doc)	
 			
 def on_cancel(doc,method):
 	#Update the expense claim amount cleared so that no new JV can be made
@@ -200,7 +32,6 @@ def on_cancel(doc,method):
 			ec = frappe.get_doc("Expense Claim", i.expense_claim)
 			frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", 0)
 			frappe.db.set_value("Expense Claim", i.expense_claim, "status", "Unpaid")
-	delete_gl_entries(None, 'Salary Slip', doc.name)
 	
 def validate(doc,method):
 	get_edc(doc)
@@ -221,12 +52,12 @@ def validate_ec_posting(doc):
 					AND docstatus = 1""" %(e.expense_claim), as_list=1)
 			if posted:
 				for ec_claim in posted:
-					#Check Credit Entry's account should be Expenses Payable
+					#Check Credit Entry's account should be Expenses Payable - RIGPL
 					debit = frappe.db.sql("""SELECT name, credit, account
 						FROM `tabGL Entry` WHERE name = '%s'"""%(ec_claim[0]), as_list=1)
 						
 					if debit[0][1] > 0:
-						if debit[0][2] != comp_doc.default_payroll_payable_account:
+						if debit[0][2] != "Expenses Payable - RIGPL":
 							frappe.throw(("Expense Claim {0} in Salary Slip {1} is not posted \
 							correctly").format(e.expense_claim, doc.name))
 	
@@ -349,8 +180,7 @@ def calculate_net_salary(doc, msd, med):
 	doc.gross_pay = gross_pay
 	doc.total_deduction = tot_ded
 	doc.net_pay = doc.gross_pay - doc.total_deduction
-	doc.rounded_cash = myround(doc.net_pay - doc.actual_bank_salary)
-	doc.rounded_total = doc.actual_bank_salary + doc.rounded_cash
+	doc.rounded_total = myround(doc.net_pay, 10)
 	doc.net_pay_books = tot_books - doc.total_deduction
 		
 	company_currency = erpnext.get_company_currency(doc.company)
