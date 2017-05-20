@@ -48,6 +48,8 @@ class SalarySlipPayment(Document):
 				of Salary Slip Payment").format(d.employee, d.idx))
 
 	def on_update(self):
+		pass
+		'''
 		jvd_dict = self.get_jv_accounts()
 		chk_jv = self.get_existing_jv()
 
@@ -73,16 +75,22 @@ class SalarySlipPayment(Document):
 		else:
 			jv_accrue.insert()
 			frappe.msgprint('{0}{1}'.format("Created New JV# ", jv_accrue.name))
+	'''
 	
 	def on_submit(self):
+		pass
+		'''
 		chk_jv = self.get_existing_jv()
 		if chk_jv:
 			name = chk_jv[0][0]
 			jv_exist = frappe.get_doc("Journal Entry", name)
 			jv_exist.submit()
 			frappe.msgprint('{0}{1}'.format("Submitted JV# ", jv_exist.name))
+		'''
 		
 	def on_cancel(self):
+		pass
+		'''
 		chk_jv = self.get_existing_jv()
 		
 		if chk_jv:
@@ -90,7 +98,8 @@ class SalarySlipPayment(Document):
 			jv_exist = frappe.get_doc("Journal Entry", name)
 			jv_exist.cancel()
 			frappe.msgprint('{0}{1}'.format("Cancelled JV# ", jv_exist.name))
-
+		'''
+		
 	def get_existing_jv(self):
 		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
 			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus <> 2 AND

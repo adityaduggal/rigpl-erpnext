@@ -98,15 +98,6 @@ Yes",Whether the item is Mentioned on Price List and Catalog and inherently this
 ,"""Salary Component-liability_account""",Salary Component,Link,Liability Account,account,,Account,,liability_account,0,0,0,0,0,,,0,eval:doc.is_contribution == 1,0,0,0,0,0,0,30-07-2016 15:10:40
 ,Salary Component-round_up,Salary Component,Check,Round Up,depends_on_lwp,,,,round_up,0,0,0,0,0,,,0,eval:doc.depends_on_lwp == 1,0,0,0,0,0,0,02-03-2017 18:13:23.23
 ,Salary Component-manual,Salary Component,Check,Manual,books,,,,manual,0,0,0,0,0,,,0,eval:doc.is_earning == 1 && doc.only_for_deductions == 1 && doc.books == 1,0,0,0,0,0,0,04-03-2017 15:11:14
-,"""Salary Slip-total_overtime""",Salary Slip,Float,Total Overtime,totals,,,,total_overtime,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:34
-,"""Salary Slip-unauthorized_leaves""",Salary Slip,Int,Unauthorized Leaves,total_overtime,,,,unauthorized_leaves,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:35
-,"""Salary Slip-overtime_deducted""",Salary Slip,Float,Overtime Deducted,column_break_25,,,,overtime_deducted,0,0,0,1,0,,,0,,0,0,0,0,0,0,09-04-2016 15:08:35
-,"""Salary Slip-contribution""",Salary Slip,Section Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
-,"""Salary Slip-contributions""",Salary Slip,Table,Contributions,contribution,,Salary Detail,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
-,"""Salary Slip-total_ctc""",Salary Slip,Currency,Total CTC,unauthorized_leaves,,,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:15
-,"""Salary Slip-payment_days_for_deductions""",Salary Slip,Float,Payment Days for Deductions,company,,,"Use this field to match the deductions and contributions for ESI, ideally it should be equal to Payment days but can be different due to adjustment of leaves.\",payment_days_for_deductions,0,1,0,0,0,,,0,,0,0,0,0,0,0,28-04-2016 18:35:20
-,"""Salary Slip-change_deductions""",Salary Slip,Check,Change Deductions,payment_days_for_deductions,,,,change_deductions,0,0,0,0,0,,,0,,0,0,0,0,0,0,14-05-2016 13:13:29
-,Salary Slip-net_pay_books,Salary Slip,Currency,Net Pay Books,net_pay,,,,net_pay_books,0,0,0,1,0,,,0,,0,0,0,0,0,0,06-03-2017 10:50:39
 ,"""Salary Structure-contribution""",Salary Structure,Section Break,Contribution,deductions,,,,contribution,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:10
 ,"""Salary Structure-contributions""",Salary Structure,Table,Contributions,contribution,,Salary Detail,,contributions,0,0,0,0,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:11
 ,"""Salary Structure-total_ctc""",Salary Structure,Currency,Total CTC,net_pay,,Company:company:default_currency,,total_ctc,0,0,0,1,0,,,0,,0,0,0,0,0,0,27-04-2016 02:09:12
