@@ -6,6 +6,9 @@ from __future__ import unicode_literals
 from frappe.utils import getdate
 import frappe
 from frappe.model.document import Document
+from frappe.utils import flt
+from erpnext.accounts.general_ledger import make_gl_entries, delete_gl_entries
+from erpnext.accounts.utils import get_fiscal_years, validate_fiscal_year, get_account_currency
 import math
 
 class EmployeeAdvance(Document):
@@ -17,8 +20,8 @@ class EmployeeAdvance(Document):
 
 			#Change values as per the loan amount
 			if i.loan_amount != i.emi * i.repayment_period:
-				if i.emi%100 !=0:
-					i.emi = int(math.ceil(i.emi/100))*100
+				if i.emi%10 !=0:
+					i.emi = int(math.ceil(i.emi/10))*10
 				i.repayment_period = i.loan_amount/i.emi
 					
 			
@@ -47,70 +50,49 @@ class EmployeeAdvance(Document):
 			self.total_loan += i.loan_amount
 	
 	def on_update(self):
-		#check if the JV is already existing
-		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
-			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus <> 2 AND
-			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
-		
-		jv_acc_lst = []
-		jv_db_dict = {}
-		jv_db_dict.setdefault("account", self.debit_account)
-		jv_db_dict.setdefault("debit_in_account_currency", self.total_loan)
-		jv_db_dict.setdefault("reference_type", "Employee Advance")
-		jv_db_dict.setdefault("reference_name", self.name)
-		
-		jv_acc_lst.append(jv_db_dict)
-		
-		jv_cr_dict = {}
-		jv_cr_dict.setdefault("account", self.credit_account)
-		jv_cr_dict.setdefault("credit_in_account_currency", self.total_loan)
-		jv_cr_dict.setdefault("reference_type", "Employee Advance")
-		jv_cr_dict.setdefault("reference_name", self.name)
-		
-		jv_acc_lst.append(jv_cr_dict)
-		
-		#post JV on saving
-		jv = frappe.get_doc({
-			"doctype": "Journal Entry",
-			"entry_type": "Journal Entry",
-			"series": "JV1617",
-			"user_remark": "Loan Given against Employee Loan #" + self.name,
-			"posting_date": self.posting_date,
-			"employment_type": "Accounts Employee",
-			"accounts": [jv_db_dict, jv_cr_dict]
-			})
-		if chk_jv:
-			name = chk_jv[0][0]
-			jv_exist = frappe.get_doc("Journal Entry", name)
-			jv_exist.posting_date = self.posting_date
-			jv_exist.user_remark = "Loan Given against Employee Loan #" + self.name
-			jv_exist.accounts= []
-			jv_exist.append("accounts", jv_cr_dict)
-			jv_exist.append("accounts", jv_db_dict)
-			jv_exist.save()
-			for i in jv_acc_lst:
-				jv_exist.append("accounts", i)
-			frappe.msgprint('{0}{1}'.format("Update JV# ", jv_exist.name))
-		else:
-			jv.insert()
-			frappe.msgprint('{0}{1}'.format("Created New JV# ", jv.name))
+		pass
 	
 	def on_submit(self):
-		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
-			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus = 0 AND
-			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
-		if chk_jv:
-			name = chk_jv[0][0]
-			jv_exist = frappe.get_doc("Journal Entry", name)
-			jv_exist.submit()
-			frappe.msgprint('{0}{1}'.format("Submitted JV# ", jv_exist.name))
+		gl_map = []
+		fiscal_years = get_fiscal_years(self.posting_date, company='RIGPL')
+		if len(fiscal_years) > 1:
+			frappe.throw(_("Multiple fiscal years exist for the date {0}. \
+				Please set company in Fiscal Year").format(formatdate(self.posting_date)))
+		else:
+			fiscal_year = fiscal_years[0][0]
 		
+		for emp in self.employee_loan_detail:
+			if emp.loan_amount:
+				gl_dict = frappe._dict({
+					'company': 'RIGPL',
+					'posting_date' : self.posting_date,
+					'fiscal_year': fiscal_year,
+					'voucher_type': 'Employee Advance',
+					'voucher_no': self.name,
+					'account': self.debit_account,
+					'debit': flt(emp.loan_amount),
+					'debit_in_account_currency': flt(emp.loan_amount),
+					'party_type': 'Employee',
+					'party': emp.employee,
+					'against': self.credit_account
+				})
+				gl_map.append(gl_dict)
+		if gl_map:
+			gl_dict = frappe._dict({
+				'company': 'RIGPL',
+				'posting_date' : self.posting_date,
+				'fiscal_year': fiscal_year,
+				'voucher_type': 'Employee Advance',
+				'voucher_no': self.name,
+				'account': self.credit_account,
+				'debit': 0,
+				'credit': flt(self.total_loan),
+				'credit_in_account_currency' : flt(self.total_loan),
+				'debit_in_account_currency': 0,
+				'against': self.debit_account
+			})
+			gl_map.append(gl_dict)
+			make_gl_entries(gl_map, cancel=0, adv_adj=0)
+
 	def on_cancel(self):
-		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
-			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus = 1 AND
-			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
-		if chk_jv:
-			name = chk_jv[0][0]
-			jv_exist = frappe.get_doc("Journal Entry", name)
-			jv_exist.cancel()
-			frappe.msgprint('{0}{1}'.format("Cancelled JV# ", jv_exist.name))
+		delete_gl_entries(None, 'Employee Advance', self.name)
