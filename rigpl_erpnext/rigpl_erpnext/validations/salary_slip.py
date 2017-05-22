@@ -213,6 +213,7 @@ def validate(doc,method):
 	validate_ec_posting(doc)
 	
 def validate_ec_posting(doc):
+	comp_doc = frappe.get_doc("Company", doc.company)
 	for e in doc.earnings:
 		if e.expense_claim:
 			#Check if the expense claim is properly posted in  Expenses Payable
