@@ -46,7 +46,7 @@ def execute(filters=None):
 
 			for emp in emp_lst:
 				if emp.name == ss.employee:
-					row += [emp.branch, emp.department, emp.designation]
+					row += [emp.company_registered_with, emp.branch, emp.department, emp.designation]
 									
 			if filters.get("summary") <> 1:						
 				for e in earning_types:
@@ -84,11 +84,13 @@ def execute(filters=None):
 	else:
 		columns = [
 			_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140",
+			_("Company") + "::50",
 			_("Branch") + "::100", _("Department") + "::100", _("Designation") + "::100",
 			_("Joining Date") + ":Date:80", _("Relieving Date") + ":Date:80"
 		]
 		
-		query = """SELECT emp.name, emp.employee_name, IFNULL(emp.branch,"-"), 
+		query = """SELECT emp.name, emp.employee_name, IFNULL(emp.company_registered_with, "None"),
+			IFNULL(emp.branch,"-"), 
 			IFNULL(emp.department,"-"), IFNULL(emp.designation,"-"), emp.date_of_joining,
 			IFNULL(emp.relieving_date, '2099-12-31')
 			FROM `tabEmployee` emp
@@ -108,6 +110,7 @@ def get_columns(salary_slips, filters):
 	if filters.get("without_salary_slip") == 1:
 		columns = [
 			_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140",
+			_("Company") + "::50",
 			_("Branch") + "::140", _("Department") + "::140", _("Designation") + "::140",
 		]
 		earning_types = []
@@ -115,7 +118,7 @@ def get_columns(salary_slips, filters):
 	elif filters.get("summary") == 1:
 		columns = [
 			_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140",
-			_("Salary Slip") + ":Link/Salary Slip:80", 
+			_("Salary Slip") + ":Link/Salary Slip:80", _("Company") + "::50",
 			_("Branch") + "::80", _("Department") + "::80", _("Designation") + "::80",
 			_("Actual Payment") + ":Currency:100", _("Bank Payment") + ":Currency:100",
 			_("Books Payment") + ":Currency:100", _("Balance Cash") + ":Currency:100"
@@ -123,7 +126,8 @@ def get_columns(salary_slips, filters):
 	else:
 		columns = [
 			_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140", 
-			_("Salary Slip") + ":Link/Salary Slip:80", _("Branch") + "::80", 
+			_("Salary Slip") + ":Link/Salary Slip:80", 
+			_("Company") + "::50", _("Branch") + "::80", 
 			_("Department") + "::80", _("Designation") + "::80",
 		]
 	if filters.get("bank_only") == 1 or filters.get("summary") == 1:
