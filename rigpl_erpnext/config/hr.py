@@ -65,6 +65,12 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
+					"name": "Employee Balances RIGPL",
+					"doctype": "Salary Slip",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
 					"name": "Employee Loan Analysis",
 					"doctype": "Employee Advance",
 				},
