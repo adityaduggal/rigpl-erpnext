@@ -20,17 +20,20 @@ def execute(filters=None):
 			open_bal = 0
 		
 		if emp in between_dict:
-			bet_bal = between_dict.get(emp).between_bal
+			bet_inc = between_dict.get(emp).bw_credit
+			bet_dec = between_dict.get(emp).bw_debit
 		else:
-			bet_bal = 0
+			bet_inc = 0
+			bet_dec = 0
 		
-		closing = open_bal + bet_bal
+		closing = open_bal + bet_inc - bet_dec
 		
 		if non_zero == 1:
-			if open_bal >0 or bet_bal >0 or closing >0:
+			if open_bal <>0 or bet_inc <>0 or bet_dec <> 0 or closing <>0:
 				row = [emp, emp_det.employee_name, emp_det.company_registered_with, \
 					emp_det.branch, emp_det.department, emp_det.designation, \
-					emp_det.date_of_joining, emp_det.relieving_date, open_bal, bet_bal, closing]
+					emp_det.date_of_joining, emp_det.relieving_date, open_bal, bet_inc, \
+					bet_dec, closing]
 				data.append(row)
 				data.sort()
 		else:
@@ -46,11 +49,11 @@ def execute(filters=None):
 	
 def get_columns(filters):
 	columns = [
-		_("Employee") + "::100", _("Employee Name") + "::140",
+		_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140",
 		_("Company") + "::50", _("Branch") + "::100", _("Department") + "::100", 
-		_("Designation") + "::100", _("Joining Date") + ":Date:80", _("Relieving Date") + "::80",
-		_("Opening") + ":Currency:100", _("Within Period") + ":Currency:100",
-		_("Closing") + ":Currency:100"
+		_("Designation") + "::100", _("Joining Date") + ":Date:80", _("Relieving Date") + ":Date:80",
+		_("Opening") + ":Currency:100", _("Period Increase") + ":Currency:100",
+		_("Period Decrease") + ":Currency:100", _("Closing") + ":Currency:100"
 	]
 	return columns
 
@@ -75,7 +78,8 @@ def get_opening(filters):
 		WHERE gl.party_type = 'Employee' AND gl.posting_date < '%s'
 		GROUP BY gl.party""" %(filters["from_date"]), as_dict=1)
 
-	bw_dict = frappe.db.sql("""SELECT gl.party, (SUM(gl.credit) - SUM(gl.debit)) as between_bal
+	bw_dict = frappe.db.sql("""SELECT gl.party, SUM(gl.credit) as bw_credit,
+		SUM(gl.debit) as bw_debit
 		FROM `tabGL Entry` gl
 		WHERE gl.party_type = 'Employee' AND gl.posting_date >= '%s' AND gl.posting_date <= '%s'
 		GROUP BY gl.party""" %(filters["from_date"], filters["to_date"]), as_dict=1)
