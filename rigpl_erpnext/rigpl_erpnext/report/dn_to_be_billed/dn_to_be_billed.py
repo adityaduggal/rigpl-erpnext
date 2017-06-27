@@ -21,9 +21,9 @@ def get_columns():
 	]
 
 def get_dn_entries(filters):
-	conditions = get_conditions(filters)[0]
-	si_cond = get_conditions(filters)[1]
+	conditions, si_cond, conditions_cu = get_conditions(filters)
 	
+
 	query = """select dn.name, dn.customer, dn.posting_date, dni.item_code, 
 	dni.description, dni.qty, dni.base_rate, dni.base_amount, dn.taxes_and_charges,
 	dni.against_sales_order, so.transaction_date, st.sales_person,
@@ -34,11 +34,12 @@ def get_dn_entries(filters):
 		sid.qty > 0 AND
 		sid.dn_detail = dni.name %s), 0)),
 
-	(dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, `tabSales Invoice` si
-        	where sid.delivery_note = dn.name and
-			sid.parent = si.name and
-			sid.qty > 0 AND
-        	sid.dn_detail = dni.name %s), 0)), 
+	(dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, 
+		`tabSales Invoice` si
+		where sid.delivery_note = dn.name and
+		sid.parent = si.name and
+		sid.qty > 0 AND
+		sid.dn_detail = dni.name %s), 0)), 
     
     IF(so.track_trial = 1, "Yes", "No"), cu.customer_rating
      
@@ -46,18 +47,19 @@ def get_dn_entries(filters):
 	FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order` so, 
 		`tabSales Team` st, `tabCustomer` cu
 
-	WHERE dn.docstatus = 1 AND so.docstatus = 1 AND dn.customer = cu.name
+	WHERE dn.docstatus = 1 AND so.docstatus = 1 AND dn.customer = cu.name %s
 		AND st.parenttype = "Customer"
 		AND st.parent = dn.customer
 		AND so.name = dni.against_sales_order
     	AND dn.name = dni.parent
-    	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, `tabSales Invoice` si
+    	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, 
+			`tabSales Invoice` si
         	WHERE sid.delivery_note = dn.name
 				AND sid.parent = si.name
 				AND sid.qty > 0
 				AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
 	
-	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, si_cond, conditions)
+	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, conditions_cu, si_cond, conditions)
 
 	dn = frappe.db.sql(query ,as_list=1)
 	return dn
@@ -80,7 +82,23 @@ def get_conditions(filters):
 	if filters.get("to_date"):
 		conditions += " and dn.posting_date <= '%s'" % filters["to_date"]
 		si_cond += " AND si.posting_date <= '%s'" % filters ["to_date"]
-		
+
+	if filters.get("territory"):
+		territory = frappe.get_doc("Territory", filters["territory"])
+		if territory.is_group == 1:
+			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
+				WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
+			for i in child_territories:
+				if child_territories[0] == i:
+					conditions_cu += " AND (cu.territory = '%s'" %i[0]
+				elif child_territories[len(child_territories)-1] == i:
+					conditions_cu += " OR cu.territory = '%s')" %i[0]
+				else:
+					conditions_cu += " OR cu.territory = '%s'" %i[0]
+		else:
+			conditions_cu += " and cu.territory = '%s'" % filters["territory"]
+
+
 	if filters.get("sales_person"):
 		conditions += "AND st.sales_person = '%s'" % filters["sales_person"]
 		
@@ -89,4 +107,4 @@ def get_conditions(filters):
 	else:
 		si_cond += " and si.docstatus = 1"
 	
-	return conditions, si_cond
+	return conditions, si_cond, conditions_cu
