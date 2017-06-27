@@ -17,7 +17,7 @@ frappe.query_reports["Pending Orders"] = {
 			"fieldname":"date",
 			"label": "SO Upto Date",
 			"fieldtype": "Date",
-			"default": get_today()
+			"default": frappe.datetime.get_today()
 		}
 	]
 }

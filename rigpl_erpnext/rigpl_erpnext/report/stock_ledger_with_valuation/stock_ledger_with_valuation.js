@@ -24,7 +24,7 @@ frappe.query_reports["Stock Ledger with Valuation"] = {
 			"fieldname":"to_date",
 			"label": "To Date",
 			"fieldtype": "Date",
-			"default": get_today()
+			"default": frappe.datetime.get_today()
 		}
 
 	]

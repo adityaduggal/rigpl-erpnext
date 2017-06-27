@@ -13,19 +13,17 @@ def execute(filters=None):
 
 def get_columns():
 	return [
-		"DN #:Link/Delivery Note:120", "Customer:Link/Customer:200" ,"Date:Date:100",
-		"Item Code:Link/Item:130","Description::350", "DN Qty:Float:70",
-		"DN Price:Currency:70", "DN Amount:Currency:80", "Taxes::100", "SO #:Link/Sales Order:140",
-		"SO Date:Date:80", "Sales Person::150",
-		"Unbilled Qty:Float:80", "Unbilled Amount:Currency:80",
-		"Trial::60"
+		"DN_No:Link/Delivery Note:120", "Customer:Link/Customer:200" ,"Date:Date:100",
+		"Item_Code:Link/Item:130","Description::350", "DN_Qty:Float:70",
+		"DN_Price:Currency:70", "DN Amount:Currency:80", "Taxes::100", "SO_No:Link/Sales Order:140",
+		"SO_Date:Date:80", "Sales_Person::150", "Unbilled_Qty:Float:80", 
+		"Unbilled_Amount:Currency:80", "Trial::60", "Rating::60"
 	]
 
 def get_dn_entries(filters):
-	conditions = get_conditions(filters)[0]
-	si_cond = get_conditions(filters)[1]
-	so_cond = get_conditions(filters)[2]
+	conditions, si_cond, conditions_cu = get_conditions(filters)
 	
+
 	query = """select dn.name, dn.customer, dn.posting_date, dni.item_code, 
 	dni.description, dni.qty, dni.base_rate, dni.base_amount, dn.taxes_and_charges,
 	dni.against_sales_order, so.transaction_date, st.sales_person,
@@ -36,35 +34,40 @@ def get_dn_entries(filters):
 		sid.qty > 0 AND
 		sid.dn_detail = dni.name %s), 0)),
 
-	(dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, `tabSales Invoice` si
-        	where sid.delivery_note = dn.name and
-			sid.parent = si.name and
-			sid.qty > 0 AND
-        	sid.dn_detail = dni.name %s), 0)), IF(so.track_trial = 1, "Yes", "No")
+	(dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, 
+		`tabSales Invoice` si
+		where sid.delivery_note = dn.name and
+		sid.parent = si.name and
+		sid.qty > 0 AND
+		sid.dn_detail = dni.name %s), 0)), 
+    
+    IF(so.track_trial = 1, "Yes", "No"), cu.customer_rating
+     
 	
-	FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order` so, `tabSales Team` st
+	FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order` so, 
+		`tabSales Team` st, `tabCustomer` cu
 
-	WHERE dn.docstatus = 1 AND so.docstatus = 1
+	WHERE dn.docstatus = 1 AND so.docstatus = 1 AND dn.customer = cu.name %s
 		AND st.parenttype = "Customer"
 		AND st.parent = dn.customer
-		AND so.name = dni.against_sales_order %s
+		AND so.name = dni.against_sales_order
     	AND dn.name = dni.parent
-    	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, `tabSales Invoice` si
+    	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, 
+			`tabSales Invoice` si
         	WHERE sid.delivery_note = dn.name
 				AND sid.parent = si.name
 				AND sid.qty > 0
 				AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
 	
-	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, so_cond, si_cond, conditions)
+	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, conditions_cu, si_cond, conditions)
 
 	dn = frappe.db.sql(query ,as_list=1)
-
 	return dn
 
 def get_conditions(filters):
 	conditions = ""
 	si_cond = ""
-	so_cond = ""
+	conditions_cu = ""
 
 	if filters.get("customer"):
 		conditions += " and dn.customer = '%s'" % filters["customer"]
@@ -79,7 +82,23 @@ def get_conditions(filters):
 	if filters.get("to_date"):
 		conditions += " and dn.posting_date <= '%s'" % filters["to_date"]
 		si_cond += " AND si.posting_date <= '%s'" % filters ["to_date"]
-		
+
+	if filters.get("territory"):
+		territory = frappe.get_doc("Territory", filters["territory"])
+		if territory.is_group == 1:
+			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
+				WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
+			for i in child_territories:
+				if child_territories[0] == i:
+					conditions_cu += " AND (cu.territory = '%s'" %i[0]
+				elif child_territories[len(child_territories)-1] == i:
+					conditions_cu += " OR cu.territory = '%s')" %i[0]
+				else:
+					conditions_cu += " OR cu.territory = '%s'" %i[0]
+		else:
+			conditions_cu += " and cu.territory = '%s'" % filters["territory"]
+
+
 	if filters.get("sales_person"):
 		conditions += "AND st.sales_person = '%s'" % filters["sales_person"]
 		
@@ -88,9 +107,4 @@ def get_conditions(filters):
 	else:
 		si_cond += " and si.docstatus = 1"
 	
-	if filters.get("trial") == 1:
-		so_cond = "and so.track_trial = 1"
-	else:
-		so_cond = "and (so.track_trial <> 1 or so.track_trial is null)"
-	
-	return conditions, si_cond, so_cond
+	return conditions, si_cond, conditions_cu

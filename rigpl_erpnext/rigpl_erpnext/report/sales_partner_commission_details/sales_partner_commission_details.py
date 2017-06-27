@@ -64,7 +64,7 @@ def get_conditions(filters, date_field):
 	if filters.get("based_on") == "Transaction":
 		if filters.get("territory"):
 			territory = frappe.get_doc("Territory", filters["territory"])
-			if territory.is_group == "Yes":
+			if territory.is_group == 1:
 				child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
 					WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
 				for i in child_territories:
@@ -83,7 +83,7 @@ def get_conditions(filters, date_field):
 	elif filters.get("based_on") == "Master":
 		if filters.get("territory"):
 			territory = frappe.get_doc("Territory", filters["territory"])
-			if territory.is_group == "Yes":
+			if territory.is_group == 1:
 				child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
 					WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
 				for i in child_territories:

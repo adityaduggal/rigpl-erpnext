@@ -3,25 +3,148 @@
 
 from __future__ import unicode_literals
 import frappe
+from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
 def execute(filters=None):
 	if not filters: filters = {}
 
-	columns = get_columns()
+	columns = get_columns(filters)
 	data = get_item_data(filters)
 
 	return columns, data
 
-def get_columns():
+def get_columns(filters):
 	return [
-		"Item:Link/Item:120", 
-		"PL1:Currency:70", "PL1 Cur::40", "PL2:Currency:70", "PL2 Cur::40", 
-		"PL2 %age Diff:Float:80", "PL3:Currency:70", "PL3 Cur::40", 
-		"PL3 %age Diff:Float:80", "Description::400",
-		"BM::60", "Brand::60", "QLT::80", "SPL::50", "TT::150",
-		"D1:Float:50", "W1:Float:50", "L1:Float:50", "Zn:Float:50", "D2:Float:50",
-		"L2:Float:50", "A1:Float:50", "Is PL::50"
+		{
+			"fieldname": "item",
+			"label": "Item",
+			"fieldtype": "Link",
+			"options": "Item",
+			"width": 120
+		},
+		{
+			"fieldname": "pl1",
+			"label": _(filters.pl1),
+			"fieldtype": "Currency",
+			"width": 70
+		},
+		{
+			"fieldname": "pl1_cur",
+			"label": _(filters.pl1) + " Cur",
+			"width": 40
+		},
+		{
+			"fieldname": "pl2",
+			"label": _(filters.pl2),
+			"fieldtype": "Currency",
+			"width": 70
+		},
+		{
+			"fieldname": "pl2_cur",
+			"label": _(filters.pl2) + " Cur",
+			"width": 40
+		},
+		{
+			"fieldname": "pl2_diff",
+			"label": _(filters.pl1) + "-" + _(filters.pl2),
+			"options": "float",
+			"width": 80
+		},
+		{
+			"fieldname": "pl3",
+			"label": _(filters.pl3),
+			"fieldtype": "Currency",
+			"width": 70
+		},
+		{
+			"fieldname": "pl3_cur",
+			"label": _(filters.pl3) + " Cur",
+			"width": 40
+		},
+		{
+			"fieldname": "pl3_diff",
+			"label": _(filters.pl1) + "-" + _(filters.pl3),
+			"options": "float",
+			"width": 80
+		},
+		{
+			"fieldname": "description",
+			"label": "Description",
+			"width": 400
+		},
+		{
+			"fieldname": "bm",
+			"label": "BM",
+			"width": 60
+		},
+		{
+			"fieldname": "brand",
+			"label": "Brand",
+			"width": 60
+		},
+		{
+			"fieldname": "qlt",
+			"label": "QLT",
+			"width": 80
+		},
+		{
+			"fieldname": "spl",
+			"label": "SPL",
+			"width": 50
+		},
+		{
+			"fieldname": "tt",
+			"label": "TT",
+			"width": 150
+		},
+		{
+			"fieldname": "d1",
+			"label": "D1",
+			"fieldtype": "float",
+			"width": 50
+		},
+		{
+			"fieldname": "w1",
+			"label": "W1",
+			"fieldtype": "float",
+			"width": 50
+		},
+		{
+			"fieldname": "l1",
+			"label": "L1",
+			"fieldtype": "float",
+			"width": 50
+		},
+		{
+			"fieldname": "zn",
+			"label": "Zn",
+			"fieldtype": "float",
+			"width": 50
+		},
+		{
+			"fieldname": "d2",
+			"label": "D2",
+			"fieldtype": "float",
+			"width": 50
+		},
+		{
+			"fieldname": "l2",
+			"label": "L2",
+			"fieldtype": "float",
+			"width": 50
+		},
+		{
+			"fieldname": "a1",
+			"label": "A1",
+			"fieldtype": "float",
+			"width": 50
+		},
+		{
+			"fieldname": "is_pl",
+			"label": "Is PL",
+			"width": 50
+		}
 	]
 
 def get_item_data(filters):

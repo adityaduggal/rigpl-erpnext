@@ -47,15 +47,13 @@ frappe.query_reports["Compare Pricing"] = {
 			"fieldname":"item",
 			"label": "Item Code",
 			"fieldtype": "Link",
-			"options": "Item",
-			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
+			"options": "Item"
 		},
 		{
 			"fieldname":"template",
 			"label": "Template",
 			"fieldtype": "Link",
-			"options": "Item",
-			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 1]]}}
+			"options": "Item"
 		},
 		{
 			"fieldname":"pl1",

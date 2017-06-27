@@ -10,7 +10,7 @@ frappe.query_reports["Sales Partner SO Analysis"] = {
 			fieldname:"to_date",
 			label: "To Date",
 			fieldtype: "Date",
-			default: get_today()
+			default: frappe.datetime.get_today()
 		},
 		{
 			fieldname:"sales_partner",

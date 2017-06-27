@@ -26,7 +26,7 @@ frappe.query_reports["Pending Purchase Orders"] = {
 			"fieldname":"date",
 			"label": "PO Upto Date",
 			"fieldtype": "Date",
-			"default": get_today(),
+			"default": frappe.datetime.get_today(),
 			"reqd": 1
 		},
 	]
