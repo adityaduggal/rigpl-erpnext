@@ -47,7 +47,7 @@ frappe.query_reports["Pending Production Orders"] = {
 			"fieldname":"to_date",
 			"label": "To Date",
 			"fieldtype": "Date",
-			"default": get_today()
+			"default": frappe.datetime.get_today()
 		},
 		{
 			"fieldname":"warehouse",

@@ -12,7 +12,7 @@ frappe.query_reports["VA Sales Invoice"] = {
 			"fieldname":"to_date",
 			"label": "To Date",
 			"fieldtype": "Date",
-			"default": get_today(),
+			"default": frappe.datetime.get_today(),
 			"reqd": 1,
 		}
 

@@ -75,7 +75,7 @@ frappe.query_reports["Item Report"] = {
 			"fieldname":"eol",
 			"label": "End Of Life",
 			"fieldtype": "Date",
-			"default": get_today(),
+			"default": frappe.datetime.get_today(),
 			"reqd": 1
 		},
 		{

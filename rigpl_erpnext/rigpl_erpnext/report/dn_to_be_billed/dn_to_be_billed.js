@@ -15,7 +15,13 @@ frappe.query_reports["DN To Be Billed"] = {
 			"fieldname":"to_date",
 			"label": "To Date",
 			"fieldtype": "Date",
-			"default": get_today()
+			"default": frappe.datetime.get_today()
+		},
+		{
+			"fieldname":"territory",
+			"label": "Territory",
+			"fieldtype": "Link",
+			"options": "Territory"
 		},
 		{
 			"fieldname":"sales_person",
@@ -28,10 +34,5 @@ frappe.query_reports["DN To Be Billed"] = {
 			"label": "Draft",
 			"fieldtype": "Check"			
 		},
-		{
-			"fieldname":"trial",
-			"label": "Trial",
-			"fieldtype": "Check"
-		},
-	]
-}
+	],
+};
