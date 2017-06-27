@@ -31,7 +31,7 @@ frappe.query_reports["Sales Person Analysis"] = {
 			label: "To Date",
 			fieldtype: "Date",
 			reqd: 1,
-			default: get_today()
+			default: frappe.datetime.get_today()
 		},
 		{
 			fieldname:"sales_person",

@@ -14,7 +14,7 @@ frappe.query_reports["Asset Analysis"] = {
 			"fieldname":"to_date",
 			"label": "Purchase UpTo Date",
 			"fieldtype": "Date",
-			"default": get_today(),
+			"default": frappe.datetime.get_today(),
 			"reqd": 1,
 		},
 		{

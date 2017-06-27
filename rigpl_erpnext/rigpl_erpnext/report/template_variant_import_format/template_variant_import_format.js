@@ -7,7 +7,7 @@ frappe.query_reports["Template Variant Import Format"] = {
 			"fieldname":"eol",
 			"label": "End Of Life",
 			"fieldtype": "Date",
-			"default": get_today(),
+			"default": frappe.datetime.get_today(),
 			"reqd": 1
 		},
 		{

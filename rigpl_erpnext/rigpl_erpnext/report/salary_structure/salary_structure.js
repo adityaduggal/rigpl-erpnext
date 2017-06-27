@@ -31,7 +31,7 @@ frappe.query_reports["Salary Structure"] = {
 			"fieldname":"from_date",
 			"label": "From Date",
 			"fieldtype": "Date",
-			"default": get_today(),
+			"default": frappe.datetime.get_today(),
 			"reqd": 1
 		},
 		{

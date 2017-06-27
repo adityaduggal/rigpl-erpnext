@@ -11,7 +11,7 @@ frappe.query_reports["Calculate ROL"] = {
 			"fieldname":"to_date",
 			"label": "To Date",
 			"fieldtype": "Date",
-			"default": get_today(),
+			"default": frappe.datetime.get_today(),
 			"reqd": 1,
 		},
 		{

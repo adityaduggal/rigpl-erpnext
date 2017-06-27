@@ -15,7 +15,7 @@ frappe.query_reports["PR to be Billed"] = {
 			"fieldname":"to_date",
 			"label": "To Date",
 			"fieldtype": "Date",
-			"default": get_today()
+			"default": frappe.datetime.get_today()
 		},
 	]
 }
