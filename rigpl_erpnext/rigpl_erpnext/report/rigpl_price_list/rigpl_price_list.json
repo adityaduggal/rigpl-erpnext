@@ -7,7 +7,7 @@
  "modified": "2014-06-05 17:04:40.895327",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
- "name": "Price List",
+ "name": "RIGPL Price List",
  "owner": "aditya@rigpl.com",
  "ref_doctype": "Item Price",
  "report_name": "Price List",
