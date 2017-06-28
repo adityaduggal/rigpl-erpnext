@@ -1,4 +1,4 @@
-frappe.query_reports["Price List"] = {
+frappe.query_reports["RIGPL Price List"] = {
 	"filters": [
 		{
 			"fieldname":"pl",
@@ -70,7 +70,7 @@ frappe.query_reports["Price List"] = {
 			"label": "Tool Type",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
-			"reqd": 1,
+			"reqd": 0,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{

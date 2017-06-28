@@ -6,7 +6,7 @@ from frappe.utils import flt, getdate, nowdate
 def execute(filters=None):
 	if not filters: filters = {}
 	bm = filters["bm"]
-	tt = filters["tt"]
+	#tt = filters["tt"]
 	conditions_it, conditions_pl = get_conditions(bm, filters)
 	templates = get_templates(bm, conditions_it, filters)
 
