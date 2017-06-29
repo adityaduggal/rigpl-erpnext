@@ -48,7 +48,7 @@ def get_columns(filters):
 		{
 			"fieldname": "pl2_diff",
 			"label": _(filters.pl1) + "-" + _(filters.pl2),
-			"options": "float",
+			"options": "Float",
 			"width": 80
 		},
 		{
@@ -65,7 +65,7 @@ def get_columns(filters):
 		{
 			"fieldname": "pl3_diff",
 			"label": _(filters.pl1) + "-" + _(filters.pl3),
-			"options": "float",
+			"options": "Float",
 			"width": 80
 		},
 		{
@@ -101,43 +101,43 @@ def get_columns(filters):
 		{
 			"fieldname": "d1",
 			"label": "D1",
-			"fieldtype": "float",
+			"fieldtype": "Float",
 			"width": 50
 		},
 		{
 			"fieldname": "w1",
 			"label": "W1",
-			"fieldtype": "float",
+			"fieldtype": "Float",
 			"width": 50
 		},
 		{
 			"fieldname": "l1",
 			"label": "L1",
-			"fieldtype": "float",
+			"fieldtype": "Float",
 			"width": 50
 		},
 		{
 			"fieldname": "zn",
 			"label": "Zn",
-			"fieldtype": "float",
+			"fieldtype": "Float",
 			"width": 50
 		},
 		{
 			"fieldname": "d2",
 			"label": "D2",
-			"fieldtype": "float",
+			"fieldtype": "Float",
 			"width": 50
 		},
 		{
 			"fieldname": "l2",
 			"label": "L2",
-			"fieldtype": "float",
+			"fieldtype": "Float",
 			"width": 50
 		},
 		{
 			"fieldname": "a1",
 			"label": "A1",
-			"fieldtype": "float",
+			"fieldtype": "Float",
 			"width": 50
 		},
 		{
