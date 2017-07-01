@@ -45,7 +45,7 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "Price List",
+					"name": "RIGPL Price List",
 					"doctype": "Item Price",
 				},
 				{
