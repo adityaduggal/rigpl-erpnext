@@ -38,12 +38,6 @@ def get_data():
 				{
 					"type": "report",
 					"is_query_report": True,
-					"name": "CForms Analysis",
-					"doctype": "C-Form",
-				},
-				{
-					"type": "report",
-					"is_query_report": True,
 					"name": "Sales Partner Commission Details",
 					"doctype": "Sales Invoice",
 				},
