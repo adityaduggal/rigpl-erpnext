@@ -350,8 +350,8 @@ def calculate_net_salary(doc, msd, med):
 	doc.gross_pay = gross_pay
 	doc.total_deduction = tot_ded
 	doc.net_pay = doc.gross_pay - doc.total_deduction
-	doc.rounded_cash = myround(doc.net_pay - doc.actual_bank_salary)
-	doc.rounded_total = doc.actual_bank_salary + doc.rounded_cash
+	doc.rounded_cash = myround(flt(doc.net_pay) - flt(doc.actual_bank_salary))
+	doc.rounded_total = flt(doc.actual_bank_salary) + flt(doc.rounded_cash)
 	doc.net_pay_books = tot_books - doc.total_deduction
 		
 	company_currency = erpnext.get_company_currency(doc.company)
