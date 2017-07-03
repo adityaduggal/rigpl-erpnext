@@ -1,0 +1,33 @@
+{
+ "add_total_row": 1, 
+ "apply_user_permissions": 1, 
+ "creation": "2012-12-17 20:32:45", 
+ "disabled": 0, 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "idx": 1, 
+ "is_standard": "Yes", 
+ "modified": "2017-07-03 14:45:24.235567", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "Items On Indent", 
+ "owner": "aditya@rigpl.com", 
+ "query": "SELECT \n\tmr.name as \"Indent No:Link/Material Request:100\",\n\tmr.transaction_date as \"Indent Date:Date:100\",\n\tmri.schedule_date as \"Schedule Date:Date:100\",\n\tmri.item_code as \"Item Code:Link/Item:140\",\n\tmri.description as \"Description::300\",\n\tmri.`qty` as \"Qty:Float:80\",\n\tmri.`priority` as \"Priority::30\",\n\tmri.`uom` as \"UoM::10\",\n\tmri.`ordered_qty` as \"Ordered:Float:80\",\n\tIFNULL(bm.attribute_value, \"-\") as \"BM::50\",\n\tIFNULL(hqual.attribute_value, \"-\") as \"HSS Qual::80\",\n\tIFNULL(cqual.attribute_value, \"-\") as \"Carb Qual::80\",\n\tIFNULL(tt.attribute_value, \"-\") as \"TT::150\",\n\tCAST(d1.attribute_value AS DECIMAL(8,3)) as \"D1:Float:50\",\n\tCAST(w1.attribute_value AS DECIMAL(8,3)) as \"W1:Float:50\"\t\n\t\n\nFROM\n\t`tabMaterial Request` mr ,`tabMaterial Request Item` mri\n\tLEFT JOIN `tabItem Variant Attribute` bm ON mri.item_code = bm.parent\n\t\t\tAND bm.attribute = 'Base Material'\n\tLEFT JOIN `tabItem Variant Attribute` hqual ON mri.item_code = hqual.parent\n\t\t\tAND hqual.attribute = 'HSS Quality'\n\tLEFT JOIN `tabItem Variant Attribute` cqual ON mri.item_code = cqual.parent\n\t\t\tAND cqual.attribute = 'Carbide Quality'\n\tLEFT JOIN `tabItem Variant Attribute` tt ON mri.item_code = tt.parent\n\t\t\tAND tt.attribute = 'Tool Type'\n\tLEFT JOIN `tabItem Variant Attribute` d1 ON mri.item_code = d1.parent\n\t\t\tAND d1.attribute = 'd1_mm'\n\tLEFT JOIN `tabItem Variant Attribute` w1 ON mri.item_code = w1.parent\n\t\t\tAND w1.attribute = 'w1_mm'\nWHERE\n\tmri.`parent` = mr.`name`\n\tAND mr.docstatus = 1\n\tAND mr.status != \"Stopped\"\n\tAND mr.transaction_date <= curdate()\n\tAND ifnull(mri.ordered_qty,0) < ifnull(mri.qty,0)\n\nORDER BY\n\tbm.attribute_value, tt.attribute_value, hqual.attribute_value, \n\tcqual.attribute_value, d1.attribute_value, w1.attribute_value", 
+ "ref_doctype": "Purchase Order", 
+ "report_name": "Items On Indent", 
+ "report_type": "Query Report", 
+ "roles": [
+  {
+   "role": "Stock User"
+  }, 
+  {
+   "role": "Purchase Manager"
+  }, 
+  {
+   "role": "Purchase User"
+  }, 
+  {
+   "role": "Production Inventory User"
+  }
+ ]
+}
