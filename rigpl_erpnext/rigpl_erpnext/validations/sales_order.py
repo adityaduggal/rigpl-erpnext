@@ -6,6 +6,7 @@ from frappe import msgprint
 def validate(doc,method):
 	update_fields(doc,method)
 	check_gst_rules(doc,method)
+	check_taxes_integrity(doc,method)
 
 def update_fields(doc,method):
 	letter_head_tax = frappe.db.get_value("Sales Taxes and Charges Template", \
@@ -56,6 +57,18 @@ def check_gst_rules(doc,method):
 			frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
 				in Different Country {1}, hence either change Shipping Address or Change the \
 				Selected Tax").format(doc.taxes_and_charges, ship_country))
+
+def check_taxes_integrity(doc,method):
+	template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
+	for tax in doc.taxes:
+		for temp in template.taxes:
+			if tax.idx == temp.idx:
+				if tax.charge_type != temp.charge_type or tax.row_id != temp.row_id or \
+					tax.account_head != temp.account_head or tax.included_in_print_rate \
+					!= temp.included_in_print_rate or tax.rate != temp.rate:
+						frappe.throw(("Selected Tax {0}'s table does not match with tax table \
+							of Sales Order# {1}. Check Row # {2} or reload Taxes").\
+							format(doc.taxes_and_charges, doc.name, tax.idx))
 
 def on_submit(so,method):
 	if so.track_trial == 1:
