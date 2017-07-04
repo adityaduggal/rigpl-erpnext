@@ -96,22 +96,6 @@ def update_fields(doc,method):
 	
 	doc.c_form_applicable = c_form_tax
 	doc.letter_head = letter_head_tax
-	
-	#below code updates the CETSH number for the item in SI
-	for d in doc.items:
-		query = """SELECT a.attribute_value FROM `tabItem Variant Attribute` a 
-			WHERE a.parent = '%s' AND a.attribute = 'CETSH Number' """ % d.item_code
-		cetsh = frappe.db.sql(query, as_list=1)
-		if cetsh:
-			if d.cetsh_number:
-				pass
-			else:
-				d.cetsh_number = cetsh[0][0]
-		else:
-			if d.cetsh_number:
-				pass
-			else:
-				d.cetsh_number = '82079090'
 
 def on_submit(doc,method):
 	user = frappe.session.user
