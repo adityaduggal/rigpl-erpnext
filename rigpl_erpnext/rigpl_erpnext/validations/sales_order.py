@@ -4,25 +4,71 @@ import frappe
 from frappe import msgprint
 
 def validate(doc,method):
-	for sod in doc.get("items"):
-		#below code updates the CETSH number for the item in SO
-		query = """SELECT a.attribute_value FROM `tabItem Variant Attribute` a 
-			WHERE a.parent = '%s' AND a.attribute = 'CETSH Number' """ % sod.item_code
-		cetsh = frappe.db.sql(query, as_list=1)
-		if cetsh:
-			if sod.cetsh_number:
-				pass
+	update_fields(doc,method)
+	check_gst_rules(doc,method)
+	check_taxes_integrity(doc,method)
+
+def update_fields(doc,method):
+	letter_head_tax = frappe.db.get_value("Sales Taxes and Charges Template", \
+		doc.taxes_and_charges, "letter_head")
+	doc.letter_head = letter_head_tax
+	
+	for items in doc.items:
+		custom_tariff = frappe.db.get_value("Item", items.item_code, "customs_tariff_number")
+		if custom_tariff:
+			if len(custom_tariff) == 8:
+				items.cetsh_number = custom_tariff 
 			else:
-				sod.cetsh_number = cetsh[0][0]
+				frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which not  \
+					8 digit, please get the Custom Tariff corrected").\
+					format(items.item_code, items.idx, custom_tariff))
 		else:
-			if sod.cetsh_number:
-				pass
-			else:
-				sod.cetsh_number = '82079090'
+			frappe.throw(("Item Code {0} in line# {1} does not have linked Customs \
+				Tariff in Item Master").format(items.item_code, items.idx))
+
+def check_gst_rules(doc,method):
+	ship_state = frappe.db.get_value("Address", doc.shipping_address_name, "state_rigpl")
+	template_doc = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
+	ship_country = frappe.db.get_value("Address", doc.shipping_address_name, "country")
+	
+	series_template = frappe.db.get_value("Sales Taxes and Charges Template", \
+		doc.taxes_and_charges ,"series")
 		
-	letter_head= frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges ,"letter_head")
-	if (doc.letter_head != letter_head):
-		frappe.msgprint("Letter Head selected does not match with Sales Tax", raise_exception=1)
+	#Check series of Tax with the Series Selected for Invoice
+	if series_template != doc.naming_series[2:4] and series_template != doc.name[2:4]:
+		frappe.throw(("Selected Tax Template {0} Not Allowed since Series Selected {1} and \
+			Invoice number {2} don't match with the Selected Template").format( \
+			doc.taxes_and_charges, doc.naming_series, doc.name))
+			
+	#Check if Shipping State is Same as Template State then check if the tax template is LOCAL
+	#Else if the States are different then the template should NOT BE LOCAL
+	if ship_state == template_doc.state:
+		if template_doc.is_local_sales != 1:
+			frappe.throw(("Selected Tax {0} is NOT LOCAL Tax but Shipping Address is \
+				in Same State {1}, hence either change Shipping Address or Change the \
+				Selected Tax").format(doc.taxes_and_charges, ship_state))
+	elif ship_country == 'India' and ship_state != template_doc.state:
+		if template_doc.is_local_sales == 1:
+			frappe.throw(("Selected Tax {0} is LOCAL Tax but Shipping Address is \
+				in Different State {1}, hence either change Shipping Address or Change the \
+				Selected Tax").format(doc.taxes_and_charges, ship_state))
+	elif ship_country != 'India': #Case of EXPORTS
+		if template_doc.state is not None and template_doc.is_exports != 1:
+			frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
+				in Different Country {1}, hence either change Shipping Address or Change the \
+				Selected Tax").format(doc.taxes_and_charges, ship_country))
+
+def check_taxes_integrity(doc,method):
+	template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
+	for tax in doc.taxes:
+		for temp in template.taxes:
+			if tax.idx == temp.idx:
+				if tax.charge_type != temp.charge_type or tax.row_id != temp.row_id or \
+					tax.account_head != temp.account_head or tax.included_in_print_rate \
+					!= temp.included_in_print_rate or tax.rate != temp.rate:
+						frappe.throw(("Selected Tax {0}'s table does not match with tax table \
+							of Sales Order# {1}. Check Row # {2} or reload Taxes").\
+							format(doc.taxes_and_charges, doc.name, tax.idx))
 
 def on_submit(so,method):
 	if so.track_trial == 1:
