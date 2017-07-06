@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe, erpnext
-
+sync_fixtures()
 def execute():
 	'''
 	This patch would add the From Date and To Date to the Child table of Roster
