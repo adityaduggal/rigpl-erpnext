@@ -15,3 +15,4 @@ rigpl_erpnext.patches.20170518_emp_adv_direct_post
 rigpl_erpnext.patches.20170519_salary_slip_direct_post
 rigpl_erpnext.patches.20170616_salary_slip_direct_post_all
 rigpl_erpnext.patches.20170630_link_items_with_customs
+rigpl_erpnext.patches.20170706_roster_move_dates_to_child
