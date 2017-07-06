@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe, erpnext
+from frappe.utils.fixtures import sync_fixtures
+
 sync_fixtures()
 def execute():
 	'''
