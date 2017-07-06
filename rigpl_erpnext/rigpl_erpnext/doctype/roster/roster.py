@@ -25,20 +25,24 @@ class Roster(Document):
 		if self.to_date:
 			if getdate(self.to_date) < getdate(self.from_date):
 				frappe.throw(_("From Date should not be greater than To Date"))
+		for d in self.get('employees'):
+			if getdate(d.to_date) < getdate(d.from_date):
+				frappe.throw(_("From Date should not be greater than To Date in Row # {0}").format(d.idx))
 	
 	def validate_employee(self):
 		emp = []
 		for d in self.get('employees'):
-			emp.append(d.employee)	
+			emp.append(d.employee)
 			emp_db = frappe.get_doc("Employee", d.employee)
 			d.employee_name = emp_db.employee_name
 			d.employee_number = emp_db.employee_number
-			if (emp_db.status != "Active" and getdate(emp_db.relieving_date) 
-			< getdate(self.to_date)):
-				frappe.throw(("Employee {0} selected is not active as \
-				he/she was Relieved on {1}").format(d.employee_name, 
-				getdate(emp_db.relieving_date)))
-		
+			if emp_db.status != "Active":
+				if getdate(emp_db.relieving_date) < getdate(d.from_date):
+					frappe.throw(("Employee {0} selected is not active as \
+					he/she was Relieved on {1} in Row # {2}").format(d.employee_name, 
+					getdate(emp_db.relieving_date), d.idx))
+				elif getdate(emp_db.relieving_date) < getdate(d.to_date):
+					d.to_date = getdate(emp_db.relieving_date)		
 		
 		if len(emp)!=len(set(emp)):
 			frappe.throw("Employee List has repeated employees")
