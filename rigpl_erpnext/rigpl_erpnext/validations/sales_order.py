@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
+from frappe.utils import nowdate
 
 def validate(doc,method):
 	update_fields(doc,method)
@@ -9,6 +10,7 @@ def validate(doc,method):
 	check_taxes_integrity(doc,method)
 
 def update_fields(doc,method):
+	doc.transaction_date = nowdate()
 	letter_head_tax = frappe.db.get_value("Sales Taxes and Charges Template", \
 		doc.taxes_and_charges, "letter_head")
 	doc.letter_head = letter_head_tax
