@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 from frappe.model.mapper import get_mapped_doc
-from frappe.utils import cstr, flt, getdate, new_line_sep
+from frappe.utils import nowdate, add_days
 from frappe.desk.reportview import get_match_cond
 
 def validate(doc,method):
@@ -16,6 +16,8 @@ def check_gst_rules(doc,method):
 	ship_state = frappe.db.get_value("Address", doc.shipping_address, "state_rigpl")
 	template_doc = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
 	ship_country = frappe.db.get_value("Address", doc.shipping_address, "country")
+	supplier_state = frappe.db.get_value("Address", doc.supplier_address, "state_rigpl")
+	supplier_country = frappe.db.get_value("Address", doc.supplier_address, "country")
 	
 	series_template = frappe.db.get_value("Purchase Taxes and Charges Template", \
 		doc.taxes_and_charges ,"series")
@@ -31,39 +33,34 @@ def check_gst_rules(doc,method):
 		#Else if the States are different then the template should NOT BE LOCAL
 		#Compare the Ship State with the Tax Template (since Shipping address is our own address)
 		#if Ship State is Same as Supplier State then Local else Central or Import
-		if ship_state == template_doc.state:
-			if template_doc.is_local_purchase != 1:
-				frappe.throw(("Selected Tax {0} is NOT LOCAL Tax but Shipping Address is \
-					in Same State {1}, hence either change Shipping Address or Change the \
-					Selected Tax").format(doc.taxes_and_charges, ship_state))
-		elif ship_country == 'India' and ship_state != template_doc.state:
+		if ship_state != template_doc.state:
+			frappe.throw("Selected Tax template is not for Selected Shipping Address")
+
+		if template_doc.state == supplier_state:
+			if template_doc.is_local_purchase != 1 and template_doc.is_import != 1:
+				frappe.throw(("Selected Tax {0} is NOT LOCAL Tax but Supplier Address is \
+					in Same State {1}, hence either change Supplier Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, supplier_state))
+		elif supplier_country == 'India' and supplier_state != template_doc.state and template_doc.is_import != 1:
 			if template_doc.is_local_purchase == 1:
-				frappe.throw(("Selected Tax {0} is LOCAL Tax but Shipping Address is \
-					in Different State {1}, hence either change Shipping Address or Change the \
-					Selected Tax").format(doc.taxes_and_charges, ship_state))
-		elif ship_country != 'India': #Case of EXPORTS
-			if template_doc.state is not None and template_doc.is_import != 1:
-				frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
-					in Different Country {1}, hence either change Shipping Address or Change the \
-					Selected Tax").format(doc.taxes_and_charges, ship_country))
+				frappe.throw(("Selected Tax {0} is LOCAL Tax but Supplier Address is \
+					in Different State {1}, hence either change Supplier Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, supplier_state))
+		elif supplier_country != 'India': #Case of IMPORTS
+			if template_doc.is_import != 1:
+				frappe.throw(("Selected Tax {0} is for Indian Sales but Supplier Address is \
+					in Different Country {1}, hence either change Supplier Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, supplier_country))
 
 def update_fields(doc,method):
+	if doc.is_subcontracting == 1:
+		doc.transaction_date = add_days(nowdate(), -1)
+	else:
+		doc.transaction_date = nowdate ()
+
 	letter_head_tax = frappe.db.get_value("Purchase Taxes and Charges Template", \
 		doc.taxes_and_charges, "letter_head")
 	doc.letter_head = letter_head_tax
-	
-	for items in doc.items:
-		custom_tariff = frappe.db.get_value("Item", items.item_code, "customs_tariff_number")
-		if custom_tariff:
-			if len(custom_tariff) == 8:
-				items.cetsh_number = custom_tariff 
-			else:
-				frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which not  \
-					8 digit, please get the Custom Tariff corrected").\
-					format(items.item_code, items.idx, custom_tariff))
-		else:
-			frappe.throw(("Item Code {0} in line# {1} does not have linked Customs \
-				Tariff in Item Master").format(items.item_code, items.idx))
 
 def check_taxes_integrity(doc,method):
 	template = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
@@ -72,9 +69,10 @@ def check_taxes_integrity(doc,method):
 			if tax.idx == temp.idx:
 				if tax.charge_type != temp.charge_type or tax.row_id != temp.row_id or \
 					tax.account_head != temp.account_head or tax.included_in_print_rate \
-					!= temp.included_in_print_rate or tax.rate != temp.rate:
+					!= temp.included_in_print_rate or tax.add_deduct_tax != \
+					temp.add_deduct_tax:
 						frappe.throw(("Selected Tax {0}'s table does not match with tax table \
-							of Quotation# {1}. Check Row # {2} or reload Taxes").\
+							of PO# {1}. Check Row # {2} or reload Taxes").\
 							format(doc.taxes_and_charges, doc.name, tax.idx))
 
 
