@@ -61,19 +61,6 @@ def update_fields(doc,method):
 	letter_head_tax = frappe.db.get_value("Purchase Taxes and Charges Template", \
 		doc.taxes_and_charges, "letter_head")
 	doc.letter_head = letter_head_tax
-	
-	for items in doc.items:
-		custom_tariff = frappe.db.get_value("Item", items.item_code, "customs_tariff_number")
-		if custom_tariff:
-			if len(custom_tariff) == 8:
-				items.cetsh_number = custom_tariff 
-			else:
-				frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which not  \
-					8 digit, please get the Custom Tariff corrected").\
-					format(items.item_code, items.idx, custom_tariff))
-		else:
-			frappe.throw(("Item Code {0} in line# {1} does not have linked Customs \
-				Tariff in Item Master").format(items.item_code, items.idx))
 
 def check_taxes_integrity(doc,method):
 	template = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
