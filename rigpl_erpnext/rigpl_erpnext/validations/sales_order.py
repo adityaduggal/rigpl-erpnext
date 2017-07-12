@@ -41,24 +41,25 @@ def check_gst_rules(doc,method):
 		frappe.throw(("Selected Tax Template {0} Not Allowed since Series Selected {1} and \
 			Invoice number {2} don't match with the Selected Template").format( \
 			doc.taxes_and_charges, doc.naming_series, doc.name))
-			
-	#Check if Shipping State is Same as Template State then check if the tax template is LOCAL
-	#Else if the States are different then the template should NOT BE LOCAL
-	if ship_state == template_doc.state:
-		if template_doc.is_local_sales != 1:
-			frappe.throw(("Selected Tax {0} is NOT LOCAL Tax but Shipping Address is \
-				in Same State {1}, hence either change Shipping Address or Change the \
-				Selected Tax").format(doc.taxes_and_charges, ship_state))
-	elif ship_country == 'India' and ship_state != template_doc.state:
-		if template_doc.is_local_sales == 1:
-			frappe.throw(("Selected Tax {0} is LOCAL Tax but Shipping Address is \
-				in Different State {1}, hence either change Shipping Address or Change the \
-				Selected Tax").format(doc.taxes_and_charges, ship_state))
-	elif ship_country != 'India': #Case of EXPORTS
-		if template_doc.state is not None and template_doc.is_exports != 1:
-			frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
-				in Different Country {1}, hence either change Shipping Address or Change the \
-				Selected Tax").format(doc.taxes_and_charges, ship_country))
+	
+	if doc.taxes_and_charges != 'OGL':
+		#Check if Shipping State is Same as Template State then check if the tax template is LOCAL
+		#Else if the States are different then the template should NOT BE LOCAL
+		if ship_state == template_doc.state:
+			if template_doc.is_local_sales != 1:
+				frappe.throw(("Selected Tax {0} is NOT LOCAL Tax but Shipping Address is \
+					in Same State {1}, hence either change Shipping Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, ship_state))
+		elif ship_country == 'India' and ship_state != template_doc.state:
+			if template_doc.is_local_sales == 1:
+				frappe.throw(("Selected Tax {0} is LOCAL Tax but Shipping Address is \
+					in Different State {1}, hence either change Shipping Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, ship_state))
+		elif ship_country != 'India': #Case of EXPORTS
+			if template_doc.state is not None and template_doc.is_exports != 1:
+				frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
+					in Different Country {1}, hence either change Shipping Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, ship_country))
 
 def check_taxes_integrity(doc,method):
 	template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
