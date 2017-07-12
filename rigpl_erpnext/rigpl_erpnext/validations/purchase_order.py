@@ -7,6 +7,78 @@ from frappe.utils import cstr, flt, getdate, new_line_sep
 from frappe.desk.reportview import get_match_cond
 
 def validate(doc,method):
+	update_fields(doc,method)
+	check_subcontracting(doc,method)
+	check_gst_rules(doc,method)
+	check_taxes_integrity(doc,method)
+
+def check_gst_rules(doc,method):
+	ship_state = frappe.db.get_value("Address", doc.shipping_address, "state_rigpl")
+	template_doc = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
+	ship_country = frappe.db.get_value("Address", doc.shipping_address, "country")
+	
+	series_template = frappe.db.get_value("Purchase Taxes and Charges Template", \
+		doc.taxes_and_charges ,"series")
+		
+	#Check series of Tax with the Series Selected for Invoice
+	if series_template != doc.naming_series[2:4] and series_template != doc.name[2:4]:
+		frappe.throw(("Selected Tax Template {0} Not Allowed since Series Selected {1} and \
+			PO number {2} don't match with the Selected Template").format( \
+			doc.taxes_and_charges, doc.naming_series, doc.name))
+	
+	if doc.taxes_and_charges != 'OGL':
+		#Check if Shipping State is Same as Template State then check if the tax template is LOCAL
+		#Else if the States are different then the template should NOT BE LOCAL
+		#Compare the Ship State with the Tax Template (since Shipping address is our own address)
+		#if Ship State is Same as Supplier State then Local else Central or Import
+		if ship_state == template_doc.state:
+			if template_doc.is_local_purchase != 1:
+				frappe.throw(("Selected Tax {0} is NOT LOCAL Tax but Shipping Address is \
+					in Same State {1}, hence either change Shipping Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, ship_state))
+		elif ship_country == 'India' and ship_state != template_doc.state:
+			if template_doc.is_local_purchase == 1:
+				frappe.throw(("Selected Tax {0} is LOCAL Tax but Shipping Address is \
+					in Different State {1}, hence either change Shipping Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, ship_state))
+		elif ship_country != 'India': #Case of EXPORTS
+			if template_doc.state is not None and template_doc.is_import != 1:
+				frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
+					in Different Country {1}, hence either change Shipping Address or Change the \
+					Selected Tax").format(doc.taxes_and_charges, ship_country))
+
+def update_fields(doc,method):
+	letter_head_tax = frappe.db.get_value("Purchase Taxes and Charges Template", \
+		doc.taxes_and_charges, "letter_head")
+	doc.letter_head = letter_head_tax
+	
+	for items in doc.items:
+		custom_tariff = frappe.db.get_value("Item", items.item_code, "customs_tariff_number")
+		if custom_tariff:
+			if len(custom_tariff) == 8:
+				items.cetsh_number = custom_tariff 
+			else:
+				frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which not  \
+					8 digit, please get the Custom Tariff corrected").\
+					format(items.item_code, items.idx, custom_tariff))
+		else:
+			frappe.throw(("Item Code {0} in line# {1} does not have linked Customs \
+				Tariff in Item Master").format(items.item_code, items.idx))
+
+def check_taxes_integrity(doc,method):
+	template = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
+	for tax in doc.taxes:
+		for temp in template.taxes:
+			if tax.idx == temp.idx:
+				if tax.charge_type != temp.charge_type or tax.row_id != temp.row_id or \
+					tax.account_head != temp.account_head or tax.included_in_print_rate \
+					!= temp.included_in_print_rate or tax.rate != temp.rate:
+						frappe.throw(("Selected Tax {0}'s table does not match with tax table \
+							of Quotation# {1}. Check Row # {2} or reload Taxes").\
+							format(doc.taxes_and_charges, doc.name, tax.idx))
+
+
+def check_subcontracting(doc,method):
 	for d in doc.items:
 		if doc.is_subcontracting <> 1:
 			if d.subcontracted_item:
@@ -43,6 +115,7 @@ def validate(doc,method):
 				frappe.throw(("From Warehouse is Mandatory for Subcontracting Purchase Order\
 					Check Row #{0}").format(d.idx))
 			check_warehouse(doc,method, d.from_warehouse)
+
 
 def on_submit(doc,method):
 	if doc.is_subcontracting == 1:
