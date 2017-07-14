@@ -56,7 +56,7 @@ def check_gst_rules(doc,method):
 					in Different State {1}, hence either change Shipping Address or Change the \
 					Selected Tax").format(doc.taxes_and_charges, ship_state))
 		elif ship_country != 'India': #Case of EXPORTS
-			if template_doc.state is not None and template_doc.is_exports != 1:
+			if template_doc.state is not None and template_doc.is_export != 1:
 				frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
 					in Different Country {1}, hence either change Shipping Address or Change the \
 					Selected Tax").format(doc.taxes_and_charges, ship_country))
