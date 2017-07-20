@@ -3,7 +3,7 @@ cur_frm.cscript.is_subcontracting = function(doc, cdt, cdn) {
 		if (cur_frm.doc.is_subcontracting == 1){
 			return{
 				query: "erpnext.controllers.queries.item_query",
-				filters:{ 'is_sub_contracted_item': 1 }
+				filters:{ 'is_job_work': 1 }
 			}
 		}
 		else {
