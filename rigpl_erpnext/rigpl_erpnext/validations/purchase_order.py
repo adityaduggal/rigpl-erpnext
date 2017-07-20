@@ -86,7 +86,7 @@ def check_subcontracting(doc,method):
 	for d in doc.items:
 		item = frappe.get_doc("Item", d.item_code)
 		if doc.is_subcontracting == 1:
-			if item.is_sub_contracted_item <> 1:
+			if item.is_job_work <> 1:
 				frappe.throw(("Only Sub Contracted Items are allowed in Item Code for \
 					Sub Contracting PO. Check Row # {0}").format(d.idx))
 		else:
