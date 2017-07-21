@@ -171,12 +171,11 @@ scheduler_events = {
 # 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
 # 	],
  	"hourly": [
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
+ 	],
+ 	"daily": [
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants"
  	],
-# 	"weekly": [
-# 		"rigpl_erpnext.tasks.weekly"
-# 	]
 # 	"monthly": [
 # 		"rigpl_erpnext.tasks.monthly"
 # 	]
