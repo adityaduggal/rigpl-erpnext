@@ -46,7 +46,8 @@ def check_and_copy_attributes_to_variant(template, variant):
 	check = 0
 	save_chk = 0
 	exclude_fields = ["item_code", "item_name", "show_in_website", "variant_of", "has_variants", 
-		"description", "web_long_description", "item_variant_restrictions"]
+		"description", "web_long_description", "item_variant_restrictions", "show_in_website",
+		"show_variant_in_website", "website_specifications", "brand", "thumbnail"]
 	for field in template.meta.fields:
 		# "Table" is part of `no_value_field` but we shouldn't ignore tables
 		if (field.fieldtype == 'Table' or field.fieldtype not in no_value_fields) \
