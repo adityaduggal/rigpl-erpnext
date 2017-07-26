@@ -19,8 +19,7 @@ def check_wrong_variants():
 			FROM `tabItem` WHERE variant_of = it.name) 
 			FROM `tabItem` it WHERE it.has_variants = 1 
 			AND it.disabled = 0 AND it.end_of_life >= CURDATE()
-			ORDER BY (SELECT count(name) FROM `tabItem` 
-				WHERE variant_of = it.name) ASC""", as_list=1)
+			ORDER BY it.modified DESC""", as_list=1)
 		fields_edited = 0
 		for t in templates:
 			print (str(t[0]) + " Has No of Variants = " + str(t[1]))
