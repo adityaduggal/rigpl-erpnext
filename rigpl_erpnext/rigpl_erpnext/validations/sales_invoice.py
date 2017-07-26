@@ -153,27 +153,33 @@ def create_new_carrier_track(doc,method):
 	if is_tracked == 1:
 		if doc.amended_from:
 			existing_track = check_existing_track(doc.amended_from)
-			exist_track = frappe.get_doc("Carrier Tracking", existing_track[0][0])
-			exist_track.awb_number = doc.lr_no
-			exist_track.receiver_name = doc.customer
-			exist_track.document_name = doc.name
-			exist_track.carrier_name = doc.transporters
-			exist_track.flags.ignore_permissions = True
-			exist_track.save()
-			frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('Carrier Tracking', exist_track.name)))
+			if existing_track:
+				exist_track = frappe.get_doc("Carrier Tracking", existing_track[0][0])
+				exist_track.awb_number = doc.lr_no
+				exist_track.receiver_name = doc.customer
+				exist_track.document_name = doc.name
+				exist_track.carrier_name = doc.transporters
+				exist_track.flags.ignore_permissions = True
+				exist_track.save()
+				frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('Carrier Tracking', exist_track.name)))
+			else:
+				create_new_ship_track(doc)
 
 		elif check_existing_track(doc.name) is None:
 			#Dont create a new Tracker if already exists
-			track = frappe.new_doc("Carrier Tracking")
-			track.carrier_name = doc.transporters
-			track.awb_number = doc.lr_no
-			track.receiver_document = "Customer"
-			track.receiver_name = doc.customer
-			track.document = "Sales Invoice"
-			track.document_name = doc.name
-			track.flags.ignore_permissions = True
-			track.insert()
-			frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('Carrier Tracking', track.name)))
+			create_new_ship_track(doc)
+
+def create_new_ship_track(si_doc):
+	track = frappe.new_doc("Carrier Tracking")
+	track.carrier_name = si_doc.transporters
+	track.awb_number = si_doc.lr_no
+	track.receiver_document = "Customer"
+	track.receiver_name = si_doc.customer
+	track.document = "Sales Invoice"
+	track.document_name = si_doc.name
+	track.flags.ignore_permissions = True
+	track.insert()
+	frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('Carrier Tracking', track.name)))
 
 def check_existing_track(si_name):
 	exists = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` WHERE document = 'Sales Invoice' AND 
