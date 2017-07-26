@@ -31,7 +31,7 @@ def get_all_ship_data():
 def pushOrderData(track_doc):
 	#First check if the AWB for the Same Shipper is there is Shipway if its there then
 	if track_doc.get("__islocal") != 1 and track_doc.posted_to_shipway == 0:
-		check_upload = check_order_upload()
+		check_upload = check_order_upload(track_doc)
 		username, license_key = get_shipway_pass()
 		if check_upload.get("status") != "Success":
 			url = get_shipway_url() + "pushOrderData"
@@ -50,6 +50,8 @@ def pushOrderData(track_doc):
 				}
 			post_response = make_post_request(url=url, auth=None, headers=None, \
 				data=json.dumps(post_data))
+			#frappe.msgprint(str(json.dumps(post_data)))
+			#frappe.msgprint(str(json.dumps(post_response)))
 			if post_response.get("status") == "Success":
 				track_doc.status = "Shipment Data Uploaded"
 				track_doc.posted_to_shipway = 1
