@@ -13,7 +13,7 @@ def send_bulk_tracks():
 		WHERE posted_to_shipway = 0 ORDER BY creation DESC """, as_list=1)
 	for tracks in unposted:
 		track_doc = frappe.get_doc("Carrier Tracking", tracks[0])
-		print (str(track_doc.name))
+		pushOrderData(track_doc)
 
 def get_all_ship_data():
 	#Pause of 5seconds for sending data means 720 shipment data per hour can be sent
