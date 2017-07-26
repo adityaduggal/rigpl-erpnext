@@ -4,6 +4,9 @@
 
 from __future__ import unicode_literals
 import frappe
+import json
+from frappe.utils import get_url, call_hook_method, cint
+from frappe.integrations.utils import make_get_request, make_post_request, create_request_log
 
 
 def send_bulk_tracks():
@@ -63,7 +66,7 @@ def pushOrderData(track_doc):
 
 def getOrderShipmentDetails(track_doc):
 	if track_doc.get("__islocal") != 1 and track_doc.status != "Delivered":
-		response = track_doc.check_order_upload()
+		response = check_order_upload(track_doc)
 		track_doc.json_reply = str(response)
 
 		if response.get("status") == "Success":
@@ -95,6 +98,8 @@ def getOrderShipmentDetails(track_doc):
 			track_doc.save()
 		else:
 			track_doc.status = "Posting Error"
+	elif track_doc.status == 'Delivered':
+		frappe.msgprint(("{0} is Already Delivered").format(track_doc.name))
 			
 def check_order_upload(track_doc):
 	username, license_key = get_shipway_pass()

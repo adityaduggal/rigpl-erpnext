@@ -7,6 +7,7 @@ import frappe
 import json
 from frappe.model.document import Document
 from frappe.integrations.utils import make_get_request, make_post_request, create_request_log
+from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update import get_shipway_url
 
 class ShipwaySettings(Document):
 	'''
@@ -40,7 +41,7 @@ class ShipwaySettings(Document):
 		LOST = Lost
 	'''
 	def get_carriers(self):
-		url = self.get_shipway_url() + "carriers"
+		url = get_shipway_url() + "carriers"
 		carriers = make_post_request(url=url, auth=None, headers=None, data=None)
 		text = "Courier Name\t\t\t\tCourier ID\n"
 		courier_list = carriers.get("couriers")
