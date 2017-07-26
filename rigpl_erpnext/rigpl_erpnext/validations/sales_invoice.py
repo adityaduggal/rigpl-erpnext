@@ -7,6 +7,8 @@ def validate(doc,method):
 	update_fields(doc,method)
 	check_gst_rules(doc,method)
 	check_delivery_note_rule(doc,method)
+	validate_carrier_tracking(doc,method)
+
 
 def check_delivery_note_rule(doc,method):
 	'''
@@ -20,7 +22,6 @@ def check_delivery_note_rule(doc,method):
 	5. Disallow making a Sales Invoice for Items without SO but only DN, that is you make DN \
 		without SO and then make INVOICE is not POSSIBLE, means you SO => DN => SI or only SI also
 		denies SO => SI
-	6.
 	'''
 	list_of_dns = []
 	list_of_dn_details = []
@@ -98,6 +99,7 @@ def update_fields(doc,method):
 	doc.letter_head = letter_head_tax
 
 def on_submit(doc,method):
+	create_new_carrier_track(doc,method)
 	user = frappe.session.user
 	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
@@ -136,3 +138,49 @@ def on_cancel(doc,method):
 				if name:
 					tt = frappe.get_doc("Trial Tracking", name[0][0])
 					frappe.db.set(tt, 'invoice_no', None)
+
+def validate_carrier_tracking(doc,method):
+	tracked_transporter = is_tracked_transporter(doc,method)
+	if tracked_transporter == 1:
+		frappe.msgprint(("{0} is Tracked Automatically all Shipment Data for LR No {1} \
+				would be automatically updated in Carrier Tracking Document").format(
+				frappe.get_desk_link('Transporters', doc.transporters), doc.lr_no))
+	return tracked_transporter
+
+def create_new_carrier_track(doc,method):
+	#If SI is from Cancelled Doc then update the Existing Carrier Track
+	is_tracked = is_tracked_transporter(doc,method)
+	if is_tracked == 1:
+		if doc.amended_from:
+			existing_track = check_existing_track(doc.amended_from)
+			exist_track = frappe.get_doc("Carrier Tracking", existing_track[0][0])
+			exist_track.awb_number = doc.lr_no
+			exist_track.receiver_name = doc.customer
+			exist_track.document_name = doc.name
+			exist_track.carrier_name = doc.transporters
+			exist_track.flags.ignore_permissions = True
+			exist_track.save()
+			frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('Carrier Tracking', exist_track.name)))
+
+		elif check_existing_track(doc.name) is None:
+			#Dont create a new Tracker if already exists
+			track = frappe.new_doc("Carrier Tracking")
+			track.carrier_name = doc.transporters
+			track.awb_number = doc.lr_no
+			track.receiver_document = "Customer"
+			track.receiver_name = doc.customer
+			track.document = "Sales Invoice"
+			track.document_name = doc.name
+			track.flags.ignore_permissions = True
+			track.insert()
+			frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('Carrier Tracking', track.name)))
+
+def check_existing_track(si_name):
+	exists = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` WHERE document = 'Sales Invoice' AND 
+		document_name = '%s'""" %(si_name))
+	if exists:
+		return exists
+
+def is_tracked_transporter(doc,method):
+	ttrans = frappe.get_value ("Transporters", doc.transporters, "track_on_shipway")
+	return ttrans

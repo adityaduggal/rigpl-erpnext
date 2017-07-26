@@ -3,13 +3,24 @@ from frappe import _
 def get_data():
 	return [
 		{
-			"label": _("Documents"),
+			"label": _("Analytics"),
 			"icon": "icon-star",
 			"items": [
 				{
 					"type": "doctype",
 					"name": "Valuation Rate",
 					"description": _("Valuation Rates"),
+				},
+			]
+		},
+		{
+			"label": _("Billing"),
+			"icon": "icon-star",
+			"items": [
+				{
+					"type": "doctype",
+					"name": "Carrier Tracking",
+					"description": _("Track Shipments sent via Courier"),
 				},
 			]
 		},
