@@ -106,7 +106,6 @@ def getOrderShipmentDetails(track_doc):
 def check_order_upload(track_doc):
 	username, license_key = get_shipway_pass()
 	url = get_shipway_url() + "getOrderShipmentDetails"
-	scans_list = []
 	request = {
 	    "username": username,
 	    "password": license_key,
