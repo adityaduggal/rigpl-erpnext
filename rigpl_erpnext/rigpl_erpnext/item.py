@@ -21,8 +21,9 @@ def validate(doc, method):
 	make_route(doc,method)
 	
 def make_route(doc,method):
+	route_name = (re.sub('[^A-Za-z0-9]+', ' ', doc.item_name))
 	doc.route = frappe.db.get_value('Item Group', doc.item_group, 'route') + '/' + \
-		doc.scrub(doc.item_name)
+		doc.scrub(route_name)
 		
 def validate_reoder(doc,method):
 	for d in doc.reorder_levels:
