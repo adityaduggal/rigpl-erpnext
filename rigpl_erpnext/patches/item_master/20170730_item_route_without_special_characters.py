@@ -15,5 +15,6 @@ def execute():
 		it_doc.scrub(route_name)
 
 		if it_doc.route != acceptable_route:
-			it_doc.route_name = acceptable_route
+			frappe.db.set_value('Item', it[0], 'route', acceptable_route)
+			#it_doc.route_name = acceptable_route
 			print ("Item Code: " + it[0] + " Route Changed")
