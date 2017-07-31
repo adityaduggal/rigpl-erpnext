@@ -18,6 +18,7 @@ def send_bulk_tracks():
 	for tracks in unposted:
 		track_doc = frappe.get_doc("Carrier Tracking", tracks[0])
 		pushOrderData(track_doc)
+		frappe.db.commit()
 
 def get_all_ship_data():
 	#Pause of 5seconds for sending data means 720 shipment data per hour can be sent
@@ -28,6 +29,7 @@ def get_all_ship_data():
 	for tracks in pending_ships:
 		track_doc = frappe.get_doc("Carrier Tracking", tracks[0])
 		getOrderShipmentDetails(track_doc)
+		frappe.db.commit()
 
 def pushOrderData(track_doc):
 	#First check if the AWB for the Same Shipper is there is Shipway if its there then
@@ -58,9 +60,10 @@ def pushOrderData(track_doc):
 				track_doc.save()
 			else:
 				track_doc.status = "Posting Issues"
-				frappe.throw("Some Issues")
+				frappe.msgprint("Some Issues in posting {0}").format(track_doc.name)
 		else:
 			track_doc.posted_to_shipway = 1
+			track_doc.status = "Shipment Data Uploaded"
 			track_doc.save()
 	elif track_doc.posted_to_shipway == 1:
 		frappe.msgprint("Already Posted to Shipway")
