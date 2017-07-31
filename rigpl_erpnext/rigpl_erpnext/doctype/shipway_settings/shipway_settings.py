@@ -4,6 +4,7 @@
 
 from __future__ import unicode_literals
 import frappe
+import requests
 import json
 from frappe.model.document import Document
 from frappe.integrations.utils import make_get_request, make_post_request, create_request_log
@@ -32,7 +33,7 @@ class ShipwaySettings(Document):
 		22  = Address Incorrect
 		23  = Delivery Attempted
 		24  = Pending- Undelivered
-		25  = Closed
+		25  = Closed#
 		CRTA = Customer Refused
 		CNA = Consignee Unavailable
 		DEX = Delivery Exception
@@ -42,9 +43,10 @@ class ShipwaySettings(Document):
 	'''
 	def get_carriers(self):
 		url = get_shipway_url() + "carriers"
-		carriers = make_post_request(url=url, auth=None, headers=None, data=None)
+		carriers = requests.get(url=url, verify=False)
+		json_response = json.loads(carriers.text)
 		text = "Courier Name\t\t\t\tCourier ID\n"
-		courier_list = carriers.get("couriers")
+		courier_list = json_response.get("couriers")
 		for entry in courier_list:
 			courier_name = entry.get("courier_name")
 			courier_id = entry.get("id")

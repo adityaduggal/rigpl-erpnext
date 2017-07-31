@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 import frappe
 import json
+import requests
 from frappe.utils import get_url, call_hook_method, cint
 from frappe.integrations.utils import make_get_request, make_post_request, create_request_log
 
@@ -48,10 +49,9 @@ def pushOrderData(track_doc):
 				"phone": "9999999999",
 				"products": "N/A"
 				}
-			post_response = make_post_request(url=url, auth=None, headers=None, \
+			p_response = requests.get(url=url, verify=False, \
 				data=json.dumps(post_data))
-			#frappe.msgprint(str(json.dumps(post_data)))
-			#frappe.msgprint(str(json.dumps(post_response)))
+			post_response = json.loads(p_response.text)
 			if post_response.get("status") == "Success":
 				track_doc.status = "Shipment Data Uploaded"
 				track_doc.posted_to_shipway = 1
@@ -111,9 +111,9 @@ def check_order_upload(track_doc):
 	    "password": license_key,
 	    "order_id": track_doc.name
 	    }
-	response = make_post_request(url=url, auth=None, headers=None, data=json.dumps(request))
-	#frappe.msgprint(str(response))
-	return response
+	response = requests.get(url=url, verify=False, data=json.dumps(request))
+	response_json = json.loads(response.text)
+	return response_json
 
 def get_shipway_url():
 	return "https://shipway.in/api/"
