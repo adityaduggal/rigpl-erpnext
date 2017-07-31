@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
+import re
 from frappe import msgprint
 from frappe.utils import flt
 from frappe.desk.reportview import get_match_cond
