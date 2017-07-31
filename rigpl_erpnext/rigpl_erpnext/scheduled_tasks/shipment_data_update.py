@@ -60,7 +60,7 @@ def pushOrderData(track_doc):
 				track_doc.save()
 			else:
 				track_doc.status = "Posting Issues"
-				frappe.msgprint("Some Issues in posting {0}").format(track_doc.name)
+				frappe.msgprint(("Some Issues in posting {0}").format(track_doc.name))
 		else:
 			track_doc.posted_to_shipway = 1
 			track_doc.status = "Shipment Data Uploaded"
