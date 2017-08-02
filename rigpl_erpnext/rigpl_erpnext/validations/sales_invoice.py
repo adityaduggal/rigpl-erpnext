@@ -95,7 +95,6 @@ def on_submit(doc,method):
 	for d in doc.items:
 		if d.sales_order is None and d.delivery_note is None and doc.ignore_pricing_rule == 1:
 			is_stock_item = frappe.db.get_value('Item', d.item_code, 'is_stock_item')
-			frappe.throw(is_stock_item)
 			if is_stock_item == 1:
 				if any("System Manager" in s  for s in roles):
 					pass
