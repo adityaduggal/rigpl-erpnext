@@ -44,14 +44,12 @@ def check_delivery_note_rule(doc,method):
 		#With SO DN is mandatory
 		if d.sales_order is not None and d.delivery_note is None:
 			#Rule no.5 in the above description for disallow SO=>SI no skipping DN
-			frappe.msgprint(("""Error in Row# {0} has SO# {1} but there is no DN.
-			Hence making of Invoice is DENIED""").format(d.idx, d.sales_order), \
-			raise_exception=1)
+			frappe.throw(("""Error in Row# {0} has SO# {1} but there is no DN.
+			Hence making of Invoice is DENIED""").format(d.idx, d.sales_order))
 		#With DN SO is mandatory
 		if d.delivery_note is not None and d.sales_order is None:
-			frappe.msgprint(("""Error in Row# {0} has DN# {1} but there is no SO.
-			Hence making of Invoice is DENIED""").format(d.idx, d.delivery_note), \
-			raise_exception=1)
+			frappe.throw(("""Error in Row# {0} has DN# {1} but there is no SO.
+			Hence making of Invoice is DENIED""").format(d.idx, d.delivery_note))
 		#For DN items quantities should be same
 		if d.delivery_note is not None:
 			dn_qty = frappe.db.get_value ('Delivery Note Item', d.dn_detail, 'qty')
@@ -95,14 +93,15 @@ def on_submit(doc,method):
 	roles = frappe.db.sql(query, as_list=1)
 	
 	for d in doc.items:
-		if d.sales_order is None:
-			if d.delivery_note is None:
-				if doc.ignore_pricing_rule == 1:
-					if any("System Manager" in s  for s in roles):
-						pass
-					else:
-						frappe.msgprint("You are not Authorised to Submit this Transaction \
-						ask a System Manager", raise_exception=1)
+		if d.sales_order is None and d.delivery_note is None and doc.ignore_pricing_rule == 1:
+			is_stock_item = frappe.db.get_value('Item', d.item_code, 'is_stock_item')
+			frappe.throw(is_stock_item)
+			if is_stock_item == 1:
+				if any("System Manager" in s  for s in roles):
+					pass
+				else:
+					frappe.throw("You are not Authorised to Submit this Transaction \
+					ask a System Manager")
 		if d.sales_order is not None:
 			so = frappe.get_doc("Sales Order", d.sales_order)
 			if so.track_trial == 1:

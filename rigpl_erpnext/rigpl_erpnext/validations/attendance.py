@@ -15,7 +15,7 @@ def validate(doc,method):
 	att_tt = []
 	att_time = []
 	attendance_date = getdate(doc.attendance_date)
-	if doc.status <> "Present" and doc.status <> "Half Day":
+	if doc.status != "Present" and doc.status != "Half Day":
 		frappe.throw(("Only Present or Half Day Attendance is Allowed Check {0}").format(doc.name))
 
 	check_employee (doc, method)
@@ -64,7 +64,7 @@ def validate_time_with_shift(doc,method):
 		
 		if shft.in_time > shft.out_time:
 			#this shows night shift
-			if shft.next_day <> 1:
+			if shft.next_day != 1:
 				#this shows night shift is starting on previous day
 				shft_indate = datetime.combine(add_days(attendance_date, -1), datetime.min.time())
 			else:
@@ -125,7 +125,7 @@ def check_punch_data(doc,method):
 	pu_data = []
 	
 	for d in doc.attendance_time:
-		if d.idx == 1 and d.time_type <> 'In Time':
+		if d.idx == 1 and d.time_type != 'In Time':
 			frappe.throw(("First Punch Data should be In Time for {0}").format(doc.name))
 		pu_data.append([d.idx, d.time_type, d.date_time])
 
