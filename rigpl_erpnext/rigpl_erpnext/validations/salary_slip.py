@@ -21,7 +21,7 @@ def post_gl_entry(doc):
 	
 	for earn in doc.earnings:
 		earn_doc = frappe.get_doc("Salary Component", earn.salary_component)
-		if earn.amount <> 0 and earn.expense_claim is None and earn_doc.only_for_deductions != 1:
+		if earn.amount != 0 and earn.expense_claim is None and earn_doc.only_for_deductions != 1:
 			#Condition for Earning Posting which is actually paid and not just for calculation
 			gl_dict = frappe._dict({
 				'company': doc.company,
@@ -325,7 +325,7 @@ def calculate_net_salary(doc, msd, med):
 		if earn.books == 1:
 			tot_books += flt(d.amount)
 		
-		if earn.only_for_deductions <> 1:
+		if earn.only_for_deductions != 1:
 			gross_pay += flt(d.amount)
 
 	if gross_pay < 0:
@@ -333,7 +333,7 @@ def calculate_net_salary(doc, msd, med):
 	
 	#Calculate Deductions
 	for d in doc.deductions:
-		if d.salary_component <> 'Loan Deduction':
+		if d.salary_component != 'Loan Deduction':
 			sal_comp_doc = frappe.get_doc("Salary Component", d.salary_component)
 			if sal_comp_doc.depends_on_lwp == 1:
 				if sal_comp_doc.round_up == 1:
@@ -426,7 +426,8 @@ def get_expense_claim(doc, med):
 		FROM `tabExpense Claim` ec
 		WHERE ec.docstatus = 1 AND ec.approval_status = 'Approved' AND
 			ec.total_amount_reimbursed < ec.total_sanctioned_amount AND
-			ec.posting_date <= '%s' AND ec.employee = '%s'""" %(med, doc.employee)
+			ec.posting_date <= '%s' AND ec.pay_with_salary = 1 AND
+			ec.employee = '%s'""" %(med, doc.employee)
 	
 	
 	ec_list = frappe.db.sql(query, as_list=1)
