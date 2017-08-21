@@ -45,7 +45,7 @@ def check_gst_rules(doc,method):
 	if doc.taxes_and_charges != 'OGL':
 		#Check if Shipping State is Same as Template State then check if the tax template is LOCAL
 		#Else if the States are different then the template should NOT BE LOCAL
-		if ship_state == template_doc.state and template_doc.state is not None:
+		if ship_state == template_doc.state and template_doc.is_export != 1:
 			if template_doc.is_local_sales != 1:
 				frappe.throw(("Selected Tax {0} is NOT LOCAL Tax but Shipping Address is \
 					in Same State {1}, hence either change Shipping Address or Change the \
