@@ -15,16 +15,26 @@ def on_update(doc,method):
 			(doc.name, check_conversion[0][0]))
 	
 	if doc.lead_owner:
-		frappe.permissions.add_user_permission("Lead", doc.name, doc.lead_owner)
-		if doc.lead_owner <> doc.contact_by:
-			frappe.db.set_value("Lead", doc.name, "contact_by", doc.lead_owner)
+		existing_perm = frappe.db.sql("""SELECT name, for_value, user FROM `tabUser Permission` WHERE allow = 'Lead' AND
+		for_value = '%s' AND user <> '%s'""" %(doc.name, doc.lead_owner), as_list = 1)
+		if existing_perm is None:
+			new_perm = frappe.new_doc("User Permission")
+			new_perm.user = doc.lead_owner
+			new_perm.allow = "Lead"
+			new_perm.for_value = doc.name
+			new_perm.apply_for_all_roles = 1
+			new_perm.flags.ignore_permissions = True
+			new_perm.insert()
+		if doc.lead_owner != doc.contact_by:
+			doc.contact_by = doc.lead_owner
 	
 	#Check if the lead is not in another user, if its there then delete the LEAD 
 	#from the user's permission
-	query = """SELECT name, parent from `tabDefaultValue` where defkey = 'Lead' AND defvalue = '%s' 
-		AND parent <> '%s' """ % (doc.name, doc.lead_owner)
+	query = """SELECT name, for_value, user from  `tabUser Permission` where allow = 'Lead' AND for_value = '%s' 
+		AND user <> '%s' """ % (doc.name, doc.lead_owner)
 	extra_perm = frappe.db.sql(query, as_list=1)
-	if extra_perm <> []:
+	if extra_perm != []:
 		for i in range(len(extra_perm)):
-			frappe.permissions.remove_user_permission("Lead", doc.name, extra_perm[i][1])
-	
+			delete_perm = frappe.get_doc("User Permission", extra_perm[i][0])
+			delete_perm.flags.ignore_permissions = True
+			delete_perm.delete()	
