@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
+from rigpl_erpnext.rigpl_erpnext.validations.lead import \
+	create_new_user_perm, delete_unused_perm, find_total_perms
 from frappe import msgprint
 from frappe.utils import getdate
 from datetime import datetime
@@ -14,14 +16,42 @@ def validate(doc,method):
 	if relativedelta(doj, dob).years < 18:
 		frappe.msgprint("Not Allowed to Create Employees under 18 years of Age", raise_exception = 1)
 	if doc.relieving_date:
-		if doc.status <> "Left":
+		if doc.status != "Left":
 			frappe.msgprint("Status has to be 'LEFT' as the Relieving Date is populated",raise_exception =1)
+		else:
+			doc.leave_approvers = []
+			doc.reports_to = ''
 	
 	doc.employee_number = doc.name
 	doc.employee = doc.name
 
 def on_update(doc,method):
-	add_employee(doc,method)
+	allowed_ids = []
+	for la in doc.leave_approvers:
+		if la.leave_approver:
+			allowed_ids.extend([la.leave_approver])
+			create_new_user_perm(doc.doctype, doc.name, la.leave_approver)
+
+	if doc.reports_to:
+		reports_to_userid = frappe.db.get_value("Employee", doc.reports_to, "user_id")
+		if reports_to_userid:
+			allowed_ids.extend([reports_to_userid])
+			create_new_user_perm(doc.doctype, doc.name, reports_to_userid)
+
+	if doc.user_id:
+		allowed_ids.extend([doc.user_id])
+		create_new_user_perm(doc.doctype, doc.name, reports_to_userid)
+
+	total_perms = find_total_perms(doc.doctype, doc.name)
+
+	if total_perms:
+		for extra in total_perms:
+			if extra[2] in allowed_ids:
+				pass
+			else:
+				delete_unused_perm(extra[0], doc.doctype, doc.name, extra[2])
+
+
 	
 def autoname(doc,method):
 	doj = getdate(doc.date_of_joining)
@@ -39,38 +69,6 @@ def autoname(doc,method):
 		code = code + str(check)
 	doc.name = code
 
-	
-def add_employee(doc,method):
-	#If leave approver is added then Employee is added to the Leave Approvers User Properties
-	#Also the employee is added to the Reports to email ID's user properties
-	chk = frappe.db.sql("""SELECT name FROM `tabEmployee` WHERE name = '%s'""" %doc.name)
-	if chk:
-		allowed_ids = []
-		for d in doc.leave_approvers:
-			frappe.permissions.add_user_permission("Employee", doc.name, d.leave_approver)
-			allowed_ids.extend([d.leave_approver])
-		
-		if doc.reports_to:
-			emp = frappe.get_doc("Employee", doc.reports_to)
-			if emp.user_id:
-				frappe.permissions.add_user_permission("Employee", doc.name, emp.user_id)
-				allowed_ids.extend([emp.user_id])
-		
-		if doc.user_id:
-			frappe.permissions.add_user_permission("Employee", doc.name, doc.user_id)
-			allowed_ids.extend([doc.user_id])
-		
-		#Remove extra permissions on Employee as per the allowed list
-		extra_perm = frappe.db.sql("""SELECT name, parent from `tabDefaultValue` 
-			WHERE defkey = 'Employee' AND defvalue = '%s'""" %doc.name, as_list=1)
-		if extra_perm <> []:
-			for i in range(len(extra_perm)):
-				if extra_perm[i][1] in allowed_ids:
-					pass
-				else:
-					frappe.permissions.remove_user_permission("Employee", doc.name, extra_perm[i][1])
-	else:
-		on_update(doc,method)
 	
 ###############~Code to generate the CHECK DIGIT~###############################
 #Link: https://wiki.openmrs.org/display/docs/Check+Digit+Algorithm
