@@ -2,6 +2,8 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
+from rigpl_erpnext.rigpl_erpnext.validations.lead import \
+	create_new_user_perm, delete_unused_perm, find_total_perms
 import frappe.permissions
 import re
 
@@ -55,8 +57,9 @@ def on_update(doc,method):
 				emp = frappe.get_doc("Employee", s_person.employee)
 				if emp.status == "Active":
 					if emp.user_id:
-						frappe.permissions.add_user_permission("Customer", doc.name, emp.user_id)
 						allowed_ids.extend([emp.user_id])
+						create_new_user_perm(doc.doctype, doc.name, emp.user_id)
+
 				else:
 					frappe.msgprint("Selected Sales Person is Not an Active Employee", raise_exception=1)
 	if doc.default_sales_partner:
@@ -64,29 +67,28 @@ def on_update(doc,method):
 		if s_partner.user:
 			user = frappe.get_doc("User", s_partner.user)
 			if user.enabled == 1:
-				frappe.permissions.add_user_permission("Customer", doc.name, s_partner.user)
+				create_new_user_perm(doc.doctype, doc.name, s_partner.user)
 				allowed_ids.extend([s_partner.user])
 	if doc.customer_login_id:
-		frappe.permissions.add_user_permission("Customer", doc.name, doc.customer_login_id)
+		create_new_user_perm(doc.doctype, doc.name, doc.customer_login_id)
 		allowed_ids.extend([doc.customer_login_id])
-	
-	query = """SELECT name, parent from `tabDefaultValue` where defkey = 'Customer' AND defvalue = '%s'""" % (doc.name)
-	extra_perm = frappe.db.sql(query, as_list=1)
-	if extra_perm <> []:
-		for i in range(len(extra_perm)):
-			if extra_perm[i][1] in allowed_ids:
+
+	total_perms = find_total_perms(doc.doctype, doc.name)
+	if total_perms:
+		for extra in total_perms:
+			if extra[2] in allowed_ids:
 				pass
 			else:
-				frappe.permissions.remove_user_permission("Customer", doc.name, extra_perm[i][1])
+				delete_unused_perm(extra[0], doc.doctype, doc.name, extra[2])
 
 def validate(doc,method):
 	new_name, entered_name = check_customer_id (doc,method)
 	if doc.get('__islocal'):
-		if new_name <> doc.name:
+		if new_name != doc.name:
 			doc.customer_name = entered_name
 			doc.name = new_name
 	else:
-		if new_name <> doc.name:
+		if new_name != doc.name:
 			frappe.throw(("Special Characters not allowed in Customer ID.\
 				Current Customer ID: {0}-->Allowed Customer ID: {1}").format(doc.name, new_name))
 

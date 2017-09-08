@@ -13,28 +13,50 @@ def on_update(doc,method):
 		frappe.throw(("Editing of Lead {0} NOT ALLOWED since its linked to Customer {1}. \
 			Kindly add information to Customer Master and not Lead").format\
 			(doc.name, check_conversion[0][0]))
-	
 	if doc.lead_owner:
-		existing_perm = frappe.db.sql("""SELECT name, for_value, user FROM `tabUser Permission` WHERE allow = 'Lead' AND
-		for_value = '%s' AND user <> '%s'""" %(doc.name, doc.lead_owner), as_list = 1)
-		if existing_perm is None:
-			new_perm = frappe.new_doc("User Permission")
-			new_perm.user = doc.lead_owner
-			new_perm.allow = "Lead"
-			new_perm.for_value = doc.name
-			new_perm.apply_for_all_roles = 1
-			new_perm.flags.ignore_permissions = True
-			new_perm.insert()
+		existing_perm = check_existing_permission(doc.doctype, doc.name, doc.lead_owner)
+		if not existing_perm:
+			create_new_user_perm(doc.doctype, doc.name, doc.lead_owner)
 		if doc.lead_owner != doc.contact_by:
 			doc.contact_by = doc.lead_owner
-	
-	#Check if the lead is not in another user, if its there then delete the LEAD 
-	#from the user's permission
-	query = """SELECT name, for_value, user from  `tabUser Permission` where allow = 'Lead' AND for_value = '%s' 
-		AND user <> '%s' """ % (doc.name, doc.lead_owner)
+	extra_perm = get_extra_perms(doc.doctype, doc.name, doc.lead_owner)
+	if extra_perm:
+		for perm in extra_perm:
+			delete_unused_perm(perm[0], doc.doctype, doc.name, perm[2])
+
+def check_existing_permission(doctype, docname, user):
+	existing_perm = frappe.db.sql("""SELECT name, for_value, user FROM `tabUser Permission` 
+		WHERE allow = '%s' AND for_value = '%s' AND user = '%s'""" 
+		%(doctype, docname, user), as_list = 1)
+	return existing_perm
+
+def create_new_user_perm(doctype, docname, user):
+	existing_perm = check_existing_permission(doctype, docname, user)
+	if not existing_perm:
+		new_perm = frappe.new_doc("User Permission")
+		new_perm.flags.ignore_permissions = True
+		new_perm.user = user
+		new_perm.allow = doctype
+		new_perm.for_value = docname
+		new_perm.apply_for_all_roles = 0
+		new_perm.insert()
+		frappe.msgprint(("Added New Permission for {0}: {1} for User: {2}").format(doctype, docname, user))
+
+def get_extra_perms(doctype, docname, user):
+	query = """SELECT name, for_value, user from  `tabUser Permission` where allow = '%s' AND for_value = '%s' 
+		AND user != '%s' """ % (doctype, docname, user)
 	extra_perm = frappe.db.sql(query, as_list=1)
-	if extra_perm != []:
-		for i in range(len(extra_perm)):
-			delete_perm = frappe.get_doc("User Permission", extra_perm[i][0])
-			delete_perm.flags.ignore_permissions = True
-			delete_perm.delete()	
+
+	return extra_perm
+
+def delete_unused_perm(perm_name, doctype, docname, user):
+	delete_perm = frappe.get_doc("User Permission", perm_name)
+	delete_perm.flags.ignore_permissions = True
+	delete_perm.delete()
+	frappe.msgprint(("Deleted Permission for \
+		{0}: {1} for User: {2}").format(doctype, docname, user))
+
+def find_total_perms(doctype, docname):
+	total_perms = frappe.db.sql("""SELECT name, for_value, user from  `tabUser Permission` 
+		WHERE allow = '%s' AND for_value = '%s'""" % (doctype, docname), as_list=1)
+	return total_perms
