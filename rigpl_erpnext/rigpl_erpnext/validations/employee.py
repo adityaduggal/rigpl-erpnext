@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import frappe
+import frappe, re
+from frappe import _
 from rigpl_erpnext.rigpl_erpnext.validations.lead import \
 	create_new_user_perm, delete_unused_perm, find_total_perms
 from frappe import msgprint
@@ -24,6 +25,10 @@ def validate(doc,method):
 	
 	doc.employee_number = doc.name
 	doc.employee = doc.name
+	if doc.aadhaar_number:
+		validate_aadhaar(doc.aadhaar_number)
+	if doc.pan_number:
+		validate_pan(doc.pan_number)
 
 def on_update(doc,method):
 	allowed_ids = []
@@ -51,7 +56,51 @@ def on_update(doc,method):
 			else:
 				delete_unused_perm(extra[0], doc.doctype, doc.name, extra[2])
 
+def validate_pan(pan):
+	if pan:
+		p = re.compile("[A-Z]{5}[0-9]{4}[A-Z]{1}")
+		if not p.match(pan):
+			frappe.throw(_("Invalid PAN Number or Enter NA for Unknown"))
 
+def validate_aadhaar(aadhaar):
+	if aadhaar:
+		p = re.compile("[0-9]{12}")
+	if not p.match(aadhaar):
+		frappe.throw(_("Invalid Aadhaar Number"))
+	aadhaar_check_digit = calcsum(aadhaar[:-1])
+	if aadhaar[-1:] != str(aadhaar_check_digit):
+		frappe.throw(_("Invalid Aadhaar Number"))
+
+verhoeff_table_d = (
+    (0,1,2,3,4,5,6,7,8,9),
+    (1,2,3,4,0,6,7,8,9,5),
+    (2,3,4,0,1,7,8,9,5,6),
+    (3,4,0,1,2,8,9,5,6,7),
+    (4,0,1,2,3,9,5,6,7,8),
+    (5,9,8,7,6,0,4,3,2,1),
+    (6,5,9,8,7,1,0,4,3,2),
+    (7,6,5,9,8,2,1,0,4,3),
+    (8,7,6,5,9,3,2,1,0,4),
+    (9,8,7,6,5,4,3,2,1,0))
+
+verhoeff_table_p = (
+    (0,1,2,3,4,5,6,7,8,9),
+    (1,5,7,6,2,8,3,0,9,4),
+    (5,8,0,3,7,9,6,1,4,2),
+    (8,9,1,6,0,4,3,5,2,7),
+    (9,4,5,3,1,2,6,8,7,0),
+    (4,2,8,6,5,7,3,9,0,1),
+    (2,7,9,3,8,0,6,4,1,5),
+    (7,0,4,6,9,1,3,2,5,8))
+
+verhoeff_table_inv = (0,4,3,2,1,5,6,7,8,9)
+
+def calcsum(number):
+    """For a given number returns a Verhoeff checksum digit"""
+    c = 0
+    for i, item in enumerate(reversed(str(number))):
+        c = verhoeff_table_d[c][verhoeff_table_p[(i+1)%8][int(item)]]
+    return verhoeff_table_inv[c]
 	
 def autoname(doc,method):
 	doj = getdate(doc.date_of_joining)
