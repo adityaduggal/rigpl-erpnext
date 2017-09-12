@@ -45,7 +45,7 @@ def on_update(doc,method):
 
 	if doc.user_id:
 		allowed_ids.extend([doc.user_id])
-		create_new_user_perm(doc.doctype, doc.name, reports_to_userid)
+		create_new_user_perm(doc.doctype, doc.name, doc.user_id)
 
 	total_perms = find_total_perms(doc.doctype, doc.name)
 
