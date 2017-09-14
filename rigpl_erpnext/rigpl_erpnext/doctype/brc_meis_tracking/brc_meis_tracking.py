@@ -39,27 +39,43 @@ class BRCMEISTracking(Document):
 				self.iec_number = stct_doc.iec_code
 				self.bill_to_country = bill_add_doc.country
 				self.ship_to_country = ship_add_doc.country
+				self.grand_total = ref_doc.grand_total
+				self.grand_total_inr = ref_doc.base_grand_total
+			
 			if self.pan_number:
 				validate_pan(self.pan_number)
 
 			if self.shipping_bill_number:
-				if len(self.shipping_bill_number) != 7:
+				if self.fob_value == 0:
+					frappe.throw(("Enter FOB Value in {0}").format(self.reference_currency))
+				else:
+					if self.fob_value > self.grand_total:
+						frappe.throw(("FOB Value has to be less than {0}").format(self.grand_total))
+				if len(str(self.shipping_bill_number)) != 7:
 					frappe.throw("Shipping Bill Number is Exactly 7 Digits")
 				p = re.compile("[0-9]{7}")
-				if not p.match(self.shipping_bill_number):
+				if not p.match(str(self.shipping_bill_number)):
 					frappe.throw("Invalid Shipping Bill Number")
 				if not self.shipping_bill_date:
 					frappe.throw('Shipping Bill Date is Mandatory for Shipping Bill')
 
 			if self.shipping_bill_date:
+				self.submission_date_deadline = add_days(self.shipping_bill_date, 21)
 				diff = getdate(self.shipping_bill_date) - getdate(self.reference_date)
-				if diff.days > 10 or diff.days < -10:
+				if diff.days > 20 or diff.days < -20:
 					frappe.throw('Out of Range Difference, Contact aditya@rigpl.com')
 
 				if self.bank_ifsc_code:
 					validate_ifsc_code(self.bank_ifsc_code)
+			else:
+				self.submission_date_deadline = add_days(self.reference_date, 21)
 
 			if self.brc_number:
+				if not self.brc_date:
+					frappe.throw("BRC Date is Mandatory for BRC Number")
+				else:
+					if self.brc_date < add_days(self.shipping_bill_date, 15):
+						frappe.throw("BRC Date is NOT VALID")
 				if not self.bank_ifsc_code:
 					frappe.throw("Bank IFSC is Mandatory for BRC Number")
 				if not self.brc_bill_id:
@@ -69,15 +85,12 @@ class BRCMEISTracking(Document):
 					if self.brc_bill_id == self.brc_number:
 						frappe.throw("BRC Number and Bill ID should be different")
 				validate_brc_no(self.brc_number, self.bank_ifsc_code)
-				if self.brc_link[-3:] != 'pdf':
-					frappe.throw('Invalid Attachment')
-				if self.brc_link[:8] != '/private':
-					frappe.throw('Invalid Attachment')
 				self.brc_status = 'BRC Issued'
 			else:
 				self.brc_status = 'BRC Pending'
 
 		else:
+			frappe.throw("Import Related Tracking Is Not Implemented Yet.")
 			if self.reference_doctype != 'Purchase Invoice':
 				frappe.throw('Only Purchase Invoice is Allowed for Imports')
 			#If IMPORT RELATED TRACKING
