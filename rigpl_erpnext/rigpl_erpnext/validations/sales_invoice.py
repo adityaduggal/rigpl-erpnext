@@ -71,7 +71,8 @@ def check_gst_rules(doc,method):
 		doc.taxes_and_charges ,"series")
 		
 	#Check series of Tax with the Series Selected for Invoice
-	if series_template != doc.naming_series[:2] and series_template != doc.name[:2]:
+	if series_template != doc.naming_series[:len(series_template)] \
+		and series_template != doc.name[:len(series_template)]:
 		frappe.throw(("Selected Tax Template {0} Not Allowed since Series Selected {1} and \
 			Invoice number {2} don't match with the Selected Template").format( \
 			doc.taxes_and_charges, doc.naming_series, doc.name))
@@ -88,6 +89,7 @@ def update_fields(doc,method):
 
 def on_submit(doc,method):
 	create_new_carrier_track(doc,method)
+	new_brc_tracking(doc,method)
 	user = frappe.session.user
 	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
@@ -178,3 +180,34 @@ def check_existing_track(si_name):
 def is_tracked_transporter(doc,method):
 	ttrans = frappe.get_value ("Transporters", doc.transporters, "track_on_shipway")
 	return ttrans
+
+def new_brc_tracking(doc,method):
+	#If SI is from Cancelled DOC then UPDATE the details of same in BRC
+	stct_doc = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
+	add_doc = frappe.get_doc("Address", doc.shipping_address_name)
+	if stct_doc.is_export == 1 and add_doc.country != "India":
+		if doc.amended_from:
+			is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` WHERE reference_name = '%s'
+				""" %(doc.amended_from), as_list=1)
+			if not is_exist:
+				create_new_brc_tracking(doc,method)
+			else:
+				exist_brc = frappe.get_doc("BRC MEIS Tracking", is_exist[0][0])
+				exist_brc.reference_name = doc.name
+				exist_brc.save()
+				frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('BRC MEIS Tracking', exist_brc.name)))
+		else:
+			is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` WHERE reference_name = '%s'
+				""" %(doc.name), as_list=1)
+			if not is_exist:
+				create_new_brc_tracking(doc,method)
+
+
+def create_new_brc_tracking(doc,method):
+	brc_doc = frappe.new_doc("BRC MEIS Tracking")
+	brc_doc.flags.ignore_permissions = True
+	brc_doc.export_or_import = 'Export'
+	brc_doc.reference_doctype = doc.doctype
+	brc_doc.reference_name = doc.name
+	brc_doc.insert()
+	frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('BRC MEIS Tracking', brc_doc.name)))
