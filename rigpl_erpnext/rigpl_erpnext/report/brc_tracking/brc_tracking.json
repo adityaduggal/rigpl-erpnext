@@ -1,0 +1,28 @@
+{
+ "add_total_row": 1, 
+ "apply_user_permissions": 1, 
+ "creation": "2017-09-14 18:56:58.869403", 
+ "disabled": 0, 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "idx": 0, 
+ "is_standard": "Yes", 
+ "json": "{\"add_total_row\": 0, \"sort_by\": \"BRC MEIS Tracking.reference_date\", \"add_totals_row\": 0, \"sort_order\": \"asc\", \"sort_by_next\": \"BRC MEIS Tracking.reference_name\", \"filters\": [], \"sort_order_next\": \"asc\", \"columns\": [[\"name\", \"BRC MEIS Tracking\"], [\"shipping_bill_number\", \"BRC MEIS Tracking\"], [\"bank_ifsc_code\", \"BRC MEIS Tracking\"], [\"brc_number\", \"BRC MEIS Tracking\"], [\"brc_date\", \"BRC MEIS Tracking\"], [\"brc_bill_id\", \"BRC MEIS Tracking\"], [\"reference_doctype\", \"BRC MEIS Tracking\"], [\"reference_name\", \"BRC MEIS Tracking\"], [\"reference_date\", \"BRC MEIS Tracking\"], [\"customer_or_supplier_name\", \"BRC MEIS Tracking\"], [\"customer_or_supplier\", \"BRC MEIS Tracking\"]]}", 
+ "letter_head": "OGL", 
+ "modified": "2017-09-15 10:35:11.131433", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "BRC Tracking", 
+ "owner": "Administrator", 
+ "ref_doctype": "BRC MEIS Tracking", 
+ "report_name": "BRC Tracking", 
+ "report_type": "Script Report", 
+ "roles": [
+  {
+   "role": "System Manager"
+  }, 
+  {
+   "role": "Accounts User"
+  }
+ ]
+}
