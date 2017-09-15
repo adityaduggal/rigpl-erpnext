@@ -194,6 +194,7 @@ def new_brc_tracking(doc,method):
 			else:
 				exist_brc = frappe.get_doc("BRC MEIS Tracking", is_exist[0][0])
 				exist_brc.reference_name = doc.name
+				exist_brc.flags.ignore_permissions = True
 				exist_brc.save()
 				frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('BRC MEIS Tracking', exist_brc.name)))
 		else:

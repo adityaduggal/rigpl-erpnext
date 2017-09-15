@@ -25,6 +25,17 @@ def get_data():
 			]
 		},
 		{
+			"label": _("Banking and Payments"),
+			"icon": "icon-star",
+			"items": [
+				{
+					"type": "doctype",
+					"name": "BRC MEIS Tracking",
+					"description": _("Track BRC and MEIS Status"),
+				},
+			]
+		},
+		{
 			"label": _("Rohit Reports"),
 			"icon": "icon-paper-clip",
 			"items": [
@@ -33,6 +44,12 @@ def get_data():
 					"is_query_report": True,
 					"name": "Asset Analysis",
 					"doctype": "Asset Category",
+				},
+				{
+					"type": "report",
+					"is_query_report": True,
+					"name": "BRC Tracking",
+					"doctype": "BRC MEIS Tracking",
 				},
 				{
 					"type": "report",
