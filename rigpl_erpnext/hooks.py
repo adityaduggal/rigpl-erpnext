@@ -95,7 +95,8 @@ doc_events = {
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate"
 	},
 	"Lead": {
-		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update"
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update",
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate"
 	},
 	"Customer": {
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update",
