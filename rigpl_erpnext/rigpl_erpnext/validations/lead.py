@@ -6,16 +6,8 @@ import frappe.permissions
 
 def validate(doc,method):
 	if doc.lead_owner:
-		existing_perm = check_existing_permission(doc.doctype, doc.name, doc.lead_owner)
-		if not existing_perm:
-			create_new_user_perm(doc.doctype, doc.name, doc.lead_owner)
 		if doc.lead_owner != doc.contact_by:
 			doc.contact_by = doc.lead_owner
-	extra_perm = get_extra_perms(doc.doctype, doc.name, doc.lead_owner)
-	if extra_perm:
-		for perm in extra_perm:
-			delete_unused_perm(perm[0], doc.doctype, doc.name, perm[2])
-
 
 def on_update(doc,method):
 	#Lock Lead if its linked to a Customer so no editing on Lead is allowed
@@ -26,6 +18,14 @@ def on_update(doc,method):
 		frappe.throw(("Editing of Lead {0} NOT ALLOWED since its linked to Customer {1}. \
 			Kindly add information to Customer Master and not Lead").format\
 			(doc.name, check_conversion[0][0]))
+	if doc.lead_owner:
+		existing_perm = check_existing_permission(doc.doctype, doc.name, doc.lead_owner)
+		if not existing_perm:
+			create_new_user_perm(doc.doctype, doc.name, doc.lead_owner)
+	extra_perm = get_extra_perms(doc.doctype, doc.name, doc.lead_owner)
+	if extra_perm:
+		for perm in extra_perm:
+			delete_unused_perm(perm[0], doc.doctype, doc.name, perm[2])
 
 def check_existing_permission(doctype, docname, user):
 	existing_perm = frappe.db.sql("""SELECT name, for_value, user FROM `tabUser Permission` 
