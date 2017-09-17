@@ -143,7 +143,7 @@ def create_new_carrier_track(doc,method):
 	is_tracked = is_tracked_transporter(doc,method)
 	if is_tracked == 1:
 		if doc.amended_from:
-			existing_track = check_existing_track(doc.doctype, doc.amended_from)
+			existing_track = check_existing_track(doc.doctype, doc.amended_from, doc.lr_no)
 			if existing_track:
 				exist_track = frappe.get_doc("Carrier Tracking", existing_track[0][0])
 				exist_track.awb_number = doc.lr_no
@@ -156,7 +156,7 @@ def create_new_carrier_track(doc,method):
 			else:
 				create_new_ship_track(doc)
 
-		elif check_existing_track(doc.doctype, doc.name) is None:
+		elif check_existing_track(doc.doctype, doc.name, doc.lr_no) is None:
 			#Dont create a new Tracker if already exists
 			create_new_ship_track(doc)
 
@@ -172,9 +172,9 @@ def create_new_ship_track(si_doc):
 	track.insert()
 	frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('Carrier Tracking', track.name)))
 
-def check_existing_track(doctype, docname):
+def check_existing_track(doctype, docname, awb_no):
 	exists = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` WHERE document = '%s' AND 
-		document_name = '%s' AND """ %(doctype, docname))
+		document_name = '%s' AND awb_number = '%s'""" %(doctype, docname, awb_no))
 	if exists:
 		return exists
 

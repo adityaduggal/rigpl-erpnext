@@ -14,7 +14,8 @@ def send_bulk_tracks():
 	#Pause of 5seconds for sending data means 720 shipment data per hour can be sent
 	#Get the list of all Shipments which are not posted
 	unposted = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` 
-		WHERE posted_to_shipway = 0 ORDER BY creation DESC """, as_list=1)
+		WHERE posted_to_shipway = 0 AND docstatus = 0 
+		ORDER BY creation DESC """, as_list=1)
 	for tracks in unposted:
 		track_doc = frappe.get_doc("Carrier Tracking", tracks[0])
 		pushOrderData(track_doc)
@@ -24,10 +25,11 @@ def get_all_ship_data():
 	#Pause of 5seconds for sending data means 720 shipment data per hour can be sent
 	#Get the list of all Shipments which are POSTED and NOT DELIVERED
 	pending_ships = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` 
-		WHERE posted_to_shipway = 1 AND status != 'Delivered' 
+		WHERE posted_to_shipway = 1 AND docstatus = 0
 		ORDER BY creation DESC """, as_list=1)
 	for tracks in pending_ships:
 		track_doc = frappe.get_doc("Carrier Tracking", tracks[0])
+		track_doc.flags.ignore_permissions = True
 		getOrderShipmentDetails(track_doc)
 		frappe.db.commit()
 
@@ -81,8 +83,12 @@ def getOrderShipmentDetails(track_doc):
 
 			if web_response.get("current_status_code") == "DEL":
 				track_doc.status = "Delivered"
+				track_doc.docstatus = 1
 			elif web_response.get("current_status_code") == "NFI":
 				track_doc.status = "No Information"
+			elif web_response.get("current_status_code") in ("CAN", "UND"):
+				track_doc.docstatus = 1
+				track_doc.status = "Cancelled"
 			else:
 				track_doc.status = "In Transit"
 			if web_scans:
