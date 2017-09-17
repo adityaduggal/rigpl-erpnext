@@ -3,13 +3,13 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe
+import frappe, re
 import json
 from frappe.model.document import Document
 from frappe.utils import get_url, call_hook_method, cint
 from frappe.integrations.utils import make_get_request, make_post_request, create_request_log
 from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update import *
-
+from rigpl_erpnext.rigpl_erpnext.validations.sales_invoice import create_new_ship_track
 
 class CarrierTracking(Document):
 	def validate(self):
@@ -19,6 +19,15 @@ class CarrierTracking(Document):
 				self.invoice_integrity = 1
 			else:
 				self.invoice_integrity = 0
+
+		if self.status == "Delivered":
+			self.docstatus = 1
+
+		if self.invoice_integrity != 1:
+			si_doc = frappe.get_doc("Sales Invoice", self.document_name)
+			si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
+			if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb:
+				create_new_ship_track(si_doc)
 		'''
 		Check Carrier and LR No with Sales Invoice
 		Order ID = ID of the Tracking Number (DONE)

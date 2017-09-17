@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import frappe
+import frappe, re
 from frappe import msgprint
 
 def validate(doc,method):
@@ -9,6 +9,47 @@ def validate(doc,method):
 	check_delivery_note_rule(doc,method)
 	validate_carrier_tracking(doc,method)
 
+def on_submit(doc,method):
+	create_new_carrier_track(doc,method)
+	new_brc_tracking(doc,method)
+	user = frappe.session.user
+	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
+	roles = frappe.db.sql(query, as_list=1)
+	
+	for d in doc.items:
+		if d.sales_order is None and d.delivery_note is None and doc.ignore_pricing_rule == 1:
+			is_stock_item = frappe.db.get_value('Item', d.item_code, 'is_stock_item')
+			if is_stock_item == 1:
+				if any("System Manager" in s  for s in roles):
+					pass
+				else:
+					frappe.throw("You are not Authorised to Submit this Transaction \
+					ask a System Manager")
+		if d.sales_order is not None:
+			so = frappe.get_doc("Sales Order", d.sales_order)
+			if so.track_trial == 1:
+				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
+				sod = dnd.so_detail
+				query = """SELECT tt.name FROM `tabTrial Tracking` tt where \
+					tt.prevdoc_detail_docname = '%s' """ % sod
+				name = frappe.db.sql(query, as_list=1)
+				if name:
+					tt = frappe.get_doc("Trial Tracking", name[0][0])
+					frappe.db.set(tt, 'invoice_no', doc.name)
+
+def on_cancel(doc,method):
+	for d in doc.items:
+		if d.sales_order is not None:
+			so = frappe.get_doc("Sales Order", d.sales_order)
+			if so.track_trial == 1:
+				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
+				sod = dnd.so_detail
+				query = """SELECT tt.name FROM `tabTrial Tracking` tt where \
+					tt.prevdoc_detail_docname = '%s' """ % sod
+				name = frappe.db.sql(query, as_list=1)
+				if name:
+					tt = frappe.get_doc("Trial Tracking", name[0][0])
+					frappe.db.set(tt, 'invoice_no', None)
 
 def check_delivery_note_rule(doc,method):
 	'''
@@ -86,52 +127,12 @@ def update_fields(doc,method):
 	
 	doc.c_form_applicable = c_form_tax
 	doc.letter_head = letter_head_tax
-
-def on_submit(doc,method):
-	create_new_carrier_track(doc,method)
-	new_brc_tracking(doc,method)
-	user = frappe.session.user
-	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
-	roles = frappe.db.sql(query, as_list=1)
-	
-	for d in doc.items:
-		if d.sales_order is None and d.delivery_note is None and doc.ignore_pricing_rule == 1:
-			is_stock_item = frappe.db.get_value('Item', d.item_code, 'is_stock_item')
-			if is_stock_item == 1:
-				if any("System Manager" in s  for s in roles):
-					pass
-				else:
-					frappe.throw("You are not Authorised to Submit this Transaction \
-					ask a System Manager")
-		if d.sales_order is not None:
-			so = frappe.get_doc("Sales Order", d.sales_order)
-			if so.track_trial == 1:
-				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.so_detail
-				query = """SELECT tt.name FROM `tabTrial Tracking` tt where \
-					tt.prevdoc_detail_docname = '%s' """ % sod
-				name = frappe.db.sql(query, as_list=1)
-				if name:
-					tt = frappe.get_doc("Trial Tracking", name[0][0])
-					frappe.db.set(tt, 'invoice_no', doc.name)
-
-def on_cancel(doc,method):
-	for d in doc.items:
-		if d.sales_order is not None:
-			so = frappe.get_doc("Sales Order", d.sales_order)
-			if so.track_trial == 1:
-				dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
-				sod = dnd.so_detail
-				query = """SELECT tt.name FROM `tabTrial Tracking` tt where \
-					tt.prevdoc_detail_docname = '%s' """ % sod
-				name = frappe.db.sql(query, as_list=1)
-				if name:
-					tt = frappe.get_doc("Trial Tracking", name[0][0])
-					frappe.db.set(tt, 'invoice_no', None)
+	doc.lr_no = re.sub('[^A-Za-z0-9]+', '', str(doc.lr_no))
 
 def validate_carrier_tracking(doc,method):
 	tracked_transporter = is_tracked_transporter(doc,method)
 	if tracked_transporter == 1:
+
 		frappe.msgprint(("{0} is Tracked Automatically all Shipment Data for LR No {1} \
 				would be automatically updated in Carrier Tracking Document").format(
 				frappe.get_desk_link('Transporters', doc.transporters), doc.lr_no))
@@ -142,7 +143,7 @@ def create_new_carrier_track(doc,method):
 	is_tracked = is_tracked_transporter(doc,method)
 	if is_tracked == 1:
 		if doc.amended_from:
-			existing_track = check_existing_track(doc.amended_from)
+			existing_track = check_existing_track(doc.doctype, doc.amended_from)
 			if existing_track:
 				exist_track = frappe.get_doc("Carrier Tracking", existing_track[0][0])
 				exist_track.awb_number = doc.lr_no
@@ -155,7 +156,7 @@ def create_new_carrier_track(doc,method):
 			else:
 				create_new_ship_track(doc)
 
-		elif check_existing_track(doc.name) is None:
+		elif check_existing_track(doc.doctype, doc.name) is None:
 			#Dont create a new Tracker if already exists
 			create_new_ship_track(doc)
 
@@ -171,9 +172,9 @@ def create_new_ship_track(si_doc):
 	track.insert()
 	frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('Carrier Tracking', track.name)))
 
-def check_existing_track(si_name):
-	exists = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` WHERE document = 'Sales Invoice' AND 
-		document_name = '%s'""" %(si_name))
+def check_existing_track(doctype, docname):
+	exists = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` WHERE document = '%s' AND 
+		document_name = '%s' AND """ %(doctype, docname))
 	if exists:
 		return exists
 
