@@ -26,11 +26,12 @@ def get_so_entries(filters):
 	conditions = get_conditions(filters)
 	
 	query = """SELECT 
-	 so.transaction_date, so.name, so.delivery_date,
+	 so.transaction_date, so.name, sod.delivery_date,
 	 so.customer, sod.item_code, sod.description,
-	 ifnull(sod.qty,0)-ifnull(sod.delivered_qty,0),
+	 (ifnull(sod.qty,0)-ifnull(sod.delivered_qty,0)),
 	 sod.qty, sod.delivered_qty, sod.base_rate,
-	 "", so.po_no, sod.prd_notes, 
+	 ((ifnull(sod.qty,0)-ifnull(sod.delivered_qty,0)) * sod.base_rate) , 
+	 so.po_no, sod.prd_notes, 
 	 if( so.transaction_date < date_sub(curdate(),interval 45 day),"DELAYED","OK"),
 	 100-ifnull(so.per_delivered,0), 
 	 ((ifnull(sod.qty,0)-ifnull(sod.delivered_qty,0))/ifnull(sod.qty,0)*100)
@@ -40,7 +41,7 @@ def get_so_entries(filters):
 	WHERE
 	 sod.parent = so.name
 	 AND so.docstatus = 1
-	 AND so.status <> "Closed"
+	 AND so.status != "Closed"
 	 AND ifnull(sod.delivered_qty,0) < ifnull(sod.qty,0) %s
 	order by so.transaction_date desc """ % conditions
 	

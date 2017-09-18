@@ -33,7 +33,7 @@ def get_items(filters, conditions_so):
 		 `tabSales Order` so, `tabSales Order Item` soi
 		
 		WHERE
-		 so.status <> "Closed" AND soi.parent = so.name
+		 so.status != "Closed" AND soi.parent = so.name
 		 AND so.docstatus = 1 AND soi.qty > soi.delivered_qty 
 		 AND so.transaction_date <= curdate() %s
 		ORDER BY so.transaction_date DESC""" % (conditions_so)

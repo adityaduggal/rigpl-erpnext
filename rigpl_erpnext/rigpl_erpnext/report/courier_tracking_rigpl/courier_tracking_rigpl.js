@@ -37,6 +37,11 @@ frappe.query_reports["Courier Tracking RIGPL"] = {
 			"fieldtype": "Data",
 		},
 		{
+			"fieldname":"ref_name",
+			"label": "Document Name",
+			"fieldtype": "Data",
+		},
+		{
 			"fieldtype": "Break"
 		},
 		{
@@ -54,6 +59,18 @@ frappe.query_reports["Courier Tracking RIGPL"] = {
 		{
 			"fieldname":"detailed_report",
 			"label": "Detailed Report",
+			"fieldtype": "Check",
+			"default": 0,
+		},
+		{
+			"fieldname":"pending_exceptions",
+			"label": "Pending Exception Report",
+			"fieldtype": "Check",
+			"default": 0,
+		},
+		{
+			"fieldname":"old_exception",
+			"label": "Old Exception Report",
 			"fieldtype": "Check",
 			"default": 0,
 		},
