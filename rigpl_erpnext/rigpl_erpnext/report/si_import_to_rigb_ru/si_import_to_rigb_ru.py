@@ -19,7 +19,9 @@ def get_data(filters):
 		sid.cetsh_number
 		FROM `tabSales Invoice` si, `tabSales Invoice Item` sid
 		WHERE sid.parent = si.name AND si.docstatus = 1
-			AND si.name = '%s' """ % name , as_list=1)
+			AND si.name = '%s' 
+		ORDER BY sid.idx ASC""" % name , as_list=1)
+
 	ctn = frappe.db.sql ("""SELECT name, item_code FROM `tabCustoms Tariff Number`""", as_list=1)
 	if ctn:
 		for c in ctn:
