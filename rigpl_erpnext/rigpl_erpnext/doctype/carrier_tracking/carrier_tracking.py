@@ -24,10 +24,14 @@ class CarrierTracking(Document):
 			self.docstatus = 1
 
 		if self.invoice_integrity != 1:
-			si_doc = frappe.get_doc("Sales Invoice", self.document_name)
-			si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
-			if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb:
-				create_new_carrier_track(si_doc, frappe)
+			if self.posted_to_shipway == 1:
+				si_doc = frappe.get_doc("Sales Invoice", self.document_name)
+				si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
+				if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb:
+					create_new_carrier_track(si_doc, frappe)
+			else:
+				self.awb_number = si_doc.lr_no
+				self.carrier_name = si_doc.transporters
 		'''
 		Check Carrier and LR No with Sales Invoice
 		Order ID = ID of the Tracking Number (DONE)
