@@ -24,10 +24,10 @@ def get_columns(filters):
 		return [
 			"Tracking No:Link/Carrier Tracking:100", "Transporter:Link/Transporters:100",
 			"AWB No::100", "Status::90", "Code::60", 
-			"City::100", "Country::90",
+			"Receiver:Dynamic Link/Receiver Name:200","City::100", "Country::90",
 			"Pickup Date:Date:80", "Delivery Date:Date:120", "Duration:Float:80",
 			"Ref Doc:Dynamic Link/Document:100", "Integrity:Int:50", "Doc Status::50", 
-			"Creation:Date:120", "Document::10"
+			"Creation:Date:120", "Document::10", "Receiver Name::10"
 		]
 
 def get_data(filters):
@@ -47,25 +47,25 @@ def get_data(filters):
 			ORDER BY carrier_name"""%(conditions)
 	elif filters.get("detailed_report"):
 		query = """SELECT name, carrier_name, awb_number, status, status_code, 
-			ship_to_city, country, 
+			receiver_name, ship_to_city, country, 
 			pickup_date, delivery_date_time, DATEDIFF(IFNULL(delivery_date_time, CURDATE()), IFNULL(pickup_date, creation)),
-			document_name, invoice_integrity, docstatus, creation, document
+			document_name, invoice_integrity, docstatus, creation, document, receiver_document
 			FROM `tabCarrier Tracking`
 			WHERE docstatus!=2 %s
 			ORDER BY pickup_date ASC"""%(conditions)
 	elif filters.get("pending_exceptions"):
 		query = """SELECT name, carrier_name, awb_number, status, status_code, 
-			ship_to_city, country, 
+			receiver_name, ship_to_city, country, 
 			pickup_date, delivery_date_time, DATEDIFF(IFNULL(delivery_date_time, CURDATE()), IFNULL(pickup_date, creation)),
-			document_name, invoice_integrity, docstatus, creation, document
+			document_name, invoice_integrity, docstatus, creation, document, receiver_document
 			FROM `tabCarrier Tracking`
-			WHERE docstatus = 0 %s
+			WHERE docstatus = 0
 			ORDER BY creation ASC"""
 	else:
 		query = """SELECT name, carrier_name, awb_number, status, status_code, 
-			ship_to_city, country, 
+			receiver_name, ship_to_city, country, 
 			pickup_date, delivery_date_time, DATEDIFF(IFNULL(delivery_date_time, CURDATE()), IFNULL(pickup_date, creation)),
-			document_name, invoice_integrity, docstatus, creation, document
+			document_name, invoice_integrity, docstatus, creation, document, receiver_document
 			FROM `tabCarrier Tracking`
 			WHERE docstatus != 0 AND status_code != 'DEL' %s
 			ORDER BY pickup_date ASC""" %(cond_dates)
