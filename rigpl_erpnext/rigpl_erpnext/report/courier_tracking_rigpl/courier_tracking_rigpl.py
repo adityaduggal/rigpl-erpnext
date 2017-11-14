@@ -59,8 +59,8 @@ def get_data(filters):
 			pickup_date, delivery_date_time, DATEDIFF(IFNULL(delivery_date_time, CURDATE()), IFNULL(pickup_date, creation)),
 			document_name, invoice_integrity, docstatus, creation, document
 			FROM `tabCarrier Tracking`
-			WHERE docstatus = 0 AND status_code != 'DEL' AND invoice_integrity = 1 %s
-			ORDER BY pickup_date ASC"""%(cond_dates)
+			WHERE docstatus = 0 %s
+			ORDER BY creation ASC"""
 	else:
 		query = """SELECT name, carrier_name, awb_number, status, status_code, 
 			ship_to_city, country, 
