@@ -29,6 +29,7 @@ class CarrierTracking(Document):
 				si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
 				if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb:
 					create_new_carrier_track(si_doc, frappe)
+					self.docstatus = 1
 			else:
 				self.awb_number = si_doc.lr_no
 				self.carrier_name = si_doc.transporters
