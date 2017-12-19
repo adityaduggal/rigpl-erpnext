@@ -23,9 +23,8 @@ def get_columns(filters):
 		]
 		
 	columns_address = ["Address Link:Link/Address:150", "Address Type::50", 
-		"Address Line1::150", "Address Line2::150", "City::100", "State::100", "Country::100",
-		"Email::100", "Phone::150", "Fax::100", "TIN No::100", "Excise Reg No::100",
-		"Service Tax No::100"]
+		"Address Line1::150", "Address Line2::150", "City::100", "State::100", 
+		"Postal Code::80", "Country::100", "Email::100", "Phone::150", "Fax::100", "GSTIN::130"]
 		
 	columns_contact = ["Contact Link:Link/Contact:100", "First Name::100", "Last Name::100",
 		"Email::200", "Phone::150", "Mobile::100", "Department::100", "Designation::100", 
@@ -47,7 +46,7 @@ def get_entries(filters, conditions):
 	if filters.get("type") == "Only Addresses":
 		query = """SELECT cu.name,  cu.customer_name, cu.customer_type, cu.customer_group,
 			cu.territory, ad.name, ad.address_type, ad.address_line1, ad.address_line2,
-			ad.city, ad.state, ad.country, ad.email_id, ad.phone, ad.fax, ad.tin_no,
+			ad.city, ad.state, ad.pincode, ad.country, ad.email_id, ad.phone, ad.fax, ad.gstin,
 			ad.excise_no, ad.service_tax_no
 			FROM `tabCustomer` cu, `tabAddress` ad, `tabDynamic Link` dl
 			WHERE
