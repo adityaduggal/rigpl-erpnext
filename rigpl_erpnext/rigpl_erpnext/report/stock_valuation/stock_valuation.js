@@ -26,6 +26,7 @@ frappe.query_reports["Stock Valuation"] = {
 			"label": "Is RM",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_rm_query"}}
 		},
 		{
@@ -34,6 +35,7 @@ frappe.query_reports["Stock Valuation"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
 		},
 		{
@@ -42,6 +44,7 @@ frappe.query_reports["Stock Valuation"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_brand_query"}}
 		},
 		{
@@ -50,6 +53,7 @@ frappe.query_reports["Stock Valuation"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{
@@ -58,6 +62,7 @@ frappe.query_reports["Stock Valuation"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_spl_query"}}
 		},
 		{

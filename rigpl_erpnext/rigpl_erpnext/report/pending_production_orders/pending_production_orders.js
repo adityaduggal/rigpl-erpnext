@@ -22,6 +22,7 @@ frappe.query_reports["Pending Production Orders"] = {
 			"label": "Base Material",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
 		},
 		{
@@ -29,6 +30,7 @@ frappe.query_reports["Pending Production Orders"] = {
 			"label": "Tool Type",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{

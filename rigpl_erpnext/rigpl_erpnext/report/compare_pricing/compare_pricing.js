@@ -9,6 +9,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 1,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
 		},
 		{
@@ -17,6 +18,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_quality_query"}}
 		},
 		{
@@ -25,6 +27,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_purpose_query"}}
 		},
 		{
@@ -33,6 +36,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_mtm_query"}}
 		},
 		{
@@ -41,6 +45,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
+			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{
