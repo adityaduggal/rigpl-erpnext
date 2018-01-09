@@ -81,7 +81,7 @@ def validate_stock_fields(doc,method):
 			
 def validate_variants(doc,method):
 	user = frappe.session.user
-	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
+	query = """SELECT role from `tabHas Role` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
 	
 	
