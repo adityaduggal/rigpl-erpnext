@@ -7,7 +7,7 @@ from frappe.utils import cstr, cint, getdate
 from frappe import msgprint, _
 from calendar import monthrange
 from datetime import datetime
-from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details
+from erpnext.hr.doctype.payroll_entry.payroll_entry import get_month_details
 
 def execute(filters=None):
 	if not filters: filters = {}
