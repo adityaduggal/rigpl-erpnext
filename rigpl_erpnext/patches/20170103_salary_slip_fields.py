@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import frappe
 from frappe.utils import flt
-from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details
+from erpnext.hr.doctype.payroll_entry.payroll_entry import get_month_details
 
 def execute():
 	'''

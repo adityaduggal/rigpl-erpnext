@@ -8,7 +8,7 @@ from frappe.model.mapper import get_mapped_doc
 from frappe.utils import money_in_words, flt
 from erpnext.accounts.general_ledger import make_gl_entries, delete_gl_entries
 from erpnext.accounts.utils import get_fiscal_years, validate_fiscal_year, get_account_currency
-from erpnext.hr.doctype.process_payroll.process_payroll import get_month_details, get_start_end_dates
+from erpnext.hr.doctype.payroll_entry.payroll_entry import get_month_details, get_start_end_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
 from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
 from erpnext.accounts.utils import get_fiscal_year
