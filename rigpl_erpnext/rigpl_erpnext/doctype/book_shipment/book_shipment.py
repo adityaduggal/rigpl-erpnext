@@ -4,7 +4,7 @@
 
 from __future__ import unicode_literals
 import frappe
-#import shippo
+import shippo
 from frappe.model.document import Document
 
 class BookShipment(Document):
@@ -36,3 +36,28 @@ class BookShipment(Document):
 		    "phone": to_address_doc.phone,
 		    "email": to_address_doc.email_id
 			}
+		parcels = {}
+		for pkg in self.shipment_package_details:
+			package_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
+			parcels["parcel_" + str(pkg.idx)] = {
+				"length": package_doc.length,
+				"width": package_doc.width,
+				"height": package_doc.height,
+				"distance_unit": package_doc.uom,
+				"weight": pkg.package_weight,
+				"mass_unit": pkg.weight_uom
+			}
+
+		final_pkgs = []
+		for pkgs in parcels:
+			pkg = parcels.get(pkgs)
+			final_pkgs.append(pkg.copy())
+		frappe.msgprint(str(final_pkgs))
+
+		shipment = shippo.Shipment.create(
+		    address_from = address_from,
+		    address_to = address_to,
+		    parcels = final_pkgs,
+		    async = False
+		)
+		frappe.msgprint(str(shipment))
