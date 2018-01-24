@@ -7,12 +7,42 @@ import frappe
 import fedex
 import datetime
 from frappe.model.document import Document
+from fedex.tools.conversion import sobject_to_dict
 
 class BookShipment(Document):
-	def validate(self):
-		pass
+	def validate_address(self):
+		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
+			transporter_doc, contact_doc = self.get_required_docs()
+		self.address_validation(credentials, to_address_doc, to_country_doc)
+
+	def available_services(self):
+		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
+			transporter_doc, contact_doc = self.get_required_docs()
+		self.availabiltiy_commitment(credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc)
+
+	def get_rates(self):
+		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
+			transporter_doc, contact_doc = self.get_required_docs()
+		self.rate_service(credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, transporter_doc)
+
+	def book_shipment(self):
+		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
+			transporter_doc, contact_doc = self.get_required_docs()
+		self.create_shipment_service(credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
+			transporter_doc, contact_doc)
+
+	def delete_shipment(self):
+		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
+			transporter_doc, contact_doc = self.get_required_docs()
+		self.delete_shipment_service(credentials, transporter_doc)
 
 	def test(self):
+		pass
+		#self.validate_postal_request(credentials, to_address_doc, to_country_doc) #This one seems NOT WORKING
+		#self.location_service(credentials, from_address_doc, from_country_doc)
+
+
+	def get_required_docs(self):
 		transporter_doc = frappe.get_doc("Transporters", self.shipment_forwarder)
 		to_address_doc = frappe.get_doc("Address", self.to_address)
 		to_country_doc = frappe.get_doc("Country", to_address_doc.country)
@@ -20,14 +50,8 @@ class BookShipment(Document):
 		from_address_doc = frappe.get_doc("Address", self.from_address)
 		from_country_doc = frappe.get_doc("Country", from_address_doc.country)
 		credentials = self.get_fedex_credentials(transporter_doc)
-		#self.address_validation(credentials, to_address_doc, to_country_doc)
-		#self.availabiltiy_commitment(credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc)
-		#self.validate_postal_request(credentials, to_address_doc, to_country_doc) #This one seems NOT WORKING
-		#self.location_service(credentials, from_address_doc, from_country_doc)
-		#self.rate_service(credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, transporter_doc)
-		self.create_shipment(credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
-			transporter_doc, contact_doc)
-		#self.delete_shipment(credentials, transporter_doc)
+		return credentials, from_address_doc, to_address_doc, from_country_doc, \
+			to_country_doc,transporter_doc, contact_doc
 
 	def get_fedex_credentials(self, transporter_doc):
 		from fedex.config import FedexConfig
@@ -49,10 +73,11 @@ class BookShipment(Document):
 		address1.Address.CountryCode = country_doc.code
 		address1.Address.CountryName = add_doc.country
 		address1.Address.Residential = add_doc.is_residential_address
-		frappe.msgprint(str(address1))
 		avs_request.add_address(address1)
 		avs_request.send_request()
-		frappe.msgprint(avs_request.response)
+		response_dict = sobject_to_dict(avs_request.response)
+		frappe.msgprint(str(response_dict))
+
 
 	def availabiltiy_commitment(self, credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc):
 		from fedex.services.availability_commitment_service import FedexAvailabilityCommitmentRequest
@@ -63,10 +88,12 @@ class BookShipment(Document):
 		avc_request.Destination.CountryCode = to_country_doc.code
 		avc_request.ShipDate = datetime.date.today().isoformat()
 		avc_request.send_request()
-		frappe.msgprint(str(avc_request.response))
+		response_dict = sobject_to_dict(avc_request.response)
+		frappe.msgprint(str(response_dict))
 
 	def validate_postal_request(self, credentials, to_address_doc, to_country_doc):
 		#This service failed the TEST Check AGAIN
+		#Giving Error on State field
 		from fedex.services.country_service import FedexValidatePostalRequest
 		# We're using the FedexConfig object from example_config.py in this dir.
 		customer_transaction_id = "*** ValidatePostal Request v4 using Python ***"  # Optional transaction_id
@@ -88,7 +115,6 @@ class BookShipment(Document):
 		Get Locker locations.
 		'''
 		from fedex.services.location_service import FedexSearchLocationRequest
-		from fedex.tools.conversion import sobject_to_dict
 		customer_transaction_id = "*** LocationService Request v3 using Python ***"  # Optional transaction_id
 		location_request = FedexSearchLocationRequest(credentials, customer_transaction_id=customer_transaction_id)
 		location_request.Constraints.RadiusDistance.Value = 15
@@ -96,22 +122,28 @@ class BookShipment(Document):
 		location_request.Address.PostalCode = from_address_doc.pincode
 		location_request.Address.CountryCode = from_country_doc.code
 		location_request.send_request()
-		frappe.msgprint(str(location_request.response))
+		response_dict = sobject_to_dict(location_request.response)
+		frappe.msgprint(str(response_dict))
 
 	def rate_service(self, credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, transporter_doc):
 		from fedex.services.rate_service import FedexRateServiceRequest
-		from fedex.tools.conversion import sobject_to_dict
 		customer_transaction_id = "*** RateService Request v18 using Python ***"  # Optional transaction_id
 		rate_request = FedexRateServiceRequest(credentials, customer_transaction_id=customer_transaction_id)
 		rate_request.ReturnTransitAndCommit = True
 		rate_request.RequestedShipment.DropoffType = 'REGULAR_PICKUP'
 		rate_request.RequestedShipment.ServiceType = transporter_doc.fedex_service_code
 		rate_request.RequestedShipment.PackagingType = 'YOUR_PACKAGING'
+		rate_request.RequestedShipment.Purpose = self.purpose
+
+		#Shipper's Address
 		rate_request.RequestedShipment.Shipper.Address.PostalCode = from_address_doc.pincode
 		rate_request.RequestedShipment.Shipper.Address.CountryCode = from_country_doc.code
 		rate_request.RequestedShipment.Shipper.Address.Residential = from_address_doc.is_residential_address
+
+		#Recipient Address
 		rate_request.RequestedShipment.Recipient.Address.PostalCode = to_address_doc.pincode
 		rate_request.RequestedShipment.Recipient.Address.CountryCode = to_country_doc.code
+		rate_request.RequestedShipment.Recipient.Address.Residential = to_address_doc.is_residential_address
 		rate_request.RequestedShipment.EdtRequestType = 'NONE' #Can be ALL or NONE
 		rate_request.RequestedShipment.ShippingChargesPayment.PaymentType = 'SENDER'
 		package1_weight = rate_request.create_wsdl_object_of_type('Weight')
@@ -121,13 +153,17 @@ class BookShipment(Document):
 		package1.Weight = package1_weight
 		package1.PhysicalPackaging = 'BOX'
 		package1.GroupPackageCount = 1
+		frappe.msgprint(str(package1))
+		frappe.msgprint(str(rate_request.client))
+		frappe.msgprint(str(rate_request.RequestedShipment))
+
 		rate_request.add_package(package1)
 		rate_request.send_request()
-		frappe.msgprint(str(rate_request.response))
+		response_dict = sobject_to_dict(rate_request.response)
+		frappe.msgprint(str(response_dict))
 
 	def rate_service_freight(self, credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, transporter_doc):
 		from fedex.services.rate_service import FedexRateServiceRequest
-		from fedex.tools.conversion import sobject_to_dict
 		customer_transaction_id = "*** RateService Request v18 using Python ***"  # Optional transaction_id
 		rate_request = FedexRateServiceRequest(credentials, customer_transaction_id=customer_transaction_id)
 		rate_request.ReturnTransitAndCommit = True
@@ -204,9 +240,10 @@ class BookShipment(Document):
 
 		rate_request.RequestedShipment.FreightShipmentDetail.LineItems = package1
 		rate_request.send_request()
-		frappe.msgprint(str(rate_request.response))
+		response_dict = sobject_to_dict(rate_request.response)
+		frappe.msgprint(str(response_dict))
 
-	def create_shipment(self, credentials, from_address_doc, to_address_doc, from_country_doc, \
+	def create_shipment_service(self, credentials, from_address_doc, to_address_doc, from_country_doc, \
 			to_country_doc, transporter_doc, contact_doc):
 
 		from fedex.services.ship_service import FedexProcessShipmentRequest
@@ -225,12 +262,12 @@ class BookShipment(Document):
 
 		# What kind of package this will be shipped in.
 		# FEDEX_BOX, FEDEX_PAK, FEDEX_TUBE, YOUR_PACKAGING, FEDEX_ENVELOPE
-		shipment.RequestedShipment.PackagingType = 'YOUR PACKAGING'
+		shipment.RequestedShipment.PackagingType = 'YOUR_PACKAGING'
 
 		# Shipper contact info.
-		shipment.RequestedShipment.Shipper.Contact.PersonName = from_address_doc.address_title
-		shipment.RequestedShipment.Shipper.Contact.CompanyName = from_address_doc.address_title
-		shipment.RequestedShipment.Shipper.Contact.PhoneNumber = from_address_doc.phone
+		shipment.RequestedShipment.Shipper.Contact.PersonName = from_address_doc.address_title[:35]
+		shipment.RequestedShipment.Shipper.Contact.CompanyName = from_address_doc.address_title[:35]
+		shipment.RequestedShipment.Shipper.Contact.PhoneNumber = from_address_doc.phone[:15]
 
 		# Shipper address.
 		shipment.RequestedShipment.Shipper.Address.StreetLines = [from_address_doc.address_line1, from_address_doc.address_line2]
@@ -243,8 +280,8 @@ class BookShipment(Document):
 		# Recipient contact info.
 		shipment.RequestedShipment.Recipient.Contact.PersonName = str(contact_doc.salutation) + \
 			" " + contact_doc.first_name + " " + str(contact_doc.last_name)
-		shipment.RequestedShipment.Recipient.Contact.CompanyName = to_address_doc.address_title
-		shipment.RequestedShipment.Recipient.Contact.PhoneNumber = str(to_address_doc.phone) + " " + str(contact_doc.mobile_no)
+		shipment.RequestedShipment.Recipient.Contact.CompanyName = to_address_doc.address_title[:35]
+		shipment.RequestedShipment.Recipient.Contact.PhoneNumber = to_address_doc.phone[:15]
 
 		# Recipient address
 		shipment.RequestedShipment.Recipient.Address.StreetLines = [to_address_doc.address_line1, to_address_doc.address_line2]
@@ -348,9 +385,9 @@ class BookShipment(Document):
 		# Un-comment this to see your complete, ready-to-send request as it stands
 		# before it is actually sent. This is useful for seeing what values you can
 		# change.
-		# print(shipment.RequestedShipment)
-		# print(shipment.ClientDetail)
-		# print(shipment.TransactionDetail)
+		frappe.msgprint(str(shipment.RequestedShipment))
+		frappe.msgprint(str(shipment.ClientDetail))
+		frappe.msgprint(str(shipment.TransactionDetail))
 
 		# If you want to make sure that all of your entered details are valid, you
 		# can call this and parse it just like you would via send_request(). If
@@ -377,7 +414,8 @@ class BookShipment(Document):
 		# print(sobject_to_json(shipment.response))
 
 		# Here is the overall end result of the query.
-		frappe.msgprint(str(shipment.response))
+		response_dict = sobject_to_dict(shipment.response)
+		frappe.msgprint(str(response_dict))
 
 		# Getting the tracking number from the new shipment.
 		print("Tracking #: {}"
@@ -432,7 +470,7 @@ class BookShipment(Document):
 		# label_printer.write(label_binary_data)
 		# label_printer.close()
 
-	def create_shipment_freight():
+	def create_shipment_freight_service():
 		from fedex.services.ship_service import FedexProcessShipmentRequest
 
 		# What kind of file do you want this example to generate?
@@ -580,7 +618,8 @@ class BookShipment(Document):
 		# print(sobject_to_json(shipment.response))
 
 		# Here is the overall end result of the query.
-		print("HighestSeverity: {}".format(shipment.response.HighestSeverity))
+		response_dict = sobject_to_dict(shipment.response)
+		frappe.msgprint(str(response_dict))
 
 		# Getting the tracking number from the new shipment.
 		print("Tracking #: {}"
@@ -631,7 +670,7 @@ class BookShipment(Document):
 		# label_printer.write(label_binary_data)
 		# label_printer.close()
 
-	def delete_shipment(self, credentials, transporter_doc):
+	def delete_shipment_service(self, credentials, transporter_doc):
 		from fedex.services.ship_service import FedexDeleteShipmentRequest
 		from fedex.base_service import FedexError
 		del_request = FedexDeleteShipmentRequest(credentials)
@@ -670,4 +709,5 @@ class BookShipment(Document):
 		# print(sobject_to_json(del_request.response))
 
 		# Here is the overall end result of the query.
-		frappe.msgprint(str(del_request.response))
+		response_dict = sobject_to_dict(del_request.response)
+		frappe.msgprint(str(response_dict))
