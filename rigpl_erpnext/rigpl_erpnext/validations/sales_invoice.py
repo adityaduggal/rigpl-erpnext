@@ -12,6 +12,7 @@ def validate(doc,method):
 def on_submit(doc,method):
 	create_new_carrier_track(doc,method)
 	new_brc_tracking(doc,method)
+	update_shipment_booking(doc, method)
 	user = frappe.session.user
 	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
@@ -213,3 +214,11 @@ def create_new_brc_tracking(doc,method):
 	brc_doc.reference_name = doc.name
 	brc_doc.insert()
 	frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('BRC MEIS Tracking', brc_doc.name)))
+
+def update_shipment_booking(doc, method):
+	if doc.amended_from:
+		bk_ship = frappe.db.sql("""SELECT name FROM `tabBook Shipment`  
+			WHERE docstatus != 2 AND reference_doctype = 'Sales Invoice'
+			AND reference_docname = '%s'"""%(doc.amended_from), as_list=1)
+		for bks in bk_ship:
+			frappe.db.set_value("Book Shipment", bks[0], "reference_docname", doc.name)

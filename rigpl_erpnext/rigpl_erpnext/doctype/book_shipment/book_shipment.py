@@ -4,8 +4,10 @@
 
 from __future__ import unicode_literals
 import frappe
+from frappe.utils.file_manager import save_file, remove_all
 from frappe.utils import flt, cint, cstr
 import fedex
+import base64
 import datetime
 from frappe.model.document import Document
 from fedex.tools.conversion import sobject_to_dict
@@ -13,6 +15,49 @@ from fedex.tools.conversion import sobject_to_json
 
 class BookShipment(Document):
 	uom_mapper = {"Kg":"KG", "LB":"LB", "kg": "KG", "cm": "CM"}
+
+	def validate(self):
+		if self.tracking_number:
+			#self.docstatus = 1
+			if self.reference_doctype == "Sales Invoice":
+				#Check if same SI is not booked earlier Shipment
+				bk_shipments = frappe.db.sql("""SELECT name, reference_docname 
+					FROM `tabBook Shipment` 
+					WHERE docstatus !=2 AND name <> '%s'"""%(self.name), as_list=1)
+				for ship in bk_shipments:
+					if ship[1] == self.reference_docname:
+						frappe.throw("{} Shipment already booked for SI # {}".\
+							format(ship[0], self.reference_docname))
+				sid = frappe.get_doc(self.reference_doctype, self.reference_docname)
+				if sid.docstatus != 0:
+					frappe.throw("Shipment for Draft Invoices can only be Booked")
+				else:
+					sid.transporters = self.shipment_forwarder
+					sid.lr_no = self.tracking_number
+					sid.save()
+		total_weight = 0
+		for d in self.shipment_package_details:
+			total_weight += d.package_weight
+			self.weight_uom = d.weight_uom
+			self.total_handling_units = d.idx
+		if int(self.total_weight) != int(total_weight):
+			self.total_weight = total_weight
+		if self.reference_doctype == "Sales Invoice":
+			self.purpose = 'SOLD'
+			self.amount = frappe.get_value('Sales Invoice', self.reference_docname, "grand_total")
+			self.currency = frappe.get_value('Sales Invoice', self.reference_docname, "currency")
+		else:
+			if self.purpose == 'SOLD':
+				frappe.throw('Purpose SOLD only possible for Sales Invoices')
+
+	def on_submit(self):
+		if self.tracking_number:
+			pass
+		else:
+			frappe.throw("Only Booked Shipments are Allowed to be Submitted")
+
+	def on_cancel(self):
+		self.delete_shipment()
 
 	def validate_address(self):
 		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
@@ -32,10 +77,18 @@ class BookShipment(Document):
 			from_country_doc, to_country_doc, transporter_doc)
 
 	def book_shipment(self):
-		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
-			transporter_doc, contact_doc = self.get_required_docs()
-		self.create_shipment_service(credentials, from_address_doc, to_address_doc, \
-			from_country_doc, to_country_doc, transporter_doc, contact_doc)
+		if self.tracking_number:
+			frappe.msgprint(("Shipment already booked with Tracking No {0}".format(self.tracking_number)))
+		else:
+			if self.get("__islocal") != 1:
+				credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
+					transporter_doc, contact_doc = self.get_required_docs()
+				self.rate_service(credentials, from_address_doc, to_address_doc, \
+					from_country_doc, to_country_doc, transporter_doc)
+				self.create_shipment_service(credentials, from_address_doc, to_address_doc, \
+					from_country_doc, to_country_doc, transporter_doc, contact_doc)
+			else:
+				frappe.throw('Save the Transaction before Booking Shipment')
 
 	def delete_shipment(self):
 		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
@@ -46,6 +99,7 @@ class BookShipment(Document):
 		credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
 			transporter_doc, contact_doc = self.get_required_docs()
 		self.location_service(credentials, from_address_doc, from_country_doc)
+
 
 	def create_shipment_service(self, credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
 			transporter_doc, contact_doc):
@@ -63,22 +117,24 @@ class BookShipment(Document):
 		for index, pkg in enumerate(self.shipment_package_details):
 			pkg_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
 			if index:
-					shipment.RequestedShipment.MasterTrackingId.TrackingNumber = self.tracking_id
-					shipment.RequestedShipment.MasterTrackingId.TrackingIdType.value = 'EXPRESS'
+					shipment.RequestedShipment.MasterTrackingId.TrackingNumber = self.tracking_number
+					shipment.RequestedShipment.MasterTrackingId.TrackingIdType.value = transporter_doc.type_of_service
 					self.set_package_data(pkg, pkg_doc, shipment, index + 1)
 			else:
 				shipment.RequestedShipment.TotalWeight.Units = self.uom_mapper.get(self.weight_uom)
 				shipment.RequestedShipment.TotalWeight.Value = self.total_weight
 				self.set_package_data(pkg, pkg_doc, shipment, index + 1)
-				#shipment.send_validation_request()
+				shipment.send_validation_request()
 			shipment.send_request()
 			self.validate_fedex_shipping_response(shipment, pkg.idx)
 			tracking_id = shipment.response.CompletedShipmentDetail.CompletedPackageDetails[0].TrackingIds[0].TrackingNumber
-			if not index:
-				self.fedex_tracking_id = tracking_id
-				self.set_package_details(pkg, cstr(shipment.response), tracking_id)
-				self.store_label(shipment, tracking_id, self.name)
+			if index == 0:
+				self.tracking_number = tracking_id
+			self.set_package_details(pkg, cstr(shipment.response), tracking_id)
+			self.store_label(self, shipment, tracking_id, self.doctype, self.name)
+			self.save()
 		return shipment
+
 
 	def delete_shipment_service(self, credentials, transporter_doc):
 		from fedex.services.ship_service import FedexDeleteShipmentRequest
@@ -94,9 +150,19 @@ class BookShipment(Document):
 
 		if del_request.response.HighestSeverity == "SUCCESS":
 			frappe.msgprint('Shipment with tracking number %s is deleted successfully.' % tracking_id)
+			self.remove_tracking_details(del_request)
+			#frappe.get_doc(self.doctype, self.name)
 		else:
+			self.remove_tracking_details(del_request)
 			self.show_notification(del_request)
-			frappe.throw('Canceling of Shipment in Fedex service failed.')
+			frappe.msgprint('Canceling of Shipment in Fedex service failed.')
+
+	def remove_tracking_details(self, del_request):
+		frappe.db.set_value(self.doctype, self.name, "tracking_number", "")
+		for pkg in (self.shipment_package_details):
+			if pkg.tracking_id:
+				frappe.db.set_value("Shipment Package Details", pkg.name, "tracking_id", "")
+		remove_all(self.doctype, self.name)
 
 	def validate_fedex_shipping_response(self, shipment, package_id):
 		msg = ''
@@ -172,9 +238,12 @@ class BookShipment(Document):
 		                	format(service.ServiceType, surcharge.Amount.Amount))
 
 		    for rate_detail in service.RatedShipmentDetails:
-		        frappe.msgprint("{}: Net FedEx Charge {} {}".format(service.ServiceType, \
-		        	rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Currency, \
-		        	rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Amount))
+		        #frappe.msgprint("{}: Net FedEx Charge {} {}".format(service.ServiceType, \
+		        #	rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Currency, \
+		        #	rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Amount))
+		        self.shipment_cost = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Amount
+		        self.shipment_cost_currency = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Currency
+		        self.save()
 
 	def availabiltiy_commitment(self, credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc):
 		from fedex.services.availability_commitment_service import FedexAvailabilityCommitmentRequest
@@ -214,6 +283,8 @@ class BookShipment(Document):
 
 	def get_required_docs(self):
 		transporter_doc = frappe.get_doc("Transporters", self.shipment_forwarder)
+		if transporter_doc.fedex_credentials != 1:
+			frappe.throw(("{0} is not a Valid Fedex Account").format(self.shipment_forwarder))
 		to_address_doc = frappe.get_doc("Address", self.to_address)
 		to_country_doc = frappe.get_doc("Country", to_address_doc.country)
 		contact_doc = frappe.get_doc("Contact", self.contact_person)
@@ -241,6 +312,7 @@ class BookShipment(Document):
 
 	def set_shipper_info(self, call_type, ship_add_doc, credentials):
 		from_country_doc = frappe.get_doc("Country", ship_add_doc.country)
+		tin_no = ship_add_doc.gstin
 		if ship_add_doc.state_rigpl is not None:
 			state_doc = frappe.get_doc("State", ship_add_doc.state)
 		else:
@@ -260,9 +332,15 @@ class BookShipment(Document):
 		call_type.RequestedShipment.Shipper.Address.PostalCode = ship_add_doc.pincode
 		call_type.RequestedShipment.Shipper.Address.CountryCode = from_country_doc.code
 		call_type.RequestedShipment.Shipper.Address.Residential = ship_add_doc.is_residential_address
+		if tin_no != 'NA' and tin_no is not None:
+			tin_details = call_type.create_wsdl_object_of_type('TaxpayerIdentification')
+			tin_details.TinType.value = "BUSINESS_NATIONAL"
+			tin_details.Number = tin_no
+			call_type.RequestedShipment.Shipper.Tins = [tin_details]
 
 	def set_recipient_info(self, call_type, ship_add_doc, credentials):
 		to_country_doc = frappe.get_doc("Country", ship_add_doc.country)
+		tin_no = ship_add_doc.gstin
 		if ship_add_doc.state_rigpl is not None:
 			state_doc = frappe.get_doc("State", ship_add_doc.state)
 		else:
@@ -284,9 +362,16 @@ class BookShipment(Document):
 		call_type.RequestedShipment.Recipient.Address.Residential = ship_add_doc.is_residential_address
 		call_type.RequestedShipment.EdtRequestType = 'NONE' #Can be ALL or NONE
 		call_type.RequestedShipment.FreightShipmentDetail.TotalHandlingUnits = self.total_handling_units
+		if tin_no != 'NA' and tin_no is not None:
+			tin_details = call_type.create_wsdl_object_of_type('TaxpayerIdentification')
+			tin_details.TinType.value = "BUSINESS_NATIONAL"
+			tin_details.Number = tin_no
+			call_type.RequestedShipment.Recipient.Tins = [tin_details]
+
 
 	def set_commercial_invoice_info(self, call_type):
 		call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.Purpose = self.purpose
+		#call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.CustomsInvoiceNumber = self.reference_docname
 		call_type.RequestedShipment.ShippingDocumentSpecification.ShippingDocumentTypes = "COMMERCIAL_INVOICE"
 		call_type.RequestedShipment.ShippingDocumentSpecification.CommercialInvoiceDetail.\
 			Format.ImageType = "PDF"
@@ -314,16 +399,16 @@ class BookShipment(Document):
 		return package
 
 	@staticmethod
-	def store_label(shipment, tracking_id, ps_name):
+	def store_label(self, shipment, tracking_id, ps_doctype, ps_name):
 		label_data = base64.b64decode(shipment.response.CompletedShipmentDetail.CompletedPackageDetails[0].Label.Parts[0].Image)
-		store_file('FEDEX-ID-{0}.pdf'.format(tracking_id), label_data, ps_name)
+		self.store_file('FEDEX-ID-{0}.pdf'.format(tracking_id), label_data, ps_doctype, ps_name)
 		if hasattr(shipment.response.CompletedShipmentDetail, 'ShipmentDocuments'):
 			inovice_data = base64.b64decode(shipment.response.CompletedShipmentDetail.ShipmentDocuments[0].Parts[0].Image)
-			store_file('COMMER-INV-{0}.pdf'.format(ps_name), inovice_data, ps_name)
+			self.store_file('COMMER-INV-{0}-{1}.pdf'.format(ps_name, tracking_id), inovice_data, ps_doctype, ps_name)
 
 	@staticmethod
-	def store_file(file_name, image_data, ps_name):
-		save_file(file_name, image_data, "Book Shipment", ps_name)
+	def store_file(file_name, image_data, ps_doctype, ps_name):
+		save_file(file_name, image_data, ps_doctype, ps_name, is_private=1)
 
 	@staticmethod
 	def set_fedex_label_info(shipment):
@@ -341,27 +426,31 @@ class BookShipment(Document):
 		
 		if self.reference_doctype == 'Sales Invoice':
 			doc = frappe.get_doc(self.reference_doctype, self.reference_docname)
-			total_value = 0.0
+			self.total_amount = doc.grand_total
+			self.currency = doc.currency
+			total_qty = 0
 			for row in doc.items:
+				total_qty += row.get("qty")
+				hsn_doc = frappe.get_doc("GST HSN Code", row.get("cetsh_number"))
 				item_doc = frappe.get_doc("Item", row.get("item_code"))
 				country_doc = frappe.get_doc("Country", item_doc.country_of_origin)
 				country_code = country_doc.code
-				commodity_dict = {
-					"Name":row.get("item_code"),
-					"Description":row.get("description"),
-					#"Weight": {"Units": FedexController.uom_mapper.get(row.get("weight_uom")),\
-					#				 "Value":row.net_weight * row.get("qty")},
-					"NumberOfPieces":int(row.get("qty")),
-					"CountryOfManufacture":country_code,
-					"Quantity":int(row.get("qty")),
-					"QuantityUnits":row.get("stock_uom"),
-					"UnitPrice":{"Currency":doc.currency, "Amount":row.rate},
-					"CustomsValue":{"Currency":doc.currency, "Amount":row.amount}
-				}
-				total_value += row.amount
-				frappe.msgprint(str(commodity_dict))
-				shipment.RequestedShipment.CustomsClearanceDetail.Commodities.append(commodity_dict)
+			commodity_dict = {
+				#"Name":row.get("item_code"),
+				"Description": hsn_doc.description[0:30],
+				"Weight": {"Units": self.uom_mapper.get(self.weight_uom),\
+								 "Value":self.total_weight},
+				"NumberOfPieces":int(self.total_handling_units),
+				"HarmonizedCode": hsn_doc.name[0:8],
+				"CountryOfManufacture":country_code,
+				"Quantity":int(total_qty),
+				"QuantityUnits":"EA",
+				"UnitPrice":{"Currency":doc.currency, "Amount":(doc.grand_total/total_qty)},
+				"CustomsValue":{"Currency":doc.currency, "Amount":doc.grand_total}
+			}
+			shipment.RequestedShipment.CustomsClearanceDetail.Commodities.append(commodity_dict)
 		else:
+			frappe.throw("Currently only Booking Shipment is Available vide Sales Invoice")
 			total_value = self.amount
 
 	def set_email_notification(self, shipment, shipper_details, recipient_details):
@@ -403,3 +492,57 @@ class BookShipment(Document):
 				meter_number = transporter_doc.fedex_meter_number,
 				use_test_server = transporter_doc.is_test_server)
 		return credentials
+
+	def show_notification(self, shipment):
+		for notification in shipment.response.Notifications:
+			frappe.msgprint('Code: %s, %s' % (notification.Code, notification.Message))
+
+	def set_package_details(self, pkg, shipment_response, tracking_id):
+		pkg.shipment_response = shipment_response
+		pkg.tracking_id = tracking_id
+
+	@staticmethod
+	def get_company_data(request_data, field_name):
+		shipper_details = frappe.db.get_value("Address", request_data.get("shipper_id"), "*", as_dict=True)
+		field_value = frappe.db.get_value("Company", shipper_details.get("company"), field_name)
+		return shipper_details, field_value
+
+	def schedule_pickup(self):
+		request_data = json.loads(request_data)
+		self.schedule_pickup_service(request_data)
+
+	def schedule_pickup_service (self, request_data):
+		shipper_details, closing_time = self.get_company_data(request_data, "closing_time")
+		
+		pickup_service = FedexCreatePickupRequest(credentials)
+		pickup_service.OriginDetail.PickupLocation.Contact.PersonName = shipper_details.get("address_title")
+		pickup_service.OriginDetail.PickupLocation.Contact.EMailAddress = shipper_details.get("email_id")
+		pickup_service.OriginDetail.PickupLocation.Contact.CompanyName = shipper_details.get("company")
+		pickup_service.OriginDetail.PickupLocation.Contact.PhoneNumber = shipper_details.get("phone")
+		pickup_service.OriginDetail.PickupLocation.Address.StateOrProvinceCode = shipper_details.get("state_code")
+		pickup_service.OriginDetail.PickupLocation.Address.PostalCode = shipper_details.get("pincode")
+		pickup_service.OriginDetail.PickupLocation.Address.CountryCode = shipper_details.get("country_code")
+		pickup_service.OriginDetail.PickupLocation.Address.StreetLines = [shipper_details.get("address_line1"),\
+																	 shipper_details.get("address_line2")]
+		pickup_service.OriginDetail.PickupLocation.Address.City = shipper_details.get("city")
+		pickup_service.OriginDetail.PickupLocation.Address.Residential = True if shipper_details.get("is_residential_address") \
+																			else False
+		pickup_service.OriginDetail.PackageLocation = 'NONE'
+		pickup_service.OriginDetail.ReadyTimestamp = get_datetime(request_data.get("ready_time")).replace(microsecond=0).isoformat()
+		pickup_service.OriginDetail.CompanyCloseTime = closing_time if closing_time else '20:00:00'
+		pickup_service.CarrierCode = 'FDXE'
+		pickup_service.PackageCount = request_data.get("package_count")
+
+		package_weight = pickup_service.create_wsdl_object_of_type('Weight')
+		package_weight.Units = FedexController.uom_mapper.get(request_data.get("uom"))
+		package_weight.Value = request_data.get("gross_weight")
+		pickup_service.TotalWeight = package_weight
+
+		pickup_service.send_request()
+		if pickup_service.response.HighestSeverity not in ["SUCCESS", "NOTE", "WARNING"]:
+			self.show_notification(pickup_service)
+			frappe.throw(_('Pickup service scheduling failed.'))
+		return { "response": pickup_service.response.HighestSeverity,
+				  "pickup_id": pickup_service.response.PickupConfirmationNumber,
+				  "location_no": pickup_service.response.Location
+				}
