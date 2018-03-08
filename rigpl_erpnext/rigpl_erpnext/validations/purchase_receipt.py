@@ -103,7 +103,7 @@ def get_ste_items(doc,method):
 	
 def get_existing_ste(doc,method):
 	chk_ste = frappe.db.sql("""SELECT ste.name FROM `tabStock Entry` ste
-		WHERE ste.docstatus <> 2 AND
+		WHERE ste.docstatus != 2 AND
 		ste.purchase_receipt_no = '%s'"""% doc.name, as_list=1)
 	return chk_ste
 

@@ -67,7 +67,7 @@ def get_conditions(filters):
 		conditions_prd += " AND tt.attribute_value = '%s'" % filters["tt"]
 		
 	if filters.get("status") == "Submitted":
-		conditions_prd += "AND prd.docstatus = 1 AND prd.status <> 'Stopped'"
+		conditions_prd += "AND prd.docstatus = 1 AND prd.status != 'Stopped'"
 	else:
 		conditions_prd += "AND prd.docstatus = 0"
 	

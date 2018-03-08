@@ -57,7 +57,7 @@ class TrialTracking(Document):
 		#Check the SODetail Number as Unique
 		if doc.prevdoc_detail_docname:
 			sod_list = frappe.db.sql("""select prevdoc_detail_docname from `tabTrial Tracking` 
-				WHERE docstatus <> 2 AND prevdoc_detail_docname=%s""", doc.prevdoc_detail_docname)
+				WHERE docstatus != 2 AND prevdoc_detail_docname=%s""", doc.prevdoc_detail_docname)
 			if len(sod_list)>1:
 				frappe.msgprint('{0}{1}'.format("SO Detail No already exists ", doc.prevdoc_detail_docname), raise_exception=1)
 		

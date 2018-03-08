@@ -9,7 +9,7 @@ def execute():
 		FROM `tabItem` it
 		WHERE 
 			it.variant_of IS NULL
-			AND it.has_variants <> 1
+			AND it.has_variants != 1
 
 			AND ifnull((SELECT count(sod.name) FROM `tabMaterial Request Item` sod WHERE sod.item_code = 
 				it.name GROUP BY sod.item_code),0) = 0

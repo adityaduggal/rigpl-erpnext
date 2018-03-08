@@ -16,7 +16,7 @@ def execute(filters=None):
 	columns, earning_types, ded_types, cont_types = get_columns(filters, salary_str)
 	data = []
 	
-	if filters.get("without_salary_structure")<>1:
+	if filters.get("without_salary_structure")!=1:
 		ss_earning_map = get_ss_earning_map(salary_str)
 		ss_ded_map = get_ss_ded_map(salary_str)
 		ss_cont_map = get_ss_cont_map(salary_str)
@@ -30,7 +30,7 @@ def execute(filters=None):
 				row.append(ss_earning_map.get(ss.name, {}).get(e))
 				add_to_total = frappe.db.sql("""SELECT salary_component_abbr 
 					FROM `tabSalary Component`
-					WHERE is_earning = 1 AND only_for_deductions <> 1 
+					WHERE is_earning = 1 AND only_for_deductions != 1 
 					AND salary_component_abbr = '%s'""" %(e), as_list=1)
 				if add_to_total:
 					tot_earn += flt(ss_earning_map.get(ss.name,{}).get(e))
@@ -177,7 +177,7 @@ def get_ss_cont_map(salary_str):
 	return ss_cont_map
 	
 def get_columns(filters, salary_str):
-	if filters.get("without_salary_structure")<>1:
+	if filters.get("without_salary_structure")!=1:
 		columns = [
 			_("Salary Structure") + ":Link/Salary Structure:60", _("From Date") + ":Date:80", 
 			_("To Date") + ":Date:80", _("Active") + "::40", _("Employee") + ":Link/Employee:80",

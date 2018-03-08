@@ -23,12 +23,12 @@ def get_items(filters, conditions_so):
 	query = """SELECT 
 		so.transaction_date, so.name, soi.item_code, soi.description,
 		(soi.qty - ifnull(soi.delivered_qty, 0)), soi.qty, 
-		(SELECT sum(prd.qty) FROM `tabProduction Order` prd WHERE prd.docstatus <> 2 AND
+		(SELECT sum(prd.qty) FROM `tabProduction Order` prd WHERE prd.docstatus != 2 AND
 			prd.so_detail = soi.name AND prd.docstatus = 0),
-		(SELECT sum(prd.qty) FROM `tabProduction Order` prd WHERE prd.docstatus <> 2 AND
-			prd.so_detail = soi.name AND prd.docstatus = 1 AND prd.status <> "Stopped"),
+		(SELECT sum(prd.qty) FROM `tabProduction Order` prd WHERE prd.docstatus != 2 AND
+			prd.so_detail = soi.name AND prd.docstatus = 1 AND prd.status != "Stopped"),
 		(SELECT sum(pod.qty) FROM `tabPurchase Order Item` pod, `tabPurchase Order` po WHERE po.docstatus = 1 AND
-			po.name = pod.parent AND pod.so_detail = soi.name AND po.status <> "Stopped")
+			po.name = pod.parent AND pod.so_detail = soi.name AND po.status != "Stopped")
 		FROM
 		 `tabSales Order` so, `tabSales Order Item` soi
 		
