@@ -34,7 +34,7 @@ def execute(filters=None):
 		nos = no_rows.get(emp).get(key)
 		
 		for i in range(nos+1):
-			if i <> nos:
+			if i != nos:
 				if is_odd(i):
 					rows["row{0}".format(i)] = row2[:]
 				else:
@@ -44,12 +44,12 @@ def execute(filters=None):
 
 		for day in range(filters["total_days_in_month"]):
 			for np in range(nos+1):
-				row_no = "row" + `np`
+				row_no = "row" + np
 				tt = rows[row_no][2]
 				if np < nos:
-					if time_map.get(emp).get(day+1,"None") <> "None":
+					if time_map.get(emp).get(day+1,"None") != "None":
 					#above if statement checks if there is any attendance for the employee on that day
-						if time_map.get(emp).get(day+1, "None").get(np + 1, "None") <> "None":
+						if time_map.get(emp).get(day+1, "None").get(np + 1, "None") != "None":
 						#above if statement checks if there is any Punch Data if there is attendance
 							timing = time_map.get(emp).get(day + 1, "None").get(np + 1, "None")		
 							timing_hrs = timing[tt].time().isoformat()
@@ -61,16 +61,16 @@ def execute(filters=None):
 					else:
 						#here there is no attendance for emp for a day, so check if the day is
 						#HOLIDAY LIST or IN LEAVE APPLICATION
-						if hol_map and hol_map.get(emp) and hol_map.get(emp).get(day+1, "None") <> "None":
+						if hol_map and hol_map.get(emp) and hol_map.get(emp).get(day+1, "None") != "None":
 							hol = hol_map.get(emp).get(day+1, "None")
 							rows[row_no].append(hol)
-						elif la_map and la_map.get(emp) and la_map.get(emp).get(day+1, "None")<> "None":
+						elif la_map and la_map.get(emp) and la_map.get(emp).get(day+1, "None")!= "None":
 							la = la_map.get(emp).get(day+1, "None")
 							rows[row_no].append(la)
 						else:
 							rows[row_no].append("X")
 				else:
-					if ot_map.get(emp).get(day+1, "None") <> "None": 
+					if ot_map.get(emp).get(day+1, "None") != "None": 
 					#Checks if the attendance for that day exists
 						ot = ot_map.get(emp).get(day+1, "")
 						rows[row_no].append(ot)

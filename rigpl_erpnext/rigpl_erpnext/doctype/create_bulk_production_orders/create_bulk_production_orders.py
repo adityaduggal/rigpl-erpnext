@@ -72,7 +72,7 @@ class CreateBulkProductionOrders(Document):
 		items = frappe.db.sql("""SELECT DISTINCT sod.parent, sod.item_code, sod.warehouse, sod.description,
 			(sod.qty - sod.delivered_qty) as pending_qty, sod.name, (SELECT SUM(prd.qty) 
 			FROM `tabProduction Order` prd WHERE prd.so_detail = sod.name 
-			AND prd.docstatus <> 2 AND prd.status <> "Stopped") as prd_qty
+			AND prd.docstatus != 2 AND prd.status != "Stopped") as prd_qty
 			from `tabSales Order Item` sod
 			where sod.parent in (%s) AND sod.docstatus = 1 AND 
 				sod.qty > sod.delivered_qty %s""" % \

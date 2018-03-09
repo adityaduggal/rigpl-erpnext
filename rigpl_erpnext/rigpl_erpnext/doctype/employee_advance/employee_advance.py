@@ -44,7 +44,7 @@ class EmployeeAdvance(Document):
 			emp = frappe.get_doc("Employee", i.employee)
 			pd = getdate(self.posting_date)
 			rd = getdate(emp.relieving_date)
-			if emp.status <> "Active" and rd < pd:
+			if emp.status != "Active" and rd < pd:
 				frappe.throw(("{0} left on {1} hence cannot give advance on {2}").\
 					format(i.employee_name, rd, pd))
 			self.total_loan += i.loan_amount

@@ -41,7 +41,7 @@ class EmployeeLoan(Document):
 			emp = frappe.get_doc("Employee", i.employee)
 			pd = getdate(self.posting_date)
 			rd = getdate(emp.relieving_date)
-			if emp.status <> "Active" and rd < pd:
+			if emp.status != "Active" and rd < pd:
 				frappe.throw(("{0} left on {1} hence cannot give advance on {2}").\
 					format(i.employee_name, rd, pd))
 			self.total_loan += i.loan_amount
@@ -49,7 +49,7 @@ class EmployeeLoan(Document):
 	def on_update(self):
 		#check if the JV is already existing
 		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
-			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus <> 2 AND
+			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus != 2 AND
 			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
 		
 		jv_acc_lst = []

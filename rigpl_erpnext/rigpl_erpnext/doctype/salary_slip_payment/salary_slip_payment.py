@@ -21,8 +21,8 @@ class SalarySlipPayment(Document):
 			#Validate if the Salary Slip has not been paid earlier or later
 			old_ssp = frappe.db.sql("""SELECT ssp.name, sspd.salary_slip 
 				FROM `tabSalary Slip Payment` ssp, `tabSalary Slip Payment Details` sspd
-				WHERE ssp.name = sspd.parent AND ssp.docstatus <> 2 
-				AND sspd.salary_slip = '%s' AND ssp.name <> '%s'""" % (d.salary_slip, self.name), as_dict=1)
+				WHERE ssp.name = sspd.parent AND ssp.docstatus != 2 
+				AND sspd.salary_slip = '%s' AND ssp.name != '%s'""" % (d.salary_slip, self.name), as_dict=1)
 			if old_ssp:
 				old_ssp = old_ssp[0]
 				frappe.throw(("Salary Slip {0} is already paid vide Salary Slip \
@@ -30,7 +30,7 @@ class SalarySlipPayment(Document):
 			
 			#Checks if the same Salary Slip is not entered in the Salary Slip Payment more than once
 			for x in self.salary_slip_payment_details:
-				if d.salary_slip == x.salary_slip and d.idx <> x.idx:
+				if d.salary_slip == x.salary_slip and d.idx != x.idx:
 					frappe.throw(("Salary Slip {0} already entered in Row # {1} for Employee {2}")\
 					.format(d.salary_slip, x.idx, d.employee_name))
 			
@@ -102,7 +102,7 @@ class SalarySlipPayment(Document):
 		
 	def get_existing_jv(self):
 		chk_jv = frappe.db.sql("""SELECT jv.name FROM `tabJournal Entry` jv, 
-			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus <> 2 AND
+			`tabJournal Entry Account` jva WHERE jva.parent = jv.name AND jv.docstatus != 2 AND
 			jva.reference_name = '%s' GROUP BY jv.name"""% self.name, as_list=1)
 		return chk_jv
 			
@@ -284,8 +284,8 @@ class SalarySlipPayment(Document):
 		for d in ss:
 			exist = frappe.db.sql("""SELECT ssp.name, sspd.salary_slip 
 				FROM `tabSalary Slip Payment` ssp, `tabSalary Slip Payment Details` sspd
-				WHERE ssp.name = sspd.parent AND ssp.docstatus <> 2 
-				AND sspd.salary_slip = '%s' AND ssp.name <> '%s'""" % (d.name, self.name), as_dict=1)
+				WHERE ssp.name = sspd.parent AND ssp.docstatus != 2 
+				AND sspd.salary_slip = '%s' AND ssp.name != '%s'""" % (d.name, self.name), as_dict=1)
 			if exist:
 				pass
 			else:

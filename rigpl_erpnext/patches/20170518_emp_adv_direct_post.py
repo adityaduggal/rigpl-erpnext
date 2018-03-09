@@ -16,7 +16,7 @@ def execute():
 	for jv in gl_adv_list:
 		jv_doc = frappe.get_doc("Journal Entry", jv[1])
 		jv_doc.cancel()
-		print "Journal Entry #" + jv[1] + " Cancelled."
+		print ("Journal Entry #" + jv[1] + " Cancelled.")
 		
 		#Check and post the employee advance directly into the GL
 		from erpnext.accounts.general_ledger import make_gl_entries
@@ -73,4 +73,4 @@ def execute():
 				})
 				gl_map.append(gl_dict)
 				make_gl_entries(gl_map, cancel=0, adv_adj=0)
-				print "Employee Advance #" + emp_adv_doc.name + " Posted to GL Entry"
+				print ("Employee Advance #" + emp_adv_doc.name + " Posted to GL Entry")

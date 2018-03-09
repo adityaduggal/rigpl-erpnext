@@ -80,7 +80,7 @@ def on_submit(so,method):
 		for s_team in so.get("sales_team"):
 			no_of_team = len(so.get("sales_team"))
 		
-		if no_of_team <> 1:
+		if no_of_team != 1:
 			frappe.msgprint("Please enter exactly one Sales Person who is responsible for carrying out the Trials", raise_exception=1)
 		
 		for sod in so.get("items"):

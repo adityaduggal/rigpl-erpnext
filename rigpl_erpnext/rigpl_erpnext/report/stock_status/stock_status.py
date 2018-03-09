@@ -48,8 +48,8 @@ def get_items(filters):
 		sum(if(bn.warehouse = "BGH655 - RIGPL" OR bn.warehouse = "DEL20A - RIGPL", 
 			(bn.actual_qty), 0)),
 
-		sum(if(bn.warehouse <> "BGH655 - RIGPL" AND bn.warehouse <> "DEL20A - RIGPL" 
-			AND bn.warehouse <> "REJ-DEL20A - RIGPL",
+		sum(if(bn.warehouse != "BGH655 - RIGPL" AND bn.warehouse != "DEL20A - RIGPL" 
+			AND bn.warehouse != "REJ-DEL20A - RIGPL",
 			(bn.actual_qty + bn.ordered_qty + bn.planned_qty), 0)),
 			
 		sum(if(bn.warehouse = "BGH655 - RIGPL" OR bn.warehouse = "DEL20A - RIGPL", 

@@ -28,7 +28,7 @@ def make_route(doc,method):
 		
 def validate_reoder(doc,method):
 	for d in doc.reorder_levels:
-		if d.warehouse <> doc.default_warehouse:
+		if d.warehouse != doc.default_warehouse:
 			frappe.throw("Re Order Level of Default Warehouses are only allowed")
 		
 def autoname(doc,method):
@@ -76,7 +76,7 @@ def validate_restriction(doc,method):
 def validate_stock_fields(doc,method):
 	#As per Company Policy on FIFO method of Valuation is to be Used.
 	if doc.is_stock_item ==1:
-		if doc.valuation_method <> 'FIFO':
+		if doc.valuation_method != 'FIFO':
 			frappe.throw("Select Valuation method as FIFO for Stock Item")
 			
 def validate_variants(doc,method):
@@ -164,7 +164,7 @@ def validate_variants(doc,method):
 							
 						try:
 							valid = eval(rule, ctx, ctx)
-						except Exception, e:
+						except Exception as e:
 							frappe.throw("\n\n".join(map(str, [rule, {k:v for k,v in ctx.items() if k in original_keys}, e])))
 							
 						if not valid:
@@ -198,7 +198,7 @@ def validate_variants(doc,method):
 				frappe.throw(("Template Limit reached. Set Limit = {0} whereas total \
 				number of variants = {1} increase the limit to save New Item Code")\
 					.format(limit, actual[0][0]))
-	elif doc.has_variants <> 1:
+	elif doc.has_variants != 1:
 		if any("System Manager" in s  for s in roles):
 			pass
 		else:
@@ -225,7 +225,7 @@ def generate_description(doc,method):
 				WHERE iva.parent = '%s' AND iva.attribute = '%s' """ %(doc.variant_of, 
 					d.attribute), as_list=1)[0][0]
 				
-			if is_numeric <> 1 and use_in_description == 1:
+			if is_numeric != 1 and use_in_description == 1:
 				#Below query gets the values of description mentioned in the Attribute table
 				#for non-numeric values
 				cond1 = d.attribute
@@ -246,18 +246,18 @@ def generate_description(doc,method):
 				concat = ""
 				concat2 = ""
 								
-				if prefix[0][0] <> '""':
+				if prefix[0][0] != '""':
 					if list[0][0]:
 						concat1 = unicode(prefix[0][0][1:-1]) + unicode(list[0][0][1:-1])
 					if list[0][1]:
 						concat2 = unicode(prefix[0][0][1:-1]) + unicode(list[0][1][1:-1])
 				else:
-					if list[0][0] <> '""':
+					if list[0][0] != '""':
 						concat1 = unicode(list[0][0][1:-1])
-					if list[0][1] <> '""':
+					if list[0][1] != '""':
 						concat2 = unicode(list[0][1][1:-1])
 
-				if suffix[0][0]<> '""':
+				if suffix[0][0]!= '""':
 					concat1 = concat1 + unicode(suffix[0][0][1:-1])
 					concat2 = concat2 + unicode(suffix[0][0][1:-1])
 				desc.extend([[concat1, concat2, d.idx]])
@@ -279,12 +279,12 @@ def generate_description(doc,method):
 						d.attribute ), as_list=1)
 					
 				concat = ""
-				if prefix[0][0] <> '""':
+				if prefix[0][0] != '""':
 					concat = unicode(prefix[0][0][1:-1]) + unicode('{0:g}'.format(d.attribute_value))
 				else:
 					concat = unicode('{0:g}'.format(d.attribute_value))
 
-				if suffix[0][0]<> '""':
+				if suffix[0][0]!= '""':
 					concat = concat + unicode(suffix[0][0][1:-1])
 				desc.extend([[concat, concat, d.idx]])
 			
@@ -295,9 +295,9 @@ def generate_description(doc,method):
 
 		desc.sort(key=lambda x:x[2]) #Sort the desc as per priority lowest one is taken first
 		for i in range(len(desc)):
-			if desc[i][0] <> '""':
+			if desc[i][0] != '""':
 				description = description + desc[i][0]
-			if desc[i][1] <> '""':
+			if desc[i][1] != '""':
 				long_desc = long_desc + desc[i][1]
 
 		doc.description = description
@@ -313,7 +313,7 @@ def generate_item_code(doc,method):
 			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
 			use_in_item_code = frappe.db.get_value("Item Attribute", d.attribute, 
 				"use_in_item_code")
-			if is_numeric <> 1 and use_in_item_code == 1:
+			if is_numeric != 1 and use_in_item_code == 1:
 				cond1 = d.attribute
 				cond2 = d.attribute_value
 				query = """SELECT iav.abbr from `tabItem Attribute Value` iav, 
@@ -335,14 +335,14 @@ def generate_item_code(doc,method):
 		abbr.sort(key=lambda x:x[1]) #Sort the abbr as per priority lowest one is taken first
 		
 		for i in range(len(abbr)):
-			if abbr[i][0] <> '""':
+			if abbr[i][0] != '""':
 				code = code + abbr[i][0]
 		if len(serial[0][0]) > 2:
 			code = code + serial[0][0]
 		else:
 			frappe.throw("Serial length is lower than 3 characters")
 		chk_digit = fn_check_digit(doc,code)
-		code = code + `chk_digit`
+		code = code + chk_digit
 		return serial, code
 			
 ########CODE FOR NEXT STRING#######################################################################

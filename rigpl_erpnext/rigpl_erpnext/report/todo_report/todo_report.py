@@ -16,7 +16,7 @@ def execute(filters=None):
 	return columns, result
 
 def get_columns(filters):
-	if filters.get("summary") <> 1:
+	if filters.get("summary") != 1:
 		return [
 			"ID:Link/ToDo:30", "Priority::80",
 			"Due Date:Date:90", "Assignment Date:Date:90",
@@ -30,7 +30,7 @@ def get_columns(filters):
 def get_todo(filters):
 	conditions = get_conditions(filters)
 	
-	if filters.get("summary") <> 1:
+	if filters.get("summary") != 1:
 		query = """SELECT name, priority, date, creation, description, 
 			reference_type, reference_name, owner, assigned_by
 		FROM `tabToDo` %s

@@ -286,7 +286,7 @@ def get_items(filters):
 			urg = ""
 		
 		#Cutting Quantity
-		if urg <> "":
+		if urg != "":
 			c_qty = ((2 * ROL) + SO - total)
 			urg = urg + " Qty= " + str(c_qty)
 
@@ -314,7 +314,7 @@ def get_items(filters):
 			prd = ""
 
 		#Production Quantity
-		if prd <> "":
+		if prd != "":
 			shortage = (2 * ROL) - stock
 			if shortage < prd_qty:
 				prd = prd + " Qty= " + str(shortage)

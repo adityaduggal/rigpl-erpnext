@@ -77,7 +77,7 @@ def execute():
 				exist_vr.disabled = 'No'
 				exist_vr.valuation_rate = d['valuation']
 				exist_vr.save(ignore_permissions=True)
-				print "Updated Valuation Rate#", exist_vr.name, " for Item Code: ", d['name']
+				print ("Updated Valuation Rate#", exist_vr.name, " for Item Code: ", d['name'])
 			else:
 				#Condition if there is NO Valuation Rate then create new
 				new_vr = frappe.get_doc({
@@ -89,7 +89,7 @@ def execute():
 					"valuation_rate": d['valuation'],
 					})
 				new_vr.insert(ignore_permissions=True)
-				print "Created Valuation Rate # ", new_vr.name, " for Item Code: ", d['name']
+				print ("Created Valuation Rate # " + new_vr.name + " for Item Code: " + d['name'])
 				
 def round_down(num, divisor):
     return num - (num%divisor)

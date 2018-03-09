@@ -41,7 +41,7 @@ def execute(filters=None):
 			lg = 0
 		ob = ol - od
 		cb = ob + lg - ded
-		if filters.get("details") <> 1:
+		if filters.get("details") != 1:
 			if ob>0 or lg>0 or ded>0 or cb>0:
 				row = [emp, emp_det.employee_name, ob, lg, ded, cb]
 				data.append(row)
