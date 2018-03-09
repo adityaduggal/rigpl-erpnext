@@ -35,4 +35,4 @@ def execute():
 		
 		frappe.db.set_value("Attendance", i[0], 'overtime', overtime)
 		
-		print "Attendance Updated", i[0], "for date:", i[1], "employee:", i[3], "New OT=", overtime
+		print ("Attendance Updated " + i[0] + " for date:" + i[1] + " employee: " + i[3] + " New OT=" + overtime)

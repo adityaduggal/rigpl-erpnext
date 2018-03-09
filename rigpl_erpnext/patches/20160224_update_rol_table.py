@@ -8,7 +8,7 @@ def execute():
 		for item in frappe.db.sql("""select name, default_warehouse, re_order_level, re_order_qty
 			from tabItem
 			where has_variants =0 AND ifnull(re_order_level, 0) != 0""", as_dict=1):
-			print "In Progress", item.name
+			print ("In Progress " + item.name)
 			if item.re_order_qty == 0:
 				item.re_order_qty = 1
 			item_doc = frappe.get_doc("Item", item.name)
@@ -21,6 +21,6 @@ def execute():
 
 			try:
 				item_doc.save()
-				print "Update ROL for", item.name, "WH=", item.default_warehouse, " ROL=", item.re_order_level, " ROQ=", item.re_order_qty
+				print ("Update ROL for " + item.name + " WH= " + item.default_warehouse + " ROL=" + item.re_order_level + " ROQ=" + item.re_order_qty)
 			except DuplicateReorderRows:
 				pass

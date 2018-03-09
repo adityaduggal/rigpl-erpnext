@@ -19,4 +19,4 @@ def execute():
 		if not ss_posted:
 			from rigpl_erpnext.rigpl_erpnext.validations.salary_slip import post_gl_entry
 			post_gl_entry(ss_doc)
-			print "Salary Slip # :" + ss[0] + " Posted in GL"
+			print ("Salary Slip # :" + ss[0] + " Posted in GL")

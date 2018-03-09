@@ -44,7 +44,7 @@ def execute(filters=None):
 
 		for day in range(filters["total_days_in_month"]):
 			for np in range(nos+1):
-				row_no = "row" + `np`
+				row_no = "row" + np
 				tt = rows[row_no][2]
 				if np < nos:
 					if time_map.get(emp).get(day+1,"None") != "None":

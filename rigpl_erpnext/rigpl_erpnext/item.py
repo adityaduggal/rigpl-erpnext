@@ -164,7 +164,7 @@ def validate_variants(doc,method):
 							
 						try:
 							valid = eval(rule, ctx, ctx)
-						except Exception, e:
+						except Exception as e:
 							frappe.throw("\n\n".join(map(str, [rule, {k:v for k,v in ctx.items() if k in original_keys}, e])))
 							
 						if not valid:
@@ -342,7 +342,7 @@ def generate_item_code(doc,method):
 		else:
 			frappe.throw("Serial length is lower than 3 characters")
 		chk_digit = fn_check_digit(doc,code)
-		code = code + `chk_digit`
+		code = code + chk_digit
 		return serial, code
 			
 ########CODE FOR NEXT STRING#######################################################################

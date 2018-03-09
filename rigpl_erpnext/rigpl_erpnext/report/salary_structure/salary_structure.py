@@ -126,7 +126,7 @@ def eval_condition_and_formula(d, eval_data):
 	    frappe.throw(_("Name error: {0}".format(err)))
 	except SyntaxError as err:
 	    frappe.throw(_("Syntax error in formula or condition: {0}".format(err)))
-	except Exception, e:
+	except Exception as e:
 	    frappe.throw(_("Error in formula or condition: {0}".format(e)))
 	    raise
 

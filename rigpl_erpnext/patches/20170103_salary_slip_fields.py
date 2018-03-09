@@ -18,14 +18,14 @@ def execute():
 		if ss_doc.docstatus == 2:
 			if ss_doc.status != "Cancelled":
 				frappe.db.set_value("Salary Slip", ss[0], "status", "Cancelled")
-				print "Status of " + ss[0] + " set to Cancelled"
+				print ("Status of " + ss[0] + " set to Cancelled")
 		elif ss_doc.docstatus == 0:
 			if ss_doc.status != "Draft":
 				frappe.db.set_value("Salary Slip", ss[0], "status", "Draft")
-				print "Status of " + ss[0] + " set to Draft"
+				print ("Status of " + ss[0] + " set to Draft")
 		if ss_doc.payroll_frequency != "Monthly":
 			frappe.db.set_value("Salary Slip", ss[0], "payroll_frequency", "Monthly")
-			print "Frequency of " + ss[0] + " set to Monthly"
+			print ("Frequency of " + ss[0] + " set to Monthly")
 		if ss_doc.fiscal_year is not None:
 			m = get_month_details(ss_doc.fiscal_year, ss_doc.month)
 			start_date = m['month_start_date']
@@ -33,4 +33,4 @@ def execute():
 			frappe.db.set_value("Salary Slip", ss[0], "start_date", start_date)
 			frappe.db.set_value("Salary Slip", ss[0], "end_date", end_date)
 			frappe.db.set_value("Salary Slip", ss[0], "posting_date", end_date)
-			print "Start, End and Posting Date for " + ss[0] + " set."
+			print ("Start, End and Posting Date for " + ss[0] + " set.")

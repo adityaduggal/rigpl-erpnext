@@ -26,13 +26,13 @@ def execute():
 		for jv in jv_list:
 			jv_doc = frappe.get_doc("Journal Entry", jv[0])
 			jv_doc.cancel()
-			print "Cancelled JV# " + jv[0]
+			print ("Cancelled JV# " + jv[0])
 	#Check the Salary Slips in the SSP if they are posted or NOT, if NOT posted then POST
 		ssp_doc = frappe.get_doc("Salary Slip Payment", ssp[0])
 		count = 0
 		for ss in ssp_doc.salary_slip_payment_details:
 			count += 1
-			print "Processing Row# " + str(count)
+			print ("Processing Row# " + str(count))
 			ss_doc = frappe.get_doc("Salary Slip", ss.salary_slip)
 			ss_posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` WHERE docstatus =1 AND
 				voucher_type = 'Salary Slip' AND voucher_no = '%s'
@@ -40,7 +40,7 @@ def execute():
 			if not ss_posted:
 				from rigpl_erpnext.rigpl_erpnext.validations.salary_slip import post_gl_entry
 				post_gl_entry(ss_doc)
-				print "Row# " + str(count) + " Salary Slip # :" + ss.salary_slip + " Posted"
+				print ("Row# " + str(count) + " Salary Slip # :" + ss.salary_slip + " Posted")
 		ssp_doc = frappe.get_doc("Salary Slip Payment", ssp[0])
 		ssp_doc.cancel()
-		print "Salary Slip Payment # " + ssp[0] + " Cancelled"
+		print ("Salary Slip Payment # " + ssp[0] + " Cancelled")

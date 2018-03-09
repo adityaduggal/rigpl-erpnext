@@ -14,4 +14,4 @@ def execute():
 		
 		if sid:
 			frappe.db.set_value("Trial Tracking", i[0], "invoice_no", sid[0][0])
-			print "Trial Tracking Number ", tt.name, "updated with Sales Invoice Number ", sid[0][0]
+			print ("Trial Tracking Number " + tt.name + " updated with Sales Invoice Number " + sid[0][0])
