@@ -23,8 +23,66 @@ class CarrierTracking(Document):
 	uom_mapper = {"Kg":"KG", "LB":"LB", "kg": "KG", "cm": "CM"}
 
 	def validate(self):
+		trans_doc = frappe.get_doc("Transporters", self.carrier_name)
+		from_address_doc = frappe.get_doc("Address", self.from_address)
+		to_address_doc = frappe.get_doc("Address", self.to_address)
+
 		self.sales_invoice_validations()
 		self.ctrac_validations()
+		self.carrier_validations(trans_doc, from_address_doc, to_address_doc)
+		self.gen_add_validations(trans_doc, from_address_doc, to_address_doc)
+
+	def gen_add_validations(self, trans_doc, from_address_doc, to_address_doc):
+		if from_address_doc.pincode is None:
+			frappe.throw(("No Pincode Defined for Address {} if pincode not known enter \
+				NA").format(self.from_address))
+
+	def carrier_validations(self, trans_doc, from_address_doc, to_address_doc):
+		if trans_doc.is_outward_only==1:
+			if from_address_doc.is_your_company_address != 1:
+				frappe.throw(('Since {} is Outward Transporter, \
+					From Address Should be Owned Address').format(self.carrier_name))
+		else:
+			if from_address_doc.is_your_company_address == 1:
+				frappe.throw(('Since {} is Inward Transporter, \
+					From Address Should be not be Owned Address').format(self.carrier_name))
+		
+		if trans_doc.is_export_only == 1:
+			if from_address_doc.country == to_address_doc.country:
+				frappe.throw(('Since {} is Export Transporter, \
+					To Address Should be not be in {}').format(self.carrier_name, \
+					from_address_doc.country))
+
+		if trans_doc.is_imports_only == 1:
+			if from_address_doc.is_your_company_address == 1:
+				frappe.throw(('Since {} is Import Transporter, \
+					From Address Should be not owned Address').format(self.carrier_name))
+
+			if from_address_doc.country == to_address_doc.country:
+				frappe.throw(('Since {} is Import Transporter, \
+					From Address Country Should not be Same as To Address').format(self.carrier_name))
+
+			if from_address_doc.is_your_company_address != 1:
+				frappe.throw(('Since {} is Import Transporter, \
+					To Address Should be Owned Address').format(self.carrier_name))
+
+		if trans_doc.is_domestic_only == 1:
+			if from_address_doc.country != to_address_doc.country:
+				frappe.throw(('Since {} is Domestic Transporter, \
+					From and To Address Should be in Same Country').format(self.carrier_name))
+
+		if trans_doc.minimum_weight > 0:
+			if trans_doc.minimum_weight > self.total_weight:
+				frappe.throw(('Minimum Weight for {} is \
+					{} kgs').format(self.carrier_name, trans_doc.minimum_weight))
+
+		if trans_doc.maximum_amount > 0:
+			if trans_doc.maximum_amount < self.amount:
+				frappe.throw(('Maximum Value for {} is \
+					{}').format(self.carrier_name, trans_doc.maximum_amount))
+
+		if self.amount < 1:
+			frappe.throw("Amount Should be One or More than One")
 
 	def ctrac_validations(self):
 
@@ -476,10 +534,12 @@ class CarrierTracking(Document):
 
 	def set_commercial_invoice_info(self, call_type):
 		call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.Purpose = self.purpose
-		#call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.CustomsInvoiceNumber = \
-			#self.document_name
+		call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.CustomsInvoiceNumber = \
+			self.document_name if self.purpose == 'SOLD' else 'OUTBOUND_LABEL'
+			
 		call_type.RequestedShipment.ShippingDocumentSpecification.ShippingDocumentTypes = \
-			"COMMERCIAL_INVOICE"
+			"COMMERCIAL_INVOICE" if self.purpose == 'SOLD' else 'OUTBOUND_LABEL'
+
 		call_type.RequestedShipment.ShippingDocumentSpecification.CommercialInvoiceDetail.Format.ImageType = "PDF"
 		call_type.RequestedShipment.ShippingDocumentSpecification.CommercialInvoiceDetail.Format.StockType = "PAPER_LETTER"
 		call_type.RequestedShipment.CustomsClearanceDetail.CustomsValue.Amount = self.amount
