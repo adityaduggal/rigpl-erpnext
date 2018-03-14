@@ -24,6 +24,20 @@ class CarrierTracking(Document):
 
 	def validate(self):
 		self.sales_invoice_validations()
+		self.ctrac_validations()
+
+	def ctrac_validations(self):
+
+		#Update Package Details and also Validate UOM and Volumetric Weight
+		for pkg in self.shipment_package_details:
+			pkg_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
+			pkg.package_name = pkg_doc.title
+			pkg.volumetric_weight = pkg_doc.volumetric_weight_in_kgs
+			if pkg.weight_uom != 'Kg':
+				frappe.throw("Only Kg is allowed currently in Package Weight UoM")
+			if flt(pkg.volumetric_weight) > flt(pkg.package_weight):
+				frappe.throw("Parcel Weight Less than Volumetric Weight, USE Smaller \
+					Package or Change the Weight in Row {}".format(pkg.idx))
 
 	def sales_invoice_validations(self):
 		if self.document == "Sales Invoice":
