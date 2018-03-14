@@ -29,7 +29,7 @@ def execute(filters=None):
 		closing = open_bal + bet_inc - bet_dec
 		
 		if non_zero == 1:
-			if open_bal <>0 or bet_inc <>0 or bet_dec <> 0 or closing <>0:
+			if open_bal !=0 or bet_inc !=0 or bet_dec != 0 or closing !=0:
 				row = [emp, emp_det.employee_name, emp_det.company_registered_with, \
 					emp_det.branch, emp_det.department, emp_det.designation, \
 					emp_det.date_of_joining, emp_det.relieving_date, open_bal, bet_inc, \

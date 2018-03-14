@@ -13,7 +13,7 @@ def execute(filters=None):
 	return columns, data
 
 def get_columns(filters):
-	if filters.get("without_roster")<>1:
+	if filters.get("without_roster")!=1:
 		return [
 			"ID:Link/Roster:80", "From Date:Date:80", "To Date:Date:80", 
 			"Shift:Link/Shift Details:100", "Shift Name::150",
@@ -31,7 +31,7 @@ def get_entries(filters):
 	conditions_ro = get_conditions(filters)[1]
 	conditions_sh = get_conditions(filters)[2]
 	
-	if filters.get("without_roster") <> 1:
+	if filters.get("without_roster") != 1:
 		query = """SELECT ro.name, ro.from_date, ro.to_date, ro.shift, sh.title,
 			emp.name, emp.employee_name, ifnull(emp.branch,"-"), ifnull(emp.department,"-"),
 			ifnull(emp.designation,"-"), sh.in_time, sh.out_time, sh.hours_required_per_day
@@ -86,7 +86,7 @@ def get_conditions(filters):
 				filters["to_date"], filters["from_date"])
 
 		
-	if filters.get("shift") and filters.get("without_roster") <> 1:
+	if filters.get("shift") and filters.get("without_roster") != 1:
 		conditions_sh += " AND ro.shift ='%s'" % filters["shift"]
 
 		

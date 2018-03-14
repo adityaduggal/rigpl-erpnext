@@ -27,7 +27,7 @@ def get_entries(filters):
 		emp.employee_name, la.leave_type, la.total_leave_days, 
 		la.leave_balance, la.posting_date, la.owner, la.creation
 		FROM `tabLeave Application` la, `tabEmployee` emp
-		WHERE la.docstatus <> 2 AND
+		WHERE la.docstatus != 2 AND
 			la.employee = emp.name %s
 		ORDER BY la.from_date, la.to_date, emp.date_of_joining""" %conditions
 	data = frappe.db.sql(query, as_list=1)

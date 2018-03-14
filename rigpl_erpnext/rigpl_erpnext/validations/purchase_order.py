@@ -78,7 +78,7 @@ def check_taxes_integrity(doc,method):
 
 def check_subcontracting(doc,method):
 	for d in doc.items:
-		if doc.is_subcontracting <> 1:
+		if doc.is_subcontracting != 1:
 			if d.subcontracted_item:
 				frappe.throw(("Subcontracted Item only allowed for Sub Contracting PO. \
 					Check Row# {0}. This PO is Not a Subcontracting PO check the box to \
@@ -86,16 +86,16 @@ def check_subcontracting(doc,method):
 	for d in doc.items:
 		item = frappe.get_doc("Item", d.item_code)
 		if doc.is_subcontracting == 1:
-			if item.is_job_work <> 1:
+			if item.is_job_work != 1:
 				frappe.throw(("Only Sub Contracted Items are allowed in Item Code for \
 					Sub Contracting PO. Check Row # {0}").format(d.idx))
 		else:
-			if item.is_purchase_item <> 1:
+			if item.is_purchase_item != 1:
 				frappe.throw(("Only Purchase Items are allowed in Item Code for \
 					Purchase Orders. Check Row # {0}").format(d.idx))
 		if d.so_detail:
 			sod = frappe.get_doc("Sales Order Item", d.so_detail)
-			if doc.is_subcontracting <> 1:
+			if doc.is_subcontracting != 1:
 				d.item_code = sod.item_code
 			else:
 				d.subcontracted_item = sod.item_code
@@ -199,7 +199,7 @@ def get_ste_items(doc,method):
 	
 def get_existing_ste(doc,method):
 	chk_ste = frappe.db.sql("""SELECT ste.name FROM `tabStock Entry` ste
-		WHERE ste.docstatus <> 2 AND
+		WHERE ste.docstatus != 2 AND
 		ste.purchase_order = '%s'"""% doc.name, as_list=1)
 	return chk_ste
 	
@@ -218,7 +218,7 @@ def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
 		prd.docstatus = 1
 		AND so.docstatus = 1 
 		AND soi.parent = so.name 
-		AND so.status <> "Closed"
+		AND so.status != "Closed"
 		AND soi.qty > soi.delivered_qty
 		AND prd.sales_order = so.name
 		AND (prd.name like %(txt)s

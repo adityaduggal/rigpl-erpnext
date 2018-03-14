@@ -28,9 +28,9 @@ class Roster(Document):
 		for d in self.get('employees'):
 			if getdate(d.to_date) < getdate(d.from_date):
 				frappe.throw(_("From Date should not be greater than To Date in Row # {0}").format(d.idx))
-			if getdate(d.to_date) <> getdate(self.to_date):
+			if getdate(d.to_date) != getdate(self.to_date):
 				d.to_date = self.to_date
-			if getdate(d.from_date) <> getdate(self.from_date):
+			if getdate(d.from_date) != getdate(self.from_date):
 				d.from_date = self.from_date
 	
 	def validate_employee(self):

@@ -19,7 +19,7 @@ class SalesCallTool(Document):
 		comm.communication_date = self.date_of_communication
 		#add custom field for next_action_date in Communication
 		#add custom field for communication_subtype in Communication
-		if self.no_action_required <> 1:
+		if self.no_action_required != 1:
 			comm.follow_up = 1
 		comm.next_action_date = self.next_action_date #This would add a TODO to USER fields' account on that day
 		comm.communication_subtype = "Sales Related"
@@ -51,7 +51,7 @@ class SalesCallTool(Document):
 				if self.customer:
 					if self.contact:
 						contact = frappe.get_doc("Contact", self.contact)
-						if contact.customer <> self.customer:
+						if contact.customer != self.customer:
 							frappe.throw("Contact selected should be linked to the Customer")
 					else:
 						frappe.throw("Contact is Mandatory")

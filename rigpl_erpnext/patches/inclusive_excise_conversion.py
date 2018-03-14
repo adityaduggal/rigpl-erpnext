@@ -237,14 +237,14 @@ def execute():
 		frappe.db.sql("""UPDATE `tabDelivery Note Item`
 			SET rate = %s, amount = rate * qty
 			WHERE name = %s """, (dn_list[i][2], dn_list[i][0]))
-		print "Updated Prices in Delivery Note Detail# ", dn_list[i][0], "to ", dn_list[i][2]
+		print ("Updated Prices in Delivery Note Detail# " + dn_list[i][0] + " to " + dn_list[i][2])
 		frappe.db.sql("""UPDATE `tabSales Order Item`
 			SET rate = %s, amount = rate * qty
 			WHERE name = %s """, (dn_list[i][2], dn_list[i][1]))
-		print "Updated Prices in Sales Order Detail# ", dn_list[i][1], "to ", dn_list[i][2]
+		print ("Updated Prices in Sales Order Detail# " + dn_list[i][1] + " to " + dn_list[i][2])
 	
 	for i in range(len(so_list)):
 		frappe.db.sql("""UPDATE `tabSales Order Item`
 			SET rate = %s, amount = rate * qty
 			WHERE name = %s """, (so_list[i][1], so_list[i][0]))
-		print "Updated Prices in Sales Order Detail# ", so_list[i][0], "to ", so_list[i][1]
+		print ("Updated Prices in Sales Order Detail# " + so_list[i][0] + " to " + so_list[i][1])

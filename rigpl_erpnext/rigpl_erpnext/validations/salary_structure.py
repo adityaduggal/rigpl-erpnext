@@ -15,7 +15,7 @@ def check_edc(doc,tables):
 			sal_comp = frappe.get_doc("Salary Component", comp.salary_component)
 			field = 'is_' + i[:-1]
 			comp.depends_on_lwp = sal_comp.depends_on_lwp
-			if sal_comp.get(field)<>1:
+			if sal_comp.get(field)!=1:
 				frappe.throw(("Only {0} are allowed in {1} table check row# \
 					{2} where {3} is not a {4}").format(i, i, comp.idx, \
 					sal_comp.salary_component, i[:-1]))

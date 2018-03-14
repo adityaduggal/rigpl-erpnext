@@ -12,7 +12,7 @@ def execute(filters=None):
 	conditions_ss, filters, conditions_emp, from_date, to_date = get_conditions(filters)
 	emp_lst = get_employee(filters, conditions_emp)
 	
-	if filters.get("without_salary_slip") <> 1:
+	if filters.get("without_salary_slip") != 1:
 		salary_slips = get_salary_slips(filters, conditions_ss, emp_lst)
 		columns, earning_types, ded_types, cont_types = get_columns(salary_slips, filters)
 		ss_earning_map = get_ss_earning_map(salary_slips, filters)
@@ -48,7 +48,7 @@ def execute(filters=None):
 				if emp.name == ss.employee:
 					row += [emp.company_registered_with, emp.branch, emp.department, emp.designation]
 									
-			if filters.get("summary") <> 1:						
+			if filters.get("summary") != 1:						
 				for e in earning_types:
 					row.append(ss_earning_map.get(ss.name, {}).get(e))
 					
@@ -58,7 +58,7 @@ def execute(filters=None):
 				row += [ss.rounded_total, bank_payment, book_net, (ss.rounded_total - bank_payment)]
 			else:
 				row += [ss.arrear_amount, ss.leave_encashment_amount, ss.gross_pay]
-			if filters.get("summary") <> 1:
+			if filters.get("summary") != 1:
 				for d in ded_types:
 					row.append(ss_ded_map.get(ss.name, {}).get(d))
 			
@@ -98,7 +98,7 @@ def execute(filters=None):
 				emp.name NOT IN (
 				SELECT emp.name
 				FROM `tabSalary Slip` ss, `tabEmployee` emp
-				WHERE emp.name = ss.employee AND ss.docstatus <> 2 %s
+				WHERE emp.name = ss.employee AND ss.docstatus != 2 %s
 				) AND emp.date_of_joining <= '%s' 
 				AND IFNULL(emp.relieving_date, '2099-12-31') >= '%s' %s
 			ORDER BY emp.date_of_joining""" %(conditions_ss, to_date, to_date, conditions_emp)
@@ -166,7 +166,7 @@ def get_columns(salary_slips, filters):
 			ORDER BY ssd.idx""" % 
 			(', '.join(['%s']*len(salary_slips))), tuple([d.name for d in salary_slips]))	
 
-	if filters.get("summary") <> 1:		
+	if filters.get("summary") != 1:		
 		columns = columns + [(e + ":Currency:90") for e in earning_types] + \
 			["Arrear Amt:Currency:90", "Leave Amt:Currency:90", 
 			"Gross Pay:Currency:100"] + [(d + ":Currency:90") for d in ded_types] + \
@@ -174,7 +174,7 @@ def get_columns(salary_slips, filters):
 			[(c + ":Currency:90") for c in cont_types] + ["Total Contribution:Currency:100"]
 	
 	
-	if filters.get("summary") <> 1 and filters.get("bank_only") <> 1 and filters.get("without_salary_slip") <> 1:
+	if filters.get("summary") != 1 and filters.get("bank_only") != 1 and filters.get("without_salary_slip") != 1:
 		columns = columns + ["Rounded Pay:Currency:100"]
 	
 	if filters.get("bank_only") == 1:
@@ -200,7 +200,7 @@ def get_salary_slips(filters, conditions_ss, emp_lst):
 
 	salary_slips = frappe.db.sql("""SELECT * 
 		FROM `tabSalary Slip` ss
-		WHERE ss.docstatus <> 2  {condition} AND ss.employee IN (%s)
+		WHERE ss.docstatus != 2  {condition} AND ss.employee IN (%s)
 		ORDER BY ss.employee""".format(condition=conditions_ss) %(", ".join(['%s']*len(emp_lst))), \
 		tuple([d.name for d in emp_lst]), as_dict=1)
 	

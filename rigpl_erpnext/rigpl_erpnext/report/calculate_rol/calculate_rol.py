@@ -90,10 +90,10 @@ def get_sl_entries(filters):
 			
 			WHERE 
 			srd.parent = sr.name AND sr.docstatus = 1 
-			AND srd.qty <> srd.current_qty
+			AND srd.qty != srd.current_qty
 			AND srd.current_valuation_rate = srd.valuation_rate
 			AND srd.item_code = it.name
-			AND sr.posting_time <> '23:59:59' %s),
+			AND sr.posting_time != '23:59:59' %s),
 		
 		null, null,null, null, 
 		

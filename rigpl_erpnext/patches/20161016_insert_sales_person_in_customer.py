@@ -18,4 +18,4 @@ def execute():
 					"parentfield": 'sales_team'
 					})
 			new_st.insert(ignore_permissions=True)
-			print "For Customer:", cust_list[d][0], "inserted New Sales Person Rohit Duggal"
+			print ("For Customer:" + cust_list[d][0] + " inserted New Sales Person Rohit Duggal")

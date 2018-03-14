@@ -36,7 +36,7 @@ def get_items(filters, conditions):
 			pod.conversion_factor, ste.name
 			FROM `tabPurchase Order` po, `tabPurchase Order Item` pod, `tabStock Entry` ste
 			WHERE po.docstatus = 1 AND po.name = pod.parent AND ste.purchase_order = po.name
-				AND po.status <> 'Closed' AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0)
+				AND po.status != 'Closed' AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0)
 				%s
 			ORDER BY po.transaction_date, pod.schedule_date""" %conditions
 	else:
@@ -45,7 +45,7 @@ def get_items(filters, conditions):
 			pod.qty, pod.returned_qty, pod.stock_uom, pod.base_rate
 			FROM `tabPurchase Order` po, `tabPurchase Order Item` pod
 			WHERE po.docstatus = 1 AND po.name = pod.parent 
-				AND po.status <> 'Closed' AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s
+				AND po.status != 'Closed' AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s
 			ORDER BY po.transaction_date, pod.schedule_date""" %conditions
 		
 	data = frappe.db.sql(query, as_list=1)

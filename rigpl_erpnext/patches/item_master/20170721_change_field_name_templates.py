@@ -19,4 +19,4 @@ def execute():
 	for i in change_list:
 		frappe.db.sql("""UPDATE `tabItem Variant Attribute` 
 			SET field_name = '%s' 
-			WHERE name = '%s' AND field_name <> 'Material'"""%(new_field_name, i[0]))
+			WHERE name = '%s' AND field_name != 'Material'"""%(new_field_name, i[0]))

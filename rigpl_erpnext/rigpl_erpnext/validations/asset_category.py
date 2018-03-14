@@ -15,13 +15,13 @@ def validate(doc,method):
 	if len(doc.accounts) >1:
 		frappe.throw("Only one account allowed per Asset Category")
 		
-	if len(doc.asset_short_name) <> 3:
+	if len(doc.asset_short_name) != 3:
 		frappe.throw("Asset Short name should be EXACTLY THREE Characters long")
 		
 	if not re.match("^[A-H, J-N, P-Z, 0-9]*$", doc.asset_short_name):
 		frappe.throw("Only numbers and letters except I and O are allowed in Asset Short Name")
 	other_short_names = frappe.db.sql("""SELECT name, asset_short_name AS asn FROM `tabAsset Category`
-		WHERE name <> '%s'"""%doc.name, as_dict = 1)
+		WHERE name != '%s'"""%doc.name, as_dict = 1)
 		
 	for i in other_short_names:
 		if i.asn == doc.asset_short_name:

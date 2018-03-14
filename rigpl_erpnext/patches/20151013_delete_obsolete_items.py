@@ -9,7 +9,7 @@ def execute():
 		FROM `tabItem` it
 		WHERE 
 			it.variant_of IS NULL
-			AND it.has_variants <> 1
+			AND it.has_variants != 1
 
 			AND ifnull((SELECT count(sod.name) FROM `tabMaterial Request Item` sod WHERE sod.item_code = 
 				it.name GROUP BY sod.item_code),0) = 0
@@ -52,8 +52,8 @@ def execute():
 		if vr:
 			for k in range(len(vr)):
 				frappe.delete_doc_if_exists("Valuation Rate", vr[k][0])
-				print "Deleted", vr[k][0]
+				print ("Deleted " + vr[k][0])
 		frappe.delete_doc_if_exists("Item", i[0])
-		print "Row#", j, "Deleted Item", i[0], "which was Created By", i[1], "on", i[2]
+		print ("Row# " + j + " Deleted Item " + i[0] + " which was Created By " + i[1] + " on " + i[2])
 		j += 1
-	print "Total Items Deleted=", len(obs_items)
+	print ("Total Items Deleted= " + len(obs_items))

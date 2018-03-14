@@ -12,6 +12,7 @@ def validate(doc,method):
 def on_submit(doc,method):
 	create_new_carrier_track(doc,method)
 	new_brc_tracking(doc,method)
+	update_shipment_booking(doc, method)
 	user = frappe.session.user
 	query = """SELECT role from `tabUserRole` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
@@ -127,7 +128,12 @@ def update_fields(doc,method):
 	
 	doc.c_form_applicable = c_form_tax
 	doc.letter_head = letter_head_tax
-	doc.lr_no = re.sub('[^A-Za-z0-9]+', '', str(doc.lr_no))
+	if frappe.db.get_value("Transporters", doc.transporters, "fedex_credentials") == 1:
+		ctrack = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` 
+			WHERE document = 'Sales Invoice' AND document_name = '%s'"""%(doc.name), as_list=1)
+		doc.lr_no = frappe.db.get_value("Carrier Tracking",ctrack[0][0] )
+	else:
+		doc.lr_no = re.sub('[^A-Za-z0-9]+', '', str(doc.lr_no))
 
 def validate_carrier_tracking(doc,method):
 	tracked_transporter = is_tracked_transporter(doc,method)
@@ -213,3 +219,11 @@ def create_new_brc_tracking(doc,method):
 	brc_doc.reference_name = doc.name
 	brc_doc.insert()
 	frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('BRC MEIS Tracking', brc_doc.name)))
+
+def update_shipment_booking(doc, method):
+	if doc.amended_from:
+		bk_ship = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking`  
+			WHERE docstatus != 2 AND reference_doctype = 'Sales Invoice'
+			AND reference_docname = '%s'"""%(doc.amended_from), as_list=1)
+		for bks in bk_ship:
+			frappe.db.set_value("Carrier Tracking", bks[0], "reference_docname", doc.name)

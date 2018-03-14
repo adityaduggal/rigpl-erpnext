@@ -17,22 +17,22 @@ def execute():
 		if ec_doc.docstatus == 2:
 			if ec_doc.status != "Cancelled":
 				frappe.db.set_value("Expense Claim", ec[0], "status", "Cancelled")
-				print "Status of " + ec[0] + " set to Cancelled"
+				print ("Status of " + ec[0] + " set to Cancelled")
 		elif ec_doc.docstatus == 0:
 			if ec_doc.status != "Draft":
 				frappe.db.set_value("Expense Claim", ec[0], "status", "Draft")
-				print "Status of " + ec[0] + " set to Draft"
+				print ("Status of " + ec[0] + " set to Draft")
 		elif ec_doc.docstatus == 1:
 			if ec_doc.total_sanctioned_amount == ec_doc.total_amount_reimbursed:
 				if ec_doc.status != "Paid":
 					frappe.db.set_value("Expense Claim", ec[0], "status", "Paid")
-					print "Status of " + ec[0] + " set to Paid"
+					print ("Status of " + ec[0] + " set to Paid")
 			elif ec_doc.total_sanctioned_amount < ec_doc.total_amount_reimbursed:
 				if ec_doc.total_amount_reimbursed > 0:
-					print "Error for " + ec[0]
+					print ("Error for " + ec[0])
 				else:
 					if ec_doc.status != "Unpaid":
 						frappe.db.set_value("Expense Claim", ec[0], "status", "Unpaid")
-						print "Status of " + ec[0] + " set to Unpaid"
+						print ("Status of " + ec[0] + " set to Unpaid")
 				
 			

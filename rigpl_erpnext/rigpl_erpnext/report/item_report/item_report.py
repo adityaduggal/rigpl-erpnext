@@ -42,7 +42,7 @@ def get_columns(templates):
 		attr = frappe.get_doc("Item Attribute", i)
 		dict["name"] = i
 		dict["numeric_values"] = attr.numeric_values
-		if attr.numeric_values <> 1:
+		if attr.numeric_values != 1:
 			max_length = frappe.db.sql("""SELECT MAX(CHAR_LENGTH(attribute_value))
 				FROM `tabItem Attribute Value` WHERE parent = '%s'"""%(i), as_list=1)
 			if attr.hidden == 1:
