@@ -23,19 +23,65 @@ class CarrierTracking(Document):
 	uom_mapper = {"Kg":"KG", "LB":"LB", "kg": "KG", "cm": "CM"}
 
 	def validate(self):
+		self.update_fields()
 		trans_doc = frappe.get_doc("Transporters", self.carrier_name)
 		from_address_doc = frappe.get_doc("Address", self.from_address)
 		to_address_doc = frappe.get_doc("Address", self.to_address)
-
-		self.sales_invoice_validations()
-		self.ctrac_validations()
-		self.carrier_validations(trans_doc, from_address_doc, to_address_doc)
 		self.gen_add_validations(trans_doc, from_address_doc, to_address_doc)
 
+		if trans_doc.fedex_credentials == 1:
+			self.sales_invoice_validations_fedex()
+			self.ctrac_validations()
+			self.carrier_validations(trans_doc, from_address_doc, to_address_doc)
+		else:
+			self.non_fedex_validations()
+
+	def update_fields(self):
+		if self.document == 'Sales Invoice':
+			si_doc = frappe.get_doc("Sales Invoice",self.document_name)
+			self.receiver_document = "Customer"
+			self.receiver_name = si_doc.customer
+			tax_temp_doc = frappe.get_doc("Sales Taxes and Charges Template", \
+				si_doc.taxes_and_charges)
+			if tax_temp_doc.from_address:
+				self.from_address = tax_temp_doc.from_address
+			else:
+				frappe.throw("Update From Address in Tax Template {}".format(tax_temp_doc.name))
+			self.to_address = si_doc.shipping_address_name
+			self.contact_person = si_doc.contact_person
+			self.carrier_name = si_doc.transporters
+			self.purpose = 'SOLD'
+			self.amount = si_doc.grand_total
+			self.currency = si_doc.currency
+
+	def non_fedex_validations(self):
+		if self.document == 'Sales Invoice':
+			if self.invoice_integrity != 1:
+				if self.posted_to_shipway == 1:
+					si_doc = frappe.get_doc("Sales Invoice", self.document_name)
+					si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
+					if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb or \
+						si_doc.transporters != self.carrier_name:
+						create_new_carrier_track(si_doc, frappe)
+						self.docstatus = 1
+				else:
+					self.awb_number = si_doc.lr_no
+					self.carrier_name = si_doc.transporters
+
 	def gen_add_validations(self, trans_doc, from_address_doc, to_address_doc):
+		if self.status == "Delivered":
+			self.docstatus = 1
+
 		if from_address_doc.pincode is None:
 			frappe.throw(("No Pincode Defined for Address {} if pincode not known enter \
 				NA").format(self.from_address))
+
+		if self.document == 'Sales Invoice':
+			si_doc = frappe.get_doc("Sales Invoice",self.document_name)
+			if self.carrier_name == si_doc.transporters and self.awb_number == si_doc.lr_no:
+				self.invoice_integrity = 1
+			else:
+				self.invoice_integrity = 0
 
 	def carrier_validations(self, trans_doc, from_address_doc, to_address_doc):
 		if trans_doc.is_outward_only==1:
@@ -60,7 +106,8 @@ class CarrierTracking(Document):
 
 			if from_address_doc.country == to_address_doc.country:
 				frappe.throw(('Since {} is Import Transporter, \
-					From Address Country Should not be Same as To Address').format(self.carrier_name))
+					From Address Country Should not be Same as To \
+					Address').format(self.carrier_name))
 
 			if from_address_doc.is_your_company_address != 1:
 				frappe.throw(('Since {} is Import Transporter, \
@@ -85,7 +132,6 @@ class CarrierTracking(Document):
 			frappe.throw("Amount Should be One or More than One")
 
 	def ctrac_validations(self):
-
 		#Update Package Details and also Validate UOM and Volumetric Weight
 		for pkg in self.shipment_package_details:
 			pkg_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
@@ -97,48 +143,33 @@ class CarrierTracking(Document):
 				frappe.throw("Parcel Weight Less than Volumetric Weight, USE Smaller \
 					Package or Change the Weight in Row {}".format(pkg.idx))
 
-	def sales_invoice_validations(self):
+	def sales_invoice_validations_fedex(self):
 		if self.document == "Sales Invoice":
 			si_doc = frappe.get_doc("Sales Invoice",self.document_name)
-			self.receiver_document = "Customer"
-			self.receiver_name = si_doc.customer
-			tax_temp_doc = frappe.get_doc("Sales Taxes and Charges Template", si_doc.taxes_and_charges)
-			if tax_temp_doc.from_address:
-				self.from_address = tax_temp_doc.from_address
-			self.to_address = si_doc.shipping_address_name
-			self.contact_person = si_doc.contact_person
-			self.carrier_name = si_doc.transporters
-			self.purpose = 'SOLD'
-			self.amount = si_doc.grand_total
-			self.currency = si_doc.currency
 
-
-			if self.carrier_name == si_doc.transporters and self.awb_number == si_doc.lr_no:
-				self.invoice_integrity = 1
-			else:
-				self.invoice_integrity = 0
+			if self.awb_number:
+				if self.awb_number != si_doc.lr_no:
+					self.set_invoice_lr_no(self.document_name, self.document)
 
 			if self.invoice_integrity != 1:
 				if self.posted_to_shipway == 1:
 					si_doc = frappe.get_doc("Sales Invoice", self.document_name)
 					si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
-					if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb or si_doc.transporters != self.carrier_name:
+					if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb or \
+						si_doc.transporters != self.carrier_name:
 						create_new_carrier_track(si_doc, frappe)
 						self.docstatus = 1
-				else:
-					if frappe.db.get_value("Transporters", self.carrier_name, "fedex_credentials") != 1:
-						self.awb_number = si_doc.lr_no
-					else:
-						if self.awb_number:
-							self.set_invoice_lr_no(self.document_name, self.document)
-						else:
-							self.awb_number = "NA"
-							self.set_invoice_lr_no(self.document_name, self.document)
-						#si_doc.lr_no = self.awb_number
-					self.carrier_name = si_doc.transporters
+					
+					if self.awb_number != 'NA':
+						self.set_invoice_lr_no(self.document_name, self.document)
+					elif self.awb_number is None:
+						self.awb_number = "NA"
+						self.set_invoice_lr_no(self.document_name, self.document)
+						self.carrier_name = si_doc.transporters
 		else:
 			if self.purpose == 'SOLD':
 				frappe.throw('Purpose SOLD only possible for Sales Invoices')
+		
 		total_weight = 0
 		for d in self.shipment_package_details:
 			total_weight += d.package_weight
@@ -147,18 +178,6 @@ class CarrierTracking(Document):
 		if total_weight > 0:
 			if flt(self.total_weight) != flt(total_weight):
 				self.total_weight = total_weight
-
-		if self.status == "Delivered":
-			self.docstatus = 1
-		'''
-		Check Carrier and LR No with Sales Invoice
-		Order ID = ID of the Tracking Number (DONE)
-		Don't allow if the document is NOT SAVE (DONE)
-		Don't allow multiple AWB numbers to be posted to Shipway instead just pull the data 
-		from Shipway (TOO COMPLEX since we cannot change shipment data via API)
-		Validation check the Document Number with DOCTYPE and AWB number should not 
-		repeat with Same Carrier (TOO COMPLEX since we cannot change shipment data via API)
-		'''
 
 	def pushdata (self):
 		pushOrderData (self)
@@ -188,7 +207,8 @@ class CarrierTracking(Document):
 		if self.shipment_package_details:
 			for packages in self.shipment_package_details:
 				if packages.tracking_id and packages.idx == 1:
-					frappe.throw(("Shipment Already Booked with Tracking Number: {}").format(self.awb_number))
+					frappe.throw(("Shipment Already Booked with Tracking Number: \
+						{}").format(self.awb_number))
 				else:
 					if self.get("__islocal") != 1:
 						if packages.idx == 1:
@@ -218,11 +238,12 @@ class CarrierTracking(Document):
 		self.location_service(credentials, from_address_doc, from_country_doc)
 
 
-	def create_shipment_service(self, credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, \
-			transporter_doc, contact_doc):
+	def create_shipment_service(self, credentials, from_address_doc, to_address_doc, \
+		from_country_doc, to_country_doc, transporter_doc, contact_doc):
 		from fedex.services.ship_service import FedexProcessShipmentRequest
 		customer_transaction_id = self.name  # Optional transaction_id
-		shipment = FedexProcessShipmentRequest(credentials, customer_transaction_id=customer_transaction_id)
+		shipment = FedexProcessShipmentRequest(credentials, \
+			customer_transaction_id=customer_transaction_id)
 		self.set_shipment_details(shipment, credentials, transporter_doc)
 		shipper_details =  self.set_shipper_info(shipment, from_address_doc, credentials)
 		recipient_details = self.set_recipient_info(shipment, to_address_doc, credentials)
@@ -235,7 +256,8 @@ class CarrierTracking(Document):
 			pkg_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
 			if index:
 					shipment.RequestedShipment.MasterTrackingId.TrackingNumber = self.awb_number
-					shipment.RequestedShipment.MasterTrackingId.TrackingIdType.value = transporter_doc.type_of_service
+					shipment.RequestedShipment.MasterTrackingId.TrackingIdType.value = \
+						transporter_doc.type_of_service
 					self.set_package_data(pkg, pkg_doc, shipment, index + 1)
 			else:
 				shipment.RequestedShipment.TotalWeight.Units = self.uom_mapper.get(self.weight_uom)
@@ -536,7 +558,7 @@ class CarrierTracking(Document):
 		call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.Purpose = self.purpose
 		call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.CustomsInvoiceNumber = \
 			self.document_name if self.purpose == 'SOLD' else 'OUTBOUND_LABEL'
-			
+
 		call_type.RequestedShipment.ShippingDocumentSpecification.ShippingDocumentTypes = \
 			"COMMERCIAL_INVOICE" if self.purpose == 'SOLD' else 'OUTBOUND_LABEL'
 
@@ -629,9 +651,11 @@ class CarrierTracking(Document):
 			for row in doc.fedex_notification:
 				notify_dict = {
 					"EMailNotificationRecipientType":notify_mapper.get(row.notify_to, "SHIPPER"),
-					"EMailAddress":email_id_mapper.get(row.notify_to, {}).get("email_id", row.email_id or ""),
-					"NotificationEventsRequested":[ fedex_event for event, fedex_event in {"shipment":"ON_SHIPMENT", "delivery":"ON_DELIVERY", \
-														"tendered":"ON_TENDER", "exception":"ON_EXCEPTION"}.items() if row.get(event)],
+					"EMailAddress":email_id_mapper.get(row.notify_to, {}).get("email_id", \
+						row.email_id or ""),
+					"NotificationEventsRequested":[ fedex_event for event, fedex_event in \
+						{"shipment":"ON_SHIPMENT", "delivery":"ON_DELIVERY", \
+						"tendered":"ON_TENDER", "exception":"ON_EXCEPTION"}.items() if row.get(event)],
 					"Format":"HTML",
 					"Localization":{"LanguageCode":"EN", \
 									"LocaleCode":email_id_mapper.get(row.notify_to, {}).get("country_code", "IN")}
@@ -640,8 +664,10 @@ class CarrierTracking(Document):
 	
 	def location_service(self, credentials, from_address_doc, from_country_doc):
 		from fedex.services.location_service import FedexSearchLocationRequest
-		customer_transaction_id = "*** LocationService Request v3 using Python ***"  # Optional transaction_id
-		location_request = FedexSearchLocationRequest(credentials, customer_transaction_id=customer_transaction_id)
+		customer_transaction_id = "*** LocationService Request v3 using Python ***"  
+		# Optional transaction_id
+		location_request = FedexSearchLocationRequest(credentials, \
+			customer_transaction_id=customer_transaction_id)
 		location_request.Constraints.RadiusDistance.Value = self.radius
 		location_request.Constraints.RadiusDistance.Units = self.radius_uom
 		location_request.Address.PostalCode = from_address_doc.pincode[0:10]
