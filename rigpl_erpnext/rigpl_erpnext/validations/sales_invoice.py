@@ -227,4 +227,4 @@ def update_shipment_booking(doc, method):
 			WHERE docstatus != 2 AND document = 'Sales Invoice'
 			AND document_name = '%s'"""%(doc.amended_from), as_list=1)
 		for bks in bk_ship:
-			frappe.db.set_value("Carrier Tracking", bks[0], "reference_docname", doc.name)
+			frappe.db.set_value("Carrier Tracking", bks[0], "document_name", doc.name)
