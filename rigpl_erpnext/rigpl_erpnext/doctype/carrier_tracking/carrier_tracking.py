@@ -122,7 +122,7 @@ class CarrierTracking(Document):
 				frappe.throw(('Since {} is Domestic Transporter, \
 					From and To Address Should be in Same Country').format(self.carrier_name))
 
-		if flt(trans_doc.minimum_weight) > 0:
+		if flt(trans_doc.minimum_weight) > 0 and self.get("__islocal") != 1:
 			if flt(trans_doc.minimum_weight) > flt(self.total_weight):
 				frappe.throw(('Minimum Weight for {} is \
 					{} kgs').format(self.carrier_name, trans_doc.minimum_weight))
@@ -305,7 +305,7 @@ class CarrierTracking(Document):
 			frappe.msgprint('Canceling of Shipment in Fedex service failed.')
 
 	def remove_tracking_details(self, del_request):
-		frappe.db.set_value(self.doctype, self.name, "awb_number", "")
+		frappe.db.set_value(self.doctype, self.name, "awb_number", "NA")
 		for pkg in (self.shipment_package_details):
 			if pkg.tracking_id:
 				frappe.db.set_value("Shipment Package Details", pkg.name, "tracking_id", "")
@@ -575,7 +575,7 @@ class CarrierTracking(Document):
 				self.document_name if self.purpose == 'SOLD' else 'NA'
 
 		call_type.RequestedShipment.ShippingDocumentSpecification.ShippingDocumentTypes = \
-			"COMMERCIAL_INVOICE" if self.purpose == 'SOLD' else 'OUTBOUND_LABEL'
+			"COMMERCIAL_INVOICE" if self.purpose == 'SOLD' else 'LABEL'
 
 		call_type.RequestedShipment.ShippingDocumentSpecification.CommercialInvoiceDetail.Format.ImageType = "PDF"
 		call_type.RequestedShipment.ShippingDocumentSpecification.CommercialInvoiceDetail.Format.StockType = "PAPER_LETTER"
@@ -648,8 +648,11 @@ class CarrierTracking(Document):
 				"CountryOfManufacture":country_code,
 				"Quantity":int(total_qty),
 				"QuantityUnits":"EA",
-				"UnitPrice":{"Currency":doc.currency, "Amount":(doc.grand_total/total_qty)},
-				"CustomsValue":{"Currency":doc.currency, "Amount":doc.grand_total}
+				"UnitPrice":{"Currency":doc.currency, \
+					"Amount":(doc.grand_total/total_qty) if self.purpose == 'SOLD' \
+					else (1/total_qty)},
+				"CustomsValue":{"Currency":doc.currency, "Amount":doc.grand_total \
+					if self.purpose == 'SOLD' else 1}
 			}
 			shipment.RequestedShipment.CustomsClearanceDetail.Commodities.append(commodity_dict)
 		else:
