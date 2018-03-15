@@ -131,7 +131,8 @@ def update_fields(doc,method):
 	if frappe.db.get_value("Transporters", doc.transporters, "fedex_credentials") == 1:
 		ctrack = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` 
 			WHERE document = 'Sales Invoice' AND document_name = '%s'"""%(doc.name), as_list=1)
-		doc.lr_no = frappe.db.get_value("Carrier Tracking",ctrack[0][0] )
+		if ctrack:
+			doc.lr_no = frappe.db.get_value("Carrier Tracking",ctrack[0][0] )
 	else:
 		doc.lr_no = re.sub('[^A-Za-z0-9]+', '', str(doc.lr_no))
 

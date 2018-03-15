@@ -50,8 +50,12 @@ class CarrierTracking(Document):
 			self.to_address = si_doc.shipping_address_name
 			self.contact_person = si_doc.contact_person
 			self.carrier_name = si_doc.transporters
-			self.purpose = 'SOLD'
-			self.amount = si_doc.grand_total
+			if tax_temp_doc.is_sample == 1:
+				self.purpose = 'SAMPLE'
+				self.amount = 1
+			else:
+				self.purpose = 'SOLD'
+				self.amount = si_doc.grand_total
 			self.currency = si_doc.currency
 
 	def non_fedex_validations(self):
@@ -118,8 +122,8 @@ class CarrierTracking(Document):
 				frappe.throw(('Since {} is Domestic Transporter, \
 					From and To Address Should be in Same Country').format(self.carrier_name))
 
-		if trans_doc.minimum_weight > 0:
-			if trans_doc.minimum_weight > self.total_weight:
+		if flt(trans_doc.minimum_weight) > 0:
+			if flt(trans_doc.minimum_weight) > flt(self.total_weight):
 				frappe.throw(('Minimum Weight for {} is \
 					{} kgs').format(self.carrier_name, trans_doc.minimum_weight))
 
@@ -146,7 +150,11 @@ class CarrierTracking(Document):
 	def sales_invoice_validations_fedex(self):
 		if self.document == "Sales Invoice":
 			si_doc = frappe.get_doc("Sales Invoice",self.document_name)
-
+			other_tracks = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` 
+				WHERE document = 'Sales Invoice' AND document_name = '%s' 
+				AND name != '%s'"""%(self.document_name, self.name), as_list=1)
+			if other_tracks:
+				frappe.throw('Sales Invoice is already linked to {}'.format(other_tracks[0][0]))
 			if self.awb_number:
 				if self.awb_number != si_doc.lr_no:
 					self.set_invoice_lr_no(self.document_name, self.document)
@@ -553,11 +561,18 @@ class CarrierTracking(Document):
 			tin_details.Number = tin_no
 			call_type.RequestedShipment.Recipient.Tins = [tin_details]
 
+		self.recipient_details = "\n".join([str(ship_add_doc.address_title)[0:35], full_name, \
+					str(ship_add_doc.phone)[0:15], str(ship_add_doc.address_line1)[0:35], \
+					str(ship_add_doc.address_line2)[0:35], str(ship_add_doc.city)[0:20] + " " + \
+					str(state_code) + " " + str(ship_add_doc.pincode)[0:10] +  \
+					" " + to_country_doc.code] )
+
 
 	def set_commercial_invoice_info(self, call_type):
 		call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.Purpose = self.purpose
-		call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.CustomsInvoiceNumber = \
-			self.document_name if self.purpose == 'SOLD' else 'OUTBOUND_LABEL'
+		if call_type == 'shipment':
+			call_type.RequestedShipment.CustomsClearanceDetail.CommercialInvoice.CustomsInvoiceNumber = \
+				self.document_name if self.purpose == 'SOLD' else 'NA'
 
 		call_type.RequestedShipment.ShippingDocumentSpecification.ShippingDocumentTypes = \
 			"COMMERCIAL_INVOICE" if self.purpose == 'SOLD' else 'OUTBOUND_LABEL'
