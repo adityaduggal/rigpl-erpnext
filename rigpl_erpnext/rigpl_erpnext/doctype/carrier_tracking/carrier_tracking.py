@@ -60,9 +60,9 @@ class CarrierTracking(Document):
 
 	def non_fedex_validations(self):
 		if self.document == 'Sales Invoice':
+			si_doc = frappe.get_doc("Sales Invoice", self.document_name)
 			if self.invoice_integrity != 1:
 				if self.posted_to_shipway == 1:
-					si_doc = frappe.get_doc("Sales Invoice", self.document_name)
 					si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
 					if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb or \
 						si_doc.transporters != self.carrier_name:

@@ -224,7 +224,7 @@ def create_new_brc_tracking(doc,method):
 def update_shipment_booking(doc, method):
 	if doc.amended_from:
 		bk_ship = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking`  
-			WHERE docstatus != 2 AND reference_doctype = 'Sales Invoice'
-			AND reference_docname = '%s'"""%(doc.amended_from), as_list=1)
+			WHERE docstatus != 2 AND document = 'Sales Invoice'
+			AND document_name = '%s'"""%(doc.amended_from), as_list=1)
 		for bks in bk_ship:
 			frappe.db.set_value("Carrier Tracking", bks[0], "reference_docname", doc.name)
