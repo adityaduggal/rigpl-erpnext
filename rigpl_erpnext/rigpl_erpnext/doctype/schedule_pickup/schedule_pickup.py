@@ -30,7 +30,7 @@ class SchedulePickup(Document):
 		pickup_service.OriginDetail.PickupLocation.Contact.PersonName = \
 			from_address_doc.address_title[0:35]
 		pickup_service.OriginDetail.PickupLocation.Contact.EMailAddress = from_address_doc.email_id
-		pickup_service.OriginDetail.PickupLocation.Contact.CompanyName = from_address_doc.company[0:35]
+		pickup_service.OriginDetail.PickupLocation.Contact.CompanyName = from_address_doc.address_title[0:35]
 		pickup_service.OriginDetail.PickupLocation.Contact.PhoneNumber = from_address_doc.phone[0:15]
 		pickup_service.OriginDetail.PickupLocation.Address.StateOrProvinceCode = from_state_doc.state_code
 		pickup_service.OriginDetail.PickupLocation.Address.PostalCode = from_address_doc.pincode[0:10]
@@ -64,7 +64,10 @@ class SchedulePickup(Document):
 		pickup_service.send_request()
 		if pickup_service.response.HighestSeverity not in ["SUCCESS", "NOTE", "WARNING"]:
 			self.show_notification(pickup_service)
-			frappe.throw(_('Pickup service scheduling failed.'))
+			#frappe.throw(_('Pickup service scheduling failed.'))
+			frappe.msgprint(str(pickup_service.response.HighestSeverity))
+			frappe.msgprint(str(pickup_service.response.PickupConfirmationNumber))
+			frappe.msgprint(str(pickup_service.response.Location))
 		return { "response": pickup_service.response.HighestSeverity,
 				  "pickup_id": pickup_service.response.PickupConfirmationNumber,
 				  "location_no": pickup_service.response.Location
