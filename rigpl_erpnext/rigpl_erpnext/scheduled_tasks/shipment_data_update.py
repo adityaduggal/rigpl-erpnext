@@ -6,8 +6,6 @@ from __future__ import unicode_literals
 import frappe
 import json
 import requests
-from frappe.utils import get_url, call_hook_method, cint
-from frappe.integrations.utils import make_get_request, make_post_request, create_request_log
 from datetime import datetime, date
 
 
@@ -22,16 +20,16 @@ def send_bulk_tracks():
 		trans_doc = frappe.get_doc("Transporters", track_doc.carrier_name)
 		if trans_doc.fedex_credentials == 1:
 			if track_doc.status == "Booked":
-				if (datetime.today().date() - track_doc.modified.date()).days > 2:
-					print('Pushed ' + track_doc.name + ' Older than 2 days')
+				if (datetime.today().date() - track_doc.modified.date()).days > 1:
+					print('Pushed ' + track_doc.name + ' Older than 1 days')
 					pushOrderData(track_doc)
 					frappe.db.commit()
 				else:
 					print('NOT POSTING ' + track_doc.name + " " + \
 						str(track_doc.creation) + ' Not Old Enough')
 		else:
-			if (datetime.today().date() - track_doc.modified.date()).days > 2:
-				print('Pushed ' + track_doc.name + ' Older than 2 days')
+			if (datetime.today().date() - track_doc.modified.date()).days > 1:
+				print('Pushed ' + track_doc.name + ' Older than 1 days')
 				pushOrderData(track_doc)
 				frappe.db.commit()
 			else:
