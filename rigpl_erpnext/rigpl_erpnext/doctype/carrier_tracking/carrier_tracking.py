@@ -544,7 +544,7 @@ class CarrierTracking(Document):
 		call_type.RequestedShipment.Recipient.Contact.CompanyName = \
 			str(ship_add_doc.address_title)[0:35]
 		call_type.RequestedShipment.Recipient.Contact.PhoneNumber = \
-			str(ship_add_doc.phone)[0:15]
+			(str(contact_doc.phone) + str(contact_doc.mobile_no))[0:15]
 		call_type.RequestedShipment.Recipient.Address.StreetLines = \
 			[str(ship_add_doc.address_line1)[0:35], str(ship_add_doc.address_line2)[0:35]]
 		call_type.RequestedShipment.Recipient.Address.City = str(ship_add_doc.city)[0:20]
