@@ -342,7 +342,7 @@ def generate_item_code(doc,method):
 		else:
 			frappe.throw("Serial length is lower than 3 characters")
 		chk_digit = fn_check_digit(doc,code)
-		code = code + chk_digit
+		code = code + str(chk_digit)
 		return serial, code
 			
 ########CODE FOR NEXT STRING#######################################################################
