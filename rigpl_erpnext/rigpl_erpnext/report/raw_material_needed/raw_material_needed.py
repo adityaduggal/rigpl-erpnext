@@ -27,7 +27,9 @@ def get_columns():
 		"PL:Int:40", "IND:Int:40",
 		"Description::300",
 		{"label": "BRM", "fieldtype": "Float", "precision": 3, "width": 50},
-		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50}
+		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50},
+		{"label": "BGH", "fieldtype": "Float", "precision": 3, "width": 50},
+		{"label": "DEL", "fieldtype": "Float", "precision": 3, "width": 50},
 	]
 
 def get_items(filters):
@@ -54,7 +56,13 @@ def get_items(filters):
 			min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)),
 
 		if(min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end))
+			min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)),
+
+		if(min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
+			min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)),
+
+		if(min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
+			min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end))
 
 	FROM `tabItem` it 
 		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
@@ -79,8 +87,10 @@ def get_items(filters):
 			AND l1.attribute = 'l1_mm'
 	
 	WHERE bn.item_code != ""
-		AND rm.attribute_value = 'Yes'
+		AND it.is_purchase_item = 1
+		AND it.has_variants = 0
 		AND bn.item_code = it.name
+		AND it.disabled = 0
 		AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
 
 	GROUP BY bn.item_code
@@ -129,9 +139,19 @@ def get_items(filters):
 		else:
 			DRM = data[i][16]
 
-		total = (DRM + BRM + PLAN + PO + IND)
+		if data[i][17] is None:
+			BGH=0
+		else:
+			BGH = data[i][17]
 
-		stock = DRM + BRM
+		if data[i][18] is None:
+			DEL=0
+		else:
+			DRM = data[i][18]
+
+		total = (DRM + BRM + PLAN + PO + IND + BGH + DEL)
+
+		stock = DRM + BRM + BGH + DEL
 		prod = total - stock
 		fut_stock = "X"
 
