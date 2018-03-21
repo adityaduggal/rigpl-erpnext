@@ -37,7 +37,7 @@ frappe.ui.form.on('Carrier Tracking', {
 		frm.set_query("document", function(doc) {
 			return {
 				"filters": [
-					['name', 'in', ['Sales Invoice']]
+					['name', 'in', ['Sales Invoice', 'Purchase Order', 'Customer', 'Supplier']]
 				]
 			};
 		});
