@@ -21,6 +21,8 @@ from fedex.tools.conversion import sobject_to_json
 
 class CarrierTracking(Document):
 	uom_mapper = {"Kg":"KG", "LB":"LB", "kg": "KG", "cm": "CM"}
+	allowed_docs = ['Sales Invoice', 'Purchase Order', 'Customer', 'Supplier']
+	allowed_docs_items = ['Sales Invoice', 'Purchase Order']
 
 	def validate(self):
 		self.update_fields()
@@ -57,6 +59,63 @@ class CarrierTracking(Document):
 				self.purpose = 'SOLD'
 				self.amount = si_doc.grand_total
 			self.currency = si_doc.currency
+		elif self.document == 'Purchase Order':
+			po_doc = frappe.get_doc("Purchase Order",self.document_name)
+			self.receiver_document = "Supplier"
+			self.receiver_name = po_doc.supplier
+			tax_temp_doc = frappe.get_doc("Purchase Taxes and Charges Template", \
+				po_doc.taxes_and_charges)
+			if tax_temp_doc.from_address:
+				self.from_address = tax_temp_doc.from_address
+			else:
+				frappe.throw("Update From Address in Tax Template {}".format(tax_temp_doc.name))
+
+			self.to_address = po_doc.supplier_address
+			self.contact_person = po_doc.contact_person
+			self.purpose = 'NOT_SOLD'
+			self.amount = po_doc.grand_total
+			self.currency = po_doc.currency
+		elif self.document in ('Customer', 'Supplier'):
+			if not self.carrier_name:
+				frappe.throw('Select the Carrier Through which Shipment is to be Sent')
+			if not self.purpose:
+				frappe.throw('Select the Purpose of Shipment')
+			if not self.from_address:
+				frappe.throw('Select the Address from which Shipment is to be Sent')
+			if not self.shipment_notes:
+				frappe.throw('Add a Small description of the Type of Things in Consignment in Shipment Notes')
+			cu_doc = frappe.get_doc(self.document, self.document_name)
+			self.receiver_document = self.document
+			self.receiver_name = self.document_name
+			#Validate To Address and contact person of customer or supplier only
+			if not self.to_address:
+				def_to_add = frappe.db.sql("""SELECT ad.name 
+					FROM `tabAddress` ad, `tabDynamic Link` dl 
+					WHERE  dl.link_doctype = '%s' AND dl.link_name = '%s' 
+					AND dl.parent = ad.name"""%(self.document, self.document_name), as_list=1)
+				self.to_address = def_to_add[0][0]
+			if not self.contact_person:
+				def_contact = frappe.db.sql("""SELECT con.name 
+					FROM `tabContact` con, `tabDynamic Link` dl 
+					WHERE  dl.link_doctype = '%s' AND dl.link_name = '%s' 
+					AND dl.parent = con.name"""%(self.document, self.document_name), as_list=1)
+				self.contact_person = def_contact[0][0]
+			if self.to_address or self.contact_person:
+				linked_add = frappe.db.sql("""SELECT link_name FROM `tabDynamic Link` 
+					WHERE parent = '%s' AND link_doctype = '%s' AND link_name = '%s'"""%(self.to_address, self.document, self.document_name))
+				if not linked_add:
+					frappe.throw("To Address: {} not from {}: {}".\
+						format(self.to_address, self.document, self.document_name))
+
+				linked_con = frappe.db.sql("""SELECT link_name FROM `tabDynamic Link` 
+					WHERE parent = '%s' AND link_doctype = '%s' AND link_name = '%s'"""%(self.to_address, self.document, self.document_name))
+				if not linked_con:
+					frappe.throw("Contact: {} not from {}: {}".\
+						format(self.contact_person, self.document, self.document_name))
+
+			self.amount = 1
+			self.currency = 'INR'
+
 
 	def non_fedex_validations(self):
 		if self.document == 'Sales Invoice':
@@ -160,20 +219,21 @@ class CarrierTracking(Document):
 					Package or Change the Weight in Row {}".format(pkg.idx))
 
 	def sales_invoice_validations_fedex(self):
-		if self.document == "Sales Invoice":
-			si_doc = frappe.get_doc("Sales Invoice",self.document_name)
+		if self.document in CarrierTracking.allowed_docs_items:
+			si_doc = frappe.get_doc(self.document, self.document_name)
 			other_tracks = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` 
-				WHERE document = 'Sales Invoice' AND document_name = '%s' 
-				AND name != '%s'"""%(self.document_name, self.name), as_list=1)
+				WHERE document = '%s' AND document_name = '%s' 
+				AND name != '%s'"""%(self.document, self.document_name, self.name), as_list=1)
 			if other_tracks:
-				frappe.throw('Sales Invoice is already linked to {}'.format(other_tracks[0][0]))
+				frappe.throw('{}: {} is already linked to {}'.format(self.document, \
+					self.document_name, other_tracks[0][0]))
 			if self.awb_number:
 				if self.awb_number != si_doc.lr_no:
 					self.set_invoice_lr_no(self.document_name, self.document)
 
 			if self.invoice_integrity != 1:
 				if self.posted_to_shipway == 1:
-					si_doc = frappe.get_doc("Sales Invoice", self.document_name)
+					si_doc = frappe.get_doc(self.document, self.document_name)
 					si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
 					if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb or \
 						si_doc.transporters != self.carrier_name:
@@ -637,15 +697,12 @@ class CarrierTracking(Document):
 
 	@staticmethod
 	def set_commodities_info(self, shipment):
-		
-		if self.document == 'Sales Invoice':
+		if self.document in CarrierTracking.allowed_docs_items:
 			doc = frappe.get_doc(self.document, self.document_name)
-			self.total_amount = doc.grand_total
-			self.currency = doc.currency
 			total_qty = 0
 			for row in doc.items:
 				total_qty += row.get("qty")
-				hsn_doc = frappe.get_doc("GST HSN Code", row.get("cetsh_number"))
+				hsn_doc = frappe.get_doc("GST HSN Code", frappe.get_value('Item', row.get('item_code'), 'customs_tariff_number'))
 				item_doc = frappe.get_doc("Item", row.get("item_code"))
 				country_doc = frappe.get_doc("Country", item_doc.country_of_origin)
 				country_code = country_doc.code
@@ -666,8 +723,28 @@ class CarrierTracking(Document):
 					if self.purpose == 'SOLD' else 1}
 			}
 			shipment.RequestedShipment.CustomsClearanceDetail.Commodities.append(commodity_dict)
+		elif self.document in CarrierTracking.allowed_docs:
+			total_qty = self.total_handling_units
+			desc = "OTHER PRINTED MATTER, INCLUDING PRINTED PICTURES AND PHOTOGRAPHS TRADE \
+				ADVERTISING MATERIAL, COMMERCIAL CATALOGUES AND THE LIKE : POSTERS, PRINTED"
+			country_doc = frappe.get_doc("Country", frappe.get_value("Address", self.from_address, "country"))
+			country_code = country_doc.code
+			commodity_dict = {
+				#"Name":row.get("item_code"),
+				"Description": desc[0:30],
+				"Weight": {"Units": self.uom_mapper.get(self.weight_uom), "Value":self.total_weight},
+				"NumberOfPieces":int(self.total_handling_units),
+				"HarmonizedCode": '49111010',
+				"CountryOfManufacture":country_code,
+				"Quantity":int(total_qty),
+				"QuantityUnits":"EA",
+				"UnitPrice":{"Currency":self.currency, "Amount":(self.amount/total_qty)},
+				"CustomsValue":{"Currency":self.currency, "Amount":self.amount}
+			}
+			shipment.RequestedShipment.CustomsClearanceDetail.Commodities.append(commodity_dict)
+			total_value = self.amount
 		else:
-			frappe.throw("Currently only Booking Shipment is Available vide Sales Invoice")
+			frappe.throw("Currently only Booking Shipment is Available vide {}".format(CarrierTracking.allowed_docs))
 			total_value = self.amount
 
 	def set_email_notification(self, shipment, shipper_details, recipient_details):
