@@ -5,7 +5,7 @@ frappe.ui.form.on("Item", {
 		if (frm.doc.has_variants) {
 			frm.add_custom_button(__("Make New Item Code"), function() {
 				erpnext.item.make_variant_custom()
-			}, "icon-list", "btn-default");
+			}, "RIGPL Make Item", "btn-default");
 		}
 	},
 });
@@ -311,11 +311,13 @@ cur_frm.cscript.custom_onload = function () {
 }
 //Below code would disable the attribute table after being saved.
 frappe.ui.form.on("Item", "refresh", function(frm){
-    frm.fields_dict.attributes.grid.df.read_only = frm.doc.__islocal ? false: true;
-	frm.fields_dict.attributes.grid.docfields.forEach(function(field){
-		field.read_only = frm.doc.__islocal ? false: true;
-	});
-    frm.refresh_field("attributes");
+	if (user_roles.indexOf("System Manager") !== 0){
+	    frm.fields_dict.attributes.grid.df.read_only = frm.doc.__islocal ? false: true;
+		frm.fields_dict.attributes.grid.docfields.forEach(function(field){
+			field.read_only = frm.doc.__islocal ? false: true;
+		});
+	    frm.refresh_field("attributes");
+	}
 });
 
 frappe.ui.form.on("Item Variant Restrictions", "form_render", function(frm, cdt, cdn){
