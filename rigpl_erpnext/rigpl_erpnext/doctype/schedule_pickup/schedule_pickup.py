@@ -36,7 +36,7 @@ class SchedulePickup(Document):
 		pickup_service.OriginDetail.PickupLocation.Address.PostalCode = from_address_doc.pincode[0:10]
 		pickup_service.OriginDetail.PickupLocation.Address.CountryCode = from_country_doc.code
 		pickup_service.OriginDetail.PickupLocation.Address.StreetLines = [from_address_doc.address_line1[0:35],\
-																	 from_address_doc.address_line2[0:35]]
+																	 str(from_address_doc.address_line2)[0:35]]
 		pickup_service.OriginDetail.PickupLocation.Address.City = from_address_doc.city[0:20]
 		pickup_service.OriginDetail.PickupLocation.Address.Residential = True if from_address_doc.is_residential \
 																			else False
@@ -77,9 +77,6 @@ class SchedulePickup(Document):
 		transporter_doc = frappe.get_doc("Transporters", self.carrier_name)
 		if transporter_doc.fedex_credentials != 1:
 			frappe.throw(("{0} is not a Valid Fedex Account").format(self.carrier_name))
-		#to_address_doc = frappe.get_doc("Address", self.to_address)
-		#to_country_doc = frappe.get_doc("Country", to_address_doc.country)
-		#contact_doc = frappe.get_doc("Contact", self.contact_person)
 		from_address_doc = frappe.get_doc("Address", self.pickup_address)
 		from_country_doc = frappe.get_doc("Country", from_address_doc.country)
 		credentials = self.get_fedex_credentials(transporter_doc)

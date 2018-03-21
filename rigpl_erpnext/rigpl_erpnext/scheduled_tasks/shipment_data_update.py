@@ -68,7 +68,7 @@ def pushOrderData(track_doc):
 				"phone": "9999999999",
 				"products": "N/A"
 				}
-			p_response = requests.get(url=url, verify=True, \
+			p_response = requests.get(url=url, verify=False, \
 				data=json.dumps(post_data))
 			post_response = json.loads(p_response.text)
 			if post_response.get("status") == "Success":
@@ -135,7 +135,7 @@ def check_order_upload(track_doc):
 	    "password": license_key,
 	    "order_id": track_doc.name
 	    }
-	response = requests.get(url=url, verify=True, data=json.dumps(request))
+	response = requests.get(url=url, verify=False, data=json.dumps(request))
 	response_json = json.loads(response.text)
 	return response_json
 
