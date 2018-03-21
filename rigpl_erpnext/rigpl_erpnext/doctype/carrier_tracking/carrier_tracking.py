@@ -136,6 +136,18 @@ class CarrierTracking(Document):
 			frappe.throw("Amount Should be One or More than One")
 
 	def ctrac_validations(self):
+		#Only allow SYSTEM MANAGER to make changes to the DOCUMENT with SENDER
+		#DUTIES PAYMENT (Very RISKY OPTION hence this Validation)
+		if self.duties_payment_by == 'SENDER':
+			user = frappe.session.user
+			roles = frappe.db.sql("""SELECT role FROM `tabHas Role` 
+				WHERE parent = '%s' """ %user, as_list=1)
+			if any("System Manager" in s  for s in roles):
+				pass
+			else:
+				frappe.throw("Only System Managers are Allowed to Make Changes to {} as \
+					Duties Payment is by {}".format(self.name, self.duties_payment_by))
+
 		#Update Package Details and also Validate UOM and Volumetric Weight
 		for pkg in self.shipment_package_details:
 			pkg_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
@@ -360,11 +372,11 @@ class CarrierTracking(Document):
 		rate_request.RequestedShipment.ShippingChargesPayment.PaymentType = 'SENDER'
 		rate_request.RequestedShipment.ShippingChargesPayment.Payor.ResponsibleParty.AccountNumber = \
 		    credentials.account_number
-		rate_request.RequestedShipment.CustomsClearanceDetail.DutiesPayment.PaymentType = 'RECIPIENT'
+		rate_request.RequestedShipment.CustomsClearanceDetail.DutiesPayment.PaymentType = self.duties_payment_by
 		rate_request.RequestedShipment.CustomsClearanceDetail.CustomsValue.Amount = self.amount
 		rate_request.RequestedShipment.CustomsClearanceDetail.CustomsValue.Currency = self.currency
-		#rate_request.RequestedShipment.CustomsClearanceDetail.DutiesPayment.Payor.ResponsibleParty.AccountNumber = \
-		#	self.config_obj.account_number if doc.duties_payment_by == "SENDER" else doc.duties_payment_account
+		rate_request.RequestedShipment.CustomsClearanceDetail.DutiesPayment.Payor.ResponsibleParty.AccountNumber = \
+			credentials.account_number if self.duties_payment_by == "SENDER" else ""
 
 		self.set_shipper_info(rate_request, from_address_doc, credentials)
 		self.set_recipient_info(rate_request, to_address_doc, credentials)
@@ -477,10 +489,9 @@ class CarrierTracking(Document):
 		    credentials.account_number 
 			#self.config_obj.account_number if self.shipping_payment_by == "SENDER" else self.shipping_payment_account
 
-		call_type.RequestedShipment.CustomsClearanceDetail.DutiesPayment.PaymentType = 'RECIPIENT' 
-		#self.duties_payment_by
-		#call_type.RequestedShipment.CustomsClearanceDetail.DutiesPayment.Payor.ResponsibleParty.AccountNumber = \
-		#	self.config_obj.account_number if self.duties_payment_by == "SENDER" else self.duties_payment_account
+		call_type.RequestedShipment.CustomsClearanceDetail.DutiesPayment.PaymentType = self.duties_payment_by
+		call_type.RequestedShipment.CustomsClearanceDetail.DutiesPayment.Payor.ResponsibleParty.AccountNumber = \
+			credentials.account_number if self.duties_payment_by == "SENDER" else ""
 		return call_type	
 
 
