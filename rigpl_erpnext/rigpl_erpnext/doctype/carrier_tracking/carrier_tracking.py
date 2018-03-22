@@ -32,6 +32,7 @@ class CarrierTracking(Document):
 		self.gen_add_validations(trans_doc, from_address_doc, to_address_doc)
 
 		if trans_doc.fedex_credentials == 1:
+			self.fedex_account_number = trans_doc.fedex_account_number
 			self.sales_invoice_validations_fedex()
 			self.ctrac_validations()
 			self.carrier_validations(trans_doc, from_address_doc, to_address_doc)
@@ -45,10 +46,14 @@ class CarrierTracking(Document):
 			self.receiver_name = si_doc.customer
 			tax_temp_doc = frappe.get_doc("Sales Taxes and Charges Template", \
 				si_doc.taxes_and_charges)
-			if tax_temp_doc.from_address:
-				self.from_address = tax_temp_doc.from_address
-			else:
-				frappe.throw("Update From Address in Tax Template {}".format(tax_temp_doc.name))
+			if not self.from_address and self.get("__islocal") == 1:
+				if not tax_temp_doc.from_address:
+					frappe.throw("Update From Address in Tax Template {}".format(tax_temp_doc.name))
+				else:
+					self.from_address = tax_temp_doc.from_address
+			elif not self.from_address:
+				frappe.throw("From Address is Needed before Saving the Document")
+				
 			self.to_address = si_doc.shipping_address_name
 			self.contact_person = si_doc.contact_person
 			self.carrier_name = si_doc.transporters
@@ -65,10 +70,14 @@ class CarrierTracking(Document):
 			self.receiver_name = po_doc.supplier
 			tax_temp_doc = frappe.get_doc("Purchase Taxes and Charges Template", \
 				po_doc.taxes_and_charges)
-			if tax_temp_doc.from_address:
-				self.from_address = tax_temp_doc.from_address
-			else:
-				frappe.throw("Update From Address in Tax Template {}".format(tax_temp_doc.name))
+			
+			if not self.from_address and self.get("__islocal") == 1:
+				if not tax_temp_doc.from_address:
+					frappe.throw("Update From Address in Tax Template {}".format(tax_temp_doc.name))
+				else:
+					self.from_address = tax_temp_doc.from_address
+			elif not self.from_address:
+				frappe.throw("From Address is Needed before Saving the Document")
 
 			self.to_address = po_doc.supplier_address
 			self.contact_person = po_doc.contact_person
