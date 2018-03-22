@@ -19,6 +19,13 @@ frappe.query_reports["Courier Tracking RIGPL"] = {
 			"reqd": 1,
 		},
 		{
+			"fieldname":"from_address",
+			"label": "From Address",
+			"fieldtype": "Link",
+			"options": "Address",
+			"get_query": function(){ return {'filters': [['Address', 'is_your_company_address','=', 1]]}}
+		},
+		{
 			"fieldname":"transporter",
 			"label": "Transporter",
 			"fieldtype": "Link",
@@ -37,8 +44,13 @@ frappe.query_reports["Courier Tracking RIGPL"] = {
 			"fieldtype": "Data",
 		},
 		{
-			"fieldname":"ref_name",
+			"fieldname":"document_name",
 			"label": "Document Name",
+			"fieldtype": "Data",
+		},
+		{
+			"fieldname":"receiver_name",
+			"label": "Receiver Name",
 			"fieldtype": "Data",
 		},
 		{
@@ -48,7 +60,7 @@ frappe.query_reports["Courier Tracking RIGPL"] = {
 			"fieldname":"total_awb_by_transporter",
 			"label": "Total AWB Report",
 			"fieldtype": "Check",
-			"default": 1,
+			"default": 0,
 		},
 		{
 			"fieldname":"avg_delivery_times",
@@ -66,7 +78,7 @@ frappe.query_reports["Courier Tracking RIGPL"] = {
 			"fieldname":"pending_exceptions",
 			"label": "Pending Exception Report",
 			"fieldtype": "Check",
-			"default": 0,
+			"default": 1,
 		},
 		{
 			"fieldname":"old_exception",
