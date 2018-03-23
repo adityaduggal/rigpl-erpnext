@@ -567,7 +567,7 @@ class CarrierTracking(Document):
 	def set_shipper_info(self, call_type, ship_add_doc, credentials):
 		from_country_doc = frappe.get_doc("Country", ship_add_doc.country)
 		tin_no = ship_add_doc.gstin
-		if ship_add_doc.state_rigpl is not None:
+		if ship_add_doc.state_rigpl is not None and ship_add_doc.country == 'India':
 			state_doc = frappe.get_doc("State", ship_add_doc.state)
 		else:
 			state_doc = ""
