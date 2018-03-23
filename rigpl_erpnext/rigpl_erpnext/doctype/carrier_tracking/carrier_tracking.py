@@ -503,7 +503,7 @@ class CarrierTracking(Document):
 	def address_validation(self, credentials, add_doc, country_doc):
 		from fedex.services.address_validation_service import FedexAddressValidationRequest
 		avs_request = FedexAddressValidationRequest(credentials)
-		if add_doc.state_rigpl is not None and country_doc.country == 'India':
+		if add_doc.state_rigpl is not None and add_doc.country == 'India':
 			state_doc = frappe.get_doc("State", add_doc.state)
 		else:
 			state_doc = ""
@@ -610,7 +610,7 @@ class CarrierTracking(Document):
 		full_name = sal + first_n + last_n
 		
 		tin_no = ship_add_doc.gstin
-		if ship_add_doc.state_rigpl is not None and country_doc.country == 'India':
+		if ship_add_doc.state_rigpl is not None and ship_add_doc.country == 'India':
 			state_doc = frappe.get_doc("State", ship_add_doc.state)
 		else:
 			state_doc = ""
