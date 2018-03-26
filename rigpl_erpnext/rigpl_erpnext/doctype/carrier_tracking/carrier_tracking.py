@@ -239,22 +239,6 @@ class CarrierTracking(Document):
 			if self.awb_number:
 				if self.awb_number != si_doc.lr_no:
 					self.set_invoice_lr_no(self.document_name, self.document)
-
-			if self.invoice_integrity != 1:
-				if self.posted_to_shipway == 1:
-					si_doc = frappe.get_doc(self.document, self.document_name)
-					si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
-					if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb or \
-						si_doc.transporters != self.carrier_name:
-						create_new_carrier_track(si_doc, frappe)
-						self.docstatus = 1
-					
-					if self.awb_number != 'NA':
-						self.set_invoice_lr_no(self.document_name, self.document)
-					elif self.awb_number is None:
-						self.awb_number = "NA"
-						self.set_invoice_lr_no(self.document_name, self.document)
-						self.carrier_name = si_doc.transporters
 		else:
 			if self.purpose == 'SOLD':
 				frappe.throw('Purpose SOLD only possible for Sales Invoices')
