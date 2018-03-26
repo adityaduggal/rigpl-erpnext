@@ -413,6 +413,7 @@ class CarrierTracking(Document):
 
 	def rate_service(self, credentials, from_address_doc, to_address_doc, \
 			from_country_doc, to_country_doc, transporter_doc):
+		stop = 0
 		from fedex.services.rate_service import FedexRateServiceRequest
 		# Optional transaction_id
 		customer_transaction_id = "*** RateService Request v18 using Python ***"  
@@ -449,6 +450,7 @@ class CarrierTracking(Document):
 			for detail in service.RatedShipmentDetails:
 				for surcharge in detail.ShipmentRateDetail.Surcharges:
 					if surcharge.SurchargeType == 'OUT_OF_DELIVERY_AREA':
+						stop = 1
 						frappe.msgprint("{}: ODA rate_request charge {}".\
 							format(service.ServiceType, surcharge.Amount.Amount))
 
@@ -457,6 +459,8 @@ class CarrierTracking(Document):
 				self.shipment_cost_currency = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Currency
 				#frappe.msgprint(str(sobject_to_dict(rate_detail)))
 				self.save()
+		if stop == 1:
+			frappe.throw('Out of Delivery Area, Booking of Shipment Not Allowed')
 
 	def availabiltiy_commitment(self, credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc):
 		from fedex.services.availability_commitment_service import FedexAvailabilityCommitmentRequest
