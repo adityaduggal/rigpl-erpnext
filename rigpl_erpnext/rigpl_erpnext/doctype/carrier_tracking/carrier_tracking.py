@@ -541,7 +541,7 @@ class CarrierTracking(Document):
 		call_type.RequestedShipment.DropoffType = 'REGULAR_PICKUP' #self.drop_off_type
 		call_type.RequestedShipment.ServiceType = transporter_doc.fedex_service_code
 		call_type.RequestedShipment.PackagingType = 'YOUR_PACKAGING' #self.packaging_type
-		call_type.RequestedShipment.ShippingChargesPayment.PaymentType = 'SENDER' #self.shipping_payment_by
+		call_type.RequestedShipment.ShippingChargesPayment.PaymentType = 'THIRD_PARTY' #self.shipping_payment_by
 		call_type.RequestedShipment.ShippingChargesPayment.Payor.ResponsibleParty.AccountNumber = \
 		    credentials.account_number 
 			#self.config_obj.account_number if self.shipping_payment_by == "SENDER" else self.shipping_payment_account
