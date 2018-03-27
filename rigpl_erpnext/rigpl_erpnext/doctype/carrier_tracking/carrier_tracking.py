@@ -156,6 +156,8 @@ class CarrierTracking(Document):
 				self.invoice_integrity = 0
 
 	def carrier_validations(self, trans_doc, from_address_doc, to_address_doc):
+		contact_doc = frappe.get_doc('Contact', self.contact_person)
+		self.set_recipient_email(to_address_doc, contact_doc)
 		if trans_doc.is_outward_only==1:
 			if from_address_doc.is_your_company_address != 1:
 				frappe.throw(('Since {} is Outward Transporter, \
@@ -323,7 +325,7 @@ class CarrierTracking(Document):
 		self.set_fedex_label_info(shipment)
 		self.set_commodities_info(self, shipment)
 		self.set_commercial_invoice_info(shipment)
-		#self.set_email_notification(shipment, doc, shipper_details, recipient_details)
+		self.set_email_notification(shipment, from_address_doc, to_address_doc, contact_doc)
 		pkg_count = self.total_handling_units
 		for index, pkg in enumerate(self.shipment_package_details):
 			pkg_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
@@ -457,7 +459,6 @@ class CarrierTracking(Document):
 			for rate_detail in service.RatedShipmentDetails:
 				self.shipment_cost = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Amount
 				self.shipment_cost_currency = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Currency
-				#frappe.msgprint(str(sobject_to_dict(rate_detail)))
 				self.save()
 		if stop == 1:
 			frappe.throw('Out of Delivery Area, Booking of Shipment Not Allowed')
@@ -744,26 +745,59 @@ class CarrierTracking(Document):
 			frappe.throw("Currently only Booking Shipment is Available vide {}".format(CarrierTracking.allowed_docs))
 			total_value = self.amount
 
-	def set_email_notification(self, shipment, shipper_details, recipient_details):
-		if self.fedex_notification:
-			shipment.RequestedShipment.SpecialServicesRequested.EMailNotificationDetail.AggregationType = "PER_SHIPMENT"
-			notify_mapper = {"Sender":"SHIPPER", "Recipient":"RECIPIENT", "Other-1":"OTHER", \
-								"Other-2":"OTHER", "Other-3":"OTHER"}
-			email_id_mapper = {"Sender":shipper_details, "Recipient":recipient_details, "Other-1":{}, \
-								"Other-2":{}, "Other-3":{} }
-			for row in doc.fedex_notification:
-				notify_dict = {
-					"EMailNotificationRecipientType":notify_mapper.get(row.notify_to, "SHIPPER"),
-					"EMailAddress":email_id_mapper.get(row.notify_to, {}).get("email_id", \
-						row.email_id or ""),
-					"NotificationEventsRequested":[ fedex_event for event, fedex_event in \
-						{"shipment":"ON_SHIPMENT", "delivery":"ON_DELIVERY", \
-						"tendered":"ON_TENDER", "exception":"ON_EXCEPTION"}.items() if row.get(event)],
-					"Format":"HTML",
-					"Localization":{"LanguageCode":"EN", \
-									"LocaleCode":email_id_mapper.get(row.notify_to, {}).get("country_code", "IN")}
-				}
-				shipment.RequestedShipment.SpecialServicesRequested.EMailNotificationDetail.Recipients.append(notify_dict)
+	def set_recipient_email(self, to_address_doc, contact_doc):
+		if not self.carrier_tracking_notifications:
+			email_list = []
+			if to_address_doc.email_id:
+				email_list.append({"notify_to": "Recipient", "email_id": to_address_doc.email_id, "select_all": 1})
+			if contact_doc.email_id:
+				email_list.append({"notify_to": "Other-1", "email_id": contact_doc.email_id, "select_all": 1})
+			if email_list:
+				for e in email_list:
+					row = self.append('carrier_tracking_notifications', {})
+					row.update(e)
+		if self.carrier_tracking_notifications:
+			for row in self.carrier_tracking_notifications:
+				if row.select_all == 1:
+					row.shipment = 1
+					row.delivery = 1
+					row.tendered = 1
+					row.exception = 1
+				else:
+					check = 0
+					if row.shipment == 1:
+						check += 1
+					if row.delivery == 1:
+						check += 1
+					if row.tendered == 1:
+						check += 1
+					if row.exception == 1:
+						check += 1
+					if check > 0:
+						pass
+					else:
+						frappe.throw('Atleast one of the Option is to be Selected for Row # {} in Notification Email Table'.format(row.idx))
+
+	def set_email_notification(self, shipment, shipper_details, recipient_details, contact_doc):
+		self.set_recipient_email(recipient_details, contact_doc)
+		shipment.RequestedShipment.SpecialServicesRequested.EMailNotificationDetail.AggregationType = "PER_SHIPMENT"
+		notify_mapper = {"Sender":"SHIPPER", "Recipient":"RECIPIENT", "Other-1":"OTHER", \
+							"Other-2":"OTHER", "Other-3":"OTHER"}
+		email_id_mapper = {"Sender":shipper_details, "Recipient":recipient_details, "Other-1":{}, \
+							"Other-2":{}, "Other-3":{} }
+		for row in self.carrier_tracking_notifications:
+			notify_dict = {
+				"EMailNotificationRecipientType":notify_mapper.get(row.notify_to, "SHIPPER"),
+				"EMailAddress":email_id_mapper.get(row.notify_to, {}).get("email_id", \
+					row.email_id or ""),
+				"NotificationEventsRequested":[ fedex_event for event, fedex_event in \
+					{"shipment":"ON_SHIPMENT", "delivery":"ON_DELIVERY", \
+					"tendered":"ON_TENDER", "exception":"ON_EXCEPTION"}.items() if row.get(event)],
+				"Format":"HTML",
+				"Localization":{"LanguageCode":"EN", \
+								"LocaleCode":email_id_mapper.get(row.notify_to, {}).get("country_code", "IN")}
+			}
+			shipment.RequestedShipment.SpecialServicesRequested.EMailNotificationDetail.Recipients.append(notify_dict)
 	
 	def location_service(self, credentials, from_address_doc, from_country_doc):
 		from fedex.services.location_service import FedexSearchLocationRequest
