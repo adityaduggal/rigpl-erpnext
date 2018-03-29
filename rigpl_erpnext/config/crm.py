@@ -8,8 +8,8 @@ def get_data():
 			"items": [
 				{
 					"type": "doctype",
-					"name": "Sales Call Tool",
-					"description": _("Tool to Add Communication and Reminders"),
+					"name": "Daily Call",
+					"description": _("List of Daily Call and Visit Summary"),
 				},
 			]
 		},
