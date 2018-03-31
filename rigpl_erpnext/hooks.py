@@ -68,44 +68,22 @@ doc_events = {
 	"Asset Category": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.asset_category.validate"
 	},
-	"Item": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.item.validate",
-		"autoname": "rigpl_erpnext.rigpl_erpnext.item.autoname"
+	"Attendance": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
+		"update_after_submit": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update"
 	},
-	"Quality": {
-		"autoname": "rigpl_erpnext.rigpl_erpnext.quality.autoname"
-	},
-	"Sales Invoice": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate",
-		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_submit",
-		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_cancel"
-	},
-	"Sales Order": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.validate",
-		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_submit",
-		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_cancel"
-	},
-	"Delivery Note": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.validate",
-		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
-		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
-	},
-	"Stock Entry": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
-		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate"
-	},
-	"Lead": {
-		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update",
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate"
+	"Communication": {
+		"validate" : "rigpl_erpnext.rigpl_erpnext.validations.communication.validate"
 	},
 	"Customer": {
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update",
 		"validate" : "rigpl_erpnext.rigpl_erpnext.validations.customer.validate"
 	},
-	"Attendance": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
-		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
-		"update_after_submit": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update"
+	"Delivery Note": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
 	},
 	"Employee": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate",
@@ -115,31 +93,22 @@ doc_events = {
 	"Holiday List":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.holiday_list.validate"
 	},
+	"Item": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.item.validate",
+		"autoname": "rigpl_erpnext.rigpl_erpnext.item.autoname"
+	},
 	"Item Group":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"
 	},
-	"Stock Reconciliation":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"
-	},
-	"Quotation":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate"
-	},
-	"Opportunity":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
-	},
-	"Salary Component":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_component.validate"
-	},
-	"Salary Structure":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
-	},
-	"Salary Slip":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.validate",
-		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_submit",
-		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel"
+	"Lead": {
+		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update",
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate"
 	},
 	"Leave Application":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate"
+	},
+	"Production Order":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.production_order.validate"
 	},
 	"Purchase Order":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate",
@@ -153,8 +122,45 @@ doc_events = {
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_cancel",
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_update"
 	},
-	"Production Order":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.production_order.validate"
+	"Quality": {
+		"autoname": "rigpl_erpnext.rigpl_erpnext.quality.autoname"
+	},
+	"Quotation":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate"
+	},
+	"Sales Invoice": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_cancel"
+	},
+	"Sales Order": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_cancel"
+	},
+	"Stock Entry": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate"
+	},
+	"Stock Reconciliation":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"
+	},
+	"Opportunity":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
+	},
+	"Salary Component":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_component.validate"
+	},
+	"Salary Slip":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel"
+	},
+	"Salary Structure":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
+	},
+	"ToDo":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.todo.validate"
 	},
 	"Warehouse":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.warehouse.validate"
