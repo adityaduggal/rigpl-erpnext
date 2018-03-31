@@ -49,35 +49,40 @@ class DailyCall(Document):
 					#Check if Lead is converted
 					if row.document_name:
 						lead = frappe.get_doc("Lead", row.document_name)
-						row.lead_status = lead.status
+						if not row.lead_status:
+							row.lead_status = lead.status
+						else:
+							if row.lead_status != lead.status:
+								update_lead_status(lead, row.lead_status)
 						row.lead_contact_name = lead.lead_name
 						row.lead_organisation_name = lead.company_name
 						if lead.status == "Converted":
 							customer = frappe.db.sql("""SELECT name FROM `tabCustomer` 
-								WHERE lead_name = '%s'""" %(self.lead), as_list=1)
-							frappe.throw(("Selected Lead is already converted to {0}. \n\
-								Please select the customer and not this Lead.").format(customer[0][0]))
-
-					update_lead_status(lead, row.lead_status)
+								WHERE lead_name = '%s'""" %(row.document_name), as_list=1)
+							if customer:
+								frappe.throw(("Selected Lead is already converted to {}. \n\
+									Please select the customer and not this Lead in Row # {}.").\
+									format(frappe.get_desk_link("Customer", customer[0][0]), \
+										row.idx))
+							else:
+								frappe.throw("Selected Lead {} in Row# {} is Marked as Converted. \n\
+									Either Change the Lead Status or Link it with a Customer. \n\
+									Since No Customer is Linked to this Lead".\
+									format(frappe.get_desk_link("Lead", row.document_name), row.idx))
 				else:
 					frappe.throw("Document Field is Mandatory")
 				if row.communication_date:
-					d = get_datetime(row.communication_date)
-					d1 = now_datetime()
-					d0 = add_days(d1, -5)
-					if d.date() >= d0.date() and d.date() <= d1.date():
-						pass
+					if self.allow_back_dated_entries == 1:
+						back_dated_days = self.back_dated_days
 					else:
-						frappe.throw(("Communication Date should be between {0} and {1}").format(d0.date(),d1.date()))
+						back_dated_days = 0
+					check_date_time_diff(row.communication_date, days_diff=(-1*back_dated_days), \
+						type_of_check='date', name_of_field = 'Communication')
 				else:
 					frappe.throw("Communication Date is Mandatory")
 				if row.next_action_date:
-					d2 = get_datetime(row.next_action_date)
-					if d2.date() < d1.date():
-						frappe.throw("Next Action Date cannot be less than Today's Date")
-					if d2.date() == d1.date():
-						if time_diff_in_seconds(d2, d1) < 3600:
-							frappe.throw("Next Action Time has to be 1 hour after the current time")
+					check_date_time_diff(row.next_action_date, hours_diff=1, \
+						type_of_check= 'time', name_of_field = 'Next Action')
 				if not row.type_of_communication:
 					frappe.throw('Type of Communication is Mandatory')
 				if not row.details:
@@ -107,7 +112,25 @@ class DailyCall(Document):
 			
 	def clear_form(self):
 		self.call_details = []
-		
+
+def check_date_time_diff(date_time, type_of_check, name_of_field, days_diff=0, hours_diff=0):
+	d = get_datetime(date_time)
+	d1 = now_datetime()
+	d0 = add_days(d1.date(), days_diff)
+	if type_of_check == 'date':
+		if d.date() >= d0 and d.date() <= d1.date():
+			pass
+		else:
+			frappe.throw(("{} Date should be between {} and {}").\
+				format(name_of_field, str(d0), str(d1.date())))
+	else:
+		if d.date() < d1.date():
+			frappe.throw("{} Date cannot be less than Today's Date".format(name_of_field))
+		if d.date() == d1.date():
+			if time_diff_in_seconds(d, d1) < (3600*hours_diff):
+				frappe.throw("{} Time has to be {} hours after the current time".\
+					format(name_of_field, hours_diff))
+	
 def update_lead_status(lead_doc, new_status):
 	if lead_doc.status != new_status:
 		lead_doc.status = new_status
