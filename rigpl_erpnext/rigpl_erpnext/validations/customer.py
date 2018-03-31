@@ -97,3 +97,9 @@ def check_customer_id(doc,method):
 	new_name = re.sub('[^A-Za-z0-9]+', '', doc.name)
 	entered_name = doc.name
 	return new_name, entered_name
+
+def get_dl_parent(dt=None, linked_dt= None, linked_dn=None)
+	dl_parent_list = frappe.db.sql("""SELECT parent FROM `tabDynamic Link` 
+		WHERE parenttype = '%s' AND link_doctype = '%s' 
+		AND link_name = '%s'"""%(dt, linked_dt, linked_dn), as_list=1)
+	return dl_parent_list

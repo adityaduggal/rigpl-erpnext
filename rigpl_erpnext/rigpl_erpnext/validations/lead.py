@@ -44,6 +44,7 @@ def create_new_user_perm(doctype, docname, user):
 		new_perm.apply_for_all_roles = 0
 		new_perm.insert()
 		frappe.msgprint(("Added New Permission for {0}: {1} for User: {2}").format(doctype, docname, user))
+		frappe.db.commit()
 
 def get_extra_perms(doctype, docname, user):
 	query = """SELECT name, for_value, user from  `tabUser Permission` where allow = '%s' AND for_value = '%s' 
