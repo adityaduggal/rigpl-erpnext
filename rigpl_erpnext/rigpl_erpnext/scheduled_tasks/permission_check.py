@@ -108,7 +108,7 @@ def delete_version(document, creator=None, creation=None):
 			commit_chk += 1
 			if commit_chk%1000 == 0:
 				frappe.db.commit()
-			print(commit_chk + ". Deleted Version: " + version[0])
+			print(str(commit_chk) + ". Deleted Version: " + version[0])
 
 def delete_from_deleted_doc(document):
 	commit_chk = 0
@@ -121,7 +121,7 @@ def delete_from_deleted_doc(document):
 			commit_chk += 1
 			if commit_chk%1000 == 0:
 				frappe.db.commit()
-			print(commit_chk + ". Deleted " + del_doc[0])
+			print(str(commit_chk) + ". Deleted " + del_doc[0])
 
 def get_user_lead(user):
 	lead_list = frappe.db.sql("""SELECT name FROM `tabLead` 
