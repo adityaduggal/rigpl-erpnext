@@ -92,6 +92,7 @@ def check_permission_exist():
 		delete_from_deleted_doc(d)
 
 def delete_version(document, creator=None, creation=None):
+	commit_chk = 0
 	condition = ''
 	if creator:
 		condition = " AND owner = '%s'"
@@ -103,18 +104,24 @@ def delete_version(document, creator=None, creation=None):
 		WHERE ref_doctype = '%s' %s""" %(document, condition), as_list=1)
 	if version_list:
 		for version in version_list:
-			frappe.delete_doc_if_exists("Version", version[0])
-			frappe.db.commit()
-			print("Deleted Version: " + version[0])
+			frappe.db.sql("""DELETE FROM `tabVersion` WHERE name = '%s'"""%(version[0]))
+			commit_chk += 1
+			if commit_chk%1000 == 0:
+				frappe.db.commit()
+			print(commit_chk + ". Deleted Version: " + version[0])
 
 def delete_from_deleted_doc(document):
+	commit_chk = 0
 	del_doc_list = frappe.db.sql("""SELECT name FROM `tabDeleted Document` 
 		WHERE deleted_doctype = '%s'"""%(document), as_list=1)
 	if del_doc_list:
 		for del_doc in del_doc_list:
-			frappe.delete_doc_if_exists("Deleted Document", del_doc[0])
-			frappe.db.commit()
-			print("Deleted " + del_doc[0])
+			frappe.db.sql("""DELETE FROM `tabDeleted Document` 
+				WHERE name = '%s'"""%(del_doc[0]))
+			commit_chk += 1
+			if commit_chk%1000 == 0:
+				frappe.db.commit()
+			print(commit_chk + ". Deleted " + del_doc[0])
 
 def get_user_lead(user):
 	lead_list = frappe.db.sql("""SELECT name FROM `tabLead` 
