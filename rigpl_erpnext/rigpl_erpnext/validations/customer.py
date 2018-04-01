@@ -3,7 +3,8 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 from rigpl_erpnext.rigpl_erpnext.validations.lead import \
-	create_new_user_perm, delete_unused_perm, find_total_perms
+	create_new_user_perm, delete_unused_perm, find_total_perms, \
+	check_system_manager, get_dl_parent
 import frappe.permissions
 import re
 
@@ -57,8 +58,12 @@ def on_update(doc,method):
 				emp = frappe.get_doc("Employee", s_person.employee)
 				if emp.status == "Active":
 					if emp.user_id:
-						allowed_ids.extend([emp.user_id])
-						create_new_user_perm(doc.doctype, doc.name, emp.user_id)
+						check_sys = check_system_manager(emp.user_id)
+						if check_sys == 1:
+							pass
+						else:
+							allowed_ids.extend([emp.user_id])
+							create_new_user_perm(doc.doctype, doc.name, emp.user_id)
 
 				else:
 					frappe.msgprint("Selected Sales Person is Not an Active Employee", raise_exception=1)
@@ -66,12 +71,39 @@ def on_update(doc,method):
 		s_partner = frappe.get_doc("Sales Partner", doc.default_sales_partner)
 		if s_partner.user:
 			user = frappe.get_doc("User", s_partner.user)
-			if user.enabled == 1:
-				create_new_user_perm(doc.doctype, doc.name, s_partner.user)
-				allowed_ids.extend([s_partner.user])
+			check_sys = check_system_manager(user.name)
+			if check_sys == 1:
+				pass
+			else:
+				if user.enabled == 1:
+					create_new_user_perm(doc.doctype, doc.name, s_partner.user)
+					allowed_ids.extend([s_partner.user])
 	if doc.customer_login_id:
-		create_new_user_perm(doc.doctype, doc.name, doc.customer_login_id)
-		allowed_ids.extend([doc.customer_login_id])
+		check_sys = check_system_manager(doc.customer_login_id)
+		if check_sys == 1:
+			pass
+		else:
+			create_new_user_perm(doc.doctype, doc.name, doc.customer_login_id)
+			allowed_ids.extend([doc.customer_login_id])
+	con_list = get_dl_parent(dt='Contact', linked_dt='Customer', linked_dn= doc.name)
+	for contact in con_list:
+		for user in allowed_ids:
+			create_new_user_perm("Contact", contact[0], user)
+
+	add_list = get_dl_parent(dt='Address', linked_dt='Customer', linked_dn= doc.name)
+	for address in add_list:
+		for user in allowed_ids:
+			create_new_user_perm("Address", address[0], user)
+
+	for d in [[doc.doctype, [doc.name]],["Address", add_list], ["Contact", con_list]]:
+		for add in d[1]:
+			total_perms = find_total_perms(d[0], add[0])
+			if total_perms:
+				for extra in total_perms:
+					if extra[2] in allowed_ids:
+						pass
+					else:
+						delete_unused_perm(extra[0], d[0], add[0], extra[2])
 
 	total_perms = find_total_perms(doc.doctype, doc.name)
 	if total_perms:
@@ -97,9 +129,3 @@ def check_customer_id(doc,method):
 	new_name = re.sub('[^A-Za-z0-9]+', '', doc.name)
 	entered_name = doc.name
 	return new_name, entered_name
-
-def get_dl_parent(dt=None, linked_dt= None, linked_dn=None)
-	dl_parent_list = frappe.db.sql("""SELECT parent FROM `tabDynamic Link` 
-		WHERE parenttype = '%s' AND link_doctype = '%s' 
-		AND link_name = '%s'"""%(dt, linked_dt, linked_dn), as_list=1)
-	return dl_parent_list
