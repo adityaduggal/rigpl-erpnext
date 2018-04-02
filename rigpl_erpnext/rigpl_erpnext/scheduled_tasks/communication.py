@@ -18,7 +18,7 @@ def daily():
 		AND next_action_date <= NOW()""", as_list= 1)
 
 	for i in comm:
-		#print("Comm: " + str(i[0]) + " is going to TODO")
+		print("Comm: " + str(i[0]) + " is going to TODO")
 		#Check if the communication is already in TODO for the user and Open.
 		#TODO Assigned by == Owner of the Communication
 		#TODO Owner  == User of Communication
