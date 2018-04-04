@@ -23,7 +23,7 @@ frappe.ui.form.on('Carrier Tracking', {
 		frm.set_query("receiver_document", function(doc) {
 			return {
 				"filters": [
-					['name', 'in', ['Customer']]
+					['name', 'in', ['Customer', 'Supplier', 'Employee', 'Sales Partner', 'Company']]
 				]
 			};
 		});
@@ -37,7 +37,7 @@ frappe.ui.form.on('Carrier Tracking', {
 		frm.set_query("document", function(doc) {
 			return {
 				"filters": [
-					['name', 'in', ['Sales Invoice', 'Purchase Order', 'Customer', 'Supplier']]
+					['name', 'in', ['Sales Invoice', 'Purchase Order', 'Customer', 'Supplier', 'Company', 'Sales Partner', 'Employee']]
 				]
 			};
 		});
@@ -64,4 +64,17 @@ frappe.ui.form.on("Shipment Package Details", "package_weight", function(frm, cd
 	frm.set_value("total_weight", weight);
 	frm.set_value("weight_uom", uom);
 	frm.set_value("total_handling_units", packs);
+});
+
+frappe.ui.form.on("Carrier Tracking", "is_inward", function(frm) {
+// code for calculate total and set on parent field.
+	if (frm.doc.is_inward === 1){
+		frm.set_query("from_address", function(doc) {
+			return {
+				"filters":{
+					"is_your_company_address": 0,
+				}
+			};
+		});
+	}
 });

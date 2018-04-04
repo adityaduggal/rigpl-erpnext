@@ -165,9 +165,11 @@ def check_contact(link_doctype, link_docname, selected_contact=None):
 		AND link_name = '%s'"""%(link_doctype, link_docname), as_list=1)
 	if contact:
 		if selected_contact:
-			if selected_contact in contact[0]:
-				pass
-			else:
+			check = 0
+			for con in contact:
+				if selected_contact == con[0]:
+					check += 1
+			if check == 0:
 				frappe.throw('Selected Contact {} not from {}:{}'.\
 					format(selected_contact, link_doctype, link_docname))
 		else:
