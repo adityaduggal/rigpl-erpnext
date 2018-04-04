@@ -59,7 +59,8 @@ class CarrierTracking(Document):
 			self.carrier_name = si_doc.transporters
 			if tax_temp_doc.is_sample == 1:
 				self.purpose = 'SAMPLE'
-				self.amount = 1
+				if self.amount == 0:
+					self.amount = 1
 			else:
 				self.purpose = 'SOLD'
 				self.amount = si_doc.grand_total
@@ -84,7 +85,7 @@ class CarrierTracking(Document):
 			self.purpose = 'NOT_SOLD'
 			self.amount = po_doc.grand_total
 			self.currency = po_doc.currency
-		elif self.document in ('Customer', 'Supplier'):
+		elif self.document in ('Customer', 'Supplier', 'Company', 'Sales Partner', 'Employee'):
 			if not self.carrier_name:
 				frappe.throw('Select the Carrier Through which Shipment is to be Sent')
 			if not self.purpose:
@@ -121,8 +122,8 @@ class CarrierTracking(Document):
 				if not linked_con:
 					frappe.throw("Contact: {} not from {}: {}".\
 						format(self.contact_person, self.document, self.document_name))
-
-			self.amount = 1
+			if not self.amount:
+				self.amount = 1
 			self.currency = 'INR'
 
 
@@ -159,13 +160,22 @@ class CarrierTracking(Document):
 		contact_doc = frappe.get_doc('Contact', self.contact_person)
 		self.set_recipient_email(to_address_doc, contact_doc)
 		if trans_doc.is_outward_only==1:
-			if from_address_doc.is_your_company_address != 1:
-				frappe.throw(('Since {} is Outward Transporter, \
-					From Address Should be Owned Address').format(self.carrier_name))
+			if self.is_inward != 1:
+				if from_address_doc.is_your_company_address != 1:
+					frappe.throw(('Since {} is Outward Transporter, \
+						From Address Should be Owned Address').format(self.carrier_name))
+			else:
+				if from_address_doc.is_your_company_address == 1:
+					frappe.throw(('Since {} is Marked For Inward Shipment, \
+						From Address Should Not be Owned Address').format(self.carrier_name))
 		else:
 			if from_address_doc.is_your_company_address == 1:
 				frappe.throw(('Since {} is Inward Transporter, \
 					From Address Should be not be Owned Address').format(self.carrier_name))
+
+			if to_address_doc.is_your_company_address != 1:
+				frappe.throw(('Since {} is Inward Transporter, \
+					To Address Should be Owned Address').format(self.carrier_name))
 		
 		if trans_doc.is_export_only == 1:
 			if from_address_doc.country == to_address_doc.country:
