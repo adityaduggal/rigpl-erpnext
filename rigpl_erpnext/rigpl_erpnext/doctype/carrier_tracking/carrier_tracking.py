@@ -21,7 +21,7 @@ from fedex.tools.conversion import sobject_to_json
 
 class CarrierTracking(Document):
 	uom_mapper = {"Kg":"KG", "LB":"LB", "kg": "KG", "cm": "CM"}
-	allowed_docs = ['Sales Invoice', 'Purchase Order', 'Customer', 'Supplier']
+	allowed_docs = ['Sales Invoice', 'Purchase Order', 'Customer', 'Supplier', 'Company', 'Employee', 'Sales Partner']
 	allowed_docs_items = ['Sales Invoice', 'Purchase Order']
 
 	def validate(self):
