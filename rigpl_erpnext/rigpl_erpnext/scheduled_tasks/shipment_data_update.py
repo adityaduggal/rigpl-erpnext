@@ -87,6 +87,7 @@ def pushOrderData(track_doc):
 
 
 def getOrderShipmentDetails(track_doc):
+	print("Processing Carrier Tracking #: " + track_doc.name)
 	if track_doc.get("__islocal") != 1 and track_doc.status != "Delivered":
 		response = check_order_upload(track_doc)
 		track_doc.json_reply = str(response)
