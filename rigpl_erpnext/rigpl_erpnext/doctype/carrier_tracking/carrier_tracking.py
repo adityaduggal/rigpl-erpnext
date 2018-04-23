@@ -243,7 +243,7 @@ class CarrierTracking(Document):
 		if self.document in CarrierTracking.allowed_docs_items:
 			si_doc = frappe.get_doc(self.document, self.document_name)
 			other_tracks = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` 
-				WHERE document = '%s' AND document_name = '%s' 
+				WHERE document = '%s' AND document_name = '%s' AND docstatus != 2
 				AND name != '%s'"""%(self.document, self.document_name, self.name), as_list=1)
 			if other_tracks:
 				frappe.throw('{}: {} is already linked to {}'.format(self.document, \
