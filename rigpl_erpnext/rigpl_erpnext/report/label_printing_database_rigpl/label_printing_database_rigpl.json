@@ -1,0 +1,51 @@
+{
+ "add_total_row": 0, 
+ "apply_user_permissions": 1, 
+ "creation": "2018-05-01 14:28:47.837146", 
+ "disabled": 0, 
+ "docstatus": 0, 
+ "doctype": "Report", 
+ "idx": 0, 
+ "is_standard": "Yes", 
+ "letter_head": "RIGB", 
+ "modified": "2018-05-01 14:28:47.837146", 
+ "modified_by": "Administrator", 
+ "module": "RIGPL ERPNext", 
+ "name": "Label Printing Database RIGPL", 
+ "owner": "Administrator", 
+ "ref_doctype": "Item", 
+ "report_name": "Label Printing Database RIGPL", 
+ "report_type": "Script Report", 
+ "roles": [
+  {
+   "role": "All"
+  }, 
+  {
+   "role": "Customer"
+  }, 
+  {
+   "role": "Dispatch RIGPL"
+  }, 
+  {
+   "role": "Sales Representative"
+  }, 
+  {
+   "role": "Production Inventory User"
+  }, 
+  {
+   "role": "Stock Manager"
+  }, 
+  {
+   "role": "Stock User"
+  }, 
+  {
+   "role": "Material Master Manager"
+  }, 
+  {
+   "role": "System Manager"
+  }, 
+  {
+   "role": "Customer RIGPL"
+  }
+ ]
+}
