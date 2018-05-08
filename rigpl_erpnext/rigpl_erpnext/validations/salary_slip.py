@@ -213,7 +213,7 @@ def validate(doc,method):
 	recalculate_formula(doc, table)
 	validate_ec_posting(doc)
 
-def update_fields(doc,method):
+def update_fields(doc):
 	sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
 	doc.letter_head = sstr.letter_head	
 
