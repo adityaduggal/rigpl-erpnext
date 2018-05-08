@@ -204,6 +204,7 @@ def on_cancel(doc,method):
 	
 def validate(doc,method):
 	get_edc(doc)
+	update_fields(doc)
 	msd, med = get_month_dates(doc)
 	get_loan_deduction(doc, msd, med)
 	get_expense_claim(doc, med)
@@ -211,7 +212,11 @@ def validate(doc,method):
 	table = ['earnings', 'deductions', 'contributions']
 	recalculate_formula(doc, table)
 	validate_ec_posting(doc)
-	
+
+def update_fields(doc,method):
+	sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
+	doc.letter_head = sstr.letter_head	
+
 def validate_ec_posting(doc):
 	comp_doc = frappe.get_doc("Company", doc.company)
 	for e in doc.earnings:
