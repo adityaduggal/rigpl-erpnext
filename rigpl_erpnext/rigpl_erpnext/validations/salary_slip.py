@@ -340,7 +340,7 @@ def calculate_net_salary(doc, msd, med):
 					d.amount = int(flt(d.default_amount) * flt(doc.payment_days_for_deductions)/tdim)+1
 				else:
 					d.amount = round(flt(d.default_amount) * flt(doc.payment_days_for_deductions)/tdim,0)
-		tot_ded +=d.amount
+		tot_ded += flt(d.amount)
 	
 	#Calculate Contributions
 	for c in doc.contributions:
