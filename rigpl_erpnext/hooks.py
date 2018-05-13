@@ -100,12 +100,18 @@ doc_events = {
 	"Item Group":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"
 	},
+	"Item Price":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.item_price.validate"
+	},
 	"Lead": {
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update",
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate"
 	},
 	"Leave Application":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate"
+	},
+	"Price List":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
 	},
 	"Production Order":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.production_order.validate"

@@ -6,7 +6,14 @@ from frappe import msgprint
 def validate(doc,method):
 	#Check if the Item has a Stock Reconciliation after the date and time or NOT.
 	#if there is a Stock Reconciliation then the Update would FAIL
+	#Also check if the items are from Same Price List SO as is the PL mentioned in the DN
 	for dnd in doc.get("items"):
+		so = frappe.get_doc("Sales Order", dnd.against_sales_order)
+		if so.selling_price_list != doc.selling_price_list:
+			frappe.throw("Item: {} at Row# {} from SO# {} is from {} whereas DN is for {}. \
+				Remove the row and make a New DN for the mentioned Row".\
+				format(dnd.item_code, dnd.idx, dnd.against_sales_order, so.selling_price_list, \
+				doc.selling_price_list))
 		sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` 
 			WHERE item_code = '%s' AND warehouse = '%s' AND voucher_type = 'Stock Reconciliation'
 			AND posting_date > '%s'""" %(dnd.item_code, dnd.warehouse, doc.posting_date), as_list=1)
