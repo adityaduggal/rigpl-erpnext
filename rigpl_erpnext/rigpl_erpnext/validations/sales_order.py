@@ -8,9 +8,28 @@ def validate(doc,method):
 	update_fields(doc,method)
 	check_gst_rules(doc,method)
 	check_taxes_integrity(doc,method)
+	check_price_list(doc,method)
+
+def check_price_list(doc,method):
+	if doc.selling_price_list:
+		pl_doc = frappe.get_doc("Price List", doc.selling_price_list)
+		if pl_doc.disable_so == 1:
+			frappe.throw("Sales Order Booking Disabled for {}".format(doc.selling_price_list))
+		for it in doc.items:
+			item_pl_rate = frappe.db.sql("""SELECT price_list_rate FROM `tabItem Price`
+				WHERE price_list = '%s' AND item_code = '%s' 
+				AND selling = 1"""%(doc.selling_price_list, it.item_code), as_list=1)
+			if item_pl_rate:
+				if it.price_list_rate != item_pl_rate[0][0]:
+					frappe.throw("Price List Rate Wrong for Item Code: {} at \
+					Row # {}".format(it.item_code, it.idx))
+			else:
+				pass
 
 def update_fields(doc,method):
 	doc.transaction_date = nowdate()
+	if doc.delivery_date < nowdate():
+		doc.delivery_date = nowdate()
 	letter_head_tax = frappe.db.get_value("Sales Taxes and Charges Template", \
 		doc.taxes_and_charges, "letter_head")
 	doc.letter_head = letter_head_tax

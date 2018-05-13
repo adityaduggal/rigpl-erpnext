@@ -8,6 +8,7 @@ def validate(doc,method):
 	check_gst_rules(doc,method)
 	check_delivery_note_rule(doc,method)
 	validate_carrier_tracking(doc,method)
+	validate_price_list(doc,method)
 
 def on_submit(doc,method):
 	create_new_carrier_track(doc,method)
@@ -51,6 +52,29 @@ def on_cancel(doc,method):
 				if name:
 					tt = frappe.get_doc("Trial Tracking", name[0][0])
 					frappe.db.set(tt, 'invoice_no', None)
+
+def validate_price_list(doc,method):
+	for d in doc.items:
+		if d.sales_order:
+			so_doc = frappe.get_doc("Sales Order", d.sales_order)
+			if doc.selling_price_list != so_doc.selling_price_list:
+				frappe.throw("Item: {} at Row# {} from SO# {} is from {} whereas SI is for {}. \
+				Remove the row and make a New SI for the mentioned Row".\
+				format(d.item_code, d.idx, d.sales_order, so_doc.selling_price_list, \
+				doc.selling_price_list))
+		else:
+			pl_doc = frappe.get_doc("Price List", doc.selling_price_list)
+			if pl_doc.disable_so == 1:
+				frappe.throw("Sales Invoices for {} are Blocked without prior \
+					Sales Order".format(doc.selling_price_list))
+			else:
+				item_price = frappe.db.sql("""SELECT price_list_rate FROM `tabItem Price`
+					WHERE price_list = '%s' AND selling = 1 
+					AND item_code = '%s'"""%(doc.selling_price_list, d.item_code), as_list=1)
+				if item_price:
+					if d.price_list_rate != item_price[0][0]:
+						frappe.throw("Item: {} in Row# {} does not match with Price List Rate\
+							of {}. Reload the Item".format(d.item_code, d.idx, item_price[0][0]))
 
 def check_delivery_note_rule(doc,method):
 	'''
