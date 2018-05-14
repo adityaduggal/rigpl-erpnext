@@ -16,11 +16,11 @@ def check_price_list(doc,method):
 		if pl_doc.disable_so == 1:
 			frappe.throw("Sales Order Booking Disabled for {}".format(doc.selling_price_list))
 		for it in doc.items:
-			item_pl_rate = frappe.db.sql("""SELECT price_list_rate FROM `tabItem Price`
+			item_pl_rate = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
 				WHERE price_list = '%s' AND item_code = '%s' 
 				AND selling = 1"""%(doc.selling_price_list, it.item_code), as_list=1)
 			if item_pl_rate:
-				if it.price_list_rate != item_pl_rate[0][0]:
+				if it.price_list_rate != item_pl_rate[0][0] and doc.currency == item_pl_rate[0][1]:
 					frappe.throw("Price List Rate Wrong for Item Code: {} at \
 					Row # {}".format(it.item_code, it.idx))
 			else:
