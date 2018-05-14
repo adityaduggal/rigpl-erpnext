@@ -55,10 +55,17 @@ def execute():
 				frappe.db.set_value("Delivery Note Item", pdn.dni_name, "net_rate", sod_doc.net_rate)
 				frappe.db.set_value("Delivery Note Item", pdn.dni_name, "base_net_rate", sod_doc.net_rate)
 				frappe.db.set_value("Delivery Note Item", pdn.dni_name, "base_rate", sod_doc.net_rate)
+				frappe.db.set_value("Sales Order Item", pdn.so_detail, "rate", sod_doc.net_rate)
+				frappe.db.set_value("Sales Order Item", pdn.so_detail, "base_rate", sod_doc.net_rate)
 				print ("Update DN# " + pdn.dn_name + " for Customer " + pdn.cust + " where rates were same")
 			else:
 				frappe.db.set_value("Delivery Note Item", pdn.dni_name, "rate", pdn.basic_rate)
 				frappe.db.set_value("Delivery Note Item", pdn.dni_name, "net_rate", pdn.basic_rate)
+				frappe.db.set_value("Sales Order Item", pdn.so_detail, "rate", pdn.basic_rate)
+				frappe.db.set_value("Sales Order Item", pdn.so_detail, "base_rate", pdn.basic_rate)
+				frappe.db.set_value("Sales Order Item", pdn.so_detail, "net_rate", pdn.basic_rate)
+				frappe.db.set_value("Sales Order Item", pdn.so_detail, "base_net_rate", pdn.basic_rate)
 				print ("Update DN# " + pdn.dn_name + " for Customer " + pdn.cust + " where rates were different")
+
 
 	print(len(pending_dn))
