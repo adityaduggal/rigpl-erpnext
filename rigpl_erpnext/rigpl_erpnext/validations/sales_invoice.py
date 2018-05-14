@@ -68,11 +68,11 @@ def validate_price_list(doc,method):
 				frappe.throw("Sales Invoices for {} are Blocked without prior \
 					Sales Order".format(doc.selling_price_list))
 			else:
-				item_price = frappe.db.sql("""SELECT price_list_rate FROM `tabItem Price`
+				item_price = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
 					WHERE price_list = '%s' AND selling = 1 
 					AND item_code = '%s'"""%(doc.selling_price_list, d.item_code), as_list=1)
 				if item_price:
-					if d.price_list_rate != item_price[0][0]:
+					if d.price_list_rate != item_price[0][0] and doc.currency == item_price[0][1]:
 						frappe.throw("Item: {} in Row# {} does not match with Price List Rate\
 							of {}. Reload the Item".format(d.item_code, d.idx, item_price[0][0]))
 
