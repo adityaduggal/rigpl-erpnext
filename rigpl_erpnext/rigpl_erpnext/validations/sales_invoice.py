@@ -64,7 +64,8 @@ def validate_price_list(doc,method):
 				doc.selling_price_list))
 		else:
 			pl_doc = frappe.get_doc("Price List", doc.selling_price_list)
-			if pl_doc.disable_so == 1:
+			it_doc = frappe.get_doc("Item", d.item_code)
+			if pl_doc.disable_so == 1 and it_doc.is_stock_item == 1:
 				frappe.throw("Sales Invoices for {} are Blocked without prior \
 					Sales Order".format(doc.selling_price_list))
 			else:
