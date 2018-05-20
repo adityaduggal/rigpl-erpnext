@@ -95,8 +95,6 @@ def get_data():
 	data = []
 	for d in data_dict:
 		if d.base_mat == 'HSS':
-			if d.qual == '1X':
-				d.base_mat = 'HSS-M2'
 			if d.qual == '2X':
 				d.base_mat = 'HSS-M35'
 			if d.qual == '3X':
