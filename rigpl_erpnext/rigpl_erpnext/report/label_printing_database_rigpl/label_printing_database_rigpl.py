@@ -94,6 +94,15 @@ def get_data():
 	data_dict = frappe.db.sql(query, as_dict=1)
 	data = []
 	for d in data_dict:
+		if d.base_mat == 'HSS':
+			if d.qual == '1X':
+				d.base_mat = 'HSS-M2'
+			if d.qual == '2X':
+				d.base_mat = 'HSS-M35'
+			if d.qual == '3X':
+				d.base_mat = 'HSS-T42'
+			if d.qual == 'SP':
+				d.base_mat = 'HSS-M42'
 		if d.d1:
 			d.lbl_desc = d.d1 + d.d1_sfx
 			if d.w1:
