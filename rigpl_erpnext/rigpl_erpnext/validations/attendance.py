@@ -15,8 +15,8 @@ def validate(doc,method):
 	att_tt = []
 	att_time = []
 	attendance_date = getdate(doc.attendance_date)
-	if doc.status != "Present" and doc.status != "Half Day":
-		frappe.throw(("Only Present or Half Day Attendance is Allowed Check {0}").format(doc.name))
+	if doc.status != "Present" and doc.status != "Half Day" and doc.status != "On Leave" :
+		frappe.throw(("Only Present or Half Day or On Leave Attendance is Allowed Check {0}").format(doc.name))
 
 	check_employee (doc, method)
 	shft = get_shift(doc,method)
