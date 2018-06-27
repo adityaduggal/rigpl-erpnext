@@ -33,7 +33,7 @@ def get_si_entries(filters):
 			FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
 			WHERE sid.parent = si.name AND sid.item_code = it.name AND
 			si.docstatus = 1 %s 
-			GROUP BY si.customer, it.pl_item""" % conditions
+			GROUP BY si.customer, it.stock_maintained""" % conditions
 	
 	else:
 		query = """select si.name, si.posting_date, si.customer, sid.item_code,
