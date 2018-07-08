@@ -11,6 +11,7 @@ import json
 #Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
 
 def check_wrong_variants():
+	update_variants()
 	limit_set = int(frappe.db.get_single_value("Stock Settings", "automatic_sync_field_limit"))
 	is_sync_allowed = frappe.db.get_single_value("Stock Settings", 
 		"automatically_sync_templates_data_to_items")
@@ -36,6 +37,20 @@ def check_wrong_variants():
 			else:
 				print ("Limit of " + str(limit_set) + " fields reached. Run again for more updating")
 				break
+
+def update_variants():
+	variant_list = frappe.db.sql("""SELECT name FROM `tabItem` WHERE has_variants = 1""", as_list=1)
+	for variants in variant_list:
+		it_doc = frappe.db.get_doc("Item", variants[0])
+		if it_doc.is_purchase == 1:
+			if it_doc.default_material_request_type != 'Purchase':
+				it_doc.default_material_request_type = 'Purchase'
+		else:
+			if it_doc.default_material_request_type == 'Purchase':
+				it_doc.default_material_request_type = 'Manufacture'
+		it_doc.save()
+		frappe.db.commit()
+		print("Update Template : " + it_doc.name)
 				
 def check_and_copy_attributes_to_variant(template, variant):
 	from frappe.model import no_value_fields
