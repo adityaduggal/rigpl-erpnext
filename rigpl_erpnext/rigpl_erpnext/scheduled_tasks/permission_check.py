@@ -14,6 +14,7 @@ from rigpl_erpnext.rigpl_erpnext.validations.lead import \
 	check_system_manager, get_dl_parent
 
 def check_permission_exist():
+	clean_dynamic_link_table()
 	inactive_users = get_users(active=0)
 	for user in inactive_users:
 		delete_permission(user[0])
@@ -179,3 +180,20 @@ def delete_permission(user, allow=None, for_value=None):
 
 def restore_deleted_permission(name):
 	restore(name)
+
+def clean_dynamic_link_table():
+	query = """SELECT name FROM `tabDynamic Link` 
+		WHERE parenttype = 'Contact' 
+		AND parent NOT IN (SELECT name FROM `tabContact`)"""
+	wrong_contact_list = frappe.db.sql(query, as_list=1)
+	for contact in wrong_contact_list:
+		print (contact)
+
+	query = """SELECT name FROM `tabDynamic Link` 
+		WHERE parenttype = 'Address' 
+		AND parent NOT IN (SELECT name FROM `tabAddress`)"""
+	wrong_add_list = frappe.db.sql(query, as_list=1)
+	if wrong_add_list:
+		for address in wrong_add_list:
+			frappe.delete_doc_if_exists("Dynamic Link", address[0])
+			print("Deleted Dynamic Link " + address[0])
