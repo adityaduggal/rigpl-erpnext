@@ -196,4 +196,5 @@ def clean_dynamic_link_table():
 	if wrong_add_list:
 		for address in wrong_add_list:
 			frappe.delete_doc_if_exists("Dynamic Link", address[0])
+			frappe.db.commit()
 			print("Deleted Dynamic Link " + address[0])
