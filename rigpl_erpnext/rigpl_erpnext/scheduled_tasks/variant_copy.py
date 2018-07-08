@@ -33,24 +33,23 @@ def check_wrong_variants():
 					print ("Checking Item = " + item[0])
 					it_doc = frappe.get_doc("Item", item[0])
 					fields_edited += check_and_copy_attributes_to_variant(temp_doc, it_doc)
-					#print (str(fields_edited) + " ##################")
 			else:
 				print ("Limit of " + str(limit_set) + " fields reached. Run again for more updating")
 				break
 				
-
-
 def check_and_copy_attributes_to_variant(template, variant):
 	from frappe.model import no_value_fields
 	check = 0
 	save_chk = 0
-	exclude_fields = ["item_code", "item_name", "show_in_website", "variant_of", "has_variants", 
-		"description", "web_long_description", "item_variant_restrictions", "show_in_website",
-		"show_variant_in_website", "website_specifications", "brand", "thumbnail"]
+	copy_field_list = frappe.db.sql("""SELECT field_name FROM `tabVariant Field`""", as_list=1)
+	include_fields = []
+	for fields in copy_field_list:
+		include_fields.append(fields[0])
+
 	for field in template.meta.fields:
 		# "Table" is part of `no_value_field` but we shouldn't ignore tables
 		if (field.fieldtype == 'Table' or field.fieldtype not in no_value_fields) \
-			and (not field.no_copy) and field.fieldname not in exclude_fields:
+			and (not field.no_copy) and field.fieldname in include_fields:
 			if variant.get(field.fieldname) != template.get(field.fieldname):
 				variant.set(field.fieldname, template.get(field.fieldname))
 				save_chk = 1
@@ -59,5 +58,6 @@ def check_and_copy_attributes_to_variant(template, variant):
 				check += 1
 	if save_chk == 1:
 		variant.save()
+		frappe.db.commit()
 		print ("Item Code " + variant.name + " Saved")
 	return check

@@ -27,9 +27,11 @@ def make_route(doc,method):
 		doc.scrub(route_name)
 		
 def validate_reoder(doc,method):
+	frappe.msgprint(len(doc.reorder_levels))
 	for d in doc.reorder_levels:
 		if d.warehouse != doc.default_warehouse:
-			frappe.throw("Re Order Level of Default Warehouses are only allowed")
+			d.warehouse = doc.default_warehouse
+			#frappe.throw("Re Order Level of Default Warehouses are only allowed")
 		
 def autoname(doc,method):
 	if doc.variant_of:
@@ -161,7 +163,6 @@ def validate_variants(doc,method):
 						}
 						for k,v in repls.items():
 							rule = rule.replace(k,v)
-							
 						try:
 							valid = eval(rule, ctx, ctx)
 						except Exception as e:
