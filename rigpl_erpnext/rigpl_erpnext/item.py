@@ -80,6 +80,10 @@ def validate_stock_fields(doc,method):
 	if doc.is_stock_item ==1:
 		if doc.valuation_method != 'FIFO':
 			frappe.throw("Select Valuation method as FIFO for Stock Item")
+	if doc.is_purchase_item == 1:
+		doc.default_material_request_type = 'Purchase'
+	else:
+		doc.default_material_request_type = 'Manufacture'
 			
 def validate_variants(doc,method):
 	user = frappe.session.user
