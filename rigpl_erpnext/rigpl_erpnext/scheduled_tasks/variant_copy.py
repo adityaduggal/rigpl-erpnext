@@ -41,8 +41,8 @@ def check_wrong_variants():
 def update_variants():
 	variant_list = frappe.db.sql("""SELECT name FROM `tabItem` WHERE has_variants = 1""", as_list=1)
 	for variants in variant_list:
-		it_doc = frappe.db.get_doc("Item", variants[0])
-		if it_doc.is_purchase == 1:
+		it_doc = frappe.get_doc("Item", variants[0])
+		if it_doc.is_purchase_item == 1:
 			if it_doc.default_material_request_type != 'Purchase':
 				it_doc.default_material_request_type = 'Purchase'
 		else:
