@@ -15,6 +15,7 @@ from rigpl_erpnext.rigpl_erpnext.validations.lead import \
 
 def check_permission_exist():
 	clean_dynamic_link_table()
+	clean_sales_team_table()
 	inactive_users = get_users(active=0)
 	for user in inactive_users:
 		delete_permission(user[0])
@@ -198,3 +199,14 @@ def clean_dynamic_link_table():
 			frappe.delete_doc_if_exists("Dynamic Link", address[0])
 			frappe.db.commit()
 			print("Deleted Dynamic Link " + address[0])
+
+def clean_sales_team_table():
+	query = """SELECT name FROM `tabSales Team` WHERE parenttype = 'Customer' 
+	AND name NOT IN (SELECT name FROM `tabCustomer`) """
+
+	list_of_st = frappe.db.sql(query, as_list=1)
+	if list_of_st:
+		for steam_lst in list_of_st:
+			frappe.delete_doc_if_exists("Sales Team", steam_lst[0])
+			frappe.db.commit()
+			print ("Deleted Sales Team Data " + steam_lst[0])
