@@ -45,12 +45,15 @@ def update_variants():
 		if it_doc.is_purchase_item == 1:
 			if it_doc.default_material_request_type != 'Purchase':
 				it_doc.default_material_request_type = 'Purchase'
+				it_doc.save()
+				print("Update Template : " + it_doc.name)
 		else:
 			if it_doc.default_material_request_type == 'Purchase':
 				it_doc.default_material_request_type = 'Manufacture'
-		it_doc.save()
+				it_doc.save()
+				print("Update Template : " + it_doc.name)
 		frappe.db.commit()
-		print("Update Template : " + it_doc.name)
+		
 				
 def check_and_copy_attributes_to_variant(template, variant):
 	from frappe.model import no_value_fields
