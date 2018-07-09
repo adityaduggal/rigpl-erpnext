@@ -7,6 +7,7 @@ import frappe
 from erpnext.controllers.item_variant import (get_variant, copy_attributes_to_variant,
 	make_variant_item_code, validate_item_variant_attributes, ItemVariantExistsError)
 import json
+import sys
 
 #Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
 
@@ -17,10 +18,14 @@ def check_wrong_variants():
 		"automatically_sync_templates_data_to_items")
 	if is_sync_allowed == 1:
 		templates = frappe.db.sql("""SELECT it.name, (SELECT count(name) 
-			FROM `tabItem` WHERE variant_of = it.name) 
+			FROM `tabItem` WHERE variant_of = it.name) as variants 
 			FROM `tabItem` it WHERE it.has_variants = 1 
 			AND it.disabled = 0 AND it.end_of_life >= CURDATE()
-			ORDER BY it.modified ASC""", as_list=1)
+			ORDER BY variants DESC""", as_list=1)
+		sno = 0
+		for t in templates:
+			sno += 1
+			print (str(sno) + " " + t[0] + " has variants = " + str(t[1]))
 		fields_edited = 0
 		for t in templates:
 			print (str(t[0]) + " Has No of Variants = " + str(t[1]))
