@@ -20,14 +20,14 @@ def check_wrong_variants():
 			FROM `tabItem` WHERE variant_of = it.name) 
 			FROM `tabItem` it WHERE it.has_variants = 1 
 			AND it.disabled = 0 AND it.end_of_life >= CURDATE()
-			ORDER BY it.modified DESC""", as_list=1)
+			ORDER BY it.modified ASC""", as_list=1)
 		fields_edited = 0
 		for t in templates:
 			print (str(t[0]) + " Has No of Variants = " + str(t[1]))
 			if fields_edited <= limit_set:
 				temp_doc = frappe.get_doc("Item", t[0])
 				variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'
-					ORDER BY modified DESC"""%(t[0]), as_list=1)
+					ORDER BY modified ASC"""%(t[0]), as_list=1)
 				#Check all variants' fields are matching with template if 
 				#not then copy the fields else go to next item
 				for item in variants:
