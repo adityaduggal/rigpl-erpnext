@@ -201,12 +201,11 @@ def clean_dynamic_link_table():
 			print("Deleted Dynamic Link " + address[0])
 
 def clean_sales_team_table():
-	query = """SELECT name FROM `tabSales Team` WHERE parenttype = 'Customer' 
-	AND name NOT IN (SELECT name FROM `tabCustomer`) """
-
+	query = """SELECT name, parent FROM `tabSales Team` WHERE parenttype = 'Customer' 
+	AND parent NOT IN (SELECT name FROM `tabCustomer`) """
 	list_of_st = frappe.db.sql(query, as_list=1)
 	if list_of_st:
 		for steam_lst in list_of_st:
 			frappe.delete_doc_if_exists("Sales Team", steam_lst[0])
 			frappe.db.commit()
-			print ("Deleted Sales Team Data " + steam_lst[0])
+			print ("Deleted Sales Team Data " + steam_lst[0] + " For Customer: " + steam_lst[1])
