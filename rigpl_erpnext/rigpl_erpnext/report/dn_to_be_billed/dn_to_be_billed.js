@@ -24,12 +24,6 @@ frappe.query_reports["DN To Be Billed"] = {
 			"options": "Territory"
 		},
 		{
-			"fieldname":"sales_person",
-			"label": "Sales Person",
-			"fieldtype": "Link",
-			"options": "Sales Person"
-		},
-		{
 			"fieldname":"draft",
 			"label": "Draft",
 			"fieldtype": "Check"			
