@@ -88,7 +88,7 @@ def get_data():
 		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
 			AND zn.attribute = 'Number of Flutes Zn'
 		LEFT JOIN `tabItem Variant Attribute` r1_mm ON it.name = r1_mm.parent
-			AND r1.attribute = 'r1_mm'
+			AND r1_mm.attribute = 'r1_mm'
 		WHERE it.is_sales_item = 1 AND it.disabled = 0
 		AND it.has_variants = 0
 		AND IFNULL(it.end_of_life, '2099-12-31') > CURDATE()
