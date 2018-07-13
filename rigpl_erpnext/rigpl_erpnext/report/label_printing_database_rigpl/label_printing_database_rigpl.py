@@ -44,8 +44,8 @@ def get_data():
 		IFNULL(l2_inch.attribute_value, l2_mm.attribute_value) AS l2,
 		IF(l2_inch.attribute_value IS NULL, IF(l2_mm.attribute_value IS NULL, "", ""), "''") AS l2_sfx,
 		IF(zn.attribute_value IS NOT NULL, CONCAT("Z", zn.attribute_value), NULL) AS zn,
-		'TEST' AS lbl_desc, 
-		it.description AS description
+		'TEST' AS lbl_desc, it.description AS description, 
+		IFNULL(r1_mm.attribute_value, r1_mm.attribute_value) AS r1
 		FROM `tabItem` it 
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
 			AND bm.attribute = 'Base Material'
@@ -87,6 +87,8 @@ def get_data():
 			AND l2_inch.attribute = 'l2_inch'
 		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
 			AND zn.attribute = 'Number of Flutes Zn'
+		LEFT JOIN `tabItem Variant Attribute` r1_mm ON it.name = r1_mm.parent
+			AND r1.attribute = 'r1_mm'
 		WHERE it.is_sales_item = 1 AND it.disabled = 0
 		AND it.has_variants = 0
 		AND IFNULL(it.end_of_life, '2099-12-31') > CURDATE()
@@ -101,8 +103,10 @@ def get_data():
 				d.base_mat = 'HSS-T42'
 			if d.qual == 'SP':
 				d.base_mat = 'HSS-M42'
+		if d.r1:
+			d.lbl_desc += "CR:" + d.r1 + " "
 		if d.d1:
-			d.lbl_desc = d.d1 + d.d1_sfx
+			d.lbl_desc += d.d1 + d.d1_sfx
 			if d.w1:
 				d.lbl_desc += "x" + d.w1 + d.w1_sfx
 		if d.l1:
