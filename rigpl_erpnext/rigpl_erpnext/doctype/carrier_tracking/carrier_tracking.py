@@ -502,7 +502,8 @@ class CarrierTracking(Document):
 	def address_validation(self, credentials, add_doc, country_doc):
 		from fedex.services.address_validation_service import FedexAddressValidationRequest
 		avs_request = FedexAddressValidationRequest(credentials)
-		if add_doc.state_rigpl is not None and add_doc.country == 'India':
+		if add_doc.state_rigpl is not None and (add_doc.country == 'India' or \
+			add_doc.country == 'United States'):
 			state_doc = frappe.get_doc("State", add_doc.state)
 		else:
 			state_doc = ""
@@ -566,7 +567,8 @@ class CarrierTracking(Document):
 	def set_shipper_info(self, call_type, ship_add_doc, credentials):
 		from_country_doc = frappe.get_doc("Country", ship_add_doc.country)
 		tin_no = ship_add_doc.gstin
-		if ship_add_doc.state_rigpl is not None and ship_add_doc.country == 'India':
+		if ship_add_doc.state_rigpl is not None and (ship_add_doc.country == 'India' \
+			or ship_add_doc.country == 'United States'):
 			state_doc = frappe.get_doc("State", ship_add_doc.state)
 		else:
 			state_doc = ""
@@ -609,7 +611,8 @@ class CarrierTracking(Document):
 		full_name = sal + first_n + last_n
 		
 		tin_no = ship_add_doc.gstin
-		if ship_add_doc.state_rigpl is not None and ship_add_doc.country == 'India':
+		if ship_add_doc.state_rigpl is not None and (ship_add_doc.country == 'India' \
+			or ship_add_doc.country == 'United States'):
 			state_doc = frappe.get_doc("State", ship_add_doc.state)
 		else:
 			state_doc = ""
@@ -617,6 +620,8 @@ class CarrierTracking(Document):
 			state_code = state_doc.state_code
 		else:
 			state_code = ""
+
+		frappe.msgprint(str(state_code))
 
 		call_type.RequestedShipment.Recipient.Contact.PersonName = \
 			full_name[0:35]
