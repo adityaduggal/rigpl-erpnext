@@ -621,7 +621,7 @@ class CarrierTracking(Document):
 		else:
 			state_code = ""
 
-		frappe.msgprint(str(state_code))
+		#frappe.msgprint(str(state_code))
 
 		call_type.RequestedShipment.Recipient.Contact.PersonName = \
 			full_name[0:35]
