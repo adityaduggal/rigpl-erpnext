@@ -29,7 +29,8 @@ def execute(filters=None):
 		for day in range(filters["total_days_in_month"]):
 			status = att_map.get(emp).get(day + 1, "None")
 			status_map = {"Present": "P", "Absent": "A", "Half Day": "H", 
-				"None": "", "Holiday": "HO", "Unauthorized Leave": "X", "Authorized Leave": "L"}
+				"None": "", "Holiday": "HO", "Unauthorized Leave": "X", 
+				"Authorized Leave": "L", "On Leave": "L"}
 			if hol_map.get(emp):
 				hol = hol_map.get(emp).get(day + 1, "None")
 			else:
@@ -39,7 +40,6 @@ def execute(filters=None):
 				la = la_map.get(emp).get(day + 1, "None")
 			else:
 				la = "None"
-			
 			if status == "None":
 				#Check if its in HOLIDAY
 				if hol == "None":
