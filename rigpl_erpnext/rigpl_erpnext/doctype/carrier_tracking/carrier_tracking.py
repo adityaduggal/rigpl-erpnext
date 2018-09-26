@@ -610,8 +610,7 @@ class CarrierTracking(Document):
 		full_name = sal + first_n + last_n
 		
 		tin_no = ship_add_doc.gstin
-		if ship_add_doc.state_rigpl is not None and (ship_add_doc.country == 'India' \
-			or ship_add_doc.country == 'United States'):
+		if ship_add_doc.state_rigpl is not None:
 			state_doc = frappe.get_doc("State", ship_add_doc.state)
 		else:
 			state_doc = ""
