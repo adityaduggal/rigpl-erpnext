@@ -5,8 +5,8 @@ from frappe.utils import flt, getdate, nowdate
 
 def execute(filters=None):
 	if not filters: filters = {}
-	bm = filters["bm"]
-	tt = filters["tt"]
+	bm = filters.get("bm")
+	tt = filters.get("tt")
 	conditions_it = get_conditions(bm, filters)
 	templates = get_templates(bm, conditions_it, filters)
 
@@ -180,42 +180,42 @@ def get_conditions(bm, filters):
 	conditions_it = ""
 
 	if filters.get("eol"):
-		conditions_it += " WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
+		conditions_it += " WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters.get("eol")
 	
 	if filters.get("rm"):
-		conditions_it += " AND IsRM.attribute_value = '%s'" % filters["rm"]
+		conditions_it += " AND IsRM.attribute_value = '%s'" % filters.get("rm")
 
 	if filters.get("bm"):
-		conditions_it += " AND BaseMaterial.attribute_value = '%s'" % filters["bm"]
+		conditions_it += " AND BaseMaterial.attribute_value = '%s'" % filters.get("bm")
 		
 	if filters.get("series"):
-		conditions_it += " AND Series.attribute_value = '%s'" % filters["series"]
+		conditions_it += " AND Series.attribute_value = '%s'" % filters.get("series")
 
 	if filters.get("quality"):
-		conditions_it += " AND %sQuality.attribute_value = '%s'" % (bm, filters["quality"])
+		conditions_it += " AND %sQuality.attribute_value = '%s'" % (bm, filters.get("quality"))
 
 	if filters.get("spl"):
-		conditions_it += " AND SpecialTreatment.attribute_value = '%s'" % filters["spl"]
+		conditions_it += " AND SpecialTreatment.attribute_value = '%s'" % filters.get("spl")
 
 	if filters.get("purpose"):
-		conditions_it += " AND Purpose.attribute_value = '%s'" % filters["purpose"]
+		conditions_it += " AND Purpose.attribute_value = '%s'" % filters.get("purpose")
 		
 	if filters.get("type"):
-		conditions_it += " AND TypeSelector.attribute_value = '%s'" % filters["type"]
+		conditions_it += " AND TypeSelector.attribute_value = '%s'" % filters.get("type")
 		
 	if filters.get("mtm"):
-		conditions_it += " AND MaterialtoMachine.attribute_value = '%s'" % filters["mtm"]
+		conditions_it += " AND MaterialtoMachine.attribute_value = '%s'" % filters.get("mtm")
 		
 	if filters.get("tt"):
-		conditions_it += " AND ToolType.attribute_value = '%s'" % filters["tt"]
+		conditions_it += " AND ToolType.attribute_value = '%s'" % filters.get("tt")
 
 	if filters.get("show_in_website") ==1:
-		conditions_it += " and it.show_variant_in_website =%s" % filters["show_in_website"]
+		conditions_it += " and it.show_variant_in_website =%s" % filters.get("show_in_website")
 
 	if filters.get("item"):
-		conditions_it += " and it.name = '%s'" % filters["item"]
+		conditions_it += " and it.name = '%s'" % filters.get("item")
 	
 	if filters.get("variant_of"):
-		conditions_it += " and it.variant_of = '%s'" % filters["variant_of"]
+		conditions_it += " and it.variant_of = '%s'" % filters.get("variant_of")
 
 	return conditions_it

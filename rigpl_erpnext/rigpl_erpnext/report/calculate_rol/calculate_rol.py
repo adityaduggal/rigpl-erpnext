@@ -18,13 +18,13 @@ def get_columns():
 		"BM::60", "Brand::60", "Quality::60", "TT::130", "SPL::50", 
 		"D1 MM:Float:50", "W1 MM:Float:50", "L1 MM:Float:60", 
 		"D2 MM:Float:50","L2 MM:Float:60",
-		"Description::450"
+		"Description::450", "Template:Link/Item:150"
 	]
 
 def get_sl_entries(filters):
 	conditions_it, conditions_so, conditions_sle, conditions_ste, conditions_sr = \
 		get_conditions(filters)
-	bm = filters["bm"]
+	bm = filters.get("bm")
 
 	if (filters.get("from_date")):
 		diff = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days
@@ -111,7 +111,7 @@ def get_sl_entries(filters):
 		CAST(w1.attribute_value AS DECIMAL(8,3)), 
 		CAST(l1.attribute_value AS DECIMAL(8,3)), 
 		CAST(d2.attribute_value AS DECIMAL(8,3)), 
-		CAST(l2.attribute_value AS DECIMAL(8,3)), it.description
+		CAST(l2.attribute_value AS DECIMAL(8,3)), it.description, it.variant_of
 		
 		FROM `tabItem` it
 		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
@@ -216,46 +216,46 @@ def get_conditions(filters):
 	conditions_sr = ""
 
 	if filters.get("item"):
-		conditions_it += " AND it.name = '%s'" % filters["item"]
+		conditions_it += " AND it.name = '%s'" % filters.get("item")
 
 	if filters.get("rm"):
-		conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
+		conditions_it += " AND rm.attribute_value = '%s'" % filters.get("rm")
 
 	if filters.get("bm"):
-		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
+		conditions_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
 
 	if filters.get("brand"):
-		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
+		conditions_it += " AND brand.attribute_value = '%s'" % filters.get("brand")
 
 	if filters.get("quality"):
-		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
+		conditions_it += " AND quality.attribute_value = '%s'" % filters.get("quality")
 
 	if filters.get("spl"):
-		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
+		conditions_it += " AND spl.attribute_value = '%s'" % filters.get("spl")
 
 	if filters.get("purpose"):
-		conditions_it += " AND purpose.attribute_value = '%s'" % filters["purpose"]
+		conditions_it += " AND purpose.attribute_value = '%s'" % filters.get("purpose")
 		
 	if filters.get("type"):
-		conditions_it += " AND type.attribute_value = '%s'" % filters["type"]
+		conditions_it += " AND type.attribute_value = '%s'" % filters.get("type")
 		
 	if filters.get("mtm"):
-		conditions_it += " AND mtm.attribute_value = '%s'" % filters["mtm"]
+		conditions_it += " AND mtm.attribute_value = '%s'" % filters.get("mtm")
 		
 	if filters.get("tt"):
-		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
+		conditions_it += " AND tt.attribute_value = '%s'" % filters.get("tt")
 
 	if filters.get("from_date"):
-		conditions_so += " AND so.transaction_date >= '%s'" % filters["from_date"]
-		conditions_sle += " AND sle.posting_date >= '%s'" % filters["from_date"]
-		conditions_ste += " AND ste.posting_date >= '%s'" % filters["from_date"]
-		conditions_sr += " AND sr.posting_date >= '%s'" % filters["from_date"]
+		conditions_so += " AND so.transaction_date >= '%s'" % filters.get("from_date")
+		conditions_sle += " AND sle.posting_date >= '%s'" % filters.get("from_date")
+		conditions_ste += " AND ste.posting_date >= '%s'" % filters.get("from_date")
+		conditions_sr += " AND sr.posting_date >= '%s'" % filters.get("from_date")
 
 	if filters.get("to_date"):
-		conditions_so += " AND so.transaction_date <= '%s'" % filters["to_date"]
-		conditions_sle += " AND sle.posting_date <= '%s'" % filters["to_date"]
-		conditions_ste += " AND ste.posting_date <= '%s'" % filters["to_date"]
-		conditions_sr += " AND sr.posting_date <= '%s'" % filters["to_date"]
+		conditions_so += " AND so.transaction_date <= '%s'" % filters.get("to_date")
+		conditions_sle += " AND sle.posting_date <= '%s'" % filters.get("to_date")
+		conditions_ste += " AND ste.posting_date <= '%s'" % filters.get("to_date")
+		conditions_sr += " AND sr.posting_date <= '%s'" % filters.get("to_date")
 		
 	return conditions_it, conditions_so, conditions_sle, conditions_ste, conditions_sr
 
