@@ -83,10 +83,10 @@ def check_permission_exist():
 							if not add_perm:
 								create_new_user_perm('Address', address[0], user[0])
 		print("Completed Adding Permissions for User: " + user[0])
-	version_delete = [['Bin', 'creator=None', 'creation=None'], \
-		['Carrier Tracking', 'creator= "Administrator"', 'creation=today()'], \
-		['Stock Ledger Entry', 'creator=None', 'creation=None'], \
-		['GL Entry', 'creator=None', 'creation=None']]
+	version_delete = [['Bin', '', ''], \
+		['Carrier Tracking', 'Administrator', '0'], \
+		['Stock Ledger Entry', '', ''], \
+		['GL Entry', '', '']]
 	for version in version_delete:
 		delete_version(version[0], version[1], version[2])
 	delete_docs = ['User Permission', 'Error Log', 'Email Group Member', 'Version']
@@ -97,10 +97,14 @@ def delete_version(document, creator=None, creation=None):
 	commit_chk = 0
 	condition = ''
 	if creator:
-		condition = " AND owner = '%s'"
-
+		condition += " AND owner = '%s'" %(creator)
+	
 	if creation:
-		condition = " AND creation <= DATE_SUB(NOW(), INTERVAL 5 DAY)"
+		condition += " AND creation <= DATE_SUB(NOW(), INTERVAL %s DAY)"%(creation)
+
+	print(str(document))
+	print(str(creator))
+	print(str(condition))
 
 	version_list = frappe.db.sql("""SELECT name FROM `tabVersion` 
 		WHERE ref_doctype = '%s' %s""" %(document, condition), as_list=1)
