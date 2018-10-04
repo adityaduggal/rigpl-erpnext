@@ -85,6 +85,7 @@ def check_permission_exist():
 		print("Completed Adding Permissions for User: " + user[0])
 	version_delete = [['Bin', '', ''], \
 		['Carrier Tracking', 'Administrator', '0'], \
+		['Item', 'Administrator', '0'], \
 		['Stock Ledger Entry', '', ''], \
 		['GL Entry', '', '']]
 	for version in version_delete:
@@ -101,10 +102,6 @@ def delete_version(document, creator=None, creation=None):
 	
 	if creation:
 		condition += " AND creation <= DATE_SUB(NOW(), INTERVAL %s DAY)"%(creation)
-
-	print(str(document))
-	print(str(creator))
-	print(str(condition))
 
 	version_list = frappe.db.sql("""SELECT name FROM `tabVersion` 
 		WHERE ref_doctype = '%s' %s""" %(document, condition), as_list=1)
