@@ -27,11 +27,15 @@ def make_route(doc,method):
 		doc.scrub(route_name)
 		
 def validate_reoder(doc,method):
-	frappe.msgprint(len(doc.reorder_levels))
 	for d in doc.reorder_levels:
 		if d.warehouse != doc.default_warehouse:
 			d.warehouse = doc.default_warehouse
-			#frappe.throw("Re Order Level of Default Warehouses are only allowed")
+	validate_valuation_rate(doc,method)
+
+def validate_valuation_rate(doc,method):
+	if doc.has_variants == 1 and doc.is_sales_item == 1:
+		if doc.valuation_as_percent_of_default_selling_price == 0:
+			frappe.throw("Valuation Rate Percent cannot be ZERO")
 		
 def autoname(doc,method):
 	if doc.variant_of:
@@ -196,8 +200,9 @@ def validate_variants(doc,method):
 					number of variants = {1} increase the limit to save the variant")\
 						.format(limit, actual[0][0]))
 			else:
-				frappe.msgprint(("Template Set Limit = {0} whereas total number of variants = {1}")\
-						.format(limit, actual[0][0]))
+				pass
+				#frappe.msgprint(("Template Set Limit = {0} whereas total number of variants = {1}")\
+				#		.format(limit, actual[0][0]))
 		else:
 			if actual[0][0] >= limit:
 				frappe.throw(("Template Limit reached. Set Limit = {0} whereas total \

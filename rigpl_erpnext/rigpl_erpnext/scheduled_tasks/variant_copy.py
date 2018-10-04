@@ -4,15 +4,15 @@
 
 from __future__ import unicode_literals
 import frappe
-from erpnext.controllers.item_variant import (get_variant, copy_attributes_to_variant,
-	make_variant_item_code, validate_item_variant_attributes, ItemVariantExistsError)
+from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate import set_valuation_rate
 import json
 import sys
 
 #Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
 
 def check_wrong_variants():
-	update_variants()
+	set_valuation_rate()
+	update_templates()
 	limit_set = int(frappe.db.get_single_value("Stock Settings", "automatic_sync_field_limit"))
 	is_sync_allowed = frappe.db.get_single_value("Stock Settings", 
 		"automatically_sync_templates_data_to_items")
@@ -43,7 +43,7 @@ def check_wrong_variants():
 				print ("Limit of " + str(limit_set) + " fields reached. Run again for more updating")
 				break
 
-def update_variants():
+def update_templates():
 	variant_list = frappe.db.sql("""SELECT name FROM `tabItem` WHERE has_variants = 1""", as_list=1)
 	for variants in variant_list:
 		it_doc = frappe.get_doc("Item", variants[0])
