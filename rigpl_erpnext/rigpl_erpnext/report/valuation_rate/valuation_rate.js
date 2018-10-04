@@ -8,7 +8,7 @@ frappe.query_reports["Valuation Rate"] = {
 			"label": "Price List",
 			"fieldtype": "Link",
 			"options": "Price List",
-			"default": "PL47",
+			"default": frappe.defaults.get_default("selling_price_list"),
 			"reqd": 1,
 			"get_query": function(){ return {'filters': [['Price List', 'enabled','=',1]]}}
 		},

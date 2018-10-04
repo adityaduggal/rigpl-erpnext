@@ -21,7 +21,7 @@ def execute(filters=None):
 	
 def get_columns(templates):
 	columns = [
-		_("VR") + ":Link/Valuation Rate:80", _("Item") + ":Link/Item:130", 
+		_("Item") + ":Link/Item:130", 
 		_("Rate") + ":Currency:80", _("Base on PL") + ":Link/Price List:80", 
 		_("PL Rate") + ":Currency:80", _("%age of PL") + ":Float:80"
 	]
@@ -116,12 +116,11 @@ def get_items(conditions_it, conditions_pl, attributes, att_details, filters):
 		att_join += """LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent
 			AND %s.attribute = '%s'""" %(att_trimmed,att_trimmed,att_trimmed,att)
 
-	query = """SELECT IFNULL(vr.name, "X"), it.name, vr.valuation_rate, vr.price_list, 
-		itp.price_list_rate,  (vr.valuation_rate/itp.price_list_rate*100) %s, 
+	query = """SELECT it.name, it.valuation_rate, itp.price_list, 
+		itp.price_list_rate,  (it.valuation_rate/itp.price_list_rate*100) %s, 
 		it.description, IFNULL(it.end_of_life, '2099-12-31'),
-		IFNULL(vr.owner, "X"), vr.creation
+		IFNULL(it.owner, "X"), it.creation
 		FROM `tabItem` it
-			LEFT JOIN `tabValuation Rate` vr ON it.name = vr.item_code
 			LEFT JOIN `tabItem Price` itp ON it.name = itp.item_code %s
 			%s %s 
 		ORDER BY %s it.name""" %(att_query, conditions_pl, att_join, conditions_it, att_order)
