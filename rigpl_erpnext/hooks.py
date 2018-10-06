@@ -181,13 +181,13 @@ scheduler_events = {
 # 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
 # 	],
  	"daily": [
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants"
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist"
  	],
  	"hourly": [
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data"
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants"
  	]
 # 	"monthly": [
 # 		"rigpl_erpnext.tasks.monthly"
