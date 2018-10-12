@@ -7,9 +7,17 @@ from frappe.utils import flt
 from frappe.desk.reportview import get_match_cond
 
 def validate(doc, method):
+	if doc.variant_of:
+		template = frappe.get_doc("Item", doc.variant_of)
+		if doc.get("__islocal") == 1:
+			copy_item_defaults(template, doc)
+		else:
+			check_and_copy_attributes_to_variant(template, doc)
+			copy_item_defaults(template, doc)
+
+	validate_variants(doc,method)
 	validate_reoder(doc,method)
 	web_catalog(doc,method)
-	validate_variants(doc,method)
 	doc.page_name = doc.item_name
 	generate_description(doc,method)
 	if doc.variant_of is None:
@@ -20,7 +28,7 @@ def validate(doc, method):
 	else:
 		set_website_specs(doc,method)
 	make_route(doc,method)
-	
+
 def make_route(doc,method):
 	route_name = (re.sub('[^A-Za-z0-9]+', ' ', doc.item_name))
 	doc.route = frappe.db.get_value('Item Group', doc.item_group, 'route') + '/' + \
@@ -36,6 +44,11 @@ def validate_valuation_rate(doc,method):
 	if doc.has_variants == 1 and doc.is_sales_item == 1:
 		if doc.valuation_as_percent_of_default_selling_price == 0:
 			frappe.throw("Valuation Rate Percent cannot be ZERO")
+	if doc.has_variants != 1 and doc.variant_of:
+		if doc.is_sales_item == 1:
+			pass
+		elif doc.is_purchase_item == 1:
+			pass
 		
 def autoname(doc,method):
 	if doc.variant_of:
@@ -48,6 +61,7 @@ def autoname(doc,method):
 def web_catalog(doc,method):
 	validate_stock_fields(doc,method)
 	validate_restriction(doc,method)
+	validate_item_defaults(doc,method)
 	doc.website_image = doc.image
 	doc.thumbnail = doc.image	
 	if doc.pl_item == "Yes":
@@ -62,9 +76,26 @@ def web_catalog(doc,method):
 		
 	if doc.show_in_website == 1:
 		rol = frappe.db.sql("""SELECT warehouse_reorder_level FROM `tabItem Reorder` WHERE parent ='%s' """%(doc.name), as_list=1)
-		doc.website_warehouse = doc.default_warehouse
+		if doc.item_defaults:
+			for d in doc.item_defaults:
+				doc.website_warehouse = d.default_warehouse
 		if rol:
 			doc.weightage = rol[0][0]
+
+def validate_item_defaults(doc,method):
+	if doc.item_defaults:
+		if len(doc.item_defaults)>1:
+			frappe.throw("Currently Only one line of defaults are supported")
+		for d in doc.item_defaults:
+			if d.default_warehouse:
+				def_warehouse = d.default_warehouse
+			else:
+				frappe.throw("Default Warehouse is Mandatory")
+			if d.default_price_list:
+				def_price_list = d.default_price_list
+			else:
+				if doc.is_sales_item == 1:
+					frappe.throw("Default Price List is Mandatory")
 		
 def validate_restriction(doc,method):
 	if doc.has_variants == 1:
@@ -93,16 +124,14 @@ def validate_variants(doc,method):
 	user = frappe.session.user
 	query = """SELECT role from `tabHas Role` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
-	
-	
-	##Temporarirly removed the Show in Website Validation with Image
+
 	if doc.show_in_website == 1:
 		if doc.thumbnail is None:
 			frappe.throw("For Website Items, Website Image is Mandatory")
 	if doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
 		template = frappe.get_doc("Item", doc.variant_of)
-		
+		copy_item_defaults(template, doc)
 		template_attribute = []
 		variant_attribute = []
 		template_restricted_attributes = {}
@@ -201,8 +230,6 @@ def validate_variants(doc,method):
 						.format(limit, actual[0][0]))
 			else:
 				pass
-				#frappe.msgprint(("Template Set Limit = {0} whereas total number of variants = {1}")\
-				#		.format(limit, actual[0][0]))
 		else:
 			if actual[0][0] >= limit:
 				frappe.throw(("Template Limit reached. Set Limit = {0} whereas total \
@@ -218,6 +245,64 @@ def validate_variants(doc,method):
 			pass
 		else:
 			frappe.throw("Only System Managers are Allowed to Edit Templates")
+
+def copy_item_defaults(template, variant):
+	if template.item_defaults:
+		t_def = 1
+	else:
+		t_def = 0
+	if variant.item_defaults:
+		v_def = 1
+	else:
+		v_def = 0
+
+	if t_def == 1 and v_def == 1: 
+		#condition when template and variant defaults are there then check them
+		for t in template.item_defaults:
+			for v in variant.item_defaults:
+				if t.idx == v.idx:
+					if t.company != v.company:
+						v.company = t.company
+					if t.default_warehouse != v.default_warehouse:
+						v.default_warehouse = t.default_warehouse
+					if t.default_price_list != v.default_price_list:
+						v.default_price_list = t.default_price_list
+					if t.buying_cost_center != v.buying_cost_center:
+						v.buying_cost_center = t.buying_cost_center
+					if t.expense_account != v.expense_account:
+						v.expense_account = t.expense_account
+					if t.selling_cost_center != v.selling_cost_center:
+						v.selling_cost_center = t.selling_cost_center
+					if t.income_account != v.income_account:
+						v.income_account = t.income_account
+
+	elif t_def == 1 and v_def == 0:
+		pass
+		#condition when template defaults are there but varaint defaults are missing then check copy
+	else:
+		frappe.throw("Item Defaults are Mandatory for Template {}".format(template.name))
+
+def check_and_copy_attributes_to_variant(template, variant):
+	from frappe.model import no_value_fields
+	check = 0
+	save_chk = 0
+	copy_field_list = frappe.db.sql("""SELECT field_name FROM `tabVariant Field`""", as_list=1)
+	include_fields = []
+	for fields in copy_field_list:
+		include_fields.append(fields[0])
+
+	for field in template.meta.fields:
+		# "Table" is part of `no_value_field` but we shouldn't ignore tables
+		if (field.fieldtype == 'Table' or field.fieldtype not in no_value_fields) \
+			and (not field.no_copy) and field.fieldname in include_fields:
+			if variant.get(field.fieldname) != template.get(field.fieldname):
+				variant.set(field.fieldname, template.get(field.fieldname))
+				save_chk = 1
+				print ("Updated Item " + variant.name + " Field Changed = " + str(field.label) + 
+					" Updated Value to " + str(template.get(field.fieldname)))
+				check += 1
+	if template.item_defaults != variant.item_defaults:
+		variant.item_defaults = template.item_defaults
 
 						
 def generate_description(doc,method):
@@ -258,18 +343,18 @@ def generate_description(doc,method):
 								
 				if prefix[0][0] != '""':
 					if list[0][0]:
-						concat1 = unicode(prefix[0][0][1:-1]) + unicode(list[0][0][1:-1])
+						concat1 = str(prefix[0][0][1:-1]) + str(list[0][0][1:-1])
 					if list[0][1]:
-						concat2 = unicode(prefix[0][0][1:-1]) + unicode(list[0][1][1:-1])
+						concat2 = str(prefix[0][0][1:-1]) + str(list[0][1][1:-1])
 				else:
 					if list[0][0] != '""':
-						concat1 = unicode(list[0][0][1:-1])
+						concat1 = str(list[0][0][1:-1])
 					if list[0][1] != '""':
-						concat2 = unicode(list[0][1][1:-1])
+						concat2 = str(list[0][1][1:-1])
 
 				if suffix[0][0]!= '""':
-					concat1 = concat1 + unicode(suffix[0][0][1:-1])
-					concat2 = concat2 + unicode(suffix[0][0][1:-1])
+					concat1 = concat1 + str(suffix[0][0][1:-1])
+					concat2 = concat2 + str(suffix[0][0][1:-1])
 				desc.extend([[concat1, concat2, d.idx]])
 			
 			elif is_numeric == 1 and use_in_description == 1:
@@ -290,12 +375,12 @@ def generate_description(doc,method):
 					
 				concat = ""
 				if prefix[0][0] != '""':
-					concat = unicode(prefix[0][0][1:-1]) + unicode('{0:g}'.format(d.attribute_value))
+					concat = str(prefix[0][0][1:-1]) + str('{0:g}'.format(d.attribute_value))
 				else:
-					concat = unicode('{0:g}'.format(d.attribute_value))
+					concat = str('{0:g}'.format(d.attribute_value))
 
 				if suffix[0][0]!= '""':
-					concat = concat + unicode(suffix[0][0][1:-1])
+					concat = concat + str(suffix[0][0][1:-1])
 				desc.extend([[concat, concat, d.idx]])
 			
 			else:
@@ -456,9 +541,6 @@ def set_website_specs(doc,method):
 			row = doc.append("website_specifications")
 			row.label = label
 			row.description = desc
-					
-		
-
 
 @frappe.whitelist()
 def get_uom_factors(from_uom, to_uom):
