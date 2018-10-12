@@ -41,7 +41,7 @@ def execute():
 			AND ifnull((SELECT count(sod.name) FROM `tabStock Reconciliation Item` sod 
 				WHERE sod.item_code = it.name GROUP BY sod.item_code),0) = 0
 			
-			AND ifnull((SELECT count(sod.name) FROM `tabProduction Order` sod 
+			AND ifnull((SELECT count(sod.name) FROM `tabWork Order` sod 
 				WHERE sod.production_item = it.name GROUP BY sod.production_item),0) = 0
 		ORDER BY it.owner, it.creation""", 
 			as_list = 1)

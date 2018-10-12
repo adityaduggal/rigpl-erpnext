@@ -71,7 +71,7 @@ class CreateBulkProductionOrders(Document):
 		
 		items = frappe.db.sql("""SELECT DISTINCT sod.parent, sod.item_code, sod.warehouse, sod.description,
 			(sod.qty - sod.delivered_qty) as pending_qty, sod.name, (SELECT SUM(prd.qty) 
-			FROM `tabProduction Order` prd WHERE prd.so_detail = sod.name 
+			FROM `tabWork Order` prd WHERE prd.so_detail = sod.name 
 			AND prd.docstatus != 2 AND prd.status != "Stopped") as prd_qty
 			from `tabSales Order Item` sod
 			where sod.parent in (%s) AND sod.docstatus = 1 AND 
@@ -100,7 +100,7 @@ class CreateBulkProductionOrders(Document):
 					pi.sales_order		= p['parent']
 			else:
 				frappe.msgprint(("For SO# {0} \n Item Description: {1} \n \
-				Production Orders have already been made hence this item is not included in the \
+				Work Orders have already been made hence this item is not included in the \
 				Item List").format(p['parent'], p['description']))
 				
 	def get_item_details(self, item):
@@ -138,11 +138,11 @@ class CreateBulkProductionOrders(Document):
 		#frappe.flags.mute_messages = False
 
 		if pro_list:
-			pro_list = ["""<a href="#Form/Production Order/%s" target="_blank">%s</a>""" % \
+			pro_list = ["""<a href="#Form/Work Order/%s" target="_blank">%s</a>""" % \
 				(p, p) for p in pro_list]
 			msgprint(_("{0} created").format(comma_and(pro_list)))
 		else :
-			msgprint(_("No Production Orders created"))
+			msgprint(_("No Work Orders created"))
 
 	def get_production_items(self):
 		item_dict = {}
@@ -184,7 +184,7 @@ class CreateBulkProductionOrders(Document):
 		#Create production order. Called from Production Planning Tool
 		from erpnext.manufacturing.doctype.production_order.production_order import OverProductionError, get_default_warehouse
 		warehouse = get_default_warehouse()
-		pro = frappe.new_doc("Production Order")
+		pro = frappe.new_doc("Work Order")
 		pro.update(item_dict)
 
 		try:

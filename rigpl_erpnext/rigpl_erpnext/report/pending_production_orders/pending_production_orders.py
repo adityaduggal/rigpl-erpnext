@@ -13,7 +13,7 @@ def execute(filters=None):
 	
 def get_columns():
 	return[
-	"PRD No:Link/Production Order:120", "WH::90", 
+	"PRD No:Link/Work Order:120", "WH::90", 
 	"PRD Date:Date:80", "Priority:Int:20", "Item Code:Link/Item:120", 
 	"Item Description::280", "PPRD:Float:50", "Qty:Float:50", "PRD:Float:50",
 	"RM to Use::300", "Remarks::200", "SO#:Link/Sales Order:150",
@@ -30,7 +30,7 @@ def get_items(filters, conditions_prd):
 		prd.owner, prd.modified_by
 		
 		FROM
-			`tabProduction Order` prd
+			`tabWork Order` prd
 		LEFT JOIN `tabItem Variant Attribute` bm ON prd.production_item = bm.parent
 			AND bm.attribute = 'Base Material'
 		LEFT JOIN `tabItem Variant Attribute` tt ON prd.production_item = tt.parent

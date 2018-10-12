@@ -60,7 +60,7 @@ def get_items(filters):
 		ifnull((SELECT count(sod.name) FROM `tabStock Reconciliation Item` sod 
 			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
 		
-		ifnull((SELECT count(sod.name) FROM `tabProduction Order` sod 
+		ifnull((SELECT count(sod.name) FROM `tabWork Order` sod 
 			WHERE sod.production_item = it.name GROUP BY sod.production_item),0),
 		
 		(SELECT vr.name FROM `tabValuation Rate` vr WHERE vr.item_code = it.name),

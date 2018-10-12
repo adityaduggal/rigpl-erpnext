@@ -213,7 +213,7 @@ def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
 
 	return frappe.db.sql("""SELECT DISTINCT(prd.name), prd.sales_order, prd.production_order_date,
 	prd.item_description
-	FROM `tabProduction Order` prd, `tabSales Order` so, `tabSales Order Item` soi
+	FROM `tabWork Order` prd, `tabSales Order` so, `tabSales Order Item` soi
 	WHERE 
 		prd.docstatus = 1
 		AND so.docstatus = 1 
