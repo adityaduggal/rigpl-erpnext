@@ -181,7 +181,8 @@ scheduler_events = {
 # 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily"
 # 	],
  	"daily": [
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist"
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.work_order_status.execute"
  	],
  	"hourly": [
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
