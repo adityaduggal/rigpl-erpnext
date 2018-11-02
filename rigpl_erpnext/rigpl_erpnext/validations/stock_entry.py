@@ -69,10 +69,11 @@ def validate(doc,method):
 		
 		
 		#Get Stock Valuation from Valuation Rate Table
-		query = """SELECT vr.name FROM `tabValuation Rate` vr where vr.disabled = 'No' and vr.item_code = '%s' """ % d.item_code
-		vr_name = frappe.db.sql(query, as_list=1)
-		if vr_name != []:
-			vr = frappe.get_doc("Valuation Rate", vr_name[0][0])
-			if d.item_code == vr.item_code:
-				d.basic_rate = vr.valuation_rate
-				d.valuation_rate = vr.valuation_rate		
+		query = """SELECT valuation_rate FROM `tabItem` WHERE name = '%s' """ % d.item_code
+		vr = frappe.db.sql(query, as_list=1)
+		if vr[0][0] != 0 or vr[0][0]:
+			d.basic_rate = vr[0][0]
+			d.valuation_rate = vr[0][0]
+		else:
+			d.basic_rate = 1
+			d.valuation_rate = 1

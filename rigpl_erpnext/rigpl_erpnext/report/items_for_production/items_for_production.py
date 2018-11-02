@@ -148,8 +148,8 @@ def get_items(filters):
 		WHERE wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0 
 		AND wh.name = bn.warehouse""", as_dict = 1)
 	for i in range(0, len(data)):
-		v_rate = frappe.db.sql("""SELECT valuation_rate FROM `tabValuation Rate`
-			WHERE disabled = 'No' AND item_code = '%s'""" %data[i][0], as_list=1)
+		v_rate = frappe.db.sql("""SELECT valuation_rate FROM `tabItem`
+			WHERE name = '%s'""" %data[i][0], as_list=1)
 		
 		if v_rate:	
 			VR = flt(v_rate[0][0])

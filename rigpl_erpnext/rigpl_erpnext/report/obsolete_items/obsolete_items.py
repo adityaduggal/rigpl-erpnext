@@ -63,7 +63,7 @@ def get_items(filters):
 		ifnull((SELECT count(sod.name) FROM `tabWork Order` sod 
 			WHERE sod.production_item = it.name GROUP BY sod.production_item),0),
 		
-		(SELECT vr.name FROM `tabValuation Rate` vr WHERE vr.item_code = it.name),
+		it.valuation_rate,
 		
 		ifnull(it.owner,'Administrator'), it.creation 
 		FROM `tabItem` it %s %s %s""" % (tab_join, conditions, cond_join)
@@ -94,51 +94,45 @@ def get_conditions(filters):
 		conditions += " AND it.name = '%s'" %filters["item"]
 
 	if filters.get("bm"):
-		bm = frappe.db.get_value("Item Attribute Value", filters["bm"], "attribute_value")
 		tab_join += " LEFT JOIN `tabItem Variant Attribute` bm \
 			ON it.name = bm.parent \
 			AND bm.attribute = 'Base Material'"
 		
-		cond_join += " AND bm.attribute_value = '%s'" % bm
+		cond_join += " AND bm.attribute_value = '%s'" % filters.get("bm")
 		
 	if filters.get("is_rm"):
-		rm = frappe.db.get_value("Item Attribute Value", filters["is_rm"], "attribute_value")
 		tab_join += " LEFT JOIN `tabItem Variant Attribute` rm \
 			ON it.name = rm.parent \
 			AND rm.attribute = 'Is RM'"
 		
-		cond_join += " AND bm.attribute_value = '%s'" % rm
+		cond_join += " AND rm.attribute_value = '%s'" % filters.get("is_rm")
 		
 	if filters.get("brand"):
-		brand = frappe.db.get_value("Item Attribute Value", filters["brand"], "attribute_value")
 		tab_join += " LEFT JOIN `tabItem Variant Attribute` brand \
 			ON it.name = brand.parent \
 			AND brand.attribute = 'Brand'"
 		
-		cond_join += " AND brand.attribute_value = '%s'" % brand
+		cond_join += " AND brand.attribute_value = '%s'" % filters.get("brand")
 
 	if filters.get("quality"):
-		quality = frappe.db.get_value("Item Attribute Value", filters["quality"], "attribute_value")
 		tab_join += " LEFT JOIN `tabItem Variant Attribute` quality \
 			ON it.name = quality.parent \
 			AND quality.attribute LIKE '%Quality'"
 		
-		cond_join += " AND quality.attribute_value = '%s'" % quality
+		cond_join += " AND quality.attribute_value = '%s'" % filters.get("quality")
 		
 	if filters.get("spl"):
-		spl = frappe.db.get_value("Item Attribute Value", filters["spl"], "attribute_value")
 		tab_join += " LEFT JOIN `tabItem Variant Attribute` spl \
 			ON it.name = spl.parent \
 			AND spl.attribute = 'Special Treatment'"
 		
-		cond_join += " AND spl.attribute_value = '%s'" % spl
+		cond_join += " AND spl.attribute_value = '%s'" % filters.get("spl")
 		
 	if filters.get("tt"):
-		tt = frappe.db.get_value("Item Attribute Value", filters["tt"], "attribute_value")
 		tab_join += " LEFT JOIN `tabItem Variant Attribute` tt \
 			ON it.name = tt.parent \
 			AND tt.attribute = 'Tool Type'"
 		
-		cond_join += " AND tt.attribute_value = '%s'" % tt
+		cond_join += " AND tt.attribute_value = '%s'" % filters.get("tt")
 		
 	return conditions, tab_join, cond_join

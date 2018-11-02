@@ -159,6 +159,7 @@ def create_valuation_rate(doc,method):
 							vr_list.append(dict)
 							vr_list = sorted(vr_list, key=lambda k: k['length'])
 					for d in vr_list:
+						frappe.msgprint(str(vr_list))
 						vr = frappe.db.sql("""SELECT name FROM `tabValuation Rate` 
 							WHERE item_code = '%s' AND disabled = 'No'""" %(d['name']), as_list=1)
 						if doc.buying_price_list:

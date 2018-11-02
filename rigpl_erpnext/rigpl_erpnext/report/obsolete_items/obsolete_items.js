@@ -16,8 +16,8 @@ frappe.query_reports["Obsolete Items"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 
-			'parent','=','Is RM']]}}
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_rm_query"}}
 		},
 		{
 			"fieldname":"bm",
@@ -25,8 +25,8 @@ frappe.query_reports["Obsolete Items"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 1,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 
-			'parent','=','Base Material']]}}
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
 		},
 		{
 			"fieldname":"brand",
@@ -34,7 +34,8 @@ frappe.query_reports["Obsolete Items"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 'parent','=','Brand']]}}
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_brand_query"}}
 		},
 		{
 			"fieldname":"quality",
@@ -42,8 +43,8 @@ frappe.query_reports["Obsolete Items"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 
-			'parent','LIKE','%Quality']]}}
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_quality_query"}}
 		},
 		{
 			"fieldname":"spl",
@@ -51,8 +52,8 @@ frappe.query_reports["Obsolete Items"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 
-			'parent','=','Special Treatment']]}}
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_spl_query"}}
 		},
 		{
 			"fieldname":"tt",
@@ -60,8 +61,8 @@ frappe.query_reports["Obsolete Items"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
-			"get_query": function(){ return {'filters': [['Item Attribute Value', 
-			'parent','=','Tool Type']]}}
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
 		},
 		{
 			"fieldname":"item",

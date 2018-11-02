@@ -148,8 +148,6 @@ def get_pl_map(filters, items):
 	return pl_map
 
 def get_value_map(filters, items):
-	if filters.get("pl"):
-		conditions = " v.price_list = '%s'" %filters["pl"]
 	buy = []
 	sell = []
 	for d in items:
@@ -161,28 +159,28 @@ def get_value_map(filters, items):
 			sell.append(dict)
 
 	if sell:
-		value_map_sell = frappe.db.sql ("""SELECT v.item_code, v.price_list, v.valuation_rate AS vr
-		FROM `tabValuation Rate` v
-		WHERE {condition} AND v.disabled = 'No' AND v.item_code IN (%s)""".format(condition=conditions)\
+		value_map_sell = frappe.db.sql ("""SELECT name, valuation_rate AS vr
+		FROM `tabItem`
+		WHERE name IN (%s)"""\
 		%(", ".join(['%s']*len(sell))), tuple([d.name for d in sell]), as_dict=1)
 	else:
 		value_map_sell ={}
 	
 	if buy:
-		value_map_buy = frappe.db.sql ("""SELECT v.item_code, v.price_list, v.valuation_rate AS vr
-		FROM `tabValuation Rate` v
-		WHERE v.disabled = 'No' AND v.item_code IN (%s)""" %(", ".join(['%s']*len(buy))), \
+		value_map_buy = frappe.db.sql ("""SELECT name, valuation_rate AS vr
+		FROM `tabItem`
+		WHERE name IN (%s)""" %(", ".join(['%s']*len(buy))), \
 			tuple([d.name for d in buy]), as_dict=1)
 	else:
 		value_map_buy = {}
-	
+
 	value_map={}
 	if value_map_sell:
 		for d in value_map_sell:
-			value_map.setdefault(d.item_code,d)
+			value_map.setdefault(d.name,d)
 	if value_map_buy:
 		for d in value_map_buy:
-			value_map.setdefault(d.item_code,d)
+			value_map.setdefault(d.name,d)
 	return value_map
 	
 def get_lpr_map(filters, items):
