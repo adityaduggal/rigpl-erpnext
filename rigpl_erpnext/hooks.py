@@ -119,6 +119,9 @@ doc_events = {
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_cancel",
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_update"
 	},
+	"Purchase Invoice":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_invoice.validate"
+	},
 	"Purchase Receipt":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.validate",
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_submit",
