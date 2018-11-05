@@ -35,9 +35,11 @@ def make_route(doc,method):
 		doc.scrub(route_name)
 		
 def validate_reoder(doc,method):
+	for val in doc.item_defaults:
+		def_warehouse = val.default_warehouse
 	for d in doc.reorder_levels:
-		if d.warehouse != doc.default_warehouse:
-			d.warehouse = doc.default_warehouse
+		if d.warehouse != def_warehouse:
+			d.warehouse = def_warehouse
 	validate_valuation_rate(doc,method)
 
 def validate_valuation_rate(doc,method):
