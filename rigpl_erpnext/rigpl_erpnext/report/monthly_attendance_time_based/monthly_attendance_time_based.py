@@ -19,7 +19,6 @@ def execute(filters=None):
 	hol_map = get_holiday_list(conditions_hol)
 	la_map = get_leave_application(conditions_la, filters)
 	data = []
-	
 	for emp in sorted(att_map):
 		emp_det = emp_map.get(emp)
 		if not emp_det:
@@ -29,8 +28,7 @@ def execute(filters=None):
 		row3 = [emp, emp_det.employee_name, "Over Time"]
 		
 		rows = {}
-		
-		key = max(no_rows.get(emp), key=no_rows.get)
+		key = max(no_rows.get(emp), key=no_rows.get(emp).get)
 		nos = no_rows.get(emp).get(key)
 		
 		for i in range(nos+1):
@@ -76,8 +74,9 @@ def execute(filters=None):
 						rows[row_no].append(ot)
 					else:
 						rows[row_no].append(0)
-		for d in rows:
-			data.append(rows[d])
+		for d in range(nos+1):
+			row_string = "row" + str(d)
+			data.append(rows[row_string])
 
 	return columns, data
 
