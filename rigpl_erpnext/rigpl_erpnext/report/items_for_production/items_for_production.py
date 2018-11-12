@@ -17,19 +17,19 @@ def get_columns():
 		###Below are attribute fields
 		"RM::30", "Brand::40", "Qual::50", "SPL::50", "TT::60",
 		"D1:Float:40", "W1:Float:40", "L1:Float:50",
-		"D2:Float:40", "L2:Float:40", "Zn:Int:40",
+		"D2:Float:40", "L2:Float:40", "Zn:Float:40",
 		###Above are Attribute fields
 		
 		"CUT::120","URG::120",
-		{"label": "Total", "fieldtype": "Float", "precision": 2, "width": 50},
-		"RO:Int:40", "SO:Int:40", "PO:Int:40",
-		"PL:Int:40","DE:Int:40", "BG:Int:40",
+		"Total:Float:50",
+		"RO:Float:40", "SO:Float:40", "PO:Float:40",
+		"PL:Float:40","DE:Float:40", "BG:Float:40",
 		"Description::300",
-		{"label": "BRM", "fieldtype": "Float", "precision": 3, "width": 50},
-		"BRG:Int:50", "BHT:Int:50", "BFG:Int:50", "BTS:Int:50",
-		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50},
-		"DSL:Int:50", "DRG:Int:50", "DFG:Int:50", "DTS:Int:50",
-		"DRJ:Int:50", "DCN:Int:50", "BCN:Int:50", "PList::30", "TOD::30"
+		"BRM:Float:50",
+		"BRG:Float:50", "BHT:Float:50", "BFG:Float:50", "BTS:Float:50",
+		"DRM:Float:50",
+		"DSL:Float:50", "DRG:Float:50", "DFG:Float:50", "DTS:Float:50",
+		"DRJ:Float:50", "DCN:Float:50", "BCN:Float:50", "PList::30", "TOD::30"
 	]
 
 def get_items(filters):

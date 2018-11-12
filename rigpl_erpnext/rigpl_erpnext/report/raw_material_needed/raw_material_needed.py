@@ -22,14 +22,11 @@ def get_columns():
 		"D1:Float:50", "W1:Float:50", "L1:Float:50",
 		###Above are Attribute fields
 		"Future Stock::100", "Current Stock::100",
-		{"label": "Total", "fieldtype": "Float", "precision": 2, "width": 50},
-		"RO:Int:40", "SO:Int:40", "PO:Int:40",
-		"PL:Int:40", "IND:Int:40",
+		"Total:Float:50",
+		"RO:Float:40", "SO:Float:40", "PO:Float:40",
+		"PL:Float:40", "IND:Float:40",
 		"Description::300",
-		{"label": "BRM", "fieldtype": "Float", "precision": 3, "width": 50},
-		{"label": "DRM", "fieldtype": "Float", "precision": 3, "width": 50},
-		{"label": "BGH", "fieldtype": "Float", "precision": 3, "width": 50},
-		{"label": "DEL", "fieldtype": "Float", "precision": 3, "width": 50},
+		"BRM:Float:50", "DRM:Float:50", "BGH:Float:50", "DEL:Float:50",
 	]
 
 def get_items(filters):
