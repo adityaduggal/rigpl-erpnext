@@ -182,7 +182,7 @@ class CreateBulkProductionOrders(Document):
 
 	def create_production_order(self, item_dict):
 		#Create production order. Called from Production Planning Tool
-		from erpnext.manufacturing.doctype.production_order.production_order import OverProductionError, get_default_warehouse
+		from erpnext.manufacturing.doctype.work_order.work_order import OverProductionError, get_default_warehouse
 		warehouse = get_default_warehouse()
 		pro = frappe.new_doc("Work Order")
 		pro.update(item_dict)
