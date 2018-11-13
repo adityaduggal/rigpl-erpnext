@@ -7,9 +7,9 @@ import frappe
 
 def execute():
 	print ("Welcome to the Script to Change the Attribute Value of Item Code Programmatically")
-	item_code = raw_input("Enter the Item Code you want to Change exactly as in ERP: ")
-	attr_name = raw_input("Enter the Field Name for Item to be Changed: ")
-	attr_value = raw_input("Enter the New Value: ")
+	item_code = input("Enter the Item Code you want to Change exactly as in ERP: ")
+	attr_name = input("Enter the Field Name for Item to be Changed: ")
+	attr_value = input("Enter the New Value: ")
 
 	change_list = frappe.db.sql("""SELECT iva.name, iva.parent, iva.attribute, iva.attribute_value 
 		FROM `tabItem Variant Attribute` iva
