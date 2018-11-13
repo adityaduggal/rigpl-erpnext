@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 from frappe.model.mapper import get_mapped_doc
-from frappe.utils import nowdate, add_days
+from frappe.utils import nowdate, add_days, flt
 from frappe.desk.reportview import get_match_cond
 
 def validate(doc,method):
