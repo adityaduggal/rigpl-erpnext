@@ -13,7 +13,7 @@
  "name": "Pending So (Prd)", 
  "owner": "aditya@rigpl.com", 
  "query": "SELECT \n so.name as \"SO No:Link/Sales Order:100\",\n so.transaction_date as \"SO Date:Date:90\",\n so.delivery_date as \"ED Date:Date:90\",\n soi.item_code as \"Item Code:Link/Item:150\",\n soi.description as \"Description::450\",\n (soi.qty - ifnull(soi.delivered_qty, 0)) as \"Pending Qty:Float:70\"\n\nfrom\n `tabSales Order` so, `tabSales Order Item` soi\nwhere\n soi.`parent` = so.`name`\n and so.status != \"Closed\"\n AND so.docstatus = 1\n and so.transaction_date <= curdate()\n and ifnull(soi.delivered_qty,0) < ifnull(soi.qty,0)\norder by so.transaction_date desc", 
- "ref_doctype": "Production Order", 
+ "ref_doctype": "Work Order", 
  "report_name": "Pending So (Prd)", 
  "report_type": "Script Report"
 }

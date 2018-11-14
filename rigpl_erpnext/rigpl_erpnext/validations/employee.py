@@ -19,9 +19,6 @@ def validate(doc,method):
 	if doc.relieving_date:
 		if doc.status != "Left":
 			frappe.msgprint("Status has to be 'LEFT' as the Relieving Date is populated",raise_exception =1)
-		else:
-			doc.leave_approvers = []
-			doc.reports_to = ''
 	
 	doc.employee_number = doc.name
 	doc.employee = doc.name
@@ -32,10 +29,14 @@ def validate(doc,method):
 
 def on_update(doc,method):
 	allowed_ids = []
-	for la in doc.leave_approvers:
-		if la.leave_approver:
-			allowed_ids.extend([la.leave_approver])
-			create_new_user_perm(doc.doctype, doc.name, la.leave_approver)
+	if doc.department:
+		dep_doc = frappe.get_doc("Department", doc.department)
+	else:
+		frappe.throw("Department is Mandatory for {}".format(doc.name))
+	for la in dep_doc.leave_approvers:
+		if la.approver:
+			allowed_ids.extend([la.approver])
+			create_new_user_perm(doc.doctype, doc.name, la.approver)
 
 	if doc.reports_to:
 		reports_to_userid = frappe.db.get_value("Employee", doc.reports_to, "user_id")

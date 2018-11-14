@@ -10,7 +10,7 @@
  "module": "RIGPL ERPNext", 
  "name": "Items For Production", 
  "owner": "aditya@rigpl.com", 
- "ref_doctype": "Production Order", 
+ "ref_doctype": "Work Order", 
  "report_name": "Items For Production", 
  "report_type": "Script Report"
 }

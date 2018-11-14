@@ -13,15 +13,15 @@ def add_items_to_purchase_order(source_name, target_doc=None):
 	def postprocess(source, target_doc):
 		set_missing_values(source, target_doc)
 
-	doclist = get_mapped_doc("Production Order", source_name, 	{
-		"Production Order": {
+	doclist = get_mapped_doc("Work Order", source_name, 	{
+		"Work Order": {
 			"doctype": "Purchase Order",
 			"validation": {
 				"docstatus": ["=", 1],
 				"status": ["!=", "Stopped"]
 			}
 		},
-		"Production Order": {
+		"Work Order": {
 			"doctype": "Purchase Order Item",
 			"field_map": [
 				["production_item", "item_code"],

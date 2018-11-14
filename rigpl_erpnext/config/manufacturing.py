@@ -10,19 +10,19 @@ def get_data():
 					"type": "report",
 					"is_query_report": True,
 					"name": "Items For Production",
-					"doctype": "Production Order",
+					"doctype": "Work Order",
 				},
 				{
 					"type": "report",
 					"is_query_report": True,
 					"name": "Pending Production Orders",
-					"doctype": "Production Order",
+					"doctype": "Work Order",
 				},
 				{
 					"type": "report",
 					"is_query_report": True,
 					"name": "Pending So (Prd)",
-					"doctype": "Production Order",
+					"doctype": "Work Order",
 				},
 			]
 		}
