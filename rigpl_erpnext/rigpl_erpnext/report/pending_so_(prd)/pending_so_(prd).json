@@ -1,19 +1,39 @@
 {
- "add_total_row": 1, 
- "apply_user_permissions": 1, 
- "creation": "2013-01-07 08:10:33", 
- "disabled": 0, 
- "docstatus": 0, 
- "doctype": "Report", 
- "idx": 0, 
- "is_standard": "Yes", 
- "modified": "2016-05-31 19:09:17.408078", 
- "modified_by": "Administrator", 
- "module": "RIGPL ERPNext", 
- "name": "Pending So (Prd)", 
- "owner": "aditya@rigpl.com", 
- "query": "SELECT \n so.name as \"SO No:Link/Sales Order:100\",\n so.transaction_date as \"SO Date:Date:90\",\n so.delivery_date as \"ED Date:Date:90\",\n soi.item_code as \"Item Code:Link/Item:150\",\n soi.description as \"Description::450\",\n (soi.qty - ifnull(soi.delivered_qty, 0)) as \"Pending Qty:Float:70\"\n\nfrom\n `tabSales Order` so, `tabSales Order Item` soi\nwhere\n soi.`parent` = so.`name`\n and so.status != \"Closed\"\n AND so.docstatus = 1\n and so.transaction_date <= curdate()\n and ifnull(soi.delivered_qty,0) < ifnull(soi.qty,0)\norder by so.transaction_date desc", 
- "ref_doctype": "Work Order", 
- "report_name": "Pending So (Prd)", 
- "report_type": "Script Report"
+ "add_total_row": 1,
+ "creation": "2013-01-07 08:10:33",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "idx": 3,
+ "is_standard": "Yes",
+ "modified": "2018-11-14 17:06:13.174505",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Pending So (Prd)",
+ "owner": "aditya@rigpl.com",
+ "prepared_report": 1,
+ "query": "SELECT \n so.name as \"SO No:Link/Sales Order:100\",\n so.transaction_date as \"SO Date:Date:90\",\n so.delivery_date as \"ED Date:Date:90\",\n soi.item_code as \"Item Code:Link/Item:150\",\n soi.description as \"Description::450\",\n (soi.qty - ifnull(soi.delivered_qty, 0)) as \"Pending Qty:Float:70\"\n\nfrom\n `tabSales Order` so, `tabSales Order Item` soi\nwhere\n soi.`parent` = so.`name`\n and so.status <> \"Closed\"\n AND so.docstatus = 1\n and so.transaction_date <= curdate()\n and ifnull(soi.delivered_qty,0) < ifnull(soi.qty,0)\norder by so.transaction_date desc",
+ "ref_doctype": "Work Order",
+ "report_name": "Pending So (Prd)",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "Manufacturing User"
+  },
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Manufacturing Manager"
+  },
+  {
+   "role": "Production Inventory User"
+  },
+  {
+   "role": "Dispatch RIGPL"
+  },
+  {
+   "role": "Stock User"
+  }
+ ]
 }
