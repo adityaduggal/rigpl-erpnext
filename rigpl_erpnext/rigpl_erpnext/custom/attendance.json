@@ -133,7 +133,7 @@
    "modified_by": "Administrator", 
    "name": "Attendance-shift", 
    "no_copy": 0, 
-   "options": "Shift Details", 
+   "options": "Shift Type", 
    "owner": "Administrator", 
    "parent": null, 
    "parentfield": null, 
