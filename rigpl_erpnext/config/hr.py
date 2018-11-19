@@ -14,39 +14,6 @@ def get_data():
 			]
 		},
 		{
-			"label": _("Payroll"),
-			"icon": "icon-gear",
-			"items": [
-				{
-					"type": "doctype",
-					"name": "Salary Slip Payment",
-					"description": _("Salary Slip Payment"),
-				},
-			]
-		},
-		{
-			"label": _("Setup"),
-			"icon": "icon-gear",
-			"items": [
-				{
-					"type": "doctype",
-					"name": "Shift Details",
-					"description": _("Shift Definition Details"),
-				},
-			]
-		},
-		{
-			"label": _("Setup"),
-			"icon": "icon-gear",
-			"items": [
-				{
-					"type": "doctype",
-					"name": "Roster",
-					"description": _("Define which employees are in which Shift during a period"),
-				},
-			]
-		},
-		{
 			"label": _("Rohit Reports"),
 			"icon": "icon-paper-clip",
 			"items": [
