@@ -110,6 +110,9 @@ doc_events = {
 	"Leave Application":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate"
 	},
+	"Opportunity":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
+	},
 	"Price List":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
 	},
@@ -134,6 +137,20 @@ doc_events = {
 	"Quotation":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate"
 	},
+	"Salary Component":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_component.validate"
+	},
+	"Salary Slip":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_submit",
+		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel"
+	},
+	"Salary Structure":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
+	},
+	"Salary Structure Assignment":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure_assignment.validate"
+	},
 	"Sales Invoice": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate",
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_submit",
@@ -150,20 +167,6 @@ doc_events = {
 	},
 	"Stock Reconciliation":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"
-	},
-	"Opportunity":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
-	},
-	"Salary Component":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_component.validate"
-	},
-	"Salary Slip":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.validate",
-		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_submit",
-		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel"
-	},
-	"Salary Structure":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
 	},
 	"ToDo":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.todo.validate"

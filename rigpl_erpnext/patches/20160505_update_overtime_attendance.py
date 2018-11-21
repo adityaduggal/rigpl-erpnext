@@ -5,13 +5,13 @@ from frappe.utils import time_diff_in_seconds
 def execute():
 	att = frappe.db.sql("""SELECT at.name, at.att_date, at.employee, at.employee_name, at.overtime,
 		at.shift
-		FROM `tabAttendance` at, `tabShift Details` sh
+		FROM `tabAttendance` at, `tabShift Type` sh
 		WHERE at.docstatus = 1 AND sh.in_out_required = 1 AND at.shift = sh.name
 		ORDER BY at.name""", as_list=1)
 				
 	for i in att:
 		att = frappe.get_doc("Attendance", i[0])
-		shft = frappe.get_doc("Shift Details", i[5])
+		shft = frappe.get_doc("Shift Type", i[5])
 		pu_data = []
 		overtime = 0
 		tt_in = 0

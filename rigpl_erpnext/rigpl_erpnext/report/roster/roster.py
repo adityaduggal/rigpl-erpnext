@@ -15,8 +15,8 @@ def execute(filters=None):
 def get_columns(filters):
 	if filters.get("without_roster")!=1:
 		return [
-			"ID:Link/Roster:80", "From Date:Date:80", "To Date:Date:80", 
-			"Shift:Link/Shift Details:100", "Shift Name::150",
+			"ID:Link/Shift Request:80", "From Date:Date:80", "To Date:Date:80", 
+			"Shift:Link/Shift Type:100", "Shift Name::150",
 			"Employee ID:Link/Employee:100", "Employee Name::200", "Branch::80", "Department::80",
 			"Designation::100", "Shift In:Time:100", "Shift Out:Time:100", "Hours Required::80"
 			]
@@ -32,14 +32,13 @@ def get_entries(filters):
 	conditions_sh = get_conditions(filters)[2]
 	
 	if filters.get("without_roster") != 1:
-		query = """SELECT ro.name, ro.from_date, ro.to_date, ro.shift, sh.title,
+		query = """SELECT ro.name, ro.from_date, ro.to_date, ro.shift_type, sh.name,
 			emp.name, emp.employee_name, ifnull(emp.branch,"-"), ifnull(emp.department,"-"),
-			ifnull(emp.designation,"-"), sh.in_time, sh.out_time, sh.hours_required_per_day
-			FROM `tabRoster` ro, `tabRoster Details` rod, `tabShift Details` sh, `tabEmployee` emp
+			ifnull(emp.designation,"-"), sh.start_time, sh.end_time, sh.hours_required_per_day
+			FROM `tabShift Request` ro, `tabShift Type` sh, `tabEmployee` emp
 			WHERE
-				rod.parent = ro.name AND
-				sh.name = ro.shift AND
-				emp.name = rod.employee %s %s %s
+				sh.name = ro.shift_type AND
+				emp.name = ro.employee %s %s %s
 			ORDER BY ro.from_date, ro.to_date,emp.date_of_joining""" %(conditions_emp,conditions_ro, conditions_sh)
 	else:
 		query = """SELECT emp.name, emp.employee_name, ifnull(emp.branch,"-"), 
@@ -87,7 +86,7 @@ def get_conditions(filters):
 
 		
 	if filters.get("shift") and filters.get("without_roster") != 1:
-		conditions_sh += " AND ro.shift ='%s'" % filters["shift"]
+		conditions_sh += " AND ro.shift_type ='%s'" % filters["shift"]
 
 		
 	return conditions_emp, conditions_ro, conditions_sh

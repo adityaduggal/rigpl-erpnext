@@ -45,7 +45,7 @@ frappe.query_reports["Roster"] = {
 			"fieldname":"shift",
 			"label": "Shift",
 			"fieldtype": "Link",
-			"options": "Shift Details"
+			"options": "Shift Type"
 		},
 		{
 			"fieldname":"without_roster",
