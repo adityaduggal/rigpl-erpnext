@@ -4,6 +4,38 @@ import frappe
 from frappe import msgprint
 
 def execute():
+	#This code needs to be run manually since some custom fields are first applied to
+	#-Attendance, Salary Structure Assignment and then only they are imported back
+	#Code to move the custom fields from Salary Structure Employee to the Custom Fields of 
+
+	ssa_list = frappe.db.sql("""SELECT name, employee, employee_name, from_date, salary_structure
+		FROM `tabSalary Structure Assignment`""", as_dict=1)
+
+	for ssa in ssa_list:
+		print("Checking for SSA " + ssa.name + " for Employee " + \
+			ssa.employee + " and Name " + ssa.employee_name)
+
+		ssemp = frappe.db.sql("""SELECT to_date, minimum_applicable, basic_percent
+			FROM `tabSalary Structure Employee` WHERE parent = '%s' AND employee = '%s'
+			AND from_date = '%s'"""%(ssa.salary_structure, ssa.employee, ssa.from_date), as_dict=1)
+
+		if ssemp:
+			if len(ssemp) == 1:
+				frappe.db.set_value("Salary Structure Assignment", \
+					ssa.name, "to_date", ssemp[0].to_date)
+				frappe.db.set_value("Salary Structure Assignment", \
+					ssa.name, "minimum_applicable", ssemp[0].minimum_applicable)
+				frappe.db.set_value("Salary Structure Assignment", \
+					ssa.name, "basic_percent", ssemp[0].basic_percent)
+				frappe.db.commit()
+				print("Updated SSA " + ssa.name)
+			else:
+				print("Multiple Values found for Emp: " + ssa.employee)
+		else:
+			print("No Values found for Emp: " + ssa.employee)
+
+
+	#Old shift has to be created manually in the Shift Type due to custom fields in Shift Details
 	#Code to change the old shift to the new shift in ATTENDANCE
 	att_with_shift = frappe.db.sql("""SELECT name, shift, attendance_date 
 		FROM `tabAttendance` 
@@ -26,6 +58,7 @@ def execute():
 					new_shift[0][0])
 			else:
 				print("New Shift " + att[1] +" Not found for Attendance " + att[0])
+	
 	#Code to Change the Roster to Shift Request and also this would create shift assignment
 	roster_list = frappe.db.sql("""SELECT name, shift FROM `tabRoster`""", as_list=1)
 	for ros in roster_list:
