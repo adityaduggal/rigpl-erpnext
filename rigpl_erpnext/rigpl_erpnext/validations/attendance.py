@@ -38,62 +38,65 @@ def check_employee(doc, method):
 			frappe.throw(("Cannot create attendance for {0} as he/she has joined on {1}").\
 			format(emp.employee_name, emp.date_of_joining))
 
-#Function to check the shift and update the same from roster.
+#Function to check the shift and update the same from shift assignmentt.
 def get_shift(doc,method):
-	query = """SELECT ro.name, ro.shift FROM `tabRoster` ro, `tabRoster Details` rod
-		WHERE rod.parent = ro.name AND ro.from_date <= '%s' AND ro.to_date >= '%s' 
-		AND rod.employee = '%s' """%(attendance_date, attendance_date, doc.employee)
-	roster = frappe.db.sql(query, as_list=1)
-	if len(roster)<1:
-		frappe.throw(("No Roster defined for {0} for date {1}").format(doc.employee, attendance_date))
+	query = """SELECT sa.name, sa.shift_type FROM `tabShift Assignment` sa
+		WHERE sa.date = '%s' AND sa.employee = '%s' """\
+		%(attendance_date, doc.employee)
+	sa_list = frappe.db.sql(query, as_list=1)
+	if len(sa_list)<1:
+		frappe.throw(("No Shift Assignment defined for {0} for date {1}").format(doc.employee, attendance_date))
 	else:
-		doc.shift = roster[0][1]
+		doc.shift = sa_list[0][1]
 	
-	shft = frappe.get_doc("Shift Details", doc.shift)
+	shft = frappe.get_doc("Shift Type", doc.shift)
 	return shft
 
 def validate_time_with_shift(doc,method):
-	shft = frappe.get_doc("Shift Details", doc.shift)
+	shft = frappe.get_doc("Shift Type", doc.shift)
 	if shft.in_out_required:
-		shft_hrs = shft.hours_required_per_day.seconds
-		shft_rounding = shft.time_rounding.seconds
-		shft_marg = shft.time_margin.seconds
-		
-		if shft_rounding <= 0 or shft_marg <=0:
-			frappe.throw("Shift Rounding or Shift Margin cannot be Zero")
-		
-		if shft.in_time > shft.out_time:
-			#this shows night shift
-			if shft.next_day != 1:
-				#this shows night shift is starting on previous day
-				shft_indate = datetime.combine(add_days(attendance_date, -1), datetime.min.time())
+		if doc.attendance_time:
+			shft_hrs = shft.hours_required_per_day.seconds
+			shft_rounding = shft.time_rounding.seconds
+			shft_marg = shft.time_margin.seconds
+			
+			if shft_rounding <= 0 or shft_marg <=0:
+				frappe.throw("Shift Rounding or Shift Margin cannot be Zero")
+			
+			if shft.start_time > shft.end_time:
+				#this shows night shift
+				if shft.next_day != 1:
+					#this shows night shift is starting on previous day
+					shft_indate = datetime.combine(add_days(attendance_date, -1), datetime.min.time())
+				else:
+					shft_indate = datetime.combine(attendance_date, datetime.min.time())
 			else:
 				shft_indate = datetime.combine(attendance_date, datetime.min.time())
-		else:
-			shft_indate = datetime.combine(attendance_date, datetime.min.time())
-		
-		shft_intime = shft_indate + timedelta(0, shft.in_time.seconds)
-		shft_intime_max = shft_intime + timedelta(0, shft.delayed_entry_allowed_time.seconds)
-		shft_intime_min = shft_intime - timedelta(0, shft.early_entry_allowed_time.seconds)
-		
-		if shft.lunch_out > shft.in_time:
-			shft_lunchout = shft_indate + timedelta(0, shft.lunch_in.seconds)
-			shft_lunchin = shft_indate + timedelta(0, shft.lunch_in.seconds)
-		else:
-			shft_lunchout = shft_indate + timedelta(0, 86400+shft.lunch_in.seconds)
-			shft_lunchin = shft_indate + timedelta(0, 86400+shft.lunch_in.seconds)
-		
-		for d in doc.attendance_time:
-			if d.idx == 1:
-				d.date_time = get_datetime(d.date_time)
-				if d.date_time >= shft_intime_min and d.date_time <= shft_intime_max:
-					pass
-				else:
-					frappe.throw(("Time {0} in row#1 is not allowed for Shift# {1} for {2}.\
-						Check early and delayed entry settings in Shift Master").\
-						format(d.date_time, doc.shift, doc.name))
+			
+			shft_intime = shft_indate + timedelta(0, shft.start_time.seconds)
+			shft_intime_max = shft_intime + timedelta(0, shft.delayed_entry_allowed_time.seconds)
+			shft_intime_min = shft_intime - timedelta(0, shft.early_entry_allowed_time.seconds)
+			
+			if shft.lunch_out > shft.start_time:
+				shft_lunchout = shft_indate + timedelta(0, shft.lunch_in.seconds)
+				shft_lunchin = shft_indate + timedelta(0, shft.lunch_in.seconds)
+			else:
+				shft_lunchout = shft_indate + timedelta(0, 86400+shft.lunch_in.seconds)
+				shft_lunchin = shft_indate + timedelta(0, 86400+shft.lunch_in.seconds)
+			
+			for d in doc.attendance_time:
+				if d.idx == 1:
+					d.date_time = get_datetime(d.date_time)
+					if d.date_time >= shft_intime_min and d.date_time <= shft_intime_max:
+						pass
+					else:
+						frappe.throw(("Time {0} in row#1 is not allowed for Shift# {1} for {2}.\
+							Check early and delayed entry settings in Shift Master").\
+							format(d.date_time, doc.shift, doc.name))
 
-		return shft_intime, shft_lunchout, shft_lunchin, shft_hrs, shft_rounding, shft_marg
+			return shft_intime, shft_lunchout, shft_lunchin, shft_hrs, shft_rounding, shft_marg
+		else:
+			frappe.throw("For Shift " + shft.name + " In and Out Punch are required")
 	
 def calculate_overtime(doc,method):
 	doc.overtime = 0
