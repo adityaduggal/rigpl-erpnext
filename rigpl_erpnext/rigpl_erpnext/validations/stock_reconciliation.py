@@ -4,7 +4,7 @@ import frappe
 from frappe import msgprint
 
 def validate(doc,method):
-	#Get Stock Valuation from Valuation Rate Table
+	#Get Stock Valuation from Item Table
 	for d in doc.items:
 		query = """SELECT valuation_rate FROM `tabItem` WHERE name = '%s' """ % d.item_code
 		vr = frappe.db.sql(query, as_list=1)

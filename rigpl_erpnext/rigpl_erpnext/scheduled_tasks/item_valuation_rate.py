@@ -56,14 +56,16 @@ def selling_item_valuation_rate(template_doc):
 		WHERE variant_of = '%s'""" %(template_doc.name), as_list=1)
 	for item in variants:
 		print("Checking Item Code: " + item[0])
-		def_pl = get_default_price_list()
-		item_doc = frappe.get_doc("Item", item[0])
-		selling_rate_details = get_sp_rate(item[0], def_pl)
-		if selling_rate_details:
-			it_price, date_of_price = get_sp_rate(item[0], def_pl)
-			update_valuation_rate(item_doc, it_price, template_doc, date_of_price.date(), flag=None)
-		#else:
-		#	update_std_valuation_rate(item_doc)
+		def_pl = get_default_price_list(template_doc)
+		if def_pl != "Not Possible":
+			item_doc = frappe.get_doc("Item", item[0])
+			selling_rate_details = get_sp_rate(item[0], def_pl)
+			if selling_rate_details:
+				it_price, date_of_price = get_sp_rate(item[0], def_pl)
+				update_valuation_rate(item_doc, it_price, template_doc, date_of_price.date(), flag=None)
+		else:
+			print("No Default PL found for item " + item[0])
+			#update_std_valuation_rate(item_doc)
 
 def get_carbide_cutpcs_valuation_rate(temp_doc):
 	print("WIP")
@@ -174,9 +176,13 @@ def update_std_valuation_rate(it_doc):
 		print("Saved Item Code: " + it_doc.name + \
 			" Changed Valuation Rate to " + "1")
 
-def get_default_price_list():
-	sell_settings = frappe.get_doc("Selling Settings")
-	def_pl = sell_settings.selling_price_list
+def get_default_price_list(template_doc):
+	it_def = template_doc.item_defaults
+	if len(template_doc.item_defaults) == 1:
+		for item_def_table in template_doc.item_defaults:
+			def_pl = item_def_table.default_price_list
+	else:
+		def_pl = "Not Possible"
 	return def_pl
 
 def get_sp_rate(item, price_list):

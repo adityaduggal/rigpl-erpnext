@@ -68,7 +68,7 @@ def validate(doc,method):
 				pass
 		
 		
-		#Get Stock Valuation from Valuation Rate Table
+		#Get Stock Valuation from Item Table
 		query = """SELECT valuation_rate FROM `tabItem` WHERE name = '%s' """ % d.item_code
 		vr = frappe.db.sql(query, as_list=1)
 		if vr[0][0] != 0 or vr[0][0]:

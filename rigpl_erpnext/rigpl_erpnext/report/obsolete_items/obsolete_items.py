@@ -19,7 +19,7 @@ def get_columns():
 		"SO::35", "PO::35","Web::35", "TOD::35",
 		"#SO:Int:40", "#SI:Int:40", "#PO:Int:40", "#PI:Int:40",
 		"#SLE:Int:40", "#STE:Int:40", "#SR:Int:40", "#PRD:Int:40",
-		"VR:Link/Valuation Rate:100",
+		"VR:Currency:100",
 		"Created By:Link/User:150", "Creation:Date:130"
 	]
 

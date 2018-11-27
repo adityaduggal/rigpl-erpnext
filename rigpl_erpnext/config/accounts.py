@@ -3,17 +3,6 @@ from frappe import _
 def get_data():
 	return [
 		{
-			"label": _("Analytics"),
-			"icon": "icon-star",
-			"items": [
-				{
-					"type": "doctype",
-					"name": "Valuation Rate",
-					"description": _("Valuation Rates"),
-				},
-			]
-		},
-		{
 			"label": _("Billing"),
 			"icon": "icon-star",
 			"items": [
