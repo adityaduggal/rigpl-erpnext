@@ -14,7 +14,7 @@ def execute():
 	wo_list = frappe.db.sql("""SELECT name, production_order_date, 
 		production_item, status, docstatus, so_detail, sales_order
 		FROM `tabWork Order` WHERE docstatus != 2 
-		AND status != 'Completed' AND status != 'Stopped'
+		AND qty > produced_qty AND status != 'Stopped'
 		AND so_detail IS NOT NULL 
 		ORDER BY production_order_date""", as_dict=1)
 
@@ -27,6 +27,7 @@ def execute():
 			so_detail = frappe.get_doc("Sales Order Item", wo.so_detail)
 			if so_detail.qty == so_detail.delivered_qty:
 				frappe.db.set_value("Work Order", wo.name, "status", "Completed")
+				frappe.db.set_value("Work Order", wo.name, "produced_qty", wo_doc.qty)
 				print (str(sno) + " " +  "Work Order # " + wo.name + \
 					" Completed as Material is Delivered")
 			elif so_doc.status == 'Closed':
