@@ -39,11 +39,13 @@ def set_valuation_rate_for_all():
 
 def set_valuation_rate_for_template(temp_doc):
 	if temp_doc.is_sales_item == 1:
-		
+		#pass
+		#'''
 		if temp_doc.valuation_as_percent_of_default_selling_price > 0:
 			selling_item_valuation_rate_template(temp_doc)
 		else:
 			pass
+		#'''
 	elif temp_doc.is_purchase_item == 1:
 		purchase_item_valuation_rate_template(temp_doc)
 
@@ -131,7 +133,7 @@ def get_sim_variants(it_doc):
 		pp_similar_dict["purchase_date"] = att_pp_date
 		pp_similar.append(pp_similar_dict.copy())
 	
-	latest_rate_details =  max([x for x in pp_similar if x['length'] > float(base_len)], key=lambda x:x['purchase_date'], default=["None"])
+	latest_rate_details =  max([x for x in pp_similar if x['length'] > float(base_len)], key=lambda x:x['purchase_date'] or ["None"])
 	if latest_rate_details != ["None"]:
 		if latest_rate_details.get("purchase_date") > conv_str_to_date('1900-01-01'):
 			pur_date = latest_rate_details.get("purchase_date")
