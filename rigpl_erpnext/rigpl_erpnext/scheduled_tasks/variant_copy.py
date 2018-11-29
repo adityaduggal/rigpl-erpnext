@@ -4,15 +4,17 @@
 
 from __future__ import unicode_literals
 import frappe
-from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate import set_valuation_rate
+from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate import set_valuation_rate_for_all
 import json
 import sys
 
 #Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
 
 def check_wrong_variants():
-	set_valuation_rate()
-	update_templates()
+	set_valuation_rate_for_all()
+	copy_from_template()
+
+def copy_from_template():
 	limit_set = int(frappe.db.get_single_value("Stock Settings", "automatic_sync_field_limit"))
 	is_sync_allowed = frappe.db.get_single_value("Stock Settings", 
 		"automatically_sync_templates_data_to_items")
@@ -39,27 +41,13 @@ def check_wrong_variants():
 					print ("Checking Item = " + item[0])
 					it_doc = frappe.get_doc("Item", item[0])
 					fields_edited += check_and_copy_attributes_to_variant(temp_doc, it_doc)
+					it_doc.save()
+					frappe.db.commit()
+					print ("Item Code " + it_doc.name + " Saved")
 			else:
 				print ("Limit of " + str(limit_set) + " fields reached. Run again for more updating")
 				break
-
-def update_templates():
-	variant_list = frappe.db.sql("""SELECT name FROM `tabItem` WHERE has_variants = 1""", as_list=1)
-	for variants in variant_list:
-		it_doc = frappe.get_doc("Item", variants[0])
-		if it_doc.is_purchase_item == 1:
-			if it_doc.default_material_request_type != 'Purchase':
-				it_doc.default_material_request_type = 'Purchase'
-				it_doc.save()
-				print("Update Template : " + it_doc.name)
-		else:
-			if it_doc.default_material_request_type == 'Purchase':
-				it_doc.default_material_request_type = 'Manufacture'
-				it_doc.save()
-				print("Update Template : " + it_doc.name)
-		frappe.db.commit()
 		
-				
 def check_and_copy_attributes_to_variant(template, variant):
 	from frappe.model import no_value_fields
 	check = 0
@@ -75,12 +63,7 @@ def check_and_copy_attributes_to_variant(template, variant):
 			and (not field.no_copy) and field.fieldname in include_fields:
 			if variant.get(field.fieldname) != template.get(field.fieldname):
 				variant.set(field.fieldname, template.get(field.fieldname))
-				save_chk = 1
 				print ("Updated Item " + variant.name + " Field Changed = " + str(field.label) + 
 					" Updated Value to " + str(template.get(field.fieldname)))
 				check += 1
-	if save_chk == 1:
-		variant.save()
-		frappe.db.commit()
-		print ("Item Code " + variant.name + " Saved")
 	return check

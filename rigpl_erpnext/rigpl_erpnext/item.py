@@ -5,15 +5,16 @@ import re
 from frappe import msgprint
 from frappe.utils import flt
 from frappe.desk.reportview import get_match_cond
+from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy import \
+	check_and_copy_attributes_to_variant
 
 def validate(doc, method):
 	if doc.variant_of:
 		template = frappe.get_doc("Item", doc.variant_of)
 		if doc.get("__islocal") == 1:
-			copy_item_defaults(template, doc)
+			check_item_defaults(template, doc)
 		else:
 			check_and_copy_attributes_to_variant(template, doc)
-			copy_item_defaults(template, doc)
 
 	validate_variants(doc,method)
 	validate_reoder(doc,method)
@@ -28,6 +29,19 @@ def validate(doc, method):
 	else:
 		set_website_specs(doc,method)
 	make_route(doc,method)
+	#validate_sales_fields(doc, method)
+
+def validate_sales_fields(doc, method):
+	if doc.is_sales_item == 1:
+		if doc.sales_uom:
+			pass
+		else:
+			frappe.throw("Sales UoM is Mandatory for Sales Item")
+	if doc.pack_size == 0:
+		frappe.throw("Pack Size should be Greater Than ZERO")
+	if doc.selling_mov == 0:
+		frappe.throw("Selling Minimum Order Value should be Greater than ZERO")
+
 
 def make_route(doc,method):
 	route_name = (re.sub('[^A-Za-z0-9]+', ' ', doc.item_name))
@@ -46,11 +60,6 @@ def validate_valuation_rate(doc,method):
 	if doc.has_variants == 1 and doc.is_sales_item == 1:
 		if doc.valuation_as_percent_of_default_selling_price == 0:
 			frappe.throw("Valuation Rate Percent cannot be ZERO")
-	if doc.has_variants != 1 and doc.variant_of:
-		if doc.is_sales_item == 1:
-			pass
-		elif doc.is_purchase_item == 1:
-			pass
 		
 def autoname(doc,method):
 	if doc.variant_of:
@@ -77,7 +86,9 @@ def web_catalog(doc,method):
 		doc.show_variant_in_website = 0
 		
 	if doc.show_in_website == 1:
-		rol = frappe.db.sql("""SELECT warehouse_reorder_level FROM `tabItem Reorder` WHERE parent ='%s' """%(doc.name), as_list=1)
+		rol = frappe.db.sql("""SELECT warehouse_reorder_level 
+			FROM `tabItem Reorder` 
+			WHERE parent ='%s' """%(doc.name), as_list=1)
 		if doc.item_defaults:
 			for d in doc.item_defaults:
 				doc.website_warehouse = d.default_warehouse
@@ -133,7 +144,7 @@ def validate_variants(doc,method):
 	if doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
 		template = frappe.get_doc("Item", doc.variant_of)
-		copy_item_defaults(template, doc)
+		check_item_defaults(template, doc)
 		template_attribute = []
 		variant_attribute = []
 		template_restricted_attributes = {}
@@ -248,65 +259,51 @@ def validate_variants(doc,method):
 		else:
 			frappe.throw("Only System Managers are Allowed to Edit Templates")
 
-def copy_item_defaults(template, variant):
+def check_item_defaults(template, variant):
+	field_list = ["company", "default_warehouse", "default_price_list", "income_account"]
 	if template.item_defaults:
 		t_def = 1
 	else:
 		t_def = 0
+
 	if variant.item_defaults:
 		v_def = 1
 	else:
 		v_def = 0
 
-	if t_def == 1 and v_def == 1: 
-		#condition when template and variant defaults are there then check them
-		for t in template.item_defaults:
-			for v in variant.item_defaults:
-				if t.idx == v.idx:
-					if t.company != v.company:
-						v.company = t.company
-					if t.default_warehouse != v.default_warehouse:
-						v.default_warehouse = t.default_warehouse
-					if t.default_price_list != v.default_price_list:
-						v.default_price_list = t.default_price_list
-					if t.buying_cost_center != v.buying_cost_center:
-						v.buying_cost_center = t.buying_cost_center
-					if t.expense_account != v.expense_account:
-						v.expense_account = t.expense_account
-					if t.selling_cost_center != v.selling_cost_center:
-						v.selling_cost_center = t.selling_cost_center
-					if t.income_account != v.income_account:
-						v.income_account = t.income_account
-
-	elif t_def == 1 and v_def == 0:
-		pass
-		#condition when template defaults are there but varaint defaults are missing then check copy
+	if t_def == 1:
+		if v_def == 1:
+			is_it_def_same = compare_item_defaults(template, variant, field_list)
+			if is_it_def_same == 1:
+				pass
+			else:
+				copy_item_defaults(template, variant, field_list)
+		#condition when template defaults are there then copy them
 	else:
 		frappe.throw("Item Defaults are Mandatory for Template {}".format(template.name))
 
-def check_and_copy_attributes_to_variant(template, variant):
-	from frappe.model import no_value_fields
-	check = 0
-	save_chk = 0
-	copy_field_list = frappe.db.sql("""SELECT field_name FROM `tabVariant Field`""", as_list=1)
-	include_fields = []
-	for fields in copy_field_list:
-		include_fields.append(fields[0])
+def compare_item_defaults(template, variant, field_list):
+	i = 0
+	for t in template.item_defaults:
+		for v in variant.item_defaults:
+			for f in field_list:
+				if t.get(f) == v.get(f):
+					pass
+				else:
+					copy_item_defaults(template, variant, field_list)
 
-	for field in template.meta.fields:
-		# "Table" is part of `no_value_field` but we shouldn't ignore tables
-		if (field.fieldtype == 'Table' or field.fieldtype not in no_value_fields) \
-			and (not field.no_copy) and field.fieldname in include_fields:
-			if variant.get(field.fieldname) != template.get(field.fieldname):
-				variant.set(field.fieldname, template.get(field.fieldname))
-				save_chk = 1
-				print ("Updated Item " + variant.name + " Field Changed = " + str(field.label) + 
-					" Updated Value to " + str(template.get(field.fieldname)))
-				check += 1
-	if template.item_defaults != variant.item_defaults:
-		variant.item_defaults = template.item_defaults
 
-						
+def copy_item_defaults(template, variant, field_list):
+	variant.item_defaults = []
+	variant_defaults = []
+	var_def_dict = {}
+	for t in template.item_defaults:
+		for f in field_list:
+			var_def_dict[f] = t.get(f)
+		variant_defaults.append(var_def_dict)
+	for i in variant_defaults:
+		variant.append("item_defaults", i)
+					
 def generate_description(doc,method):
 	if doc.variant_of:
 		desc = []

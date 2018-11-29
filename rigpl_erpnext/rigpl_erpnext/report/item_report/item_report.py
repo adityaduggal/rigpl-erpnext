@@ -84,8 +84,11 @@ def get_columns(templates):
 					col = "::%s" %(width)
 				columns = columns + [(label + col)]
 	
-	columns = columns + [_("Is PL") + "::40"] + [_("ROL") + ":Int:40"] + \
+	columns = columns + [_("Pack Size") + ":Int:40"] + \
+		[_("Selling MoV") + ":Int:40"] + [_("Purchase MoQ") + ":Int:40"] + \
+		[_("Is PL") + "::40"] + [_("ROL") + ":Int:40"] + \
 		[_("Template or Variant Of") + ":Link/Item:300"] + \
+		[_("Def Warehouse") + "::50"] + [_("Def PL") + "::50"] + \
 		[_("Description") + "::400"] + [_("EOL") + ":Date:80"] + [_("Created By") + "::150"] + \
 		[_("Creation") + ":Date:150"]
 
@@ -163,12 +166,18 @@ def get_items(conditions_it, attributes, att_details, filters):
 		att_join += """LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent
 			AND %s.attribute = '%s'""" %(att_trimmed,att_trimmed,att_trimmed,att)
 
-	query = """SELECT it.name %s, IFNULL(it.pl_item, "-"),
+	query = """SELECT it.name %s, IF(it.pack_size =0, NULL, it.pack_size),
+		IF(it.selling_moq =0, NULL, it.selling_mov),
+		IF(it.min_order_qty =0, NULL, it.min_order_qty),
+		IFNULL(it.pl_item, "-"),
 		IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level),
-		it.variant_of, it.description, IFNULL(it.end_of_life, '2099-12-31'),
+		it.variant_of, IFNULL(def.default_warehouse, "X"), 
+		IFNULL(def.default_price_list, 'X'), 
+		it.description, IFNULL(it.end_of_life, '2099-12-31'),
 		it.owner, it.creation
 		FROM `tabItem` it 
-			LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent 
+			LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
+			LEFT JOIN `tabItem Default` def ON it.name = def.parent
 			%s %s 
 		ORDER BY %s it.name""" %(att_query, att_join, conditions_it, att_order)
 
