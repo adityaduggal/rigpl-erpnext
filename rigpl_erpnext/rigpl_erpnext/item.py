@@ -103,12 +103,14 @@ def validate_item_defaults(doc,method):
 			if d.default_warehouse:
 				def_warehouse = d.default_warehouse
 			else:
-				frappe.throw("Default Warehouse is Mandatory")
+				frappe.throw("Default Warehouse is Mandatory for \
+					Item Code: {}".format(doc.name))
 			if d.default_price_list:
 				def_price_list = d.default_price_list
 			else:
 				if doc.is_sales_item == 1:
-					frappe.throw("Default Price List is Mandatory")
+					frappe.throw("Default Price List is Mandatory for \
+						Item Code: {}".format(doc.name))
 		
 def validate_restriction(doc,method):
 	if doc.has_variants == 1:

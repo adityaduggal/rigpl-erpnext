@@ -84,7 +84,6 @@ def purchase_item_valuation_rate_template(temp_doc):
 
 def get_pp_rate(item_doc, temp_doc):
 	pp_rate, pp_date, pinvoice = get_pp_rate_item(item_doc.name)
-
 	if pinvoice == 'Found':
 		update_valuation_rate(item_doc, pp_rate, temp_doc, pp_date)
 	else:
@@ -133,8 +132,12 @@ def get_sim_variants(it_doc):
 		pp_similar_dict["purchase_date"] = att_pp_date
 		pp_similar.append(pp_similar_dict.copy())
 	
-	latest_rate_details =  max([x for x in pp_similar if x['length'] > float(base_len)], key=lambda x:x['purchase_date'] or ["None"])
-	if latest_rate_details != ["None"]:
+	if [x for x in pp_similar if x['length'] > float(base_len)]:
+		latest_rate_details =  max([x for x in pp_similar if x['length'] > float(base_len)], \
+			key=lambda x:x['purchase_date'])
+	else:
+		latest_rate_details = []
+	if latest_rate_details:
 		if latest_rate_details.get("purchase_date") > conv_str_to_date('1900-01-01'):
 			pur_date = latest_rate_details.get("purchase_date")
 			val_rate_cut_pc = latest_rate_details.get("purchase_rate") * float(base_len)/latest_rate_details.get("length")
