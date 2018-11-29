@@ -205,7 +205,7 @@ def update_valuation_rate(it_doc, itpr, t_doc, date_of_price):
 	else:
 		set_date = date(1900,1,1)
 	days_diff = (date_of_price - set_date).days
-	if days_diff > 1:
+	if days_diff >= 0:
 		if it_doc.valuation_rate > (1.1 * vrate) or \
 			it_doc.valuation_rate < (0.9 * vrate):
 			it_doc.valuation_rate = vrate
