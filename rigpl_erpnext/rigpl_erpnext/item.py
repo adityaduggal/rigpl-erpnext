@@ -141,8 +141,9 @@ def validate_variants(doc,method):
 	roles = frappe.db.sql(query, as_list=1)
 
 	if doc.show_in_website == 1:
-		if doc.thumbnail is None:
-			frappe.throw("For Website Items, Website Image is Mandatory")
+		if doc.image is None:
+			frappe.throw("For Website Items, Website Image is Mandatory \
+				for Item Code {}".format(doc.name))
 	if doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
 		template = frappe.get_doc("Item", doc.variant_of)
