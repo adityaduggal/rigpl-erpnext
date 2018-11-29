@@ -104,50 +104,53 @@ def get_sim_variants(it_doc):
 			base_len = att.attribute_value
 		if check == 2 and att.attribute == 'd1_mm':
 			base_dia = att.attribute_value
-	if float(base_dia) == int(float(base_dia)):
-		base_dia1 = float(base_dia) + 0.2
-	elif (float(base_dia) - int(float(base_dia))) < 0.3:
-		base_dia1 = int(float(base_dia))
-	else:
-		base_dia1 = int(float(base_dia)) + 0.2
-	similar_variants = []
-	for d in [float(base_dia), float(base_dia1)]:
-		sim_variants = frappe.db.sql("""SELECT it.name
-			FROM `tabItem` it, `tabItem Variant Attribute` iva
-			WHERE it.variant_of = '%s' AND iva.attribute = 'd1_mm' 
-			AND iva.attribute_value = %s AND iva.parent = it.name
-			"""%(it_doc.variant_of, d), as_list = 1)
-		similar_variants.extend(sim_variants)
-	pp_similar = [{"item_code": it_doc.name, "length": float(base_len), \
-		"purchase_rate": 0, "purchase_date": conv_str_to_date('1900-01-01')}]
-	for items in similar_variants:
-		att_dict = get_attributes(items[0])
-		att_len = get_specific_attribute(att_dict, "l1_mm")
-		att_pp_rate, att_pp_date, pi_found = get_pp_rate_item(items[0])
-		pp_similar_dict = {}
-		pp_similar_dict["item_code"] = items[0]
-		pp_similar_dict["length"] = float(att_len)
-
-		pp_similar_dict["purchase_rate"] = float(att_pp_rate)
-		pp_similar_dict["purchase_date"] = att_pp_date
-		pp_similar.append(pp_similar_dict.copy())
-	
-	if [x for x in pp_similar if x['length'] > float(base_len)]:
-		latest_rate_details =  max([x for x in pp_similar if x['length'] > float(base_len)], \
-			key=lambda x:x['purchase_date'])
-	else:
-		latest_rate_details = []
-	if latest_rate_details:
-		if latest_rate_details.get("purchase_date") > conv_str_to_date('1900-01-01'):
-			pur_date = latest_rate_details.get("purchase_date")
-			val_rate_cut_pc = latest_rate_details.get("purchase_rate") * float(base_len)/latest_rate_details.get("length")
-			factor = get_cut_pcs_factor(base_len, latest_rate_details.get("length"))
-			val_rate_cut_pc = val_rate_cut_pc * factor
-			update_valuation_rate(it_doc, val_rate_cut_pc, template_doc, pur_date)
+	if check == 2:
+		if float(base_dia) == int(float(base_dia)):
+			base_dia1 = float(base_dia) + 0.2
+		elif (float(base_dia) - int(float(base_dia))) < 0.3:
+			base_dia1 = int(float(base_dia))
 		else:
-			print("No Purchase Data for similar items even")
+			base_dia1 = int(float(base_dia)) + 0.2
+		similar_variants = []
+		for d in [float(base_dia), float(base_dia1)]:
+			sim_variants = frappe.db.sql("""SELECT it.name
+				FROM `tabItem` it, `tabItem Variant Attribute` iva
+				WHERE it.variant_of = '%s' AND iva.attribute = 'd1_mm' 
+				AND iva.attribute_value = %s AND iva.parent = it.name
+				"""%(it_doc.variant_of, d), as_list = 1)
+			similar_variants.extend(sim_variants)
+		pp_similar = [{"item_code": it_doc.name, "length": float(base_len), \
+			"purchase_rate": 0, "purchase_date": conv_str_to_date('1900-01-01')}]
+		for items in similar_variants:
+			att_dict = get_attributes(items[0])
+			att_len = get_specific_attribute(att_dict, "l1_mm")
+			att_pp_rate, att_pp_date, pi_found = get_pp_rate_item(items[0])
+			pp_similar_dict = {}
+			pp_similar_dict["item_code"] = items[0]
+			pp_similar_dict["length"] = float(att_len)
+
+			pp_similar_dict["purchase_rate"] = float(att_pp_rate)
+			pp_similar_dict["purchase_date"] = att_pp_date
+			pp_similar.append(pp_similar_dict.copy())
+		
+		if [x for x in pp_similar if x['length'] > float(base_len)]:
+			latest_rate_details =  max([x for x in pp_similar if x['length'] > float(base_len)], \
+				key=lambda x:x['purchase_date'])
+		else:
+			latest_rate_details = []
+		if latest_rate_details:
+			if latest_rate_details.get("purchase_date") > conv_str_to_date('1900-01-01'):
+				pur_date = latest_rate_details.get("purchase_date")
+				val_rate_cut_pc = latest_rate_details.get("purchase_rate") * float(base_len)/latest_rate_details.get("length")
+				factor = get_cut_pcs_factor(base_len, latest_rate_details.get("length"))
+				val_rate_cut_pc = val_rate_cut_pc * factor
+				update_valuation_rate(it_doc, val_rate_cut_pc, template_doc, pur_date)
+			else:
+				print("No Purchase Data for similar items even")
+		else:
+			print("No Purchase Data for Items with Higher Length Found")
 	else:
-		print("No Purchase Data for Items with Higher Length Found")
+		print("No Purchase Data for Item")
 
 def get_cut_pcs_factor(base_len, higher_length):
 	ratio = float(base_len)/float(higher_length)
