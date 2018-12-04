@@ -506,11 +506,10 @@ def get_loan_deduction(doc, msd, med):
 
 def get_month_dates(doc):
 	date_details = get_start_end_dates(doc.payroll_frequency, doc.start_date or doc.posting_date)
-	doc.start_date = date_details.start_date
 	doc.end_date = date_details.end_date
-
-	msd = date_details.start_date
 	med = date_details.end_date
+	doc.start_date = date_details.start_date
+	msd = date_details.start_date
 	return msd, med
 
 def get_edc(doc):
@@ -520,16 +519,19 @@ def get_edc(doc):
 	#2. If a user adds a type of earning
 	#3. If a user deletes and adds a type of another earning
 	#Function to get the Earnings, Deductions and Contributions (E,D,C)
-	appl_sstr = frappe.db.sql("""SELECT sstr.name FROM `tabSalary Structure` sstr,
-		`tabSalary Structure Employee` sstre
-		WHERE sstr.payroll_frequency = '%s' AND sstre.employee = '%s' 
-		AND sstre.from_date <= '%s' AND sstre.to_date >= '%s'
-		AND sstre.parent = sstr.name"""%(doc.payroll_frequency, \
-			doc.employee, doc.start_date, doc.end_date), as_list=1)
+	doj = frappe.get_value("Employee", doc.employee, "date_of_joining")
+	if doj > datetime.datetime.strptime(doc.start_date, '%Y-%m-%d').date():
+		date_for_sstra = doj
+	else:
+		date_for_sstra = doc.start_date
+
+	appl_sstr = frappe.db.sql("""SELECT sstra.salary_structure FROM `tabSalary Structure Assignment` sstra
+		WHERE sstra.employee = '%s' 
+		AND sstra.from_date <= '%s'"""%(doc.employee, date_for_sstra), as_list=1)
 	if appl_sstr:
 		doc.salary_structure = appl_sstr[0][0]
 	else:
-		frappe.throw("No Salary Structure Found")
+		frappe.throw("No Salary Structure Found for Employee {}".format(doc.employee))
 	sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
 	existing_ded = []
 	manual_earn = []
