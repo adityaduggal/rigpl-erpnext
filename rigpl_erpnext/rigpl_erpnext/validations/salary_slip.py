@@ -82,7 +82,7 @@ def post_gl_entry(doc):
 				
 	for ded in doc.deductions:
 		ded_doc = frappe.get_doc("Salary Component", ded.salary_component)
-		if ded.amount > 0 and ded.employee_loan is None:
+		if flt(ded.amount) > 0 and ded.employee_loan is None:
 			gl_dict = frappe._dict({
 				'company': doc.company,
 				'posting_date' : doc.posting_date,
@@ -95,7 +95,7 @@ def post_gl_entry(doc):
 				'against': comp_doc.default_payroll_payable_account
 			})
 			gl_map.append(gl_dict)
-		elif ded.amount > 0 and ded.employee_loan is not None:
+		elif flt(ded.amount) > 0 and ded.employee_loan is not None:
 			gl_dict = frappe._dict({
 				'company': doc.company,
 				'posting_date' : doc.posting_date,
@@ -527,7 +527,8 @@ def get_edc(doc):
 
 	appl_sstr = frappe.db.sql("""SELECT sstra.salary_structure FROM `tabSalary Structure Assignment` sstra
 		WHERE sstra.employee = '%s' 
-		AND sstra.from_date <= '%s'"""%(doc.employee, date_for_sstra), as_list=1)
+		AND sstra.from_date <= '%s'
+		ORDER BY sstra.from_date DESC LIMIT 1"""%(doc.employee, date_for_sstra), as_list=1)
 	if appl_sstr:
 		doc.salary_structure = appl_sstr[0][0]
 	else:
