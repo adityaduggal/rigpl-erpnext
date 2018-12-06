@@ -20,7 +20,7 @@ def validate(doc,method):
 
 	check_employee (doc, method)
 	shft = get_shift(doc,method)
-	if shft.in_out_required:
+	if doc.status != "On Leave" and shft.in_out_required:
 		calculate_overtime(doc,method)
 	
 
@@ -41,11 +41,34 @@ def check_employee(doc, method):
 #Function to check the shift and update the same from shift assignmentt.
 def get_shift(doc,method):
 	query = """SELECT sa.name, sa.shift_type FROM `tabShift Assignment` sa
-		WHERE sa.date = '%s' AND sa.employee = '%s' """\
-		%(attendance_date, doc.employee)
+		WHERE sa.date = '%s' AND sa.employee = '%s' AND sa.docstatus = 1"""\
+		%(doc.attendance_date, doc.employee)
+
 	sa_list = frappe.db.sql(query, as_list=1)
 	if len(sa_list)<1:
-		frappe.throw(("No Shift Assignment defined for {0} for date {1}").format(doc.employee, attendance_date))
+		#Check if Date is Holiday or not and if its holiday then take the shift of previous day
+		holiday_lst = frappe.get_value("Employee", doc.employee, "holiday_list")
+		hol_lst_doc = frappe.get_doc("Holiday List", holiday_lst)
+		check = 0
+		for d in hol_lst_doc.holidays:
+			if d.holiday_date == getdate(doc.attendance_date):
+				check = 1
+
+		if check == 1:
+			attendance_date = add_days(getdate(doc.attendance_date), -1)
+			query = """SELECT sa.name, sa.shift_type FROM `tabShift Assignment` sa
+				WHERE sa.date = '%s' AND sa.employee = '%s' AND sa.docstatus = 1"""\
+				%(attendance_date, doc.employee)
+			sa_list = frappe.db.sql(query, as_list=1)
+			if len(sa_list)<1:
+				frappe.throw(("No Shift Assignment defined for {0} for \
+					date {1} which is a Holiday and its Previous Day").\
+					format(doc.employee, doc.attendance_date))
+			else:
+				doc.shift = sa_list[0][1]
+		else:
+			frappe.throw(("No Shift Assignment defined for {0} for \
+				date {1}").format(doc.employee, doc.attendance_date))
 	else:
 		doc.shift = sa_list[0][1]
 	
@@ -96,7 +119,11 @@ def validate_time_with_shift(doc,method):
 
 			return shft_intime, shft_lunchout, shft_lunchin, shft_hrs, shft_rounding, shft_marg
 		else:
-			frappe.throw("For Shift " + shft.name + " In and Out Punch are required")
+			if doc.status == "On Leave":
+				pass
+			else:
+				frappe.msgprint(str(doc.status))
+				frappe.throw("For Shift " + shft.name + " In and Out Punch are required")
 	
 def calculate_overtime(doc,method):
 	doc.overtime = 0
