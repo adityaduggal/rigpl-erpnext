@@ -40,6 +40,15 @@ def on_submit(doc,method):
 					frappe.db.set(tt, 'invoice_no', doc.name)
 
 def on_cancel(doc,method):
+	#Get Carrier Tracking
+	ctrack = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` 
+		WHERE document = 'Sales Invoice' 
+		AND document_name = '%s'"""%(doc.name), as_list=1)
+	if ctrack:
+		ctrack_doc = frappe.get_doc("Carrier Tracking", ctrack[0][0])
+		if ctrack_doc.docstatus == 1:
+			frappe.db.set(ctrack_doc, 'docstatus', 2)
+
 	for d in doc.items:
 		if d.sales_order is not None:
 			so = frappe.get_doc("Sales Order", d.sales_order)
@@ -178,13 +187,25 @@ def create_new_carrier_track(doc,method):
 			existing_track = check_existing_track(doc.doctype, doc.amended_from, doc.lr_no)
 			if existing_track:
 				exist_track = frappe.get_doc("Carrier Tracking", existing_track[0][0])
-				exist_track.awb_number = doc.lr_no
-				exist_track.receiver_name = doc.customer
-				exist_track.document_name = doc.name
-				exist_track.carrier_name = doc.transporters
-				exist_track.flags.ignore_permissions = True
-				exist_track.save()
-				frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('Carrier Tracking', exist_track.name)))
+				if exist_track.docstatus == 0:
+					exist_track.awb_number = doc.lr_no
+					exist_track.receiver_name = doc.customer
+					exist_track.document_name = doc.name
+					exist_track.carrier_name = doc.transporters
+					exist_track.flags.ignore_permissions = True
+					exist_track.save()
+					frappe.msgprint(("Updated {0}").format(frappe.get_desk_link\
+						('Carrier Tracking', exist_track.name)))
+				elif exist_track.docstatus == 1:
+					frappe.throw("Carrier Tracking {} is Submitted hence \
+						cannot Proceed".format(exist_track.name))
+				else:
+					new_ctrack = frappe.copy_doc(exist_track)
+					new_ctrack.amended_from = exist_track.name
+					new_ctrack.document_name = doc.name
+					new_ctrack.insert()
+					frappe.msgprint(("Added New {0}").format(frappe.get_desk_link\
+						('Carrier Tracking', new_ctrack.name)))
 			else:
 				create_new_ship_track(doc)
 
