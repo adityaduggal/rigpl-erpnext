@@ -167,7 +167,7 @@ def get_items(conditions_it, attributes, att_details, filters):
 			AND %s.attribute = '%s'""" %(att_trimmed,att_trimmed,att_trimmed,att)
 
 	query = """SELECT it.name %s, IF(it.pack_size =0, NULL, it.pack_size),
-		IF(it.selling_moq =0, NULL, it.selling_mov),
+		IF(it.selling_mov =0, NULL, it.selling_mov),
 		IF(it.min_order_qty =0, NULL, it.min_order_qty),
 		IFNULL(it.pl_item, "-"),
 		IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level),
