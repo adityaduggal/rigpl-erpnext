@@ -30,6 +30,10 @@ def update_fields(doc,method):
 	doc.transaction_date = nowdate()
 	if doc.delivery_date < nowdate():
 		doc.delivery_date = nowdate()
+	for d in doc.items:
+		if d.delivery_date < nowdate():
+			d.delivery_date = nowdate()
+
 	letter_head_tax = frappe.db.get_value("Sales Taxes and Charges Template", \
 		doc.taxes_and_charges, "letter_head")
 	doc.letter_head = letter_head_tax
