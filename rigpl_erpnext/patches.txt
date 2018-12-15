@@ -21,3 +21,9 @@ rigpl_erpnext.patches.20170726_create_tracking_details_old_invoice
 rigpl_erpnext.patches.item_master.20170730_item_route_without_special_characters
 rigpl_erpnext.patches.20170914_create_brc_tracking
 rigpl_erpnext.patches.20171116_update_expiry_date_quotation
+execute:frappe.delete_doc("DocType", "Shift Details")
+execute:frappe.delete_doc("DocType", "Quality")
+execute:frappe.delete_doc("DocType", "Roster")
+execute:frappe.delete_doc("DocType", "Roster Details")
+execute:frappe.delete_doc("DocType", "Tool Type")
+execute:frappe.delete_doc("DocType", "Salary Slip Payment")
