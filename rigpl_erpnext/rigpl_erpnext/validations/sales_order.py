@@ -51,7 +51,7 @@ def update_fields(doc,method):
 	for items in doc.items:
 		get_hsn_code(doc, items)
 
-def get_hsn_code(doc, row_dict)
+def get_hsn_code(doc, row_dict):
 		custom_tariff = frappe.db.get_value("Item", row_dict.item_code, "customs_tariff_number")
 		if custom_tariff:
 			if len(custom_tariff) == 8:
