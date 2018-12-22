@@ -49,17 +49,20 @@ def update_fields(doc,method):
 	doc.letter_head = letter_head_tax
 	
 	for items in doc.items:
-		custom_tariff = frappe.db.get_value("Item", items.item_code, "customs_tariff_number")
+		get_hsn_code(doc, items)
+
+def get_hsn_code(doc, row_dict)
+		custom_tariff = frappe.db.get_value("Item", row_dict.item_code, "customs_tariff_number")
 		if custom_tariff:
 			if len(custom_tariff) == 8:
-				items.gst_hsn_code = custom_tariff 
+				row_dict.gst_hsn_code = custom_tariff 
 			else:
 				frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which not  \
 					8 digit, please get the Custom Tariff corrected").\
-					format(items.item_code, items.idx, custom_tariff))
+					format(row_dict.item_code, row_dict.idx, custom_tariff))
 		else:
 			frappe.throw(("Item Code {0} in line# {1} does not have linked Customs \
-				Tariff in Item Master").format(items.item_code, items.idx))
+				Tariff in Item Master").format(row_dict.item_code, row_dict.idx))
 
 def check_gst_rules(doc,method):
 	bill_state = frappe.db.get_value("Address", doc.customer_address, "state_rigpl")

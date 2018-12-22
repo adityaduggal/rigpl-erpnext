@@ -2,9 +2,14 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
+from rigpl_erpnext.rigpl_erpnext.validations.sales_order import \
+	check_price_list, get_hsn_code
 
 def validate(doc,method):
 	check_taxes_integrity(doc,method)
+	check_price_list(doc, method)
+	for rows in doc.items:
+		get_hsn_code(doc, rows)
 	#Check if Lead is Converted or Not, if the lead is converted 
 	#then don't allow it to be selected without linked customer
 	if doc.lead:
@@ -22,19 +27,6 @@ def validate(doc,method):
 		doc.taxes_and_charges, "letter_head")
 	doc.letter_head = letter_head_tax
 	
-	for items in doc.items:
-		custom_tariff = frappe.db.get_value("Item", items.item_code, "customs_tariff_number")
-		if custom_tariff:
-			if len(custom_tariff) == 8:
-				items.cetsh_number = custom_tariff 
-			else:
-				frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which not  \
-					8 digit, please get the Custom Tariff corrected").\
-					format(items.item_code, items.idx, custom_tariff))
-		else:
-			frappe.throw(("Item Code {0} in line# {1} does not have linked Customs \
-				Tariff in Item Master").format(items.item_code, items.idx))
-
 def check_taxes_integrity(doc,method):
 	template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
 	for tax in doc.taxes:
