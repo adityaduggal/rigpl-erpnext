@@ -7,7 +7,7 @@ def execute():
 		WHERE cetsh_number IS NULL AND gst_hsn_code IS NULL 
 		ORDER BY creation""", as_list=1)
 	if qod_no_cetsh:
-		for qod in sod_no_cetsh:
+		for qod in qod_no_cetsh:
 			qod_doc = frappe.get_doc("Quotation Item", qod[0])
 			cetsh_number = frappe.get_value("Item", qod[1], "customs_tariff_number")
 			if cetsh_number:
