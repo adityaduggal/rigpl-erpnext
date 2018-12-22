@@ -13,13 +13,14 @@ def execute():
 			if cetsh_number:
 				frappe.db.set_value("Quotation Item", qod[0], "cetsh_number", cetsh_number)
 				frappe.db.set_value("Quotation Item", qod[0], "gst_hsn_code", cetsh_number)
-				frappe.db.commit()
 				print("Updated CETSH Number and GST HSN Code in Quotation # " \
 					+ qod_doc.parent + " Item No: " + str(qod_doc.idx))
 			else:
 				print("QTN# " + qod_doc.parent + " Item Code: " + qod[1] + \
 					" At Row No " + str(qod_doc.idx) + \
 					" Does Not Have CETSH Number Linked")
+	frappe.db.commit()
+	print("Committed Changes")
 
 	qod_list = frappe.db.sql("""SELECT name, gst_hsn_code, cetsh_number FROM `tabQuotation Item` 
 		WHERE cetsh_number IS NOT NULL AND gst_hsn_code IS NULL 
@@ -29,8 +30,9 @@ def execute():
 			cetsh_number = frappe.get_value("Quotation Item", qod[0], "cetsh_number")
 			qod_doc = frappe.get_doc("Quotation Item", qod[0])
 			frappe.db.set_value("Quotation Item", qod[0], "gst_hsn_code", cetsh_number)
-			frappe.db.commit()
 			print("Updated GST HSN Code in Quotation # " + qod_doc.parent + " Item No: " + str(qod_doc.idx))
+	frappe.db.commit()
+	print("Committed Changes")
 
 	sod_no_cetsh = frappe.db.sql("""SELECT name, item_code ,gst_hsn_code, cetsh_number FROM `tabSales Order Item` 
 		WHERE cetsh_number IS NULL AND gst_hsn_code IS NULL 
@@ -42,13 +44,14 @@ def execute():
 			if cetsh_number:
 				frappe.db.set_value("Sales Order Item", sod[0], "cetsh_number", cetsh_number)
 				frappe.db.set_value("Sales Order Item", sod[0], "gst_hsn_code", cetsh_number)
-				frappe.db.commit()
 				print("Updated CETSH Number and GST HSN Code in Sales Order # " \
 					+ sod_doc.parent + " Item No: " + str(sod_doc.idx))
 			else:
 				print("SO# " + sod_doc.parent + " Item Code: " + sod[1] + \
 					" At Row No " + str(sod_doc.idx) + \
 					" Does Not Have CETSH Number Linked")
+	frappe.db.commit()
+	print("Committed Changes")
 
 	sod_list = frappe.db.sql("""SELECT name, gst_hsn_code, cetsh_number FROM `tabSales Order Item` 
 		WHERE cetsh_number IS NOT NULL AND gst_hsn_code IS NULL 
@@ -58,8 +61,9 @@ def execute():
 			cetsh_number = frappe.get_value("Sales Order Item", sod[0], "cetsh_number")
 			sod_doc = frappe.get_doc("Sales Order Item", sod[0])
 			frappe.db.set_value("Sales Order Item", sod[0], "gst_hsn_code", cetsh_number)
-			frappe.db.commit()
 			print("Updated GST HSN Code in Sales Order # " + sod_doc.parent + " Item No: " + str(sod_doc.idx))
+	frappe.db.commit()
+	print("Committed Changes")
 
 	dnd_no_cetsh = frappe.db.sql("""SELECT name, item_code, gst_hsn_code, cetsh_number FROM `tabDelivery Note Item` 
 		WHERE cetsh_number IS NULL AND gst_hsn_code IS NULL 
@@ -71,14 +75,14 @@ def execute():
 			if cetsh_number:
 				frappe.db.set_value("Delivery Note Item", dnd[0], "cetsh_number", cetsh_number)
 				frappe.db.set_value("Delivery Note Item", dnd[0], "gst_hsn_code", cetsh_number)
-				frappe.db.commit()
 				print("Updated CETSH Number and GST HSN Code in Delivery Note # " \
 					+ dnd_doc.parent + " Item No: " + str(dnd_doc.idx))
 			else:
 				print("DN# " + dnd_doc.parent + " Item Code: " + dnd[1] + \
 					" At Row No " + str(dnd_doc.idx) + \
 					" Does Not Have CETSH Number Linked")
-
+	frappe.db.commit()
+	print("Committed Changes")
 
 	dnd_list = frappe.db.sql("""SELECT name, gst_hsn_code, cetsh_number FROM `tabDelivery Note Item` 
 		WHERE cetsh_number IS NOT NULL AND gst_hsn_code IS NULL 
@@ -88,5 +92,6 @@ def execute():
 			cetsh_number = frappe.get_value("Delivery Note Item", dnd[0], "cetsh_number")
 			dnd_doc = frappe.get_doc("Delivery Note Item", dnd[0])
 			frappe.db.set_value("Delivery Note Item", dnd[0], "gst_hsn_code", cetsh_number)
-			frappe.db.commit()
 			print("Updated GST HSN Code in DN # " + dnd_doc.parent + " Item No: " + str(dnd_doc.idx))
+	frappe.db.commit()
+	print("Committed Changes")
