@@ -27,3 +27,4 @@ execute:frappe.delete_doc("DocType", "Roster")
 execute:frappe.delete_doc("DocType", "Roster Details")
 execute:frappe.delete_doc("DocType", "Tool Type")
 execute:frappe.delete_doc("DocType", "Salary Slip Payment")
+rigpl_erpnext.patches.20181222_update_gst_hsn_code_q_so_dn
