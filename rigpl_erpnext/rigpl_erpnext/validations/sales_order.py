@@ -11,22 +11,32 @@ def validate(doc,method):
 	check_price_list(doc,method)
 
 def check_price_list(doc,method):
-	if doc.selling_price_list:
-		pl_doc = frappe.get_doc("Price List", doc.selling_price_list)
-		if pl_doc.disable_so == 1:
-			frappe.throw("Sales Order Booking Disabled for {}".format(doc.selling_price_list))
-		for it in doc.items:
-			item_pl_rate = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
-				WHERE price_list = '%s' AND item_code = '%s' 
-				AND selling = 1"""%(doc.selling_price_list, it.item_code), as_list=1)
-			if item_pl_rate:
-				if it.price_list_rate != item_pl_rate[0][0] and doc.currency == item_pl_rate[0][1]:
-					frappe.throw("Price List Rate Wrong for Item Code: {} at \
-					Row # {}".format(it.item_code, it.idx))
-			else:
-				pass
+	for it in doc.items:
+		if it.price_list:
+			check_get_pl_rate(doc, it)
+		else:
+			it.price_list = doc.selling_price_list
+			check_get_pl_rate(doc, it)
+
+def check_get_pl_rate(doc, row_dict):
+	pl_doc = frappe.get_doc("Price List", row_dict.price_list)
+	if pl_doc.disable_so == 1:
+			frappe.throw("Sales Order Booking Disabled for {} at Row# {}".\
+				format(row_dict.price_list, row_dict.idx))
+	item_pl_rate = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
+			WHERE price_list = '%s' AND item_code = '%s' 
+			AND selling = 1"""%(row_dict.price_list, row_dict.item_code), as_list=1)
+	if item_pl_rate:
+		if row_dict.price_list_rate != item_pl_rate[0][0] and doc.currency == item_pl_rate[0][1]:
+			row_dict.price_list_rate = item_pl_rate[0][0]
+	else:
+		frappe.msgprint("In {}# {} at Row# {} and Item Code: {} Price List \
+			Rate is Not Defined".format(doc.doctype, doc.name, row_dict.idx, \
+				row_dict.item_code))
 
 def update_fields(doc,method):
+	doc.shipping_address_title = frappe.get_value("Address", \
+		doc.shipping_address_name, "address_title")
 	doc.transaction_date = nowdate()
 	if doc.delivery_date < nowdate():
 		doc.delivery_date = nowdate()
@@ -42,7 +52,7 @@ def update_fields(doc,method):
 		custom_tariff = frappe.db.get_value("Item", items.item_code, "customs_tariff_number")
 		if custom_tariff:
 			if len(custom_tariff) == 8:
-				items.cetsh_number = custom_tariff 
+				items.gst_hsn_code = custom_tariff 
 			else:
 				frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which not  \
 					8 digit, please get the Custom Tariff corrected").\
@@ -52,9 +62,9 @@ def update_fields(doc,method):
 				Tariff in Item Master").format(items.item_code, items.idx))
 
 def check_gst_rules(doc,method):
-	ship_state = frappe.db.get_value("Address", doc.shipping_address_name, "state_rigpl")
+	bill_state = frappe.db.get_value("Address", doc.customer_address, "state_rigpl")
 	template_doc = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
-	ship_country = frappe.db.get_value("Address", doc.shipping_address_name, "country")
+	bill_country = frappe.db.get_value("Address", doc.customer_address, "country")
 	
 	series_template = frappe.db.get_value("Sales Taxes and Charges Template", \
 		doc.taxes_and_charges ,"series")
@@ -68,21 +78,21 @@ def check_gst_rules(doc,method):
 	if doc.taxes_and_charges != 'OGL':
 		#Check if Shipping State is Same as Template State then check if the tax template is LOCAL
 		#Else if the States are different then the template should NOT BE LOCAL
-		if ship_state == template_doc.state and template_doc.is_export != 1:
+		if bill_state == template_doc.state and template_doc.is_export != 1:
 			if template_doc.is_local_sales != 1:
 				frappe.throw(("Selected Tax {0} is NOT LOCAL Tax but Shipping Address is \
 					in Same State {1}, hence either change Shipping Address or Change the \
-					Selected Tax").format(doc.taxes_and_charges, ship_state))
-		elif ship_country == 'India' and ship_state != template_doc.state:
+					Selected Tax").format(doc.taxes_and_charges, bill_state))
+		elif bill_country == 'India' and bill_state != template_doc.state:
 			if template_doc.is_local_sales == 1:
 				frappe.throw(("Selected Tax {0} is LOCAL Tax but Shipping Address is \
 					in Different State {1}, hence either change Shipping Address or Change the \
-					Selected Tax").format(doc.taxes_and_charges, ship_state))
-		elif ship_country != 'India': #Case of EXPORTS
+					Selected Tax").format(doc.taxes_and_charges, bill_state))
+		elif bill_country != 'India': #Case of EXPORTS
 			if template_doc.state is not None and template_doc.is_export != 1:
 				frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
 					in Different Country {1}, hence either change Shipping Address or Change the \
-					Selected Tax").format(doc.taxes_and_charges, ship_country))
+					Selected Tax").format(doc.taxes_and_charges, bill_country))
 
 def check_taxes_integrity(doc,method):
 	template = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)

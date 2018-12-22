@@ -64,27 +64,30 @@ def on_cancel(doc,method):
 
 def validate_price_list(doc,method):
 	for d in doc.items:
-		if d.sales_order:
-			so_doc = frappe.get_doc("Sales Order", d.sales_order)
-			if doc.selling_price_list != so_doc.selling_price_list:
-				frappe.throw("Item: {} at Row# {} from SO# {} is from {} whereas SI is for {}. \
-				Remove the row and make a New SI for the mentioned Row".\
-				format(d.item_code, d.idx, d.sales_order, so_doc.selling_price_list, \
-				doc.selling_price_list))
+		if d.so_detail:
+			sod_doc = frappe.get_doc("Sales Order Item", d.so_detail)
+			d.price_list = sod_doc.price_list 
 		else:
-			pl_doc = frappe.get_doc("Price List", doc.selling_price_list)
-			it_doc = frappe.get_doc("Item", d.item_code)
-			if pl_doc.disable_so == 1 and it_doc.is_stock_item == 1:
-				frappe.throw("Sales Invoices for {} are Blocked without prior \
-					Sales Order".format(doc.selling_price_list))
+			if d.price_list:
+				get_pl_rate(price_list, d)
 			else:
-				item_price = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
-					WHERE price_list = '%s' AND selling = 1 
-					AND item_code = '%s'"""%(doc.selling_price_list, d.item_code), as_list=1)
-				if item_price:
-					if d.price_list_rate != item_price[0][0] and doc.currency == item_price[0][1]:
-						frappe.throw("Item: {} in Row# {} does not match with Price List Rate\
-							of {}. Reload the Item".format(d.item_code, d.idx, item_price[0][0]))
+				d.price_list = doc.selling_price_list
+				get_pl_rate(price_list, d)
+
+def get_pl_rate(price_list, row):
+	pl_doc = frappe.get_doc("Price List", row.price_list)
+	it_doc = frappe.get_doc("Item", row.item_code)
+	if pl_doc.disable_so == 1 and it_doc.is_stock_item == 1:
+		frappe.throw("Sales Invoices for {} are Blocked without prior \
+			Sales Order".format(row.price_list))
+	else:
+		item_price = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
+			WHERE price_list = '%s' AND selling = 1 
+			AND item_code = '%s'"""%(row.price_list, row.item_code), as_list=1)
+		if item_price:
+			if d.price_list_rate != item_price[0][0] and doc.currency == item_price[0][1]:
+				frappe.throw("Item: {} in Row# {} does not match with Price List Rate\
+					of {}. Reload the Item".format(row.item_code, row.idx, item_price[0][0]))
 
 def check_delivery_note_rule(doc,method):
 	'''
