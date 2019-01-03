@@ -14,7 +14,6 @@ from rigpl_erpnext.utils.rigpl_perm import *
 def check_permission_exist():
 	clean_dynamic_link_table()
 	clean_sales_team_table()
-	#'''
 	inactive_users = get_users(active=0)
 	for user in inactive_users:
 		delete_permission(user=user[0])
@@ -42,7 +41,6 @@ def check_permission_exist():
 		
 			#Check if user in LEAD and if so then check perm or else add perm 
 			#for lead and address
-			#'''
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
 				check_role(role_list, doctype="Lead", apply_to_all_doctypes="None")
 			if role_in_settings == 1:
@@ -138,7 +136,6 @@ def check_permission_exist():
 												for_value=address[0], user=user[0], \
 												applicable_for=applicable_for, \
 												apply_to_all_doctypes=apply_to_all_doctypes)
-											#'''
 			#Check if the user is linked to the Employee and add user permission for the Employee
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
 				check_role(role_list, doctype="Employee", apply_to_all_doctypes="None")
@@ -151,9 +148,7 @@ def check_permission_exist():
 							create_new_user_perm(allow="Employee", user=user[0], \
 								for_value=emp[0], apply_to_all_doctypes=apply_to_all_doctypes, \
 								applicable_for=applicable_for)
-
 		print("Completed Adding Permissions for User: " + user[0])
-		#'''
 	delete_extra_perms()
 	version_delete = [['Bin', '', ''], \
 		['Carrier Tracking', 'Administrator', '0'], \
