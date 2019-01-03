@@ -117,28 +117,30 @@ def get_employees(status=None):
 
 def get_employees_allowed_ids(employee):
 	allowed_ids = []
-	department = frappe.get_value("Employee", employee, "department")
-	user_id = frappe.get_value("Employee", employee, "user_id")
-	user_id_perm = frappe.get_value("Employee", employee, "create_user_permission")
-	reports_to = frappe.get_value("Employee", employee, "reports_to")
-	if user_id is not None and user_id_perm == 1:
-		check_sys = check_system_manager(user_id)
-		if check_sys != 1:
-			allowed_ids.append(user_id)
-	if reports_to:
-		check_sys = check_system_manager(reports_to)
-		if check_sys != 1:
-			allowed_ids.append(reports_to)
-	if department:
-		dep_doc = frappe.get_doc("Department", department)
-	else:
-		print("No Department Defined for Employee: " + employee)
-	if dep_doc:
-		for la in dep_doc.leave_approvers:
-			if la.approver:
-				check_sys = check_system_manager(la.approver)
-				if check_sys != 1:
-					allowed_ids.extend([la.approver])
+	status = frappe.get_value("Employee", employee, "status")
+	if status == 'Active':
+		department = frappe.get_value("Employee", employee, "department")
+		user_id = frappe.get_value("Employee", employee, "user_id")
+		user_id_perm = frappe.get_value("Employee", employee, "create_user_permission")
+		reports_to = frappe.get_value("Employee", employee, "reports_to")
+		if user_id is not None and user_id_perm == 1:
+			check_sys = check_system_manager(user_id)
+			if check_sys != 1:
+				allowed_ids.append(user_id)
+		if reports_to:
+			check_sys = check_system_manager(reports_to)
+			if check_sys != 1:
+				allowed_ids.append(reports_to)
+		if department:
+			dep_doc = frappe.get_doc("Department", department)
+		else:
+			print("No Department Defined for Employee: " + employee)
+		if dep_doc:
+			for la in dep_doc.leave_approvers:
+				if la.approver:
+					check_sys = check_system_manager(la.approver)
+					if check_sys != 1:
+						allowed_ids.extend([la.approver])
 	return allowed_ids
 
 def get_customer_allowed_ids(customer):
@@ -305,6 +307,12 @@ def delete_extra_perms():
 			delete_permission(name=et_perm[0])
 			if commit_chk%1000 == 0:
 				frappe.db.commit()
+	#Remove Inactive Employee Permissions
+	emp_list = get_employees(status='Left')
+	for emp in emp_list:
+		left_emp_list = get_permission(allow="Employee", for_value=emp[0])
+		for perm in left_emp_list:
+			delete_permission(name=perm[0])
 	#Check User Perms for items not for their Roles
 	#active_users = get_users(active=1)
 	'''
