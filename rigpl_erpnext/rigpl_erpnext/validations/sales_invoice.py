@@ -69,10 +69,10 @@ def validate_price_list(doc,method):
 			d.price_list = sod_doc.price_list 
 		else:
 			if d.price_list:
-				get_pl_rate(price_list, d)
+				get_pl_rate(d.price_list, d)
 			else:
 				d.price_list = doc.selling_price_list
-				get_pl_rate(price_list, d)
+				get_pl_rate(d.price_list, d)
 
 def get_pl_rate(price_list, row):
 	pl_doc = frappe.get_doc("Price List", row.price_list)
