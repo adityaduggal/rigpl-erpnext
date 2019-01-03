@@ -85,7 +85,7 @@ def get_pl_rate(price_list, row):
 			WHERE price_list = '%s' AND selling = 1 
 			AND item_code = '%s'"""%(row.price_list, row.item_code), as_list=1)
 		if item_price:
-			if d.price_list_rate != item_price[0][0] and doc.currency == item_price[0][1]:
+			if row.price_list_rate != item_price[0][0] and doc.currency == item_price[0][1]:
 				frappe.throw("Item: {} in Row# {} does not match with Price List Rate\
 					of {}. Reload the Item".format(row.item_code, row.idx, item_price[0][0]))
 
