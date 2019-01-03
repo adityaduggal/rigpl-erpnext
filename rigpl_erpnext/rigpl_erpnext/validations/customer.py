@@ -53,7 +53,7 @@ def on_update(doc,method):
 	for user in allowed_ids:
 		role_list = get_user_roles(user)
 		role_in_settings, apply_to_all_doctypes, applicable_for = \
-			check_role(role_list, "Customer")
+			check_role(role_list, "Customer", apply_to_all_doctypes="None")
 		if role_in_settings == 1:
 			create_new_user_perm(allow="Customer", for_value=doc.name, \
 				user=user, apply_to_all_doctypes=apply_to_all_doctypes, \
@@ -64,7 +64,7 @@ def on_update(doc,method):
 		for user in allowed_ids:
 			role_list = get_user_roles(user)
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
-				check_role(role_list, "Contact")
+				check_role(role_list, "Contact", apply_to_all_doctypes="None")
 			if role_in_settings == 1:
 				create_new_user_perm(allow="Contact", for_value=contact[0], \
 					user=user, apply_to_all_doctypes=apply_to_all_doctypes, \
@@ -75,7 +75,7 @@ def on_update(doc,method):
 		for user in allowed_ids:
 			role_list = get_user_roles(user)
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
-				check_role(role_list, "Address")
+				check_role(role_list, "Address", apply_to_all_doctypes="None")
 			if role_in_settings == 1:
 				create_new_user_perm(allow="Address", for_value=address[0], \
 					user=user, apply_to_all_doctypes=apply_to_all_doctypes, \

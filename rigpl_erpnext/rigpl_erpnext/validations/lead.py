@@ -22,7 +22,7 @@ def on_update(doc,method):
 			(doc.name, check_conversion[0][0]))
 	role_list = get_user_roles(doc.lead_owner)
 	role_in_settings, apply_to_all_doctypes, applicable_for = \
-		check_role(role_list, doctype="Lead")
+		check_role(role_list, doctype="Lead", apply_to_all_doctypes="None")
 	if doc.lead_owner:
 		existing_perm = get_permission(allow=doc.doctype, for_value=doc.name, \
 			user=doc.lead_owner, applicable_for=applicable_for, \
@@ -47,7 +47,7 @@ def on_update(doc,method):
 			pass
 		else:
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
-				check_role(role_list, doctype="Address")
+				check_role(role_list, doctype="Address", apply_to_all_doctypes="None")
 			if role_in_settings == 1:
 				create_new_user_perm(allow="Address", for_value=address[0], \
 					user=doc.lead_owner, applicable_for=applicable_for, \

@@ -214,7 +214,6 @@ def get_permission(name=None, user=None, allow=None, for_value=None, \
 
 def delete_permission(name=None, user=None, allow=None, for_value=None, \
 	applicable_for=None, apply_to_all_doctypes=None):
-	frappe.msgprint(apply_to_all_doctypes)
 	permission_list = get_permission(name=name, user=user, allow=allow, \
 		for_value=for_value, applicable_for=applicable_for, \
 		apply_to_all_doctypes=apply_to_all_doctypes)
@@ -300,21 +299,22 @@ def delete_extra_perms():
 	for perm in all_dt_perms:
 		print("Checking Permission for User:" + perm[3] + " with ID: " + perm[0])
 		extra_perm = get_permission(allow=perm[1], for_value=perm[2], \
-			user=perm[3], apply_to_all_doctypes=0)
+			user=perm[3], apply_to_all_doctypes="None")
 		for et_perm in extra_perm:
 			commit_chk += 1
 			delete_permission(name=et_perm[0])
 			if commit_chk%1000 == 0:
 				frappe.db.commit()
 	#Check User Perms for items not for their Roles
-	active_users = get_users(active=1)
+	#active_users = get_users(active=1)
+	'''
 	for user in active_users:
 		role_list = get_user_roles(user[0])
 		user_perms = get_permission(user=user[0])
 		for perm in user_perms:
 			print("Checking Permission for User: " + user[0] + " with ID: " + perm[0])
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
-				check_role(role_list, perm[1])
+				check_role(role_list, doctype=perm[1], apply_to_all_doctypes="None")
 			if role_in_settings==1:
 				if apply_to_all_doctypes == perm[5] and applicable_for == perm[4]:
 					pass
@@ -322,11 +322,12 @@ def delete_extra_perms():
 					delete_permission(name=perm[0])
 			else:
 				delete_permission(name=perm[0])
+	'''
 
-def check_role(role_list, doctype):
+def check_role(role_list, doctype, apply_to_all_doctypes=None):
 	role_in_settings = 0
 	settings_list = get_user_perm_settings(allow=doctype, \
-		apply_to_all_values=1, apply_to_all_doctypes="None")
+		apply_to_all_values=1, apply_to_all_doctypes=apply_to_all_doctypes)
 	if settings_list:
 		for set_list in settings_list:
 			applicable_for = set_list[3]

@@ -44,7 +44,7 @@ def check_permission_exist():
 			#for lead and address
 			#'''
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
-				check_role(role_list, doctype="Lead")
+				check_role(role_list, doctype="Lead", apply_to_all_doctypes="None")
 			if role_in_settings == 1:
 				lead_list = get_user_lead(user[0])
 				if lead_list:
@@ -63,7 +63,7 @@ def check_permission_exist():
 						add_list = get_dl_parent(dt='Address', linked_dt='Lead', \
 							linked_dn= lead[0])
 						role_in_settings, apply_to_all_doctypes, applicable_for = \
-							check_role(role_list, doctype="Address")
+							check_role(role_list, doctype="Address", apply_to_all_doctypes="None")
 						if role_in_settings == 1:
 							if add_list:
 								for address in add_list:
@@ -93,7 +93,7 @@ def check_permission_exist():
 				else:
 					cust_list = []
 				role_in_settings, apply_to_all_doctypes, applicable_for = \
-					check_role(role_list, doctype="Customer")
+					check_role(role_list, doctype="Customer", apply_to_all_doctypes="None")
 				if role_in_settings == 1:
 					if cust_list:
 						for customer in cust_list:
@@ -109,7 +109,7 @@ def check_permission_exist():
 							con_list = get_dl_parent(dt='Contact', linked_dt='Customer', \
 								linked_dn= customer[0])
 							role_in_settings, apply_to_all_doctypes, applicable_for = \
-								check_role(role_list, doctype="Contact")
+								check_role(role_list, doctype="Contact", apply_to_all_doctypes="None")
 							if role_in_settings == 1:
 								if con_list:
 									for contact in con_list:
@@ -125,7 +125,7 @@ def check_permission_exist():
 							add_list = get_dl_parent(dt='Address', linked_dt='Customer', \
 								linked_dn= customer[0])
 							role_in_settings, apply_to_all_doctypes, applicable_for = \
-								check_role(role_list, doctype="Address")
+								check_role(role_list, doctype="Address", apply_to_all_doctypes="None")
 							if role_in_settings == 1:
 								if add_list:
 									for address in add_list:
@@ -141,7 +141,7 @@ def check_permission_exist():
 											#'''
 			#Check if the user is linked to the Employee and add user permission for the Employee
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
-				check_role(role_list, doctype="Employee")
+				check_role(role_list, doctype="Employee", apply_to_all_doctypes="None")
 			if role_in_settings == 1:
 				emp_list = get_employees(status='Active')
 				for emp in emp_list:

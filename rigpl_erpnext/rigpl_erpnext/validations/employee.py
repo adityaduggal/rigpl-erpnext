@@ -32,7 +32,7 @@ def on_update(doc,method):
 	for user in allowed_ids:
 		role_list = get_user_roles(user)
 		role_in_settings, apply_to_all_doctypes, applicable_for = \
-			check_role(role_list, "Employee")
+			check_role(role_list, "Employee", apply_to_all_doctypes="None")
 		if role_in_settings == 1:
 			create_new_user_perm(allow="Employee", for_value=doc.name, \
 				user=user, apply_to_all_doctypes=apply_to_all_doctypes, \
