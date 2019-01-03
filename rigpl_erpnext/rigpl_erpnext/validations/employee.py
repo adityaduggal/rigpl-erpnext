@@ -2,8 +2,7 @@
 from __future__ import unicode_literals
 import frappe, re
 from frappe import _
-from rigpl_erpnext.rigpl_erpnext.validations.lead import \
-	create_new_user_perm, delete_unused_perm, find_total_perms
+from rigpl_erpnext.utils.rigpl_perm import *
 from frappe import msgprint
 from frappe.utils import getdate
 from datetime import datetime
@@ -29,33 +28,19 @@ def validate(doc,method):
 
 def on_update(doc,method):
 	allowed_ids = []
-	if doc.department:
-		dep_doc = frappe.get_doc("Department", doc.department)
-	else:
-		frappe.throw("Department is Mandatory for {}".format(doc.name))
-	for la in dep_doc.leave_approvers:
-		if la.approver:
-			allowed_ids.extend([la.approver])
-			create_new_user_perm(doc.doctype, doc.name, la.approver)
-
-	if doc.reports_to:
-		reports_to_userid = frappe.db.get_value("Employee", doc.reports_to, "user_id")
-		if reports_to_userid:
-			allowed_ids.extend([reports_to_userid])
-			create_new_user_perm(doc.doctype, doc.name, reports_to_userid)
-
-	if doc.user_id:
-		allowed_ids.extend([doc.user_id])
-		create_new_user_perm(doc.doctype, doc.name, doc.user_id)
-
-	total_perms = find_total_perms(doc.doctype, doc.name)
-
-	if total_perms:
-		for extra in total_perms:
-			if extra[2] in allowed_ids:
-				pass
-			else:
-				delete_unused_perm(extra[0], doc.doctype, doc.name, extra[2])
+	allowed_ids = get_employees_allowed_ids(doc.employee)
+	for user in allowed_ids:
+		role_list = get_user_roles(user)
+		role_in_settings, apply_to_all_doctypes, applicable_for = \
+			check_role(role_list, "Employee")
+		if role_in_settings == 1:
+			create_new_user_perm(allow="Employee", for_value=doc.name, \
+				user=user, apply_to_all_doctypes=apply_to_all_doctypes, \
+				applicable_for=applicable_for)
+	emp_perm_list = get_permission(allow="Employee", for_value=doc.name)
+	for perm in emp_perm_list:
+		if perm[3] not in allowed_ids:
+			delete_permission(perm[0])
 
 def validate_pan(pan):
 	if pan:

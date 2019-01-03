@@ -2,9 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
-from rigpl_erpnext.rigpl_erpnext.validations.lead import \
-	create_new_user_perm, delete_unused_perm, find_total_perms, \
-	check_system_manager, get_dl_parent
+from rigpl_erpnext.utils.rigpl_perm import *
 import frappe.permissions
 import re
 
@@ -51,67 +49,59 @@ def on_update(doc,method):
 				frappe.db.set_value("Opportunity", i[0], "customer", None)
 		
 			
-	for d in doc.sales_team:
-		if d.sales_person:
-			s_person = frappe.get_doc("Sales Person", d.sales_person)
-			if s_person.employee:
-				emp = frappe.get_doc("Employee", s_person.employee)
-				if emp.status == "Active":
-					if emp.user_id:
-						check_sys = check_system_manager(emp.user_id)
-						if check_sys == 1:
-							pass
-						else:
-							allowed_ids.extend([emp.user_id])
-							create_new_user_perm(doc.doctype, doc.name, emp.user_id)
+	allowed_ids = get_customer_allowed_ids(doc.name)
+	for user in allowed_ids:
+		role_list = get_user_roles(user)
+		role_in_settings, apply_to_all_doctypes, applicable_for = \
+			check_role(role_list, "Customer")
+		if role_in_settings == 1:
+			create_new_user_perm(allow="Customer", for_value=doc.name, \
+				user=user, apply_to_all_doctypes=apply_to_all_doctypes, \
+				applicable_for=applicable_for)
 
-				else:
-					frappe.msgprint("Selected Sales Person is Not an Active Employee", raise_exception=1)
-	if doc.default_sales_partner:
-		s_partner = frappe.get_doc("Sales Partner", doc.default_sales_partner)
-		if s_partner.user:
-			user = frappe.get_doc("User", s_partner.user)
-			check_sys = check_system_manager(user.name)
-			if check_sys == 1:
-				pass
-			else:
-				if user.enabled == 1:
-					create_new_user_perm(doc.doctype, doc.name, s_partner.user)
-					allowed_ids.extend([s_partner.user])
-	if doc.customer_login_id:
-		check_sys = check_system_manager(doc.customer_login_id)
-		if check_sys == 1:
-			pass
-		else:
-			create_new_user_perm(doc.doctype, doc.name, doc.customer_login_id)
-			allowed_ids.extend([doc.customer_login_id])
 	con_list = get_dl_parent(dt='Contact', linked_dt='Customer', linked_dn= doc.name)
 	for contact in con_list:
 		for user in allowed_ids:
-			create_new_user_perm("Contact", contact[0], user)
+			role_list = get_user_roles(user)
+			role_in_settings, apply_to_all_doctypes, applicable_for = \
+				check_role(role_list, "Contact")
+			if role_in_settings == 1:
+				create_new_user_perm(allow="Contact", for_value=contact[0], \
+					user=user, apply_to_all_doctypes=apply_to_all_doctypes, \
+					applicable_for=applicable_for)
 
 	add_list = get_dl_parent(dt='Address', linked_dt='Customer', linked_dn= doc.name)
 	for address in add_list:
 		for user in allowed_ids:
-			create_new_user_perm("Address", address[0], user)
+			role_list = get_user_roles(user)
+			role_in_settings, apply_to_all_doctypes, applicable_for = \
+				check_role(role_list, "Address")
+			if role_in_settings == 1:
+				create_new_user_perm(allow="Address", for_value=address[0], \
+					user=user, apply_to_all_doctypes=apply_to_all_doctypes, \
+					applicable_for=applicable_for)
 
-	for d in [[doc.doctype, [doc.name]],["Address", add_list], ["Contact", con_list]]:
-		for add in d[1]:
-			total_perms = find_total_perms(d[0], add[0])
-			if total_perms:
-				for extra in total_perms:
-					if extra[2] in allowed_ids:
-						pass
-					else:
-						delete_unused_perm(extra[0], d[0], add[0], extra[2])
+	cust_perm_list = get_permission(allow="Customer", for_value=doc.name)
+	con_perm_list = []
+	add_perm_list = []
+	if con_list:
+		for contact in con_list:
+			con_perm_list_temp = get_permission(allow="Contact", for_value=contact[0])
+			con_perm_list.extend(con_perm_list_temp)
+	if add_list:
+		for add in add_list:
+			add_perm_list_temp = get_permission(allow="Address", for_value=add[0])
+			add_perm_list.extend(add_perm_list_temp)
+	for perm in cust_perm_list:
+		if perm[3] not in allowed_ids:
+			delete_permission(perm[0])
+	for perm in add_perm_list:
+		if perm[3] not in allowed_ids:
+			delete_permission(perm[0])
+	for perm in con_perm_list:
+		if perm[3] not in allowed_ids:
+			delete_permission(perm[0]) 		
 
-	total_perms = find_total_perms(doc.doctype, doc.name)
-	if total_perms:
-		for extra in total_perms:
-			if extra[2] in allowed_ids:
-				pass
-			else:
-				delete_unused_perm(extra[0], doc.doctype, doc.name, extra[2])
 
 def validate(doc,method):
 	new_name, entered_name = check_customer_id (doc,method)
