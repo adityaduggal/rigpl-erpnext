@@ -28,14 +28,10 @@ def on_update(doc,method):
 			user=doc.lead_owner, applicable_for=applicable_for, \
 			apply_to_all_doctypes=apply_to_all_doctypes)
 		if not existing_perm:
-			check_sys = check_system_manager(user=doc.lead_owner)
-			if check_sys == 1:
-				pass
-			else:
-				if role_in_settings == 1:
-					create_new_user_perm(allow=doc.doctype, for_value=doc.name, \
-						user=doc.lead_owner, applicable_for=applicable_for, \
-						apply_to_all_doctypes=apply_to_all_doctypes)
+			if role_in_settings == 1:
+				create_new_user_perm(allow=doc.doctype, for_value=doc.name, \
+					user=doc.lead_owner, applicable_for=applicable_for, \
+					apply_to_all_doctypes=apply_to_all_doctypes)
 		extra_perm = get_extra_perms(allow="Lead", for_value=doc.name, \
 			user=doc.lead_owner, apply_to_all_doctypes=1)
 		if extra_perm:

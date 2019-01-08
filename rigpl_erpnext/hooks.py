@@ -61,6 +61,9 @@ hide_in_installer = True
 # Hook on document methods and events
 
 doc_events = {
+	"Account": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.account.validate"
+	},
 	"Asset": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.asset.validate",
 		"autoname": "rigpl_erpnext.rigpl_erpnext.validations.asset.autoname"

@@ -5,26 +5,76 @@
 from __future__ import unicode_literals
 import frappe
 
-def create_new_user_perm(allow=None, for_value=None, user=None, applicable_for=None, \
+def create_new_user_perm(user, allow=None, for_value=None, applicable_for=None, \
 	apply_to_all_doctypes=None):
+	sysmgr = check_system_manager(user)
+	enabled_user = frappe.get_value("User", user, "enabled")
 	existing_perm = get_permission(allow=allow, for_value=for_value, user=user, \
 		applicable_for=applicable_for, apply_to_all_doctypes=apply_to_all_doctypes)
-	#print(existing_perm)
-	if not existing_perm:
-		#check_settings(allow, for_value, applicable_for, apply_to_all_doctypes)
-		new_perm = frappe.new_doc("User Permission")
-		new_perm.flags.ignore_permissions = True
-		new_perm.user = user
-		new_perm.allow = allow
-		new_perm.for_value = for_value
-		new_perm.apply_to_all_doctypes = apply_to_all_doctypes
-		new_perm.applicable_for = applicable_for
-		new_perm.insert()
-		frappe.msgprint(("Added New Permission for {0}: {1} for User: {2}").format(allow, for_value, user))
-		print("Added New Permission for " + allow + ": " + for_value + " for User: " + user)
-		frappe.db.commit()
+	if sysmgr != 1 and enabled_user == 1:
+		if not existing_perm:
+			#check_settings(allow, for_value, applicable_for, apply_to_all_doctypes)
+			new_perm = frappe.new_doc("User Permission")
+			new_perm.flags.ignore_permissions = True
+			new_perm.user = user
+			new_perm.allow = allow
+			new_perm.for_value = for_value
+			new_perm.apply_to_all_doctypes = apply_to_all_doctypes
+			new_perm.applicable_for = applicable_for
+			new_perm.insert()
+			frappe.msgprint(("Added New Permission for {0}: {1} for User: {2}").\
+				format(allow, for_value, user))
+			print("Added New Permission for " + allow + ": " + for_value + " for User: " + user)
+			frappe.db.commit()
+	else:
+		if existing_perm:
+			for perm in existing_perm:
+				frappe.msgprint(str(perm))
+				delete_permission(name=perm[0])
 
-def check_system_manager(user=None):
+def get_permission(name=None, user=None, allow=None, for_value=None, \
+	applicable_for = None, apply_to_all_doctypes=None, deleted=None):
+	conditions = ''
+	if name:
+		conditions += " AND name = '%s'"%(name)
+	if user:
+		conditions += " AND user = '%s'"%(user)
+	if allow:
+		conditions += " AND allow = '%s'"%(allow)
+	if for_value:
+		conditions += " AND for_value = '%s'"%(for_value)
+	if applicable_for:
+		conditions += " AND applicable_for = '%s'"%(applicable_for)
+	if apply_to_all_doctypes==1:
+		conditions += " AND apply_to_all_doctypes = 1"
+	elif apply_to_all_doctypes == "None":
+		conditions += " AND apply_to_all_doctypes = 0"
+	else:
+		pass
+
+	query = """SELECT name, allow, for_value, user, applicable_for, 
+		apply_to_all_doctypes
+		FROM `tabUser Permission` WHERE docstatus = 0 %s"""%(conditions)
+	permission_list = frappe.db.sql(query , as_list=1)
+
+	return permission_list
+
+def delete_permission(name=None, user=None, allow=None, for_value=None, \
+	applicable_for=None, apply_to_all_doctypes=None):
+	permission_list = get_permission(name=name, user=user, allow=allow, \
+		for_value=for_value, applicable_for=applicable_for, \
+		apply_to_all_doctypes=apply_to_all_doctypes)
+	for perm in permission_list:
+		frappe.db.sql("""DELETE FROM `tabUser Permission` 
+			WHERE name = '%s'"""%(perm[0]))
+		#frappe.delete_doc_if_exists("User Permission", perm[0])
+		frappe.msgprint("Deleted User Permission: {} for User: {} for Doctype: {} \
+			for Value: {}".format(perm[0], perm[3], perm[1], perm[2]))
+
+		print ('Deleted User Permission: ' + perm[0] + ' for User: ' + perm[3] \
+			+ ' for Doctype ' + perm[1] + " Value " + perm[2])
+
+def check_system_manager(user):
 	sysmgr_list = frappe.db.sql("""SELECT name FROM `tabHas Role` 
 		WHERE parenttype = 'User' AND parent = '%s' 
 		AND role = 'System Manager'"""%(user), as_list = 1)
@@ -124,13 +174,9 @@ def get_employees_allowed_ids(employee):
 		user_id_perm = frappe.get_value("Employee", employee, "create_user_permission")
 		reports_to = frappe.get_value("Employee", employee, "reports_to")
 		if user_id is not None and user_id_perm == 1:
-			check_sys = check_system_manager(user_id)
-			if check_sys != 1:
-				allowed_ids.append(user_id)
+			allowed_ids.append(user_id)
 		if reports_to:
-			check_sys = check_system_manager(reports_to)
-			if check_sys != 1:
-				allowed_ids.append(reports_to)
+			allowed_ids.append(reports_to)
 		if department:
 			dep_doc = frappe.get_doc("Department", department)
 		else:
@@ -138,9 +184,7 @@ def get_employees_allowed_ids(employee):
 		if dep_doc:
 			for la in dep_doc.leave_approvers:
 				if la.approver:
-					check_sys = check_system_manager(la.approver)
-					if check_sys != 1:
-						allowed_ids.extend([la.approver])
+					allowed_ids.extend([la.approver])
 	return allowed_ids
 
 def get_customer_allowed_ids(customer):
@@ -153,21 +197,97 @@ def get_customer_allowed_ids(customer):
 				emp_doc = frappe.get_doc("Employee", s_person_emp)
 				if emp_doc.status == "Active":
 					if  emp_doc.user_id:
-						check_sys = check_system_manager(emp_doc.user_id)
-						if check_sys != 1:
-							allowed_ids.extend([emp_doc.user_id])
+						allowed_ids.extend([emp_doc.user_id])
 	if customer_doc.customer_login_id:
-		check_sys = check_system_manager(customer_doc.customer_login_id)
-		if check_sys != 1:
-			allowed_ids.extend([customer_doc.customer_login_id])
+		allowed_ids.extend([customer_doc.customer_login_id])
 	if customer_doc.default_sales_partner:
 		s_partner = frappe.get_doc("Sales Partner", customer_doc.default_sales_partner)
 		if s_partner.user:
 			user = frappe.get_doc("User", s_partner.user)
-			check_sys = check_system_manager(user.name)
-			if check_sys != 1:
-				if user.enabled == 1:
-					allowed_ids.extend([s_partner.user])
+			if user.enabled == 1:
+				allowed_ids.extend([s_partner.user])
+	return allowed_ids
+
+def create_account_perms(acc_doc, user_dict):
+	allowed_ids = get_account_allowed_ids(acc_doc.name, user_dict)
+	if allowed_ids:
+		for user in allowed_ids:
+			role_list = get_user_roles(user)
+			role_in_settings, apply_to_all_doctypes, applicable_for = \
+				check_role(role_list, doctype=acc_doc.doctype, \
+				apply_to_all_doctypes="None")
+			if role_in_settings == 1:
+				create_new_user_perm(user=user, allow=acc_doc.doctype, \
+					for_value=acc_doc.name, applicable_for=applicable_for, \
+					apply_to_all_doctypes=apply_to_all_doctypes)
+	delete_extra_account_perms(acc_doc, user_dict)
+
+def delete_extra_account_perms(acc_doc, user_dict):
+	allowed_ids = get_account_allowed_ids(acc_doc.name, user_dict)
+	acc_perm_list = get_permission(for_value=acc_doc.name)
+	for perm in acc_perm_list:
+		if perm[3] in allowed_ids:
+			#Check if the user role is there and if not delete
+			role_list = get_user_roles(perm[3])
+			role_in_settings, apply_to_all_doctypes, applicable_for = \
+				check_role(role_list, doctype=acc_doc.doctype, \
+				apply_to_all_doctypes="None")
+			if role_in_settings != 1:
+				delete_permission(name=perm[0])
+		else:
+			delete_permission(name=perm[0])
+
+def check_account_perm(acc_doc):
+	if acc_doc.users:
+		create_account_perms(acc_doc, acc_doc.users)
+		if acc_doc.is_group	== 1:
+			child_acc_list = get_child_acc_list(acc_doc.name)
+			for child_acc in child_acc_list:
+				child_acc_doc = frappe.get_doc("Account", child_acc[0])
+				create_account_perms(child_acc_doc, child_acc_doc.users)
+
+def check_all_account_perm():
+	acc_list = frappe.db.sql("""SELECT name
+		FROM `tabAccount`""", as_list=1)
+	for acc in acc_list:
+		acc_doc = frappe.get_doc("Account", acc[0])
+		if acc_doc.users:
+			create_account_perms(acc_doc, acc_doc.users)
+		delete_extra_account_perms(acc_doc, acc_doc.users)
+
+def copy_users_to_child_accounts(acc_doc):
+	if acc_doc.is_group == 1:
+		child_acc_list = get_child_acc_list(acc_doc.name)
+		if child_acc_list:
+			for child_acc in child_acc_list:
+				child_acc_doc = frappe.get_doc("Account", child_acc[0])
+				copy_grp_user_to_child(acc_doc, child_acc_doc)
+
+def copy_grp_user_to_child(grp_acc_doc, child_acc_doc):
+	child_acc_doc.users = []
+	user_dict = {}
+	user_list = []
+	if grp_acc_doc.users:
+		for row in grp_acc_doc.users:
+			user_dict.setdefault("approver", row.approver)
+			user_list.append(user_dict)
+		for i in user_list:
+			child_acc_doc.append("users", i)
+	child_acc_doc.save()
+
+def get_child_acc_list(account_name):
+	acc_doc = frappe.get_doc("Account", account_name)
+	query = """SELECT name FROM `tabAccount` 
+		WHERE lft > %s AND rgt < %s"""%(acc_doc.lft, acc_doc.rgt)
+	child_acc_list = frappe.db.sql(query, as_list=1)
+	return child_acc_list
+
+def get_account_allowed_ids(account_name, user_dict):
+	allowed_ids=[]
+	acc_doc = frappe.get_doc("Account", account_name)
+	if user_dict:
+		for row in user_dict:
+			allowed_ids.extend([row.approver])
 	return allowed_ids
 
 def get_extra_perms(allow, for_value, user, apply_to_all_doctypes=None, \
@@ -186,48 +306,6 @@ def get_extra_perms(allow, for_value, user, apply_to_all_doctypes=None, \
 		AND user != '%s' %s""" % (allow, for_value, user, conditions)
 	extra_perm = frappe.db.sql(query, as_list=1)
 	return extra_perm
-
-def get_permission(name=None, user=None, allow=None, for_value=None, \
-	applicable_for = None, apply_to_all_doctypes=None, deleted=None):
-	conditions = ''
-	if name:
-		conditions += " AND name = '%s'"%(name)
-	if user:
-		conditions += " AND user = '%s'"%(user)
-	if allow:
-		conditions += " AND allow = '%s'"%(allow)
-	if for_value:
-		conditions += " AND for_value = '%s'"%(for_value)
-	if applicable_for:
-		conditions += " AND applicable_for = '%s'"%(applicable_for)
-	if apply_to_all_doctypes==1:
-		conditions += " AND apply_to_all_doctypes = 1"
-	elif apply_to_all_doctypes == "None":
-		conditions += " AND apply_to_all_doctypes = 0"
-	else:
-		pass
-
-	query = """SELECT name, allow, for_value, user, applicable_for, 
-		apply_to_all_doctypes
-		FROM `tabUser Permission` WHERE docstatus = 0 %s"""%(conditions)
-	permission_list = frappe.db.sql(query , as_list=1)
-
-	return permission_list
-
-def delete_permission(name=None, user=None, allow=None, for_value=None, \
-	applicable_for=None, apply_to_all_doctypes=None):
-	permission_list = get_permission(name=name, user=user, allow=allow, \
-		for_value=for_value, applicable_for=applicable_for, \
-		apply_to_all_doctypes=apply_to_all_doctypes)
-	for perm in permission_list:
-		frappe.db.sql("""DELETE FROM `tabUser Permission` 
-			WHERE name = '%s'"""%(perm[0]))
-		#frappe.delete_doc_if_exists("User Permission", perm[0])
-		frappe.msgprint("Deleted User Permission: {} for User: {} for Doctype: {} \
-			for Value: {}".format(perm[0], perm[3], perm[1], perm[2]))
-
-		print ('Deleted User Permission: ' + perm[0] + ' for User: ' + perm[3] \
-			+ ' for Doctype ' + perm[1] + " Value " + perm[2])
 
 def restore_deleted_permission(name):
 	restore(name)
@@ -266,17 +344,28 @@ def get_user_roles(user):
 	return role_list
 
 def get_user_perm_settings(allow=None, role=None, apply_to_all_roles=None, \
-	apply_to_all_values=0, apply_to_all_doctypes=None):
+	apply_to_all_values=None, apply_to_all_doctypes=None):
 	#This would check if the user permission needs to be created or not.
 	conditions = ""
 	if allow:
 		conditions += " AND allow_doctype = '%s'"%(allow)
 	if role:
 		conditions += " AND role = '%s'"%(role)
-	if apply_to_all_roles:
-		conditions += " AND apply_to_all_roles = %s"%(apply_to_all_roles)
-	if apply_to_all_values:
-		conditions += " AND apply_to_all_values = %s"%(apply_to_all_values)
+	
+	if apply_to_all_roles == 1:
+		conditions += " AND apply_to_all_roles = 1"
+	elif apply_to_all_roles == "None":
+		pass
+	else:
+		conditions += " AND apply_to_all_roles = 0"
+
+	if apply_to_all_values==1:
+		conditions += " AND apply_to_all_values = 1"
+	elif apply_to_all_values == "None":
+		pass
+	else:
+		conditions += " AND apply_to_all_values = 0"
+	
 	if apply_to_all_doctypes==1:
 		conditions += " AND apply_to_all_doctypes = 1"
 	elif apply_to_all_doctypes == 'None':
@@ -313,24 +402,6 @@ def delete_extra_perms():
 		left_emp_list = get_permission(allow="Employee", for_value=emp[0])
 		for perm in left_emp_list:
 			delete_permission(name=perm[0])
-	#Check User Perms for items not for their Roles
-	#active_users = get_users(active=1)
-	'''
-	for user in active_users:
-		role_list = get_user_roles(user[0])
-		user_perms = get_permission(user=user[0])
-		for perm in user_perms:
-			print("Checking Permission for User: " + user[0] + " with ID: " + perm[0])
-			role_in_settings, apply_to_all_doctypes, applicable_for = \
-				check_role(role_list, doctype=perm[1], apply_to_all_doctypes="None")
-			if role_in_settings==1:
-				if apply_to_all_doctypes == perm[5] and applicable_for == perm[4]:
-					pass
-				else:
-					delete_permission(name=perm[0])
-			else:
-				delete_permission(name=perm[0])
-	'''
 
 def check_role(role_list, doctype, apply_to_all_doctypes=None):
 	role_in_settings = 0

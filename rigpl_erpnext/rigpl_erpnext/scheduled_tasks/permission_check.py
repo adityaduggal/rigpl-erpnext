@@ -14,6 +14,7 @@ from rigpl_erpnext.utils.rigpl_perm import *
 def check_permission_exist():
 	clean_dynamic_link_table()
 	clean_sales_team_table()
+	check_all_account_perm()
 	inactive_users = get_users(active=0)
 	for user in inactive_users:
 		delete_permission(user=user[0])
@@ -31,7 +32,18 @@ def check_permission_exist():
 		else:
 			#Get User Roles
 			role_list = get_user_roles(user[0])
-			all_role_settings = get_user_perm_settings(apply_to_all_roles=1, apply_to_all_doctypes=1)
+			#Get Settings for Role with Values in it
+			for role in role_list:
+				settings_with_values = get_user_perm_settings(role=role[0], \
+					apply_to_all_values=0, apply_to_all_doctypes="None")
+				for setting in settings_with_values:
+					create_new_user_perm(allow=setting[1], \
+						for_value=setting[2], user=user[0], \
+						applicable_for=setting[3], \
+						apply_to_all_doctypes=setting[4])
+			#Get Settings applying to all roles
+			all_role_settings = get_user_perm_settings(apply_to_all_roles=1, \
+				apply_to_all_doctypes=1)
 			for setting in all_role_settings:
 				#print(setting)
 				create_new_user_perm(allow=setting[1], \
@@ -42,7 +54,7 @@ def check_permission_exist():
 			#Check if user in LEAD and if so then check perm or else add perm 
 			#for lead and address
 			role_in_settings, apply_to_all_doctypes, applicable_for = \
-				check_role(role_list, doctype="Lead", apply_to_all_doctypes="None")
+				check_role(role_list, doctype="Lead", apply_to_all_doctypes=1)
 			if role_in_settings == 1:
 				lead_list = get_user_lead(user[0])
 				if lead_list:
