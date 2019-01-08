@@ -225,7 +225,17 @@ def create_account_perms(acc_doc, user_dict):
 def delete_extra_account_perms(acc_doc, user_dict):
 	allowed_ids = get_account_allowed_ids(acc_doc.name, user_dict)
 	acc_perm_list = get_permission(for_value=acc_doc.name)
+	settings_list = get_user_perm_settings(allow="Account", \
+		apply_to_all_values="None", apply_to_all_doctypes="None", \
+		apply_to_all_roles="None")
+	applicable_for_dt_list = []
+	for settings in settings_list:
+		if settings[4] != 1:
+			applicable_for_dt_list.append(settings[3])
+
 	for perm in acc_perm_list:
+		if perm[4] not in applicable_for_dt_list:
+			delete_permission(name=perm[0])
 		if perm[3] in allowed_ids:
 			#Check if the user role is there and if not delete
 			role_list = get_user_roles(perm[3])
