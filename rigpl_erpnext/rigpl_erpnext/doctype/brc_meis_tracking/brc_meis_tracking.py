@@ -7,7 +7,7 @@ import frappe, re
 from frappe.model.document import Document
 from frappe.utils import getdate, add_days, now_datetime
 from rigpl_erpnext.rigpl_erpnext.validations.employee import validate_pan
-from rigpl_erpnext.utils import validate_ifsc_code, validate_brc_no
+from rigpl_erpnext.utils.other_utils import validate_ifsc_code, validate_brc_no
 
 class BRCMEISTracking(Document):
 	def validate(self):
