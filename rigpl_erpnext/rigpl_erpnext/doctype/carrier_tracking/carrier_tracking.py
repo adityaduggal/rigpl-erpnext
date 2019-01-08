@@ -672,14 +672,17 @@ class CarrierTracking(Document):
 		package_weight.Units = self.uom_mapper.get(pkg.weight_uom)
 		package_weight.Value = pkg.package_weight
 		package.Weight = package_weight
-		'''
+		
 		# Adding references as required by label evaluation process
-		for ref, field in {"P_O_NUMBER":"shipment_type", "DEPARTMENT_NUMBER":"octroi_payment_by"}.iteritems():
-			ref_data = shipment.create_wsdl_object_of_type('CustomerReference')
-			ref_data.CustomerReferenceType = ref
-			ref_data.Value = doc.get(field)
-			package.CustomerReferences.append(ref_data)
-		'''
+		if self.purpose == 'SOLD':
+			po_no = frappe.get_value(self.document, self.document_name, "po_no")
+			si_no = self.document_name
+			for ref, field in {"P_O_NUMBER":po_no, "INVOICE_NUMBER":si_no}.items():
+				ref_data = shipment.create_wsdl_object_of_type('CustomerReference')
+				ref_data.CustomerReferenceType = ref
+				ref_data.Value = field
+				package.CustomerReferences.append(ref_data)
+		
 		return package
 
 	@staticmethod
