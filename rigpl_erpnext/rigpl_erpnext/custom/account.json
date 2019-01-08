@@ -72,7 +72,7 @@
    "fieldname": "account_access_table",
    "fieldtype": "Section Break",
    "hidden": 0,
-   "idx": 19,
+   "idx": 20,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
    "in_filter": 0,
@@ -106,5 +106,7 @@
   }
  ],
  "custom_perms": [],
+ "doctype": "Account",
+ "property_setters": [],
  "sync_on_migrate": 1
 }
