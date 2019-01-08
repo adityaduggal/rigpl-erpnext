@@ -211,21 +211,21 @@ def check_warehouse(doc,method, wh):
 			
 def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
 
-	return frappe.db.sql("""SELECT DISTINCT(prd.name), prd.sales_order, prd.production_order_date,
-	prd.item_description
-	FROM `tabWork Order` prd, `tabSales Order` so, `tabSales Order Item` soi
+	return frappe.db.sql("""SELECT DISTINCT(`tabWork Order`.name), `tabWork Order`.sales_order, `tabWork Order`.production_order_date,
+	`tabWork Order`.item_description
+	FROM `tabWork Order`, `tabSales Order` so, `tabSales Order Item` soi
 	WHERE 
-		prd.docstatus = 1
+		`tabWork Order`.docstatus = 1
 		AND so.docstatus = 1 
 		AND soi.parent = so.name 
 		AND so.status != "Closed"
 		AND soi.qty > soi.delivered_qty
-		AND prd.sales_order = so.name
-		AND (prd.name like %(txt)s
-			or prd.sales_order like %(txt)s)
+		AND `tabWork Order`.sales_order = so.name
+		AND (`tabWork Order`.name like %(txt)s
+			or `tabWork Order`.sales_order like %(txt)s)
 		{mcond}
 	order by
-		if(locate(%(_txt)s, prd.name), locate(%(_txt)s, prd.name), 1)
+		if(locate(%(_txt)s, `tabWork Order`.name), locate(%(_txt)s, `tabWork Order`.name), 1)
 	limit %(start)s, %(page_len)s""".format(**{
 		'key': searchfield,
 		'mcond': get_match_cond(doctype)
