@@ -245,6 +245,8 @@ def check_account_perm(acc_doc):
 			for child_acc in child_acc_list:
 				child_acc_doc = frappe.get_doc("Account", child_acc[0])
 				create_account_perms(child_acc_doc, child_acc_doc.users)
+	else:
+		delete_extra_account_perms(acc_doc, acc_doc.users)
 
 def check_all_account_perm():
 	acc_list = frappe.db.sql("""SELECT name
@@ -265,14 +267,16 @@ def copy_users_to_child_accounts(acc_doc):
 
 def copy_grp_user_to_child(grp_acc_doc, child_acc_doc):
 	child_acc_doc.users = []
-	user_dict = {}
 	user_list = []
 	if grp_acc_doc.users:
 		for row in grp_acc_doc.users:
+			user_dict = {}
 			user_dict.setdefault("approver", row.approver)
 			user_list.append(user_dict)
 		for i in user_list:
 			child_acc_doc.append("users", i)
+	else:
+		child_acc_doc.users = []
 	child_acc_doc.save()
 
 def get_child_acc_list(account_name):
