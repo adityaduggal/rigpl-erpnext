@@ -16,3 +16,8 @@ def validate(doc,method):
 		doc.from_date = doj
 	else:
 		doc.from_date = date_details.start_date
+
+	if doc.minimum_applicable > 0:
+		if doc.basic_percent > 0:
+			if (doc.base * doc.basic_percent)/100 < doc.minimum_applicable:
+				frappe.throw("Basic Salary Cannot be Less than Minimum Applicable")
