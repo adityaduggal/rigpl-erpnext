@@ -4,14 +4,12 @@
 
 from __future__ import unicode_literals
 import frappe
-from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate import set_valuation_rate_for_all
 import json
 import sys
 
 #Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
 
 def check_wrong_variants():
-	set_valuation_rate_for_all()
 	copy_from_template()
 
 def copy_from_template():
@@ -38,10 +36,12 @@ def copy_from_template():
 				#Check all variants' fields are matching with template if 
 				#not then copy the fields else go to next item
 				for item in variants:
+					check = 0
 					print ("Checking Item = " + item[0])
 					it_doc = frappe.get_doc("Item", item[0])
-					fields_edited += check_and_copy_attributes_to_variant(temp_doc, it_doc)
-					if fields_edited > 0:
+					check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
+					fields_edited += check
+					if check > 0:
 						it_doc.save()
 						frappe.db.commit()
 						print ("Item Code " + it_doc.name + " Saved")

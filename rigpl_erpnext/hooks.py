@@ -191,7 +191,9 @@ scheduler_events = {
  	],
  	"daily": [
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.work_order_status.execute"
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.work_order_status.execute",
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all"
+
  	],
  	"hourly": [
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
