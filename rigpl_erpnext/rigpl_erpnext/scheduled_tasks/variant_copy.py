@@ -34,16 +34,17 @@ def copy_from_template():
 			if fields_edited <= limit_set:
 				temp_doc = frappe.get_doc("Item", t[0])
 				variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'
-					ORDER BY modified ASC"""%(t[0]), as_list=1)
+					ORDER BY name ASC"""%(t[0]), as_list=1)
 				#Check all variants' fields are matching with template if 
 				#not then copy the fields else go to next item
 				for item in variants:
 					print ("Checking Item = " + item[0])
 					it_doc = frappe.get_doc("Item", item[0])
 					fields_edited += check_and_copy_attributes_to_variant(temp_doc, it_doc)
-					it_doc.save()
-					frappe.db.commit()
-					print ("Item Code " + it_doc.name + " Saved")
+					if fields_edited > 0:
+						it_doc.save()
+						frappe.db.commit()
+						print ("Item Code " + it_doc.name + " Saved")
 			else:
 				print ("Limit of " + str(limit_set) + " fields reached. Run again for more updating")
 				break
@@ -56,7 +57,7 @@ def check_and_copy_attributes_to_variant(template, variant):
 	include_fields = []
 	for fields in copy_field_list:
 		include_fields.append(fields[0])
-
+	#print(include_fields)
 	for field in template.meta.fields:
 		# "Table" is part of `no_value_field` but we shouldn't ignore tables
 		if (field.fieldtype == 'Table' or field.fieldtype not in no_value_fields) \

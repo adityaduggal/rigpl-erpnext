@@ -39,13 +39,10 @@ def set_valuation_rate_for_all():
 
 def set_valuation_rate_for_template(temp_doc):
 	if temp_doc.is_sales_item == 1:
-		#pass
-		#'''
 		if temp_doc.valuation_as_percent_of_default_selling_price > 0:
 			selling_item_valuation_rate_template(temp_doc)
 		else:
 			pass
-		#'''
 	elif temp_doc.is_purchase_item == 1:
 		purchase_item_valuation_rate_template(temp_doc)
 
