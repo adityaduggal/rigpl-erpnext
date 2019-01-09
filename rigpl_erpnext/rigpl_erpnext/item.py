@@ -331,7 +331,7 @@ def generate_description(doc,method):
 					FROM `tabItem Attribute Value` iav, `tabItem Attribute` ia
 					WHERE iav.parent = '%s' AND iav.parent = ia.name
 					AND iav.attribute_value = '%s'""" %(cond1, cond2)				
-				list =frappe.db.sql(query, as_list=1)
+				vatt_lst =frappe.db.sql(query, as_list=1)
 				prefix = frappe.db.sql("""SELECT iva.prefix FROM `tabItem Variant Attribute` iva
 					WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (doc.variant_of, 
 						d.attribute ), as_list=1)
@@ -342,17 +342,16 @@ def generate_description(doc,method):
 
 				concat = ""
 				concat2 = ""
-								
 				if prefix[0][0] != '""':
-					if list[0][0]:
-						concat1 = str(prefix[0][0][1:-1]) + str(list[0][0][1:-1])
-					if list[0][1]:
-						concat2 = str(prefix[0][0][1:-1]) + str(list[0][1][1:-1])
+					if vatt_lst[0][0]:
+						concat1 = str(prefix[0][0][1:-1]) + str(vatt_lst[0][0][1:-1])
+					if vatt_lst[0][1]:
+						concat2 = str(prefix[0][0][1:-1]) + str(vatt_lst[0][1][1:-1])
 				else:
-					if list[0][0] != '""':
-						concat1 = str(list[0][0][1:-1])
-					if list[0][1] != '""':
-						concat2 = str(list[0][1][1:-1])
+					if vatt_lst[0][0] != '""':
+						concat1 = str(vatt_lst[0][0][1:-1])
+					if vatt_lst[0][1] != '""':
+						concat2 = str(vatt_lst[0][1][1:-1])
 
 				if suffix[0][0]!= '""':
 					concat1 = concat1 + str(suffix[0][0][1:-1])
@@ -377,12 +376,15 @@ def generate_description(doc,method):
 					
 				concat = ""
 				if prefix[0][0] != '""':
-					concat = str(prefix[0][0][1:-1]) + str('{0:g}'.format(d.attribute_value))
+					if d.attribute_value > 0:
+						concat = str(prefix[0][0][1:-1]) + str('{0:g}'.format(d.attribute_value))
 				else:
-					concat = str('{0:g}'.format(d.attribute_value))
+					if d.attribute_value > 0:
+						concat = str('{0:g}'.format(d.attribute_value))
 
 				if suffix[0][0]!= '""':
-					concat = concat + str(suffix[0][0][1:-1])
+					if concat:
+						concat = concat + str(suffix[0][0][1:-1])
 				desc.extend([[concat, concat, d.idx]])
 			
 			else:
