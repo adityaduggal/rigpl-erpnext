@@ -676,6 +676,7 @@ class CarrierTracking(Document):
 		# Adding references as required by label evaluation process
 		if self.purpose == 'SOLD':
 			po_no = frappe.get_value(self.document, self.document_name, "po_no")
+			po_no = re.sub(r'[^a-zA-Z0-9]', '', po_no)
 			si_no = self.document_name
 			for ref, field in {"P_O_NUMBER":po_no, "INVOICE_NUMBER":si_no}.items():
 				ref_data = shipment.create_wsdl_object_of_type('CustomerReference')
