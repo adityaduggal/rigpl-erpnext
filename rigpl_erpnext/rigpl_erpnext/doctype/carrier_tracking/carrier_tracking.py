@@ -470,7 +470,7 @@ class CarrierTracking(Document):
 				self.shipment_cost = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Amount
 				self.shipment_cost_currency = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Currency
 				self.save()
-		if stop == 1:
+		if stop == 1 and allow_oda_shipment != 1 :
 			frappe.throw('Out of Delivery Area, Booking of Shipment Not Allowed')
 
 	def availabiltiy_commitment(self, credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc):
