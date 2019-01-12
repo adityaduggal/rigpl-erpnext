@@ -3,7 +3,7 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe
+import frappe, re
 from frappe.utils import flt
 
 def check_and_copy_attributes_to_variant(template, variant, insert_type=None):
@@ -40,6 +40,63 @@ def check_and_copy_attributes_to_variant(template, variant, insert_type=None):
 					print ("Updated Item " + variant.name + " Field Changed = " + str(field.label) + 
 						" Updated Value to " + description)
 	return check
+
+def web_catalog(it_doc):
+	validate_stock_fields(it_doc)
+	validate_restriction(it_doc)
+	validate_item_defaults(it_doc)
+	it_doc.website_image = it_doc.image
+	it_doc.thumbnail = it_doc.image	
+	if it_doc.pl_item == "Yes":
+		it_doc.show_in_website = 1
+		if it_doc.has_variants == 0:
+			it_doc.show_variant_in_website = 1
+		else:
+			it_doc.show_variant_in_website = 0
+	else:
+		it_doc.show_in_website = 0
+		it_doc.show_variant_in_website = 0
+		
+	if it_doc.show_in_website == 1:
+		rol = frappe.db.sql("""SELECT warehouse_reorder_level 
+			FROM `tabItem Reorder` 
+			WHERE parent ='%s' """%(it_doc.name), as_list=1)
+		if it_doc.item_defaults:
+			for d in it_doc.item_defaults:
+				it_doc.website_warehouse = d.default_warehouse
+		if rol:
+			it_doc.weightage = rol[0][0]
+
+def validate_restriction(it_doc):
+	if it_doc.has_variants == 1:
+		#Check if the Restrictions Numeric check field is correctly selected
+		for d in it_doc.item_variant_restrictions:
+			if d.is_numeric == 1:
+				if d.allowed_values:
+					frappe.throw(("Allowed Values field not allowed for numeric \
+						attribute {0}").format(d.attribute))
+			elif d.is_numeric == 0:
+				if d.rule:
+					frappe.throw(("Rule not allowed for non-numeric \
+						attribute {0}").format(d.attribute))
+
+def validate_item_defaults(it_doc):
+	if it_doc.item_defaults:
+		if len(it_doc.item_defaults)>1:
+			frappe.throw("Currently Only one line of defaults are supported")
+		for d in it_doc.item_defaults:
+			if d.default_warehouse:
+				def_warehouse = d.default_warehouse
+			else:
+				frappe.throw("Default Warehouse is Mandatory for \
+					Item Code: {}".format(it_doc.name))
+			if d.default_price_list:
+				def_price_list = d.default_price_list
+			else:
+				if it_doc.is_sales_item == 1:
+					frappe.throw("Default Price List is Mandatory for \
+						Item Code: {}".format(it_doc.name))
+
 
 def generate_description(it_doc):
 	if it_doc.variant_of:
@@ -132,7 +189,15 @@ def generate_description(it_doc):
 				description = description + desc[i][0]
 			if desc[i][1] != '""':
 				long_desc = long_desc + desc[i][1]
-		return description, long_desc
+	else:
+		description = it_doc.name
+		long_desc = it_doc.name
+	return description, long_desc
+
+def make_route(it_doc):
+	route_name = (re.sub('[^A-Za-z0-9]+', ' ', it_doc.item_name))
+	it_doc.route = frappe.db.get_value('Item Group', it_doc.item_group, 'route') + '/' + \
+		it_doc.scrub(route_name)
 
 def validate_reoder(it_doc):
 	for val in it_doc.item_defaults:

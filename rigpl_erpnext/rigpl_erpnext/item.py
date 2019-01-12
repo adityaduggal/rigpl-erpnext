@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
-import re
 from frappe import msgprint
 from frappe.desk.reportview import get_match_cond
 from rigpl_erpnext.utils.item_utils import *
@@ -41,62 +40,6 @@ def autoname(doc,method):
 		doc.page_name = doc.name
 		nxt_serial = fn_next_string(doc,serial[0][0])
 		frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
-
-def web_catalog(doc,method):
-	validate_stock_fields(doc)
-	validate_restriction(doc)
-	validate_item_defaults(doc)
-	doc.website_image = doc.image
-	doc.thumbnail = doc.image	
-	if doc.pl_item == "Yes":
-		doc.show_in_website = 1
-		if doc.has_variants == 0:
-			doc.show_variant_in_website = 1
-		else:
-			doc.show_variant_in_website = 0
-	else:
-		doc.show_in_website = 0
-		doc.show_variant_in_website = 0
-		
-	if doc.show_in_website == 1:
-		rol = frappe.db.sql("""SELECT warehouse_reorder_level 
-			FROM `tabItem Reorder` 
-			WHERE parent ='%s' """%(doc.name), as_list=1)
-		if doc.item_defaults:
-			for d in doc.item_defaults:
-				doc.website_warehouse = d.default_warehouse
-		if rol:
-			doc.weightage = rol[0][0]
-
-def validate_item_defaults(doc,method):
-	if doc.item_defaults:
-		if len(doc.item_defaults)>1:
-			frappe.throw("Currently Only one line of defaults are supported")
-		for d in doc.item_defaults:
-			if d.default_warehouse:
-				def_warehouse = d.default_warehouse
-			else:
-				frappe.throw("Default Warehouse is Mandatory for \
-					Item Code: {}".format(doc.name))
-			if d.default_price_list:
-				def_price_list = d.default_price_list
-			else:
-				if doc.is_sales_item == 1:
-					frappe.throw("Default Price List is Mandatory for \
-						Item Code: {}".format(doc.name))
-		
-def validate_restriction(doc,method):
-	if doc.has_variants == 1:
-		#Check if the Restrictions Numeric check field is correctly selected
-		for d in doc.item_variant_restrictions:
-			if d.is_numeric == 1:
-				if d.allowed_values:
-					frappe.throw(("Allowed Values field not allowed for numeric \
-						attribute {0}").format(d.attribute))
-			elif d.is_numeric == 0:
-				if d.rule:
-					frappe.throw(("Rule not allowed for non-numeric \
-						attribute {0}").format(d.attribute))
 		
 def generate_item_code(doc,method):
 	if doc.variant_of:
