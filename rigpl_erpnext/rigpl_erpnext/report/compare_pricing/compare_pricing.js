@@ -10,7 +10,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"options": "Item Attribute Value",
 			"reqd": 1,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
 		},
 		{
 			"fieldname":"quality",
@@ -19,7 +19,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_quality_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_quality_query"}}
 		},
 		{
 			"fieldname":"purpose",
@@ -28,7 +28,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_purpose_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_purpose_query"}}
 		},
 		{
 			"fieldname":"mtm",
@@ -37,7 +37,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_mtm_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_mtm_query"}}
 		},
 		{
 			"fieldname":"tt",
@@ -46,7 +46,7 @@ frappe.query_reports["Compare Pricing"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_tt_query"}}
 		},
 		{
 			"fieldname":"item",
