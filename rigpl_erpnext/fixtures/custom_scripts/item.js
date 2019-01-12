@@ -74,7 +74,7 @@ $.extend(erpnext.item, {
 		var ret;
 		frappe.call({
 			'async': false,
-			'method': 'rigpl_erpnext.rigpl_erpnext.item.get_uom_factors',
+			'method': 'rigpl_erpnext.utils.attribute_query.get_uom_factors',
 			'args':{
 				'from_uom': from_uom,
 				'to_uom': to_uom
