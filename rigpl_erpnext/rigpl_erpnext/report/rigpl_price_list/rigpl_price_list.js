@@ -15,7 +15,7 @@ frappe.query_reports["RIGPL Price List"] = {
 			"options": "Item Attribute Value",
 			"reqd": 1,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
 		},
 		{
 			"fieldname":"brand",
@@ -24,7 +24,7 @@ frappe.query_reports["RIGPL Price List"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_brand_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_brand_query"}}
 		},
 
 		{
@@ -34,7 +34,7 @@ frappe.query_reports["RIGPL Price List"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_quality_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_quality_query"}}
 		},
 		{
 			"fieldname":"spl",
@@ -43,7 +43,7 @@ frappe.query_reports["RIGPL Price List"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_spl_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_spl_query"}}
 		},
 		{
 			"fieldname":"purpose",
@@ -52,7 +52,7 @@ frappe.query_reports["RIGPL Price List"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_purpose_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_purpose_query"}}
 		},
 		{
 			"fieldname":"type",
@@ -61,7 +61,7 @@ frappe.query_reports["RIGPL Price List"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_type_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_type_query"}}
 		},
 		{
 			"fieldname":"mtm",
@@ -70,7 +70,7 @@ frappe.query_reports["RIGPL Price List"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_mtm_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_mtm_query"}}
 		},
 		{
 			"fieldname":"tt",
@@ -79,7 +79,7 @@ frappe.query_reports["RIGPL Price List"] = {
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_tt_query"}}
 		},
 		{
 			"fieldname":"item",

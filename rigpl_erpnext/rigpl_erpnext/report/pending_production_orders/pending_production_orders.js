@@ -23,7 +23,7 @@ frappe.query_reports["Pending Production Orders"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_bm_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
 		},
 		{
 			"fieldname":"tt",
@@ -31,7 +31,7 @@ frappe.query_reports["Pending Production Orders"] = {
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.item.attribute_tt_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_tt_query"}}
 		},
 		{
 			"fieldname":"status",
