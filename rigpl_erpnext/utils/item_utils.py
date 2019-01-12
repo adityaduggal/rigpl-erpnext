@@ -40,7 +40,7 @@ def check_and_copy_attributes_to_variant(template, variant, insert_type=None):
 					frappe.db.set_value("Item", variant.name, "item_name", long_desc)
 					print ("Updated Item " + variant.name + " Field Changed = " + str(field.label) + 
 						" Updated Value to " + description)
-		if check > 0 and insert_type != "frontend":
+		if insert_type != "frontend":
 			frappe.db.set_value("Item", variant.name, "modified", datetime.datetime.now())
 	return check
 
