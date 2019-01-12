@@ -6,6 +6,8 @@ from __future__ import unicode_literals
 import frappe
 import json
 import sys
+from frappe.utils import flt
+from rigpl_erpnext.utils.item_utils import *
 
 #Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
 
@@ -27,6 +29,7 @@ def copy_from_template():
 			sno += 1
 			print (str(sno) + " " + t[0] + " has variants = " + str(t[1]))
 		fields_edited = 0
+		it_lst = []
 		for t in templates:
 			print (str(t[0]) + " Has No of Variants = " + str(t[1]))
 			if fields_edited <= limit_set:
@@ -39,32 +42,12 @@ def copy_from_template():
 					check = 0
 					print ("Checking Item = " + item[0])
 					it_doc = frappe.get_doc("Item", item[0])
+					validate_variants(it_doc)
 					check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
 					fields_edited += check
-					if check > 0:
-						it_doc.save()
-						print ("Item Code " + it_doc.name + " Saved")
-						frappe.db.commit()
+					#if check > 0:
+					#	it_lst.append(item[0])
 			else:
 				print ("Limit of " + str(limit_set) + " fields reached. Run again for more updating")
 				break
-		
-def check_and_copy_attributes_to_variant(template, variant):
-	from frappe.model import no_value_fields
-	check = 0
-	save_chk = 0
-	copy_field_list = frappe.db.sql("""SELECT field_name FROM `tabVariant Field`""", as_list=1)
-	include_fields = []
-	for fields in copy_field_list:
-		include_fields.append(fields[0])
-	#print(include_fields)
-	for field in template.meta.fields:
-		# "Table" is part of `no_value_field` but we shouldn't ignore tables
-		if (field.fieldtype == 'Table' or field.fieldtype not in no_value_fields) \
-			and (not field.no_copy) and field.fieldname in include_fields:
-			if variant.get(field.fieldname) != template.get(field.fieldname):
-				variant.set(field.fieldname, template.get(field.fieldname))
-				print ("Updated Item " + variant.name + " Field Changed = " + str(field.label) + 
-					" Updated Value to " + str(template.get(field.fieldname)))
-				check += 1
-	return check
+			frappe.db.commit()
