@@ -4,15 +4,30 @@
 
 from __future__ import unicode_literals
 import frappe
-import json
-import sys
-from frappe.utils import flt
 from rigpl_erpnext.utils.item_utils import *
 
 #Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
 
 def check_wrong_variants():
-	copy_from_template()
+	check_items_last_modified()
+
+def check_items_last_modified():
+	item_list = frappe.db.sql("""SELECT name FROM `tabItem` 
+		WHERE variant_of IS NOT NULL AND disabled = 0 
+		AND IFNULL(end_of_life, '2099-12-31') > CURDATE()
+		ORDER BY modified ASC""", as_list=1)
+	check = 1
+	sno = 0
+	for item in item_list:
+		sno += 1
+		print (str(sno) + ". Checking Item = " + item[0])
+		it_doc = frappe.get_doc("Item", item[0])
+		temp_doc = frappe.get_doc("Item", it_doc.variant_of)
+		validate_variants(it_doc)
+		check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
+		
+		if sno%30 == 0:
+			frappe.db.commit()
 
 def copy_from_template():
 	limit_set = int(frappe.db.get_single_value("Stock Settings", "automatic_sync_field_limit"))
@@ -45,8 +60,6 @@ def copy_from_template():
 					validate_variants(it_doc)
 					check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
 					fields_edited += check
-					#if check > 0:
-					#	it_lst.append(item[0])
 			else:
 				print ("Limit of " + str(limit_set) + " fields reached. Run again for more updating")
 				break
