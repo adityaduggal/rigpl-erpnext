@@ -43,8 +43,9 @@ def copy_from_template():
 					fields_edited += check
 					if check > 0:
 						it_doc.save()
-						frappe.db.commit()
 						print ("Item Code " + it_doc.name + " Saved")
+				frappe.db.commit()
+				print("Committed Changes for Template " + str(t[0]))
 			else:
 				print ("Limit of " + str(limit_set) + " fields reached. Run again for more updating")
 				break
