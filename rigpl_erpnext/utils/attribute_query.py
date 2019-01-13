@@ -4,6 +4,7 @@
 
 from __future__ import unicode_literals
 import frappe
+from frappe.desk.reportview import get_match_cond
 
 @frappe.whitelist()
 def get_uom_factors(from_uom, to_uom):
