@@ -9,9 +9,12 @@
 '''
 from __future__ import unicode_literals
 import frappe
+from frappe.utils.global_search import rebuild_for_doctype, \
+	delete_global_search_records_for_doctype
 from rigpl_erpnext.utils.rigpl_perm import *
 
 def check_permission_exist():
+	delete_extra_global_search()
 	clean_dynamic_link_table()
 	clean_sales_team_table()
 	check_all_account_perm()
@@ -172,3 +175,21 @@ def check_permission_exist():
 	delete_docs = ['User Permission', 'Error Log', 'Email Group Member', 'Version']
 	for d in delete_docs:
 		delete_from_deleted_doc(d)
+
+def delete_extra_global_search():
+	glob_search_list = frappe.db.sql("""SELECT doctype FROM __global_search GROUP BY doctype""",as_list=1)
+	for doctype in glob_search_list:
+		check = check_dt_exists(doctype)
+		print("Rebuiling Global Search for " + doctype[0])
+		if check == 1:
+			rebuild_for_doctype(doctype[0])
+		else:
+			delete_global_search_records_for_doctype(doctype[0])
+		print("Completed Rebuilding Global Search for " + doctype[0])
+
+def check_dt_exists(doctype):
+	dt_list = frappe.db.sql("""SELECT name FROM `tabDocType`""", as_list=1)
+	for dt in dt_list:
+		if dt == doctype:
+			return 1
+	return 0
