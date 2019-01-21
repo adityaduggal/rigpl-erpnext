@@ -335,7 +335,8 @@ class CarrierTracking(Document):
 		self.set_fedex_label_info(shipment)
 		self.set_commodities_info(self, shipment)
 		self.set_commercial_invoice_info(shipment)
-		self.set_email_notification(shipment, from_address_doc, to_address_doc, contact_doc)
+		#self.set_email_notification(shipment, from_address_doc, to_address_doc, contact_doc)
+		
 		pkg_count = self.total_handling_units
 		for index, pkg in enumerate(self.shipment_package_details):
 			pkg_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
@@ -350,6 +351,7 @@ class CarrierTracking(Document):
 				self.set_package_data(pkg, pkg_doc, shipment, index + 1)
 				shipment.send_validation_request()
 			shipment.send_request()
+
 			self.validate_fedex_shipping_response(shipment, pkg.idx)
 			tracking_id = shipment.response.CompletedShipmentDetail.CompletedPackageDetails[0].TrackingIds[0].TrackingNumber
 			if index == 0:
@@ -618,8 +620,6 @@ class CarrierTracking(Document):
 			state_code = state_doc.state_code
 		else:
 			state_code = ""
-
-		#frappe.msgprint(str(state_code))
 
 		call_type.RequestedShipment.Recipient.Contact.PersonName = \
 			full_name[0:35]
