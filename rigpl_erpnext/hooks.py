@@ -64,13 +64,6 @@ doc_events = {
 	"Account": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.account.validate"
 	},
-	"Asset": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.asset.validate",
-		"autoname": "rigpl_erpnext.rigpl_erpnext.validations.asset.autoname"
-	},
-	"Asset Category": {
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.asset_category.validate"
-	},
 	"Attendance": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
