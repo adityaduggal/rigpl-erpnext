@@ -74,6 +74,35 @@ def delete_permission(name=None, user=None, allow=None, for_value=None, \
 		print ('Deleted User Permission: ' + perm[0] + ' for User: ' + perm[3] \
 			+ ' for Doctype ' + perm[1] + " Value " + perm[2])
 
+def get_docshare(name=None, user=None, share_doctype=None, share_name=None):
+	conditions = ''
+	if name:
+		conditions += " AND name = '%s'"%(name)
+	if user:
+		conditions += " AND user = '%s'"%(user)
+	if share_doctype:
+		conditions += " AND share_doctype = '%s'"%(share_doctype)
+	if share_name:
+		conditions += " AND share_name = '%s'"%(share_name)
+	query = """SELECT name, share_doctype, share_name, user, `read`, `write`, share, everyone, notify_by_email
+		FROM `tabDocShare` WHERE docstatus = 0 %s"""%(conditions)
+	docshare_list = frappe.db.sql(query , as_dict=1)
+	return docshare_list
+
+def delete_docshare(name=None, user=None, share_doctype=None, share_name=None):
+	docshare_list = get_docshare(name=name, user=user, share_doctype=share_doctype, \
+		share_name=share_name)
+	for docsh in docshare_list:
+		frappe.db.sql("""DELETE FROM `tabDocShare` 
+			WHERE name = '%s'"""%(docsh.name))
+		#frappe.delete_doc_if_exists("User Permission", perm[0])
+		frappe.msgprint("Deleted DocShare: {} for User: {} for Doctype: {} \
+			for Value: {}".format(docsh.name, docsh.user, docsh.share_doctype, \
+				docsh.share_name))
+
+		print ('Deleted DocShare: ' + docsh.name + ' for User: ' + docsh.user \
+			+ ' for Doctype ' + docsh.share_doctype + " Value " + docsh.share_name)
+
 def check_system_manager(user):
 	sysmgr_list = frappe.db.sql("""SELECT name FROM `tabHas Role` 
 		WHERE parenttype = 'User' AND parent = '%s' 
@@ -169,7 +198,6 @@ def get_employees_allowed_ids(employee):
 	allowed_ids = []
 	status = frappe.get_value("Employee", employee, "status")
 	if status == 'Active':
-		department = frappe.get_value("Employee", employee, "department")
 		user_id = frappe.get_value("Employee", employee, "user_id")
 		user_id_perm = frappe.get_value("Employee", employee, "create_user_permission")
 		reports_to = frappe.get_value("Employee", employee, "reports_to")
@@ -177,14 +205,16 @@ def get_employees_allowed_ids(employee):
 			allowed_ids.append(user_id)
 		if reports_to:
 			allowed_ids.append(reports_to)
-		if department:
-			dep_doc = frappe.get_doc("Department", department)
-		else:
-			print("No Department Defined for Employee: " + employee)
-		if dep_doc:
-			for la in dep_doc.leave_approvers:
-				if la.approver:
-					allowed_ids.extend([la.approver])
+	return allowed_ids
+
+def get_department_allowed_ids(dept_doc):
+	allowed_ids = []
+	if dept_doc.leave_approvers:
+		for la in dept_doc.leave_approvers:
+			allowed_ids.append(la.approver)
+	if dept_doc.expense_approvers:
+		for expa in dept_doc.expense_approvers:
+			allowed_ids.append(expa.approver)
 	return allowed_ids
 
 def get_customer_allowed_ids(customer):
@@ -410,6 +440,12 @@ def delete_extra_perms():
 			delete_permission(name=et_perm[0])
 			if commit_chk%1000 == 0:
 				frappe.db.commit()
+		role_list = get_user_roles(perm[3])
+		role_in_settings, apply_to_all_doctypes, applicable_for = \
+			check_role(role_list=role_list, doctype=perm[1], \
+			apply_to_all_doctypes=1)
+		if role_in_settings != 1:
+			delete_permission(name=perm[0])
 	#Remove Inactive Employee Permissions
 	emp_list = get_employees(status='Left')
 	for emp in emp_list:
@@ -433,3 +469,78 @@ def check_role(role_list, doctype, apply_to_all_doctypes=None):
 		apply_to_all_doctypes = 0
 		applicable_for = 0
 	return role_in_settings, apply_to_all_doctypes, applicable_for
+
+def get_usershare_settings(document_type=None, role=None, apply_to_all_roles=None, \
+	apply_to_all_values=None, document_name=None):
+	#This would check if the user permission needs to be created or not.
+	conditions = ""
+	if document_type:
+		conditions += " AND document_type = '%s'"%(document_type)
+	
+	if document_name:
+		conditions += " AND document_name = '%s'"%(document_name)
+
+	if role:
+		conditions += " AND role = '%s'"%(role)
+	
+	if apply_to_all_roles == 1:
+		conditions += " AND apply_to_all_roles = 1"
+	elif apply_to_all_roles == "None":
+		pass
+	else:
+		conditions += " AND apply_to_all_roles = 0"
+
+	if apply_to_all_values==1:
+		conditions += " AND apply_to_all_values = 1"
+	elif apply_to_all_values == "None":
+		pass
+	else:
+		conditions += " AND apply_to_all_values = 0"
+
+	query = """SELECT name, role, apply_to_all_roles, document_type, document_name, 
+		apply_to_all_values, read_access, write_access, share_access, notify_by_email
+		FROM `tabUser Share Rules` WHERE parent = 'User Share Settings' 
+		AND parentfield = 'rules' %s"""\
+		%(conditions)
+	settings_dict = frappe.db.sql(query, as_dict=1)
+	return settings_dict
+
+def check_role_usershare(role_list, doctype):
+	role_in_settings = 0
+	settings_dict = get_usershare_settings(document_type=doctype, \
+		apply_to_all_values=1)
+	if settings_dict:
+		for set_dict in settings_dict:
+			read_access = set_dict.read_access
+			write_access = set_dict.write_access
+			share_access = set_dict.share_access
+			notify_by_email = set_dict.notify_by_email
+			document_type = set_dict.document_type
+			for role in role_list:
+				if role[0] == set_dict.role:
+					role_in_settings = 1
+	else:
+		role_in_settings = 0
+		read_access = 0
+		write_access = 0
+		share_access = 0
+		notify_by_email = 0
+
+	return role_in_settings, write_access,share_access, notify_by_email
+
+def get_shared(name=None, user=None, document_type=None, document_name=None):
+	conditions = ''
+	if name:
+		conditions += " AND name = '%s'"%(name)
+	if user:
+		conditions += " AND user = '%s'"%(user)
+	if document_type:
+		conditions += " AND share_doctype = '%s'"%(document_type)
+	if document_name:
+		conditions += " AND share_name = '%s'"%(document_name)
+
+	query = """SELECT name, user, share_doctype, share_name, `read`, `write`,
+		`share`, `everyone`, notify_by_email
+		FROM `tabDocShare` WHERE docstatus = 0 %s"""%(conditions)
+	share_dict = frappe.db.sql(query , as_dict=1)
+	return share_dict

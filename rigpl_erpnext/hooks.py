@@ -81,10 +81,16 @@ doc_events = {
 		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
 		"on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
 	},
+	"Department": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.department.validate"
+	},
 	"Employee": {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate",
 		"autoname": "rigpl_erpnext.rigpl_erpnext.validations.employee.autoname",
 		"on_update": "rigpl_erpnext.rigpl_erpnext.validations.employee.on_update",
+	},
+	"Expense Claim": {
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.expense_claim.validate"
 	},
 	"Holiday List":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.holiday_list.validate"

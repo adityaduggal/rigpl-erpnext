@@ -18,7 +18,12 @@ def validate(doc,method):
 	if doc.relieving_date:
 		if doc.status != "Left":
 			frappe.msgprint("Status has to be 'LEFT' as the Relieving Date is populated",raise_exception =1)
-	
+	if doc.status == "Left":
+		doc.department = "All Departments"
+
+	if doc.department == "":
+		frappe.throw("Department is Manadatory for Employee {}".format(doc.name))
+			
 	doc.employee_number = doc.name
 	doc.employee = doc.name
 	if doc.aadhaar_number:

@@ -4,6 +4,7 @@ import frappe
 
 
 def validate(doc,method):
+	doc.deparment = frappe.get_value("Employee", doc.employee, "department")
 	#Check if there is any attendance for an employee
 	att = frappe.db.sql("""SELECT name FROM `tabAttendance` 
 		WHERE docstatus = 1 AND employee = '%s' AND attendance_date >= '%s' AND

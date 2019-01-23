@@ -14,7 +14,8 @@ from frappe.utils.global_search import rebuild_for_doctype, \
 from rigpl_erpnext.utils.rigpl_perm import *
 
 def check_permission_exist():
-	delete_extra_global_search()
+	#'''
+	#delete_extra_global_search()
 	clean_dynamic_link_table()
 	clean_sales_team_table()
 	check_all_account_perm()
@@ -164,6 +165,7 @@ def check_permission_exist():
 								for_value=emp[0], apply_to_all_doctypes=apply_to_all_doctypes, \
 								applicable_for=applicable_for)
 		print("Completed Adding Permissions for User: " + user[0])
+	#'''
 	delete_extra_perms()
 	version_delete = [['Bin', '', ''], \
 		['Carrier Tracking', 'Administrator', '0'], \

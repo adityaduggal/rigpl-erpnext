@@ -215,7 +215,8 @@ def validate(doc,method):
 
 def update_fields(doc):
 	sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
-	doc.letter_head = sstr.letter_head	
+	doc.letter_head = sstr.letter_head
+	doc.deparment = frappe.get_value("Employee", doc.employee, "department")
 
 def validate_ec_posting(doc):
 	comp_doc = frappe.get_doc("Company", doc.company)
