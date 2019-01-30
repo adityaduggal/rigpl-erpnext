@@ -13,7 +13,7 @@
  "name": "RIGPL Price List", 
  "owner": "aditya@rigpl.com", 
  "ref_doctype": "Item Price", 
- "report_name": "Price List", 
+ "report_name": "RIGPL Price List", 
  "report_type": "Script Report", 
  "roles": [
   {
