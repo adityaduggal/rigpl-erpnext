@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
-from rigpl_erpnext.utils.sales_utils import check_strict_po_rules
+from rigpl_erpnext.utils.sales_utils import check_strict_po_rules, copy_address_and_check
 
 def validate(doc,method):
 	#Check if the Item has a Stock Reconciliation after the date and time or NOT.
