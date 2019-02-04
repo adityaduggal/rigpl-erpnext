@@ -64,7 +64,7 @@ def check_get_pl_rate(document, row_dict):
 
 	if item_pl_rate:
 		if row_dict.price_list_rate != item_pl_rate[0].price_list_rate \
-			and document.currency == item_pl_rate.currency:
+			and document.currency == item_pl_rate[0].currency:
 			row_dict.price_list_rate = item_pl_rate[0].price_list_rate
 	else:
 		frappe.msgprint("In {}# {} at Row# {} and Item Code: {} Price List \
