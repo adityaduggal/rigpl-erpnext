@@ -2,13 +2,16 @@
 from __future__ import unicode_literals
 import frappe, re
 from frappe import msgprint
+from rigpl_erpnext.utils.sales_utils import *
 
 def validate(doc,method):
 	update_fields(doc,method)
-	check_gst_rules(doc,method)
+	check_gst_rules(doc.customer_address,doc.shipping_address_name, doc.taxes_and_charges, doc.naming_series, doc.name)
 	check_delivery_note_rule(doc,method)
 	validate_carrier_tracking(doc,method)
 	validate_price_list(doc,method)
+	check_strict_po_rules(doc)
+	copy_address_and_check(doc)
 
 def on_submit(doc,method):
 	create_new_carrier_track(doc,method)
@@ -144,18 +147,6 @@ def check_delivery_note_rule(doc,method):
 					frappe.throw(("Item No: {0} with Item Code: {1} in DN# {2} \
 						is not mentioned in SI# {3}").format(d.idx, d.item_code, \
 						dn_doc.name, doc.name))
-
-def check_gst_rules(doc,method):
-	series_template = frappe.db.get_value("Sales Taxes and Charges Template", \
-		doc.taxes_and_charges ,"series")
-		
-	#Check series of Tax with the Series Selected for Invoice
-	if series_template != doc.naming_series[:len(series_template)] \
-		and series_template != doc.name[:len(series_template)]:
-		frappe.throw(("Selected Tax Template {0} Not Allowed since Series Selected {1} and \
-			Invoice number {2} don't match with the Selected Template").format( \
-			doc.taxes_and_charges, doc.naming_series, doc.name))
-	
 
 def update_fields(doc,method):
 	c_form_tax =frappe.db.get_value("Sales Taxes and Charges Template", doc.taxes_and_charges , \
