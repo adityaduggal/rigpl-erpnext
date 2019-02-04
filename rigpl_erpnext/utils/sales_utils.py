@@ -61,10 +61,11 @@ def check_get_pl_rate(document, row_dict):
 	item_pl_rate = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
 			WHERE price_list = '%s' AND item_code = '%s' 
 			AND selling = 1"""%(row_dict.price_list, row_dict.item_code), as_dict=1)
+
 	if item_pl_rate:
-		if row_dict.price_list_rate != item_pl_rate.price_list_rate \
+		if row_dict.price_list_rate != item_pl_rate[0].price_list_rate \
 			and document.currency == item_pl_rate.currency:
-			row_dict.price_list_rate = item_pl_rate.price_list_rate
+			row_dict.price_list_rate = item_pl_rate[0].price_list_rate
 	else:
 		frappe.msgprint("In {}# {} at Row# {} and Item Code: {} Price List \
 			Rate is Not Defined".format(document.doctype, document.name, row_dict.idx, \
