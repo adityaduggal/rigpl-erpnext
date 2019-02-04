@@ -475,7 +475,7 @@ def get_loan_deduction(doc, msd, med):
 					ssd.employee_loan = '%s' and ss.employee = '%s'""" %(i[0], doc.employee)
 			deducted_amount = frappe.db.sql(query, as_list=1)
 
-			if total_loan > deducted_amount[0][0]:
+			if flt(total_loan) > flt(deducted_amount[0][0]):
 				#Add deduction for each loan separately
 				#Check if EMI is less than balance
 				balance = flt(total_loan) - flt(deducted_amount[0][0])
