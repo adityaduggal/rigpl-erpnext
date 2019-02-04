@@ -19,5 +19,5 @@ def validate(doc,method):
 
 	if doc.minimum_applicable > 0:
 		if doc.basic_percent > 0:
-			if (doc.base * doc.basic_percent)/100 < doc.minimum_applicable:
+			if ((doc.base + doc.variable) * doc.basic_percent)/100 < doc.minimum_applicable:
 				frappe.throw("Basic Salary Cannot be Less than Minimum Applicable")
