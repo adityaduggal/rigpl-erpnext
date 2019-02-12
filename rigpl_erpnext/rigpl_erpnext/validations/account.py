@@ -5,5 +5,6 @@ from frappe import msgprint
 from rigpl_erpnext.utils.rigpl_perm import *
 
 def validate(doc,method):
-	copy_users_to_child_accounts(doc)
-	check_account_perm(doc)
+	if doc.get("__islocal") != 1:
+		copy_users_to_child_accounts(doc)
+		check_account_perm(doc)
