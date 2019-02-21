@@ -16,9 +16,10 @@ def get_columns(filters):
 			"SB No::70", "SB Date:Date:80",
 			"Bank IFSC::60", "Customer or Supplier:Dynamic Link/Cust or Supp:150",
 			"Ref Name:Dynamic Link/Ref Doctype:100", "BRC Status::80",
-			"BRC No::100", "BRC Date:Date:80",
-			"BRC Realised Value:Currency:80", "BRC Days:Int:40", "Bill ID::80",
-			"Invoice Net Total INR:Currency:80", "Notes::200", "Type::80", 
+			"BRC No::100", "BRC Date:Date:80", "BRC Days:Int:40", 
+			"Invoice Net Total INR:Currency:80", "Invoice Grand Total:Currency:80",
+			"BRC Realised Value:Currency:80",
+			"Invoice Currency::80", "Bill ID::250", "Notes::200", "Type::80", 
 			"Export Invoice No::100", "Ref Doctype::10", "Cust or Supp::10"
 		]
 	else:
@@ -41,9 +42,10 @@ def get_data(filters):
 	if not filters.get("meis_status"):
 		data = frappe.db.sql("""SELECT brc.name, brc.shipping_bill_number, brc.shipping_bill_date,
 			brc.bank_ifsc_code, brc.customer_or_supplier_name, brc.reference_name, brc.brc_status,
-			brc.brc_number, brc.brc_date, brc.brc_realised_value, 
-			DATEDIFF(IFNULL(brc.brc_date, CURDATE()), brc.shipping_bill_date), brc.brc_bill_id,
-			si.base_net_total, brc.notes, brc.export_or_import, brc.export_invoice_number,
+			brc.brc_number, brc.brc_date,  
+			DATEDIFF(IFNULL(brc.brc_date, CURDATE()), brc.shipping_bill_date),
+			si.base_net_total, brc.grand_total, brc.reference_currency, brc.brc_realised_value,
+			brc.brc_bill_id, brc.notes, brc.export_or_import, brc.export_invoice_number,
 			brc.reference_doctype, brc.customer_or_supplier
 			FROM `tabBRC MEIS Tracking` brc, `tabSales Invoice` si
 			WHERE si.name = brc.reference_name AND brc.reference_doctype = 'Sales Invoice' 
