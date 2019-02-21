@@ -66,27 +66,23 @@ def get_data(filters):
 def get_conditions(filters):
 	conditions = ""
 	if filters.get("from_date"):
-		conditions += "AND brc.shipping_bill_date >= '%s'" %filters["from_date"]
+		conditions += " AND brc.shipping_bill_date >= '%s'" %filters["from_date"]
 
 	if filters.get("to_date"):
-		conditions += "AND brc.shipping_bill_date <= '%s'" %filters["to_date"]
+		conditions += " AND brc.shipping_bill_date <= '%s'" %filters["to_date"]
 
 	if filters.get("brc_status"):
-		conditions += "AND brc.brc_status = '%s'" %filters["brc_status"]
+		conditions += " AND brc.brc_status = '%s'" %filters["brc_status"]
 
 	if filters.get("meis_status"):
 		if filters.get("meis_status") != "All MEIS":
-			conditions += "AND brc.meis_status = '%s'" %filters["meis_status"]
+			conditions += " AND brc.meis_status = '%s'" %filters["meis_status"]
 
 	if filters.get("docstatus"):
 		if filters.get("brc.docstatus") == "Draft":
-			conditions += "AND brc.docstatus = 0"
-		elif filters.get("brc.docstatus") == "Submitted":
-			conditions += "AND brc.docstatus = 1"
+			conditions += " AND brc.docstatus = 0"
 		else:
-			if not filter.get("meis_status"):
-				conditions += "AND brc.docstatus = 1"
-			else:
-				conditions += "AND brc.docstatus = 0"
-
+			conditions += " AND brc.docstatus = 1"
+	else:
+		conditions += " AND brc.docstatus = 0"
 	return conditions
