@@ -5,34 +5,34 @@
 frappe.query_reports["BRC Tracking"] = {
 	"filters": [
 		{
-			"fieldname":"ref_name",
-			"label": "Sales Invoice of Purchase Invoice No",
-			"fieldtype": "Data",
+			"fieldname":"from_date",
+			"label": "SB From Date",
+			"fieldtype": "Date",
 			"reqd": 0
 		},
 		{
-			"fieldname":"shb_no",
-			"label": "Shipping Bill Number",
-			"fieldtype": "Data",
+			"fieldname":"to_date",
+			"label": "SB To Date",
+			"fieldtype": "Date",
 			"reqd": 0
-		},
-		{
-			"fieldname":"brc_no",
-			"label": "BRC Number",
-			"fieldtype": "Data",
-			"reqd": 0
-		},
-		{
-			"fieldname":"type",
-			"label": "Export or Import",
-			"fieldtype": "Select",
-			"options": "\nExport\nImport"
 		},
 		{
 			"fieldname":"brc_status",
 			"label": "BRC Status",
 			"fieldtype": "Select",
-			"options": "\nBRC Pending\nBRC Issued"
+			"options": "\nBRC Pending\nBRC Issued\nOFAC"
+		},
+		{
+			"fieldname":"meis_status",
+			"label": "MEIS Status",
+			"fieldtype": "Select",
+			"options": "\nAll MEIS\nMEIS Pending\nMEIS Claimed\nMEIS Expired\nMEIS Not Applicable"
+		},
+		{
+			"fieldname":"docstatus",
+			"label": "Document Status",
+			"fieldtype": "Select",
+			"options": "\nDraft\nSubmitted"
 		},
 
 	]

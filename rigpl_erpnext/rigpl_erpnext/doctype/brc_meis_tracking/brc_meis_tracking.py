@@ -13,7 +13,38 @@ class BRCMEISTracking(Document):
 	def validate(self):
 		self.validate_fields()
 
+	def on_submit(self):
+		if self.brc_status == "BRC Pending":
+			frappe.throw("BRC Pending, Cannot Submit {}".format(self.name))
+		if self.meis_status not in ["MEIS Claimed", "MEIS Expired", "MEIS Not Applicable"]:
+			frappe.throw("MEIS Scheme Pending hence Cannot Submit {}".format(self.name))
+
+	def meis_validate(self):
+		if self.meis_authorization_no:
+			if len(str(self.meis_authorization_no)) != 10:
+				frappe.throw("MEIS Authorization No should be of 10 Digits")
+			p = re.compile("[0-9]{10}")
+			if not p.match(str(self.meis_authorization_no)):
+				frappe.throw("Invalid MEIS Authorization No, MEIS Authorization \
+					No can only have Digits")
+			if not self.meis_date:
+				frappe.throw("MEIS Date is Mandatory")
+			else:
+				if self.meis_date < self.brc_date:
+					frappe.throw("MEIS Date cannot be before BRC Date")
+			self.meis_status = "MEIS Claimed"
+			self.meis_reference_type = "Journal Entry"
+			if not self.meis_reference_name:
+				frappe.throw("Enter the JV# for the entry of MEIS")
+			else:
+				self.meis_amount = frappe.get_value("Journal Entry", self.meis_reference_name, "total_debit")
+			self.docstatus = 1
+
 	def validate_fields(self):
+		if self.brc_status == "BRC Issued":
+			self.meis_validate()
+		elif self.brc_status == "OFAC":
+			self.docstatus = 1
 		if self.export_or_import == 'Export':
 			if self.reference_doctype != 'Sales Invoice':
 				frappe.throw('Only Sales Invoice is Allowed for Exports')
@@ -86,9 +117,14 @@ class BRCMEISTracking(Document):
 						frappe.throw("BRC Number and Bill ID should be different")
 				validate_brc_no(self.brc_number, self.bank_ifsc_code)
 				self.brc_status = 'BRC Issued'
+				if not self.meis_authorization_no:
+					if self.meis_status not in ["MEIS Not Applicable", "MEIS Expired"]:
+						self.meis_status = "MEIS Pending"
+				else:
+					self.meis_status = "MEIS Claimed"
 			else:
-				self.brc_status = 'BRC Pending'
-
+				if self.brc_status != 'OFAC':
+					self.brc_status = 'BRC Pending'
 		else:
 			frappe.throw("Import Related Tracking Is Not Implemented Yet.")
 			if self.reference_doctype != 'Purchase Invoice':
@@ -107,4 +143,3 @@ class BRCMEISTracking(Document):
 				FROM `tabSales Invoice` si, `tabAddress` ad, `tabSales Taxes and Charges Template` stct
 				WHERE si.docstatus = 1 AND si.shipping_address_name = ad.name AND 
 					si.taxes_and_charges = stct.name AND stct.is_export = 1 """)
-
