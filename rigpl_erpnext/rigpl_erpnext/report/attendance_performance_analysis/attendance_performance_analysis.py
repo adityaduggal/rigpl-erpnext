@@ -17,8 +17,8 @@ def execute(filters=None):
 def get_columns(filters):
 	return [
 		"Employee#:Link/Employee:100", "Employee Name::150", "DoJ:Date:80", "TD:Int:50", 
-		"T-Hol:Int:50", "T-PR:Int:50", "T-OT:Float:50",
-		"T-AL:Int:50", "T-UL:Int:50", "Att%:Float:100", "Ded Att%:Float:100",
+		"Tot-Hol:Int:50", "Tot-PRESENT:Int:50", "Tot-OT:Float:50",
+		"Tot-Auth Leaves:Int:50", "Tot-UnAuth Leaves:Int:50", "Att%:Float:100", "Ded Att%:Float:100",
 		"Total Absent:Int:50"
 		]
 
@@ -34,7 +34,7 @@ def get_entries(filters):
 		(DATEDIFF('%s', '%s')+1) as t_days, 
 		
 		(SELECT count(hol.name) FROM `tabHoliday` hol , `tabHoliday List` hdl
-			WHERE hdl.name = emp.holiday_list AND hol.parent = hdl.name AND
+			WHERE hdl.base_holiday_list = emp.holiday_list AND hol.parent = hdl.name AND
 			hol.holiday_date <= '%s' AND hol.holiday_date >= '%s'), 
 		
 		(SELECT count(name) FROM `tabAttendance` 
@@ -65,12 +65,17 @@ def get_entries(filters):
 		t_days = data[i][3]
 		al = data[i][7]
 		ual = t_days - hol - pre - al
+
+		if ual < 0:
+			ual = 0
+			hol = t_days - pre - al
 		
 		#deserved holidays = (holidays/total_working_days )*(presents)
 		des_hol = (hol/(t_days-hol))* pre
 		p_att = ((pre+des_hol)/t_days)*100
 		d_att = ((pre+des_hol-ual)/t_days)*100
 
+		data[i][4] = hol
 		data[i].insert(8,ual)
 		data[i].insert(9,p_att)
 		data[i].insert(10,d_att)

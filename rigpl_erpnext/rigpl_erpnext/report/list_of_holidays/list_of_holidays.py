@@ -14,37 +14,37 @@ def execute(filters=None):
 
 def get_columns(filters):
 	return [
-		"Name:Link/Holiday List:100", "Date:Date:100", "Day::100", 
-		"Holiday Name::200"
+		"Name:Link/Holiday List:150", "Date:Date:100", "Day::100", 
+		"Holiday Name::200", "Base Holiday List:Link/Holiday List:150"
 		]
 
 def get_entries(filters):
-	conditions = get_conditions(filters)
+	conditions= get_conditions(filters)
 	
+	list_of_holidays = frappe.db.sql("""SELECT name FROM `tabHoliday List` 
+		WHERE base_holiday_list = '%s' """%\
+		(filters.get("name")), as_list=1)
 	
-	query = """SELECT hld.name, hol.holiday_date, DAYNAME(hol.holiday_date), hol.description 
-		FROM `tabHoliday List` hld, `tabHoliday` hol
-		WHERE hol.parent = hld.name %s
-		ORDER BY hol.holiday_date ASC""" % conditions
-		
-		
-	data = frappe.db.sql(query, as_list=1)
-	for i in range(len(data)):
-		pass
-	
+	data = []
+	for hld_list in list_of_holidays:
+		query = """SELECT hld.name, hol.holiday_date, 
+			DAYNAME(hol.holiday_date), hol.description, hld.base_holiday_list 
+			FROM `tabHoliday List` hld, `tabHoliday` hol
+			WHERE hol.parent = hld.name AND hld.name = '%s' %s
+			ORDER BY hol.holiday_date ASC""" % (hld_list[0], conditions)
+		t1_data = frappe.db.sql(query, as_list=1)
+		if t1_data:
+			for d in t1_data:
+				data.append(d)
 	return data
 
 def get_conditions(filters):
 	conditions = ""
-	
-	if filters.get("name"):
-		conditions += " AND hld.name = '%s'" % filters["name"]
-		
+
 	if filters.get("from_date"):
 		conditions += " AND hol.holiday_date >='%s'" % filters["from_date"]
 
 	if filters.get("to_date"):
 		conditions += " AND hol.holiday_date <='%s'" % filters["to_date"]
-		
 		
 	return conditions

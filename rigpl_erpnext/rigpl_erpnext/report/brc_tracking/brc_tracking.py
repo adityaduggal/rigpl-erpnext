@@ -80,7 +80,7 @@ def get_conditions(filters):
 		if filters.get("meis_status") != "All MEIS":
 			conditions += " AND brc.meis_status = '%s'" %filters["meis_status"]
 
-	if filters.get("docstatus") == "Submitted"::
+	if filters.get("docstatus") == "Submitted":
 		conditions += " AND brc.docstatus = 1"
 	else:
 		conditions += " AND brc.docstatus = 0"

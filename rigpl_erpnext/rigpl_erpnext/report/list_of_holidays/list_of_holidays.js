@@ -22,6 +22,7 @@ frappe.query_reports["List of Holidays"] = {
 			"label": __("Holiday List"),
 			"fieldtype": "Link",
 			"options": "Holiday List",
+			"get_query": function(){ return {'filters': [['Holiday List', 'is_base_list','=', 1]]}},
 			"reqd":1,
 		}
 	]
