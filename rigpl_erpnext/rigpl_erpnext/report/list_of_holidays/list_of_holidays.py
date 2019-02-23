@@ -15,7 +15,7 @@ def execute(filters=None):
 def get_columns(filters):
 	return [
 		"Name:Link/Holiday List:150", "Date:Date:100", "Day::100", 
-		"Holiday Name::200", "Base Holiday List:Link/Holiday List:150"
+		"Holiday Name::200", "Weekly Off::50", "Base Holiday List:Link/Holiday List:150"
 		]
 
 def get_entries(filters):
@@ -28,7 +28,8 @@ def get_entries(filters):
 	data = []
 	for hld_list in list_of_holidays:
 		query = """SELECT hld.name, hol.holiday_date, 
-			DAYNAME(hol.holiday_date), hol.description, hld.base_holiday_list 
+			DAYNAME(hol.holiday_date), hol.description, 
+			IF(hol.description = hld.weekly_off, "Yes", "No"), hld.base_holiday_list 
 			FROM `tabHoliday List` hld, `tabHoliday` hol
 			WHERE hol.parent = hld.name AND hld.name = '%s' %s
 			ORDER BY hol.holiday_date ASC""" % (hld_list[0], conditions)
