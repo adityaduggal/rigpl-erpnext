@@ -6,60 +6,71 @@ from frappe.utils import getdate, nowdate, flt, cstr
 def execute(filters=None):
 	if not filters: filters = {}
 
-	columns = get_columns()
+	columns = get_columns(filters)
 	data = get_dn_entries(filters)
 
 	return columns, data
 
-def get_columns():
-	return [
-		"DN_No:Link/Delivery Note:120", "Customer:Link/Customer:200" ,"Date:Date:100",
-		"Item_Code:Link/Item:130","Description::350", "DN_Qty:Float:70",
-		"DN_Price:Currency:70", "DN Amount:Currency:80", "Taxes::100", "SO_No:Link/Sales Order:140",
-		"SO_Date:Date:80", "Unbilled_Qty:Float:80", 
-		"Unbilled_Amount:Currency:80", "Trial::60", "Rating::60"
-	]
+def get_columns(filters):
+	if filters.get("summary") != 1:
+		return [
+			"DN_No:Link/Delivery Note:120", "Customer:Link/Customer:200", "Date:Date:100",
+			"Item_Code:Link/Item:130","Description::350", "DN_Qty:Float:70",
+			"DN_Price:Currency:70", "DN Amount:Currency:80", "SO_No:Link/Sales Order:140",
+			"SO_Date:Date:80", "Trial::60"
+		]
+	else:
+		return[
+			"Customer:Link/Customer:200", "Payment Terms::250", "Rating::60",
+			"Total DN#:Int:80", "No of Items:Int:80",
+			"Earliest DN Date:Date:80", "Total Qty:Int:80", "Total Value:Currency:150"
+		]
 
 def get_dn_entries(filters):
-	conditions, si_cond, conditions_cu = get_conditions(filters)
-	
+	if filters.get("summary") != 1:
+		conditions, si_cond, conditions_cu = get_conditions(filters)
+		
 
-	query = """SELECT dn.name as dn, dn.customer as cust, dn.posting_date as dn_posting, 
-	dni.item_code as dn_itemcode, dni.description as dn_desc, dni.qty as dn_qty, dni.base_rate, dni.base_amount, dn.taxes_and_charges,
-	dni.against_sales_order, so.transaction_date,
+		query = """SELECT dn.name as dn, dn.customer as cust,
+		dn.posting_date as dn_posting, 
+		dni.item_code as dn_itemcode, dni.description as dn_desc, dni.qty as dn_qty, 
+		dni.base_rate, dni.base_amount, dni.against_sales_order, so.transaction_date,
+	    
+	    IF(so.track_trial = 1, "Yes", "No")
+	     
+		
+		FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order` so,
+		 `tabCustomer` cu
 
-	(dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, `tabSales Invoice` si 
-		WHERE sid.delivery_note = dn.name and
-		sid.parent = si.name and
-		sid.qty > 0 AND
-		sid.dn_detail = dni.name %s), 0)),
+		WHERE dn.docstatus = 1 AND so.docstatus = 1 AND dn.customer = cu.name %s
+			AND so.name = dni.against_sales_order
+	    	AND dn.name = dni.parent
+	    	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, 
+				`tabSales Invoice` si
+	        	WHERE sid.delivery_note = dn.name
+					AND sid.parent = si.name
+					AND sid.qty > 0
+					AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
+		
+		ORDER BY dn.posting_date asc """ % (conditions_cu, si_cond, conditions)
 
-	(dni.base_amount - ifnull((select sum(sid.base_amount) from `tabSales Invoice Item` sid, 
-		`tabSales Invoice` si
-		where sid.delivery_note = dn.name and
-		sid.parent = si.name and
-		sid.qty > 0 AND
-		sid.dn_detail = dni.name %s), 0)), 
-    
-    IF(so.track_trial = 1, "Yes", "No"), cu.customer_rating
-     
-	
-	FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order` so,
-	 `tabCustomer` cu
-
-	WHERE dn.docstatus = 1 AND so.docstatus = 1 AND dn.customer = cu.name %s
-		AND so.name = dni.against_sales_order
-    	AND dn.name = dni.parent
-    	AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, 
-			`tabSales Invoice` si
-        	WHERE sid.delivery_note = dn.name
-				AND sid.parent = si.name
-				AND sid.qty > 0
-				AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
-	
-	ORDER BY dn.posting_date asc """ % (si_cond, si_cond, conditions_cu, si_cond, conditions)
-
-	dn = frappe.db.sql(query ,as_list=1)
+		dn = frappe.db.sql(query ,as_list=1)
+	else:
+		query = """SELECT dn.customer, cu.payment_terms, cu.customer_rating,
+			COUNT(DISTINCT(dn.name)), COUNT(dni.item_code), dn.posting_date,
+			SUM(dni.qty), SUM(dni.base_amount)
+			FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni,
+				`tabCustomer` cu
+			WHERE dn.docstatus = 1 AND dni.parent = dn.name 
+				AND cu.name = dn.customer 
+				AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, 
+				`tabSales Invoice` si
+	        	WHERE sid.delivery_note = dn.name
+					AND sid.parent = si.name
+					AND sid.qty > 0
+					AND sid.dn_detail = dni.name AND si.docstatus = 1), 0)>=0.01)
+			GROUP BY dn.customer"""
+		dn = frappe.db.sql(query, as_list=1)
 
 	return dn
 

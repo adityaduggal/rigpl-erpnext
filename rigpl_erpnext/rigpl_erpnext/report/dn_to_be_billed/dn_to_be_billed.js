@@ -28,5 +28,11 @@ frappe.query_reports["DN To Be Billed"] = {
 			"label": "Draft",
 			"fieldtype": "Check"			
 		},
+		{
+			"fieldname":"summary",
+			"label": "Summary",
+			"fieldtype": "Check",
+			"default": 1
+		},
 	],
 };
