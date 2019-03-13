@@ -110,7 +110,8 @@ doc_events = {
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate"
 	},
 	"Leave Application":{
-		"validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate"
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate",
+		"on_submit": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.on_submit"
 	},
 	"Opportunity":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
