@@ -3,9 +3,22 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint
 from rigpl_erpnext.utils.sales_utils import \
-	check_get_pl_rate, get_hsn_code, check_taxes_integrity
+	check_get_pl_rate, get_hsn_code, check_taxes_integrity, check_dynamic_link
 
 def validate(doc,method):
+	if doc.quotation_to == 'Customer':
+		check_dynamic_link(parenttype="Address", parent=doc.customer_address, \
+			link_doctype="Customer", link_name=doc.customer)
+		check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name, \
+			link_doctype="Customer", link_name=doc.customer)
+		check_dynamic_link(parenttype="Contact", parent=doc.contact_person, \
+			link_doctype="Customer", link_name=doc.customer)
+	else:
+		check_dynamic_link(parenttype="Address", parent=doc.customer_address, \
+			link_doctype="Lead", link_name=doc.lead)
+		check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name, \
+			link_doctype="Lead", link_name=doc.lead)
+
 	check_taxes_integrity(doc)
 	for rows in doc.items:
 		if not rows.price_list:

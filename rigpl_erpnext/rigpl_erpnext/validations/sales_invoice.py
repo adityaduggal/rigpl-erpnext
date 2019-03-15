@@ -6,6 +6,12 @@ from rigpl_erpnext.utils.sales_utils import *
 
 def validate(doc,method):
 	update_fields(doc,method)
+	check_dynamic_link(parenttype="Address", parent=doc.customer_address, \
+		link_doctype="Customer", link_name=doc.customer)
+	check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name, \
+		link_doctype="Customer", link_name=doc.customer)
+	check_dynamic_link(parenttype="Contact", parent=doc.contact_person, \
+		link_doctype="Customer", link_name=doc.customer)
 	check_gst_rules(doc.customer_address,doc.shipping_address_name, doc.taxes_and_charges, doc.naming_series, doc.name)
 	check_delivery_note_rule(doc,method)
 	validate_carrier_tracking(doc,method)
