@@ -42,6 +42,12 @@ frappe.query_reports["Customers with SO"] = {
 			"fieldtype": "Date",
 			"default": frappe.datetime.get_today(),
 			"reqd": 1
+		},
+		{
+			"fieldname":"disabled",
+			"label": "Show Disabled",
+			"fieldtype": "Check",
+			"default": 0,
 		}
 	]
 }

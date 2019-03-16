@@ -30,9 +30,9 @@ def get_so_data(filters):
 	else:
 		frappe.msgprint("Select from date first",raise_exception =1)
 
-	data = frappe.db.sql("""SELECT so.customer, SUM(so.net_total),
-	SUM(if(so.status = "Closed", so.net_total * so.per_delivered/100, so.net_total)), COUNT(DISTINCT so.name),
-	SUM(if(so.status = "Closed", so.net_total * so.per_delivered/100, so.net_total))/COUNT(DISTINCT so.name)
+	data = frappe.db.sql("""SELECT so.customer, SUM(so.base_net_total),
+	SUM(if(so.status = "Closed", so.base_net_total * so.per_delivered/100, so.base_net_total)), COUNT(DISTINCT so.name),
+	SUM(if(so.status = "Closed", so.base_net_total * so.per_delivered/100, so.base_net_total))/COUNT(DISTINCT so.name)
 	FROM `tabSales Order` so
 	WHERE so.docstatus = 1 %s
 	GROUP BY so.customer
@@ -155,6 +155,11 @@ def get_conditions_cust(filters):
 					conditions_sp += " OR st.sales_person = '%s'" %i[0]
 		else:
 			conditions_sp += " AND st.sales_person = '%s'" % filters["sales_person"]
+
+	if filters.get("disabled") == 1:
+		conditions_cust += " AND cu.disabled = 1"
+	else:
+		conditions_cust += " AND cu.disabled = 0"
 
 	return conditions_cust, conditions_sp
 
