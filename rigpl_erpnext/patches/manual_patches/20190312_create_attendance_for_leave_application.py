@@ -6,7 +6,7 @@ from frappe.utils import add_days
 def execute():
 	leave_app_list = frappe.db.sql("""SELECT name FROM `tabLeave Application` 
 		WHERE docstatus = 1 AND status = 'Approved'
-		ORDER BY from_date ASC""", as_list=1)
+		ORDER BY name ASC""", as_list=1)
 	for leave_app in leave_app_list:
 		print("Checking for Leave Application " + leave_app[0])
 		la_doc = frappe.get_doc("Leave Application", leave_app[0])

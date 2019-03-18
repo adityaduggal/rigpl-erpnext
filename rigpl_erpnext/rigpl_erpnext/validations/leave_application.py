@@ -19,7 +19,7 @@ def on_submit(doc, method):
 	create_attendance(doc)
 
 def create_attendance(la_doc):
-	lday = la_doc.total_leave_days
+	leave_days = la_doc.total_leave_days
 	for lday in range(int(leave_days)):
 		new_att = frappe.new_doc("Attendance")
 		new_att.docstatus = 1
