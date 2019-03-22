@@ -1,19 +1,47 @@
 from __future__ import unicode_literals
 import frappe
 from datetime import datetime
-from frappe.utils import flt
+from frappe.utils import flt, date_diff
+from six import iteritems
 
 def execute(filters=None):
 	if not filters: filters = {}
 
 	columns = get_columns(filters)
+	to_date = filters["date"]
 	items, item_map = get_item_details(filters)
 	iwb_map = get_item_warehouse_map(filters, items)
 	pl_map = get_pl_map(filters, items)
 	value_map = get_value_map(filters, items)
 	lpr_map = get_lpr_map(filters, items)
+	item_fifo = get_fifo_queue(filters, items)
 
 	data = []
+	for item, item_dict in iteritems(item_fifo):
+		fifo_queue = item_dict["fifo_queue"]
+		details = item_dict["details"]
+		if not fifo_queue: continue
+
+		qty_dict = iwb_map[details.name][details.warehouse]
+
+		average_age = get_average_age(fifo_queue, to_date)
+		earliest_age = date_diff(to_date, fifo_queue[0][1])
+		latest_age = date_diff(to_date, fifo_queue[-1][1])
+		it_dict = item_map[details.name]
+
+
+
+		row = [details.name, it_dict["desc"], details.warehouse, item_dict.get("total_qty"), 
+			pl_map.get(details.name,{}).get("LP"), qty_dict.val_rate, qty_dict.value, 
+			it_dict["bm"], it_dict["quality"], it_dict["tt"], it_dict["d1"], it_dict["w1"], 
+			it_dict["l1"], it_dict["d2"], it_dict["l2"], it_dict["rm"], it_dict["brand"], 
+			it_dict["vr"], lpr_map.get(details.name,{}).get("lpr"), it_dict["is_purchase_item"], 
+			average_age, earliest_age, latest_age]
+
+		data.append(row)
+
+	return columns, data
+	'''
 	for item in sorted(iwb_map):
 		for wh in sorted(iwb_map[item]):
 			qty_dict = iwb_map[item][wh]
@@ -35,6 +63,68 @@ def execute(filters=None):
 				
 
 	return columns, data
+	'''
+def get_average_age(fifo_queue, to_date):
+	batch_age = age_qty = total_qty = 0.0
+	for batch in fifo_queue:
+		batch_age = date_diff(to_date, batch[1])
+		age_qty += batch_age * batch[0]
+		total_qty += batch[0]
+
+	return (age_qty / total_qty) if total_qty else 0.0
+
+def get_fifo_queue(filters, items):
+	item_details = {}
+	for d in get_stock_ledger_entries(filters, items):
+		key = (d.name, d.warehouse) #if filters.get('show_ageing_warehouse_wise') else d.name
+		item_details.setdefault(key, {"details": d, "fifo_queue": []})
+		fifo_queue = item_details[key]["fifo_queue"]
+
+		if d.voucher_type == "Stock Reconciliation":
+			d.actual_qty = flt(d.qty_after_transaction) - flt(item_details[key].get("qty_after_transaction", 0))
+
+		if d.actual_qty > 0:
+			fifo_queue.append([d.actual_qty, d.posting_date])
+		else:
+			qty_to_pop = abs(d.actual_qty)
+			while qty_to_pop:
+				batch = fifo_queue[0] if fifo_queue else [0, None]
+				if 0 < batch[0] <= qty_to_pop:
+					# if batch qty > 0
+					# not enough or exactly same qty in current batch, clear batch
+					qty_to_pop -= batch[0]
+					fifo_queue.pop(0)
+				else:
+					# all from current batch
+					batch[0] -= qty_to_pop
+					qty_to_pop = 0
+
+		item_details[key]["qty_after_transaction"] = d.qty_after_transaction
+
+		if "total_qty" not in item_details[key]:
+			item_details[key]["total_qty"] = d.actual_qty
+		else:
+			item_details[key]["total_qty"] += d.actual_qty
+
+	return item_details
+
+def get_stock_ledger_entries(filters, items):
+	conditions, conditions_it = get_conditions(filters)
+
+	wh = frappe.db.sql("""SELECT name FROM `tabWarehouse` WHERE disabled = 'No' AND is_group = 0
+		ORDER BY name""", as_list=1)
+
+	sle_entries = frappe.db.sql("""select
+		sle.item_code as name, sle.stock_uom,
+		sle.actual_qty, sle.posting_date, sle.voucher_type, sle.qty_after_transaction, sle.warehouse
+		FROM `tabStock Ledger Entry` sle, `tabWarehouse` wh
+		WHERE IFNULL(sle.is_cancelled, 'No') = 'No'
+		AND wh.name = sle.warehouse AND wh.is_group = 0
+		AND wh.disabled = 'No' {condition} AND sle.item_code IN (%s)
+		ORDER BY sle.item_code, sle.warehouse, posting_date ASC
+		""".format(condition=conditions) %(", ".join(['%s']*len(items))), \
+		tuple([d.name for d in items]), as_dict=1)
+	return sle_entries
 
 def get_columns(filters):
 	"""return columns based on filters"""
@@ -45,7 +135,8 @@ def get_columns(filters):
 	["BM::80"] + ["Qual::80"] +["TT::120"] + ["D1:Float:50"] + \
 	["W1:Float:50"] + ["L1:Float:60"] + ["D2:Float:50"] + \
 	["L2:Float:60"] + ["Is RM::50"] + ["Brand::60"] + ["Set Value:Currency:80"] + \
-	["Last PO Price:Currency:80"] + ["Is Purchase::80"]
+	["Last PO Price:Currency:80"] + ["Is Purchase::80"] + ["Av Age:Float:80"] + \
+	["Earliest:Int:80"] + ["Latest:Int:80"] 
 
 	return columns
 
@@ -66,7 +157,6 @@ def get_item_warehouse_map(filters, items):
 		ORDER BY sle.item_code, sle.warehouse, pd_pt ASC
 		""".format(condition=conditions) %(", ".join(['%s']*len(items))), \
 		tuple([d.name for d in items]), as_dict=1)
-
 	if entries:
 		for d in entries:
 			iwb_map.setdefault(d.item_code, {}).setdefault(d.warehouse, frappe._dict({\
@@ -85,7 +175,7 @@ def get_item_details(filters):
 	query = """SELECT it.name AS "name", it.description AS "desc",
 		IFNULL(bm.attribute_value, "-") AS "bm", IFNULL(brand.attribute_value, "-") AS "brand",
 		IFNULL(h_qual.attribute_value, IFNULL (c_qual.attribute_value, "-")) AS "quality",
-		IFNULL(tt.attribute_value, "-") AS "tt",
+		IFNULL(tt.attribute_value, "-") AS "tt", it.valuation_rate AS "vr",
 		CAST(d1.attribute_value AS DECIMAL(8,3)) AS "d1",
 		CAST(w1.attribute_value AS DECIMAL(8,3)) AS "w1",
 		CAST(l1.attribute_value AS DECIMAL(8,3)) AS "l1",
