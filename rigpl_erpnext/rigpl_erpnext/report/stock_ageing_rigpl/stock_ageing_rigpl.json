@@ -1,0 +1,25 @@
+{
+ "add_total_row": 1,
+ "creation": "2019-03-22 13:37:43.791193",
+ "disable_prepared_report": 0,
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "idx": 0,
+ "is_standard": "Yes",
+ "letter_head": "OGL",
+ "modified": "2019-03-22 16:09:50.430832",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Stock Ageing RIGPL",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Integration Request",
+ "report_name": "Stock Ageing RIGPL",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ]
+}
