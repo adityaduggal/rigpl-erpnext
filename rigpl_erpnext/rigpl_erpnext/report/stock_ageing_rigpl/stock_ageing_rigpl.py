@@ -58,14 +58,15 @@ def get_stock_ledger_entries(filters, items):
 
 	sle_entries = frappe.db.sql("""select
 		sle.item_code as name, sle.stock_uom,
-		sle.actual_qty, sle.posting_date, sle.voucher_type, sle.qty_after_transaction, sle.warehouse
+		sle.actual_qty, sle.posting_date, sle.posting_time, sle.voucher_type, sle.qty_after_transaction, sle.warehouse
 		FROM `tabStock Ledger Entry` sle, `tabWarehouse` wh
 		WHERE IFNULL(sle.is_cancelled, 'No') = 'No'
 		AND wh.name = sle.warehouse AND wh.is_group = 0
 		AND wh.disabled = 'No' {condition} AND sle.item_code IN (%s)
-		ORDER BY sle.item_code, sle.warehouse, posting_date ASC
+		ORDER BY sle.item_code, sle.warehouse, posting_date, sle.posting_time ASC
 		""".format(condition=conditions) %(", ".join(['%s']*len(items))), \
 		tuple([d.name for d in items]), as_dict=1)
+
 	return sle_entries
 
 def get_fifo_queue(filters, items):
@@ -100,7 +101,6 @@ def get_fifo_queue(filters, items):
 			item_details[key]["total_qty"] = d.actual_qty
 		else:
 			item_details[key]["total_qty"] += d.actual_qty
-
 	return item_details
 
 def get_item_details(filters):
