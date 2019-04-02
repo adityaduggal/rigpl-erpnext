@@ -269,7 +269,9 @@ def get_items(filters):
 		elif 2000 < ROL*VR <= 5000:
 			ROL = 1.5*ROL
 
-		if total < SO:
+		if DSL > 0:
+			urg = "Dead Stock"
+		elif total < SO:
 			urg = "1C ORD"
 		elif total < SO + (0.3 * ROL):
 			urg = "2C STK"
@@ -294,8 +296,9 @@ def get_items(filters):
 			c_qty = ((2 * ROL) + SO - total)
 			urg = urg + " Qty= " + str(c_qty)
 
-
-		if stock < SO:
+		if DSL > 0:
+			prd = "Dead Stock"
+		elif stock < SO:
 			prd = "1P ORD"
 		elif stock < SO + ROL:
 			prd = "2P STK"
