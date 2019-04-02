@@ -28,7 +28,7 @@ def get_columns():
 		"BRM:Float:50",
 		"BRG:Float:50", "BHT:Float:50", "BFG:Float:50", "BTS:Float:50",
 		"DRM:Float:50",
-		"DSL:Float:50", "DRG:Float:50", "DFG:Float:50", "DTS:Float:50",
+		"Dead:Float:50", "DRG:Float:50", "DFG:Float:50", "DTS:Float:50",
 		"DRJ:Float:50", "DCN:Float:50", "BCN:Float:50", "PList::30", "TOD::30"
 	]
 
@@ -78,8 +78,8 @@ def get_items(filters):
 		if(min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
 			min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)) ,
 			
-		if(min(case WHEN bn.warehouse="SLIT-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="SLIT-DEL20A - RIGPL" THEN bn.actual_qty end)),
+		if(min(case WHEN bn.warehouse="Dead Stock - RIGPL" THEN bn.actual_qty end)=0,NULL,
+			min(case WHEN bn.warehouse="Dead Stock - RIGPL" THEN bn.actual_qty end)),
 
 		if(min(case WHEN bn.warehouse="RG-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
 			min(case WHEN bn.warehouse="RG-DEL20A - RIGPL" THEN bn.actual_qty end)),
@@ -98,6 +98,9 @@ def get_items(filters):
 			
 		if(min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 			min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)),
+
+		if(min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
+			min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)),
 			
 		it.pl_item,
 		it.stock_maintained
@@ -105,6 +108,7 @@ def get_items(filters):
 	FROM `tabItem` it
 		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
 		LEFT JOIN `tabBin` bn ON it.name = bn.item_code
+		LEFT JOIN `tabWarehouse` wh ON bn.warehouse = wh.name
 		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
 			AND rm.attribute = 'Is RM'
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
