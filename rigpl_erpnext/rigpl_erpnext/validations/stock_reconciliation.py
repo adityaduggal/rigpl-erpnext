@@ -13,6 +13,8 @@ def validate(doc,method):
 				d.valuation_rate = 1
 			elif d.warehouse == "Dead Stock - RIGPL":
 				d.valuation_rate = (vr[0][0]/4)
+			elif d.valuation_rate == 1 or d.valuation_rate == 0:
+				pass
 			else:
 				d.valuation_rate = vr[0][0]
 		else:
