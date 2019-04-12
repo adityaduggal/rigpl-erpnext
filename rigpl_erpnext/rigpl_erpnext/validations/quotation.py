@@ -14,10 +14,12 @@ def validate(doc,method):
 		check_dynamic_link(parenttype="Contact", parent=doc.contact_person, \
 			link_doctype="Customer", link_name=doc.customer)
 	else:
-		check_dynamic_link(parenttype="Address", parent=doc.customer_address, \
-			link_doctype="Lead", link_name=doc.lead)
-		check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name, \
-			link_doctype="Lead", link_name=doc.lead)
+		if doc.customer_address:
+			check_dynamic_link(parenttype="Address", parent=doc.customer_address, \
+				link_doctype="Lead", link_name=doc.lead)
+		if doc.shipping_address_name:
+			check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name, \
+				link_doctype="Lead", link_name=doc.lead)
 
 	check_taxes_integrity(doc)
 	for rows in doc.items:
