@@ -79,10 +79,14 @@ def get_entries(filters):
 			holidays = tot_days - d.presents - d.auth_leaves
 
 		absents = tot_days - d.presents - holidays
+		working_days = tot_days - holidays
 
-		att_per = (d.presents/(tot_days - holidays)) * 100
+		if working_days < 1:
+			working_days = 1
 
-		adj_att_per = ((d.presents - ual)/(tot_days - holidays))*100
+		att_per = (d.presents/working_days) * 100
+
+		adj_att_per = ((d.presents - ual)/working_days)*100
 
 		row = [d.name, d.employee_name, tot_days, holidays, d.presents, d.overtime, d.auth_leaves, \
 			ual, att_per, adj_att_per, absents, d.date_of_joining, d.relieving_date, d.branch, \
