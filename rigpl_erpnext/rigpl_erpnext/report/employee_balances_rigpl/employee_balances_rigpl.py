@@ -39,7 +39,7 @@ def execute(filters=None):
 		else:
 			row = [emp, emp_det.employee_name, emp_det.company_registered_with, \
 				emp_det.branch, emp_det.department, emp_det.designation, \
-				emp_det.date_of_joining, emp_det.relieving_date, open_bal, bet_bal, closing]
+				emp_det.date_of_joining, emp_det.relieving_date, open_bal, bet_inc, bet_dec, closing]
 			data.append(row)
 			data.sort()
 			
@@ -62,7 +62,7 @@ def get_employee_details(filters):
 	emp_map = frappe._dict()
 	for d in frappe.db.sql("""select emp.name, emp.employee_name, emp.designation,
 		emp.department, emp.branch, emp.company_registered_with, emp.date_of_joining,
-		emp.relieving_date
+		IFNULL(emp.relieving_date, '2099-12-31') as relieving_date
 		from tabEmployee emp
 		WHERE emp.docstatus = 0 %s""" %(conditions_emp), as_dict=1):
 		emp_map.setdefault(d.name, d)
