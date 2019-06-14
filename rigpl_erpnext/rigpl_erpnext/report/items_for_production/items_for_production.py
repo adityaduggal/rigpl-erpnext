@@ -29,7 +29,8 @@ def get_columns():
 		"BRG:Float:50", "BHT:Float:50", "BFG:Float:50", "BTS:Float:50",
 		"DRM:Float:50",
 		"Dead:Float:50", "DRG:Float:50", "DFG:Float:50", "DTS:Float:50",
-		"DRJ:Float:50", "DCN:Float:50", "BCN:Float:50", "PList::30", "TOD::30"
+		"DRJ:Float:50", "DCN:Float:50", "BCN:Float:50", "JW:Int:30",
+		"Purchase:Int:30", "Sales:Int:30"
 	]
 
 def get_items(filters):
@@ -98,12 +99,8 @@ def get_items(filters):
 			
 		if(min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
 			min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)),
-
-		if(min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)),
 			
-		it.pl_item,
-		it.stock_maintained
+		it.is_job_work, it.is_purchase_item, it.is_sales_item
 
 	FROM `tabItem` it
 		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent

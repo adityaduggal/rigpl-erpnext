@@ -27,6 +27,7 @@ def get_columns():
 		"PL:Float:40", "IND:Float:40",
 		"Description::300",
 		"BRM:Float:50", "DRM:Float:50", "BGH:Float:50", "DEL:Float:50",
+		"Dead:Float:50",
 	]
 
 def get_items(filters):
@@ -59,7 +60,10 @@ def get_items(filters):
 			min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)),
 
 		if(min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end))
+			min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)),
+
+		if(min(case WHEN bn.warehouse="Dead Stock - RIGPL" THEN bn.actual_qty end)=0,NULL,
+			min(case WHEN bn.warehouse="Dead Stock - RIGPL" THEN bn.actual_qty end))
 
 	FROM `tabItem` it 
 		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
@@ -146,9 +150,14 @@ def get_items(filters):
 		else:
 			DRM = data[i][18]
 
-		total = (DRM + BRM + PLAN + PO + IND + BGH + DEL)
+		if data[i][19] is None:
+			Dead=0
+		else:
+			Dead = data[i][19]
 
-		stock = DRM + BRM + BGH + DEL
+		total = (DRM + BRM + PLAN + PO + IND + BGH + DEL + Dead)
+
+		stock = DRM + BRM + BGH + DEL + Dead
 		prod = total - stock
 		fut_stock = "X"
 
