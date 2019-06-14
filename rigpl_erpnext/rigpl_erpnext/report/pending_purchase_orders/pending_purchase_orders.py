@@ -25,7 +25,7 @@ def get_columns(filters):
 		"PO# :Link/Purchase Order:120", "PO Date:Date:80", 
 		"SCH Date:Date:80", "Supplier:Link/Supplier:200", "Item Code:Link/Item:120", 
 		"Description::280", "Pend Qty:Float:60", "Ordered Qty:Float:60", "Rejected Qty:Float:60",
-		"UoM::50", "Price:Currency:80"
+		"UoM::50", "ROL:Int:50", "Stock:Int:80", "Price:Currency:80"
 		]
 		
 def get_items(filters, conditions):
@@ -42,8 +42,10 @@ def get_items(filters, conditions):
 	else:
 		query = """SELECT po.name, po.transaction_date, pod.schedule_date, po.supplier, 
 			pod.item_code, pod.description, (pod.qty - pod.received_qty), 
-			pod.qty, pod.returned_qty, pod.stock_uom, pod.base_rate
-			FROM `tabPurchase Order` po, `tabPurchase Order Item` pod
+			pod.qty, pod.returned_qty, pod.stock_uom, itro.warehouse_reorder_level, 
+			(select sum(bn.actual_qty) FROM `tabBin` bn WHERE bn.item_code = pod.item_code), pod.base_rate
+			FROM `tabPurchase Order` po, `tabPurchase Order Item` pod LEFT JOIN 
+				`tabItem Reorder` itro ON itro.parent = pod.item_code
 			WHERE po.docstatus = 1 AND po.name = pod.parent 
 				AND po.status != 'Closed' AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s
 			ORDER BY po.transaction_date, pod.schedule_date""" %conditions
