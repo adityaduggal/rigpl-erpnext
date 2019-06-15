@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
+import html
 from frappe import msgprint
 from frappe.desk.reportview import get_match_cond
 from rigpl_erpnext.utils.item_utils import *
+from datetime import date, datetime
+from frappe.utils import getdate
 
 def validate(doc, method):
 	if doc.variant_of:
@@ -19,9 +22,24 @@ def validate(doc, method):
 	doc.page_name = doc.item_name
 	description, long_desc = generate_description(doc)
 	doc.description = description
-	doc.web_long_description = long_desc
+	#doc.web_long_description = long_desc
 	doc.item_name = long_desc
 	doc.item_code = doc.name
+
+	if getdate(doc.end_of_life) < datetime.strptime('2099-12-31', "%Y-%m-%d").date():
+		doc.disabled = 1
+		doc.pl_item = "No"
+		doc.show_variant_in_website = 0
+		doc.show_in_website = 0
+
+	if doc.disabled == 1:
+		if getdate(doc.end_of_life) > date.today():
+			doc.end_of_life = date.today()
+
+		doc.pl_item = "No"
+		doc.show_variant_in_website = 0
+		doc.show_in_website = 0
+
 	if doc.variant_of is None:
 		doc.item_name = doc.name
 		doc.item_code = doc.name
