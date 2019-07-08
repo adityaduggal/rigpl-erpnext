@@ -57,7 +57,7 @@ def get_dn_entries(filters):
 		dn = frappe.db.sql(query ,as_list=1)
 	else:
 		query = """SELECT dn.customer, cu.payment_terms, cu.customer_rating,
-			COUNT(DISTINCT(dn.name)), COUNT(dni.item_code), dn.posting_date,
+			COUNT(DISTINCT(dn.name)), COUNT(dni.item_code), MIN(dn.posting_date) as pdate,
 			SUM(dni.qty), SUM(dni.base_amount)
 			FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni,
 				`tabCustomer` cu
@@ -69,7 +69,7 @@ def get_dn_entries(filters):
 					AND sid.parent = si.name
 					AND sid.qty > 0
 					AND sid.dn_detail = dni.name AND si.docstatus = 1), 0)>=0.01)
-			GROUP BY dn.customer"""
+			GROUP BY dn.customer ORDER BY pdate"""
 		dn = frappe.db.sql(query, as_list=1)
 
 	return dn
