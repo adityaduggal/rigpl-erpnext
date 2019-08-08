@@ -171,6 +171,9 @@ doc_events = {
 	"Stock Reconciliation":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"
 	},
+	"Supplier":{
+		"validate": "rigpl_erpnext.rigpl_erpnext.validations.supplier.validate"
+	},
 	"ToDo":{
 		"validate": "rigpl_erpnext.rigpl_erpnext.validations.todo.validate"
 	},

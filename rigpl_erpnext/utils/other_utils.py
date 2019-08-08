@@ -34,7 +34,7 @@ def validate_pan(pan):
 	if pan:
 		p = re.compile("[A-Z]{5}[0-9]{4}[A-Z]{1}")
 		if not p.match(pan):
-			frappe.throw(_("Invalid PAN Number or Enter NA for Unknown"))
+			frappe.throw(_("Invalid PAN Number {}".format(pan)))
 
 def validate_aadhaar(aadhaar):
 	if aadhaar:
