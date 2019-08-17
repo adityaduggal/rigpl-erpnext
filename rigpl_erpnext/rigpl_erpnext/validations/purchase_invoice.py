@@ -7,9 +7,29 @@ from frappe.utils import nowdate, add_days, flt
 from frappe.desk.reportview import get_match_cond
 
 def validate(doc,method):
-	create_valuation_rate(doc,method)
+	create_valuation_rate(doc)
+	po_grn_validations(doc)
+	msme_pterms_validations(doc)
 
-def create_valuation_rate(doc,method):
+def msme_pterms_validations(doc):
+	if not doc.bill_no:
+		frappe.throw("Supplier Invoice No is Mandatory for {}".format(doc.name))
+
+	sup_doc = frappe.get_doc("Supplier", doc.supplier)
+	if not sup_doc.payment_terms:
+		frappe.throw("Payment Terms not Mentioned in Supplier {} for PI# {}".format(doc.supplier, doc.name))
+
+	if sup_doc.is_msme_registered == 1:
+		days_to_add = frappe.get_value("Payment Terms Template", sup_doc.payment_terms, "days_to_add_in_pi")
+		if doc.posting_date < add_days(doc.bill_date, flt(days_to_add)):
+			frappe.throw("Not Allowed, Posting Date = {} and Supplier Invoice Date = {}. \
+				Total Difference should be Greater \
+				than {} days".format(doc.posting_date, doc.bill_date, days_to_add))
+
+def po_grn_validations(doc):
+	pass
+
+def create_valuation_rate(doc):
 	#This function would create/update the valuation rate for the Carbide Cut Pieces
 	#Check if the GRN is for Carbide Raw Material
 	for d in doc.items:
