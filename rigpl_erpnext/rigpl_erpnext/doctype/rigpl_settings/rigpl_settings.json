@@ -391,7 +391,11 @@
  "issingle": 1,
  "istable": 0,
  "max_attachments": 0,
+<<<<<<< HEAD
  "modified": "2019-08-19 16:36:58.339948",
+=======
+ "modified": "2019-08-19 15:54:19.639307",
+>>>>>>> 5a1046998fbf3ef9bb5f6aa5508addc8fe98a84e
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
