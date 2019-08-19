@@ -2,15 +2,15 @@
 // rename this file from _test_[name] to test_[name] to activate
 // and remove above this line
 
-QUnit.test("test: Shipway Settings", function (assert) {
+QUnit.test("test: RIGPL Settings", function (assert) {
 	let done = assert.async();
 
 	// number of asserts
 	assert.expect(1);
 
 	frappe.run_serially([
-		// insert a new Shipway Settings
-		() => frappe.tests.make('Shipway Settings', [
+		// insert a new RIGPL Settings
+		() => frappe.tests.make('RIGPL Settings', [
 			// values to be set
 			{key: 'value'}
 		]),
