@@ -41,7 +41,8 @@ def get_columns(wh_dict):
 
 	return columns
 
-def get_items(filters, wh_dict):	
+def get_items(filters, wh_dict):
+	actual_data = []
 	wh_query = ""
 	for wh in wh_dict:
 		if wh.listing_serial < 10:
@@ -158,7 +159,6 @@ def get_items(filters, wh_dict):
 						dead += flt(data[i].get(wh.short_code))
 					else:
 						prd_qty += flt(data[i].get(wh.short_code))
-
 		total = stock + prd_qty + PLAN + PO
 
 		if 0 <= ROL*VR <= 1000:
@@ -226,21 +226,18 @@ def get_items(filters, wh_dict):
 				prd = prd + " Qty= " + str(shortage)
 			else:
 				prd = prd + " Qty = " + str(prd_qty)
-	frappe.msgprint(str(ROL))
-	frappe.msgprint(str(VR))
-	actual_data = []
-	row = [data[i].name, data[i].is_rm, data[i].brand, data[i].qual, data[i].spl, data[i].tool_type, data[i].d1, \
-		data[i].w1, data[i].l1, data[i].d2, data[i].l2, data[i].zn, urg, prd, \
-		total, data[i].rol, data[i].on_so, PO, data[i].on_prd]
-	for wh in wh_dict:
-		if wh.listing_serial < 10:
-			row += [data[i].get(wh.short_code)]
-	row += [data[i].description]
-	for wh in wh_dict:
-		if wh.listing_serial >= 10:
-			row += [data[i].get(wh.short_code)]
-	row += [data[i].jw, data[i].pur, data[i].sale]
-	actual_data.append(row)
+		row = [data[i].name, data[i].is_rm, data[i].brand, data[i].qual, data[i].spl, data[i].tool_type, data[i].d1, \
+			data[i].w1, data[i].l1, data[i].d2, data[i].l2, data[i].zn, urg, prd, \
+			total, data[i].rol, data[i].on_so, PO, data[i].on_prd]
+		for wh in wh_dict:
+			if wh.listing_serial < 10:
+				row += [data[i].get(wh.short_code)]
+		row += [data[i].description]
+		for wh in wh_dict:
+			if wh.listing_serial >= 10:
+				row += [data[i].get(wh.short_code)]
+		row += [data[i].jw, data[i].pur, data[i].sale]
+		actual_data.append(row)
 	return actual_data
 
 def get_conditions(filters):
