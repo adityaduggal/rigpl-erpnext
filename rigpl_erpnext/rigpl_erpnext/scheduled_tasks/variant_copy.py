@@ -30,8 +30,8 @@ def check_items_last_modified():
 			frappe.db.commit()
 
 def copy_from_template():
-	limit_set = int(frappe.db.get_single_value("RIGPL Settings", "automatic_sync_field_limit"))
-	is_sync_allowed = frappe.db.get_single_value("RIGPL Settings", 
+	limit_set = int(frappe.db.get_single_value("Stock Settings", "automatic_sync_field_limit"))
+	is_sync_allowed = frappe.db.get_single_value("Stock Settings", 
 		"automatically_sync_templates_data_to_items")
 	if is_sync_allowed == 1:
 		templates = frappe.db.sql("""SELECT it.name, (SELECT count(name) 

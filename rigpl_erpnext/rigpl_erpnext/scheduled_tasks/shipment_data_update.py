@@ -144,7 +144,7 @@ def get_shipway_url():
 	return "https://shipway.in/api/"
 
 def get_shipway_pass():
-	shipway_settings = frappe.get_doc("RIGPL Settings")
+	shipway_settings = frappe.get_doc("Shipway Settings")
 	username = shipway_settings.username
 	license_key = shipway_settings.license_key
 
