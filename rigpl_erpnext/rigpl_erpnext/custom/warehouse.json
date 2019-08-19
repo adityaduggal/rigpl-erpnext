@@ -35,7 +35,7 @@
    "modified_by": "Administrator",
    "name": "Warehouse-type_of_warehouse",
    "no_copy": 0,
-   "options": "\nConsumable\nDead Stock\nFinished Stock\nRaw Material\nRecoverable Stock\nWork In Progress",
+   "options": "\nConsumable\nDead Stock\nFinished Stock\nRaw Material\nRecoverable Stock\nSubcontracting\nWork In Progress",
    "owner": "Administrator",
    "parent": null,
    "parentfield": null,
