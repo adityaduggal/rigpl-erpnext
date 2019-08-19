@@ -30,7 +30,6 @@ def get_data(filters, for_name):
 		FROM `tab%s` dt
 		WHERE docstatus !=2 AND currency != '%s' %s
 		ORDER BY dt.posting_date DESC, dt.name DESC"""%(for_name, filters["doctype"], def_currency, conditions)
-	frappe.msgprint(query)
 	data = frappe.db.sql(query, as_list=1)
 	return data
 
