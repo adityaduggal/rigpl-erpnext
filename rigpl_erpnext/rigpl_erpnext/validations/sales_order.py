@@ -18,6 +18,18 @@ def validate(doc,method):
 	check_taxes_integrity(doc)
 	frappe.msgprint("Selected Addresses Both Billing and Shipping Cannot be Changed Later")
 	check_price_list(doc,method)
+	cust_doc = frappe.get_doc("Customer", doc.customer)
+	if cust_doc.customer_primary_contact is None:
+		frappe.throw("Cannot Book Sales Order since Customer " + cust_doc.name + \
+			" does not have a Primary Contact Defined")
+
+	if cust_doc.customer_primary_address is None:
+		frappe.throw("Cannot Book Sales Order since Customer " + cust_doc.name + \
+			" does not have a Primary Address Defined")
+
+	if cust_doc.sales_team is None:
+		frappe.throw("Cannot Book Sales Order since Customer " + cust_doc.name + \
+			" does not have a Sales Team Defined")
 
 def check_price_list(doc,method):
 	for it in doc.items:
