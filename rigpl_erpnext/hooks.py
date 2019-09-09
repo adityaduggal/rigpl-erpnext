@@ -189,6 +189,11 @@ doc_events = {
 # ---------------
 
 scheduler_events = {
+	"cron": {
+		"45 * * * *": [
+			"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants"
+		]
+	},
 	"all": [
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults"
  	],
@@ -202,7 +207,6 @@ scheduler_events = {
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants",
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.execute"
  	]
 # 	"monthly": [

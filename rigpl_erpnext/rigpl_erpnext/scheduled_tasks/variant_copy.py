@@ -4,12 +4,23 @@
 
 from __future__ import unicode_literals
 import frappe
+from datetime import date
 from rigpl_erpnext.utils.item_utils import *
 
 #Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
 
 def check_wrong_variants():
+	check_expired_items()
 	check_items_last_modified()
+
+def check_expired_items():
+	it_expired = frappe.db.sql("""SELECT name, disabled, end_of_life FROM `tabItem` 
+		WHERE end_of_life < CURDATE() and disabled = 0""", as_dict=1)
+	for it in it_expired:
+		frappe.db.set_value("Item", it.name, "disabled", 1)
+		print("Item Code: " + it.name + " is Expired and hence Disabled")
+	print("Total Items = " + str(len(it_expired)))
+	frappe.db.commit()
 
 def check_items_last_modified():
 	item_list = frappe.db.sql("""SELECT name FROM `tabItem` 
@@ -23,7 +34,7 @@ def check_items_last_modified():
 		print (str(sno) + ". Checking Item = " + item[0])
 		it_doc = frappe.get_doc("Item", item[0])
 		temp_doc = frappe.get_doc("Item", it_doc.variant_of)
-		validate_variants(it_doc)
+		validate_variants(it_doc, comm_type="backend")
 		check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
 		
 		if sno%30 == 0:
@@ -57,7 +68,7 @@ def copy_from_template():
 					check = 0
 					print ("Checking Item = " + item[0])
 					it_doc = frappe.get_doc("Item", item[0])
-					validate_variants(it_doc)
+					validate_variants(it_doc, comm_type="backend")
 					check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
 					fields_edited += check
 			else:

@@ -215,7 +215,7 @@ def validate_valuation_rate(it_doc):
 		if it_doc.valuation_as_percent_of_default_selling_price == 0:
 			frappe.throw("Valuation Rate Percent cannot be ZERO")
 
-def validate_variants(it_doc):
+def validate_variants(it_doc, comm_type=None):
 	user = frappe.session.user
 	query = """SELECT role from `tabHas Role` where parent = '%s' """ %user
 	roles = frappe.db.sql(query, as_list=1)
@@ -227,7 +227,7 @@ def validate_variants(it_doc):
 	if it_doc.variant_of:
 		#Check if all variants are mentioned in the Item Variant Table as per the Template.
 		template = frappe.get_doc("Item", it_doc.variant_of)
-		check_item_defaults(template, it_doc)
+		check_item_defaults(template, it_doc, comm_type)
 		template_attribute = []
 		variant_attribute = []
 		template_restricted_attributes = {}
@@ -342,30 +342,32 @@ def validate_variants(it_doc):
 		else:
 			frappe.throw("Only System Managers are Allowed to Edit Templates")
 
-def check_item_defaults(template, variant):
+def check_item_defaults(template, variant, comm_type=None):
 	field_list = ["company", "default_warehouse", "default_price_list", "income_account"]
 	if template.item_defaults:
+		#Check if Item Defaults exists in the Template
 		t_def = 1
 	else:
 		t_def = 0
 
 	if variant.item_defaults:
+		#Check if Item Defaults exists in the Template
 		v_def = 1
 	else:
 		v_def = 0
 
 	if t_def == 1:
 		if v_def == 1:
-			is_it_def_same = compare_item_defaults(template, variant, field_list)
+			is_it_def_same = compare_item_defaults(template, variant, field_list, comm_type)
 			if is_it_def_same == 1:
 				pass
 			else:
-				copy_item_defaults(template, variant, field_list)
+				copy_item_defaults(template, variant, field_list, comm_type)
 		#condition when template defaults are there then copy them
 	else:
 		frappe.throw("Item Defaults are Mandatory for Template {}".format(template.name))
 
-def compare_item_defaults(template, variant, field_list):
+def compare_item_defaults(template, variant, field_list, comm_type=None):
 	i = 0
 	for t in template.item_defaults:
 		for v in variant.item_defaults:
@@ -373,9 +375,9 @@ def compare_item_defaults(template, variant, field_list):
 				if t.get(f) == v.get(f):
 					pass
 				else:
-					copy_item_defaults(template, variant, field_list)
+					copy_item_defaults(template, variant, field_list, comm_type)
 
-def copy_item_defaults(template, variant, field_list):
+def copy_item_defaults(template, variant, field_list, comm_type=None):
 	variant.item_defaults = []
 	variant_defaults = []
 	var_def_dict = {}
@@ -385,6 +387,13 @@ def copy_item_defaults(template, variant, field_list):
 		variant_defaults.append(var_def_dict)
 	for i in variant_defaults:
 		variant.append("item_defaults", i)
+	if comm_type == "backend":
+		it_def_name = frappe.db.sql("""SELECT name FROM `tabItem Default` WHERE parent= '%s' AND parenttype='Item'"""%(variant.name), as_list=1)
+		if it_def_name:
+			for t in template.item_defaults:
+				for f in field_list:
+					frappe.db.set_value("Item Default", it_def_name[0][0], f, t.get(f))
+					frappe.db.set_value("Item", variant.name, "modified", datetime.datetime.now())
 
 def validate_stock_fields(it_doc):
 	#As per Company Policy on FIFO method of Valuation is to be Used.
