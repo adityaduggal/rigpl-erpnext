@@ -46,7 +46,7 @@ def get_data():
 		IF(zn.attribute_value IS NOT NULL, CONCAT("Z", zn.attribute_value), NULL) AS zn,
 		'' AS lbl_desc, it.description AS description, 
 		IFNULL(r1_mm.attribute_value, r1_mm.attribute_value) AS r1,
-		IFNUL(r1_inch.attribute_value, r1_inch.attribute_value) AS r1_inch
+		IFNULL(r1_inch.attribute_value, r1_inch.attribute_value) AS r1_inch
 
 		FROM `tabItem` it 
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
