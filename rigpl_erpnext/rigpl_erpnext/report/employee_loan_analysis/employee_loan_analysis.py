@@ -128,7 +128,7 @@ def loan_given(filters):
 
 def get_details(filters):
 	conditions_emp, conditions_el, conditions_ss = get_conditions(filters)
-	loan = frappe.db.sql("""SELECT el.posting_date, eld.loan_amount, 0, 'Employee Loan', el.name
+	loan = frappe.db.sql("""SELECT el.posting_date, eld.loan_amount, 0, 'Employee Advance', el.name
 		FROM `tabEmployee Advance` el, `tabEmployee Loan Detail` eld
 		WHERE eld.parent = el.name AND el.docstatus = 1 AND 
 			eld.employee = '%s' %s ORDER BY el.posting_date""" \

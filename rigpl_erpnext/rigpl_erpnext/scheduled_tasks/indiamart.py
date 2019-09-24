@@ -144,8 +144,8 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
 			update_lead_global_search()
 
 def get_im_reply(from_date, to_date):
-	#print(from_date)
-	#print(to_date)
+	print(from_date)
+	print(to_date)
 	link = 'https://mapi.indiamart.com/wservce/enquiry/listing/'
 	im_mobile, im_pass = get_indiamart_login()
 	json_reply = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "json_reply")
@@ -159,7 +159,7 @@ def get_im_reply(from_date, to_date):
 	frappe.db.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "json_reply", new_response)
 	#new_response = json_reply
 	parsed_response = json.loads(new_response)
-	#print(parsed_response)
+	print(parsed_response)
 	return parsed_response, link
 
 def search_existing(search_e, search_m, country):
