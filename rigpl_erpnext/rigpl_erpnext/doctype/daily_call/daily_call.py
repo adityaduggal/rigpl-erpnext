@@ -183,6 +183,7 @@ def create_new_communication(created_by, next_action_by, row):
 	comm.user = next_action_by
 	comm.communication_date = row.communication_date
 	comm.duration = row.duration
+	comm.sender = created_by
 	#add custom field for next_action_date in Communication
 	#add custom field for communication_subtype in Communication
 	if row.no_action_required != 1:
