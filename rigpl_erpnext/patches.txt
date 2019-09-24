@@ -29,3 +29,4 @@ execute:frappe.delete_doc("DocType", "Tool Type")
 execute:frappe.delete_doc("DocType", "Salary Slip Payment")
 rigpl_erpnext.patches.20181222_update_gst_hsn_code_q_so_dn
 execute:frappe.delete_doc("DocType", "Valuation Rate")
+rigpl_erpnext.patches.20190924_daily_call_communication

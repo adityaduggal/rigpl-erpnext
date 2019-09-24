@@ -10,6 +10,9 @@ def validate(doc,method):
 	if doc.lead_owner:
 		if doc.lead_owner != doc.contact_by:
 			doc.contact_by = doc.lead_owner
+	if doc.campaign_name != 'India Mart':
+		if not doc.email_id:
+			frappe.throw('Email ID is Mandatory')
 	lead_docshare(doc)
 	lead_quote_share(doc)
 	lead_address_share(doc)

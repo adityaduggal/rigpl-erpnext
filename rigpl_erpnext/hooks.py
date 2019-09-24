@@ -192,6 +192,9 @@ scheduler_events = {
 	"cron": {
 		"45 * * * *": [
 			"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants"
+		],
+		"*/16 * * * *":[
+			"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.indiamart.execute"
 		]
 	},
 	"all": [
