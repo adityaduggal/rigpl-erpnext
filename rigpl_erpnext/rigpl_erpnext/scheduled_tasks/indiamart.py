@@ -135,7 +135,7 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
 			ld.source = 'Campaign'
 			ld.campaign_name = 'India Mart'
 			ld.requirement = 100
-			ld.creation = recd_time
+			ld.creation = datetime.strptime(lead.get('DATE_TIME_RE') , '  %d-%b-%Y %I:%M:%S %p')
 			ld.remark = str(lead.get('SUBJECT')) + " " + str(lead.get('ENQ_MESSAGE'))
 			ld.save()
 			print("Created New Lead# " + ld.name)
