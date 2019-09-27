@@ -26,7 +26,7 @@ def update_lead_global_search():
 	print('Done')
 
 def get_indiamart_leads():
-	#update_lead_global_search()
+	update_lead_global_search()
 	from_date = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "to_date")
 	last_execution = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "last_execution")
 	if from_date is None:
