@@ -77,6 +77,7 @@ def get_indiamart_leads():
 		make_or_update_lead(parsed_response, from_date_txt, to_date_txt, last_execution, last_link)
 
 	update_db(from_date_txt, to_date_txt, last_execution, last_link, total_leads)
+	update_lead_global_search()
 	print('Done')
 
 def update_db(frm_dt_txt, to_dt_txt, lst_exe_dt, last_link, total_leads=0):
