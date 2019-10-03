@@ -40,15 +40,16 @@ def get_indiamart_leads():
 		print (str(hrs_to_add))
 		to_date_dt = add_to_date(from_date_dt, hours=hrs_to_add)
 		print (str(to_date_dt))
+	else:
+		to_date_dt = add_days(from_date_dt, max_days)
+		frappe.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add", max_days)
+
 	'''
 	elif days_to_add >= 0.001:
 		mins_to_add = int(days_to_add*1000)
 		to_date_dt = add_to_date(from_date_dt, minutes=mins_to_add)
 		print (str(to_date_dt))
 	'''
-	else:
-		to_date_dt = add_days(from_date_dt, max_days)
-		frappe.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add", max_days)
 
 	to_date_txt = to_date_dt.strftime('%d-%b-%Y %H:%M:%S')
 	parsed_response, last_link = get_im_reply(from_date_txt, to_date_txt)
