@@ -19,7 +19,7 @@ def get_indiamart_leads():
 	update_lead_global_search()
 	from_date = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "to_date")
 	last_execution = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "last_execution")
-	max_days = flt(frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "max_days"))
+	max_days = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_days"))
 	if from_date is None:
 		from_date = '2010-01-01 00:00:00.000000'
 
@@ -54,7 +54,7 @@ def get_indiamart_leads():
 	parsed_response, last_link = get_im_reply(from_date_txt, to_date_txt)
 	total_leads = parsed_response[0].get('TOTAL_COUNT')
 	query_time_diff = (to_date_dt - from_date_dt).total_seconds()
-	max_leads = flt(frappe.db.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "max_leads"))
+	max_leads = flt(frappe.db.get_value("RIGPL Settings", "RIGPL Settings", "max_leads"))
 	print(str(days_to_add))
 	if flt(total_leads) > max_leads:
 		print ("Exiting Since Max Leads breached " + str(max_leads))

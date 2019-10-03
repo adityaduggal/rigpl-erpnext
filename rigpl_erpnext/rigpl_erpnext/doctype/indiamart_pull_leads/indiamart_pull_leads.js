@@ -6,6 +6,6 @@
 //}
 frappe.ui.form.on('IndiaMart Pull Leads', {
 	refresh: function(frm) {
-
+		frm.disable_save();
 	}
 });
