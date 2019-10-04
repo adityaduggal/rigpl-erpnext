@@ -17,44 +17,33 @@ def execute():
 
 def get_indiamart_leads():
 	update_lead_global_search()
-	from_date = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "to_date")
 	last_execution = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "last_execution")
-	max_days = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_days"))
-	if from_date is None:
-		from_date = '2010-01-01 00:00:00.000000'
 
 	if not last_execution:
 		last_execution = '2010-01-01 00:00:00.000000'
 	last_execution = datetime.now()
 
-	from_date_dt = datetime.strptime(from_date, '%Y-%m-%d %H:%M:%S.%f') #Date Time Date
-	time_diff = (datetime.now() - from_date_dt).total_seconds()
+	days_to_add = flt(frappe.db.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add"))
+	
+	from_date_dt, to_date_dt, max_days = get_date_range(days_to_add)
+	time_diff = (datetime.now() - to_date_dt).total_seconds()
+	time_diff_from_dt = (datetime.now() - from_date_dt).total_seconds()
+
+	if time_diff < 0:
+		if time_diff_from_dt > 24 * 3600:
+			days_to_add = int (time_diff_from_dt/24/3600)
+		elif time_diff_from_dt > 3600:
+			days_to_add = (int(time_diff_from_dt/3600))/100
+		else:
+			print ("Less than 1 hour time difference")
+			exit()
+		from_date_dt, to_date_dt, max_days = get_date_range(days_to_add)
 
 	from_date_txt = from_date_dt.strftime('%d-%b-%Y %H:%M:%S') #Text Date
-	days_to_add = flt(frappe.db.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add"))
-
-	if days_to_add >= 1:
-		to_date_dt = add_days(from_date_dt, days_to_add)			
-	elif days_to_add >= 0.01:
-		hrs_to_add = int(flt(days_to_add*100))
-		print (str(hrs_to_add))
-		to_date_dt = add_to_date(from_date_dt, hours=hrs_to_add)
-		print (str(to_date_dt))
-	else:
-		to_date_dt = add_days(from_date_dt, max_days)
-		frappe.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add", max_days)
-
-	'''
-	elif days_to_add >= 0.001:
-		mins_to_add = int(days_to_add*1000)
-		to_date_dt = add_to_date(from_date_dt, minutes=mins_to_add)
-		print (str(to_date_dt))
-	'''
-
 	to_date_txt = to_date_dt.strftime('%d-%b-%Y %H:%M:%S')
 	parsed_response, last_link = get_im_reply(from_date_txt, to_date_txt)
+
 	total_leads = parsed_response[0].get('TOTAL_COUNT')
-	query_time_diff = (to_date_dt - from_date_dt).total_seconds()
 	max_leads = flt(frappe.db.get_value("RIGPL Settings", "RIGPL Settings", "max_leads"))
 	print(str(days_to_add))
 	if flt(total_leads) > max_leads:
@@ -90,6 +79,29 @@ def get_indiamart_leads():
 	update_db(from_date_txt, to_date_txt, last_execution, last_link, total_leads)
 	update_lead_global_search()
 	print('Done')
+
+def get_date_range(days_to_add):
+	from_date = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "to_date")
+	max_days = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_days"))
+	if from_date is None:
+		from_date = '2010-01-01 00:00:00.000000'
+
+	from_date_dt = datetime.strptime(from_date, '%Y-%m-%d %H:%M:%S.%f') #Date Time Date
+	if days_to_add < 0.01 or days_to_add > max_days:
+		days_to_add = max_days
+
+	if days_to_add >= 1:
+		to_date_dt = add_days(from_date_dt, days_to_add)			
+	elif days_to_add >= 0.01:
+		hrs_to_add = int(flt(days_to_add*100))
+		print (str(hrs_to_add))
+		to_date_dt = add_to_date(from_date_dt, hours=hrs_to_add)
+		print (str(to_date_dt))
+	else:
+		to_date_dt = add_days(from_date_dt, max_days)
+		frappe.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add", max_days)
+
+	return from_date_dt, to_date_dt, max_days
 
 def update_db(frm_dt_txt, to_dt_txt, lst_exe_dt, last_link, total_leads=0):
 	from_date = datetime.strptime(frm_dt_txt, '%d-%b-%Y %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -134,10 +146,11 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
 			print("Creating New Lead")
 			ld = frappe.new_doc("Lead")
 			ld.email_id = lead.get('SENDEREMAIL', 'IM-Email')
-			if lead.get('GLUSR_USR_COMPANYNAME') is None:
+			print (lead.get('QUERY_ID'))
+			if lead.get('GLUSR_USR_COMPANYNAME') is None or (str(lead.get('GLUSR_USR_COMPANYNAME'))).replace(" ", "") == "":
 				ld.company_name = 'IM-Company'
 			else:
-				ld.company_name = lead.get('GLUSR_USR_COMPANYNAME', 'IM-Company')
+				ld.company_name = lead.get('GLUSR_USR_COMPANYNAME')
 			ld.lead_name = lead.get('SENDERNAME')
 			ld.mobile_no = lead.get('MOB', '1234')
 			if lead.get('COUNTRY_ISO') == 'IN':
