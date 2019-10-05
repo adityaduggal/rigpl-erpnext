@@ -136,6 +136,10 @@ class CreateBulkProductionOrders(Document):
 				pro_list.append(production_order)
 
 		#frappe.flags.mute_messages = False
+		i = 0
+		for row in self.get("items"):
+			row.work_order = pro_list[i]
+			i += 1
 
 		if pro_list:
 			pro_list = ["""<a href="#Form/Work Order/%s" target="_blank">%s</a>""" % \
@@ -197,3 +201,5 @@ class CreateBulkProductionOrders(Document):
 		for d in self.get('items'):
 			if not flt(d.planned_qty):
 				frappe.throw(_("Please enter Planned Qty for Item {0} at row {1}").format(d.item_code, d.idx))
+			if d.work_order:
+				frappe.throw(_("Work Order # {} already created for Row# {}").format(d.work_order, d.idx))
