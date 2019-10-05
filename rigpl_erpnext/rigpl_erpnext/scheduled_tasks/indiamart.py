@@ -133,8 +133,8 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
 
 	total_leads = parsed_response[0].get('TOTAL_COUNT')
 	for lead in parsed_response:
-		lead_list = search_existing(search_m = lead.get('MOB'), search_e= \
-			lead.get('SENDEREMAIL'), country = lead.get('COUNTRY_ISO'))
+		lead_list = search_existing(search_m = lead.get('MOB', 'NO MOBILE'), search_e= \
+			lead.get('SENDEREMAIL', 'NO EMAIL'), country = lead.get('COUNTRY_ISO'))
 		if lead_list:
 			for lead_name in lead_list:
 				frappe.db.set_value("Lead", lead_name, "source", "Campaign")
@@ -143,31 +143,34 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
 				frappe.db.set_value("Lead", lead_name, "creation", recd_time)
 				print("Updated Lead {}".format(str(lead_name)))
 		else:
-			print("Creating New Lead")
-			ld = frappe.new_doc("Lead")
-			ld.email_id = lead.get('SENDEREMAIL', 'IM-Email')
-			print (lead.get('QUERY_ID'))
-			if lead.get('GLUSR_USR_COMPANYNAME') is None or (str(lead.get('GLUSR_USR_COMPANYNAME'))).replace(" ", "") == "":
-				ld.company_name = 'IM-Company'
+			if lead.get('MOB') is None and lead.get('SENDEREMAIL') is None:
+				print('No Lead Created for Query ID' + lead.get("QUERY_ID"))
 			else:
-				ld.company_name = lead.get('GLUSR_USR_COMPANYNAME')
-			ld.lead_name = lead.get('SENDERNAME')
-			ld.mobile_no = lead.get('MOB', '1234')
-			if lead.get('COUNTRY_ISO') == 'IN':
-				ld.territory = 'India'
-			else:
-				ld.territory = 'Exports'
-			ld.source = 'Campaign'
-			ld.campaign_name = 'India Mart'
-			ld.requirement = 100
-			ld.creation = datetime.strptime(lead.get('DATE_TIME_RE') , '  %d-%b-%Y %I:%M:%S %p')
-			ld.remark = str(lead.get('SUBJECT')) + " " + str(lead.get('ENQ_MESSAGE'))
-			ld.save()
-			print("Created New Lead# " + ld.name)
-			frappe.db.commit()
-			lead_doc = frappe.get_doc("Lead", ld.name)
-			update_global_search(lead_doc)
-			#update_lead_global_search()
+				print("Creating New Lead")
+				ld = frappe.new_doc("Lead")
+				ld.email_id = lead.get('SENDEREMAIL', 'IM-Email')
+				print (lead.get('QUERY_ID'))
+				if lead.get('GLUSR_USR_COMPANYNAME') is None or (str(lead.get('GLUSR_USR_COMPANYNAME'))).replace(" ", "") == "":
+					ld.company_name = 'IM-Company'
+				else:
+					ld.company_name = lead.get('GLUSR_USR_COMPANYNAME')
+				ld.lead_name = lead.get('SENDERNAME')
+				ld.mobile_no = lead.get('MOB', '1234')
+				if lead.get('COUNTRY_ISO') == 'IN':
+					ld.territory = 'India'
+				else:
+					ld.territory = 'Exports'
+				ld.source = 'Campaign'
+				ld.campaign_name = 'India Mart'
+				ld.requirement = 100
+				ld.creation = datetime.strptime(lead.get('DATE_TIME_RE') , '  %d-%b-%Y %I:%M:%S %p')
+				ld.remark = str(lead.get('SUBJECT')) + " " + str(lead.get('ENQ_MESSAGE'))
+				ld.save()
+				print("Created New Lead# " + ld.name)
+				frappe.db.commit()
+				lead_doc = frappe.get_doc("Lead", ld.name)
+				update_global_search(lead_doc)
+				#update_lead_global_search()
 
 def get_im_reply(from_date, to_date):
 	link = 'https://mapi.indiamart.com/wservce/enquiry/listing/'
@@ -185,29 +188,37 @@ def get_im_reply(from_date, to_date):
 	return parsed_response, link
 
 def search_existing(search_e, search_m, country):
-	if search_e:
+	if search_e != 'NO EMAIL' and search_e:
 		search_e_key = '%' + search_e + '%'
 	else:
 		search_e_key = "NO EMAIL ENTERED"
 
-	if country == 'IN':
+	if search_m != 'NO MOBILE' and country == 'IN' and search_m:
 		if len(search_m) == 14:
 			search_m = search_m[4:]
 		elif len(search_m) < 5:
 			search_m = 'NO MOBILE'
+	
+	if search_m != 'NO MOBILE' and search_m:
+		search_m_key = '%' + search_m + '%'
+	else:
+		search_m_key = None
 
-	search_m_key = '%' + search_m + '%'
+	if search_m_key:
+		lead_m = frappe.db.sql("""SELECT doctype, name FROM __global_search WHERE doctype = 'Lead' 
+			AND content LIKE '%s'"""%(search_m_key), as_dict=1)
+	else:
+		lead_m = {}
 
-	lead_m = frappe.db.sql("""SELECT doctype, name FROM __global_search WHERE doctype = 'Lead' 
-		AND content LIKE '%s'"""%(search_m_key), as_dict=1)
 	lead_list = []
 	if lead_m:
 		for lead in lead_m:
 			lead_list.append(lead.name)
 		return lead_list
 	else:
-		lead_e = frappe.db.sql("""SELECT doctype, name FROM __global_search WHERE doctype = 'Lead' 
-		AND content LIKE '%s'"""%(search_e_key), as_dict=1)
+		if search_e_key:
+			lead_e = frappe.db.sql("""SELECT doctype, name FROM __global_search WHERE doctype = 'Lead' 
+				AND content LIKE '%s'"""%(search_e_key), as_dict=1)
 		if lead_e:
 			for lead in lead_e:
 				lead_list.append(lead.name)
