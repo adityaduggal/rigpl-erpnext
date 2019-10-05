@@ -128,25 +128,17 @@ class CreateBulkProductionOrders(Document):
 		items = self.get_production_items()
 
 		pro_list = []
-		#frappe.flags.mute_messages = True
-
 		for key in items:
 			production_order = self.create_production_order(items[key])
 			if production_order:
 				pro_list.append(production_order)
 
-		#frappe.flags.mute_messages = False
-		i = 0
-		for row in self.get("items"):
-			row.work_order = pro_list[i]
-			i += 1
-
 		if pro_list:
 			pro_list = ["""<a href="#Form/Work Order/%s" target="_blank">%s</a>""" % \
 				(p, p) for p in pro_list]
-			msgprint(_("{0} created").format(comma_and(pro_list)))
+			frappe.msgprint(_("{0} created").format(comma_and(pro_list)))
 		else :
-			msgprint(_("No Work Orders created"))
+			frappe.msgprint(_("No Work Orders created"))
 
 	def get_production_items(self):
 		item_dict = {}

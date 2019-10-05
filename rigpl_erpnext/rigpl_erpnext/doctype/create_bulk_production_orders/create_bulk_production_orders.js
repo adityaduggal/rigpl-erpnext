@@ -25,6 +25,8 @@ frappe.ui.form.on('Create Bulk Production Orders', {
 			doc: frm.doc,
 			method: "raise_production_orders"
 		});
+		cur_frm.clear_table("items");
+		cur_frm.refresh_fields();
 	},
 });
 
