@@ -37,7 +37,7 @@ def check_items_last_modified():
 		validate_variants(it_doc, comm_type="backend")
 		check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
 		
-		if sno%30 == 0:
+		if sno%100 == 0:
 			frappe.db.commit()
 
 def copy_from_template():

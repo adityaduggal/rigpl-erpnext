@@ -190,11 +190,16 @@ doc_events = {
 
 scheduler_events = {
 	"cron": {
-		"45 * * * *": [
+		"10 2 * * *": [
 			"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants"
+			#Runs everyday at 2:10 AM
 		],
 		"*/16 * * * *":[
 			"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.indiamart.execute"
+		],
+		"10 3 * * *": [
+			"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all"
+			#Runs everyday at 3:10 AM
 		]
 	},
 	"all": [
@@ -202,8 +207,7 @@ scheduler_events = {
  	],
  	"daily": [
  		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.work_order_status.execute",
- 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all"
+ 		"rigpl_erpnext.rigpl_erpnext.scheduled_tasks.work_order_status.execute"
 
  	],
  	"hourly": [
