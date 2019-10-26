@@ -43,7 +43,8 @@ def execute(filters=None):
 		cb = ob + lg - ded
 		if filters.get("details") != 1:
 			if ob>0 or lg>0 or ded>0 or cb>0:
-				row = [emp, emp_det.employee_name, ob, lg, ded, cb]
+				row = [emp, emp_det.employee_name, emp_det.status, (emp_det.relieving_date or '2099-12-31'), 
+					ob, lg, ded, cb]
 				data.append(row)
 				data.sort()
 		
@@ -70,14 +71,15 @@ def get_columns(filters):
 		]
 	else:
 		return [
-			"Employee:Link/Employee:100", "Employee Name::180", "Opening Balance:Currency:100", 
+			"Employee:Link/Employee:100", "Employee Name::180", "Status::100",
+			"Relieving Date:Date:100", "Opening Balance:Currency:100", 
 			"Loan Given:Currency:100", "Loan Deducted:Currency:100", "Closing Balance:Currency:100"
 			]
 def get_employee_details(filters):
 	conditions_emp = get_conditions(filters)[0]
 	emp_map = frappe._dict()
 	for d in frappe.db.sql("""select emp.name, emp.employee_name, emp.designation,
-		emp.department, emp.branch, emp.company
+		emp.department, emp.branch, emp.company, emp.relieving_date, emp.status
 		from tabEmployee emp
 		WHERE emp.docstatus = 0 %s""" %(conditions_emp), as_dict=1):
 		emp_map.setdefault(d.name, d)
