@@ -12,10 +12,22 @@ def validate(doc,method):
 			if d.warehouse == "REJ-DEL20A - RIGPL":
 				d.valuation_rate = 1
 			elif d.warehouse == "Dead Stock - RIGPL":
-				d.valuation_rate = (vr[0][0]/4)
+				d.valuation_rate = custom_round(vr[0][0]/4)
 			elif d.valuation_rate == 1 or d.valuation_rate == 0:
 				pass
 			else:
 				d.valuation_rate = vr[0][0]
 		else:
-			d.valuation_rate = 1	
+			d.valuation_rate = 1
+
+def custom_round(number):
+	if number < 100:
+		return int(number)
+	elif number < 500:
+		return (int(number/5)*5)
+	elif number < 1000:
+		return (int(number/10)*10)
+	elif number < 5000:
+		return (int(number/50)*50)
+	else:
+		return (int(number/100)*100)

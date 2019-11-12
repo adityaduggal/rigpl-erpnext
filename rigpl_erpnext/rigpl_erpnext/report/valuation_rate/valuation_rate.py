@@ -24,7 +24,8 @@ def get_columns(templates):
 		_("Item") + ":Link/Item:130", 
 		_("Rate") + ":Currency:80", _("Valuation Rate Date") + ":Date:80", 
 		_("Base on PL") + ":Link/Price List:80", 
-		_("PL Rate") + ":Currency:80", _("%age of PL") + ":Float:80"
+		_("PL Rate") + ":Currency:80", _("%age of PL") + ":Float:80",
+		_("Set %age") + ":Float:80"
 	]
 	
 	attributes = []		
@@ -118,7 +119,8 @@ def get_items(conditions_it, conditions_pl, attributes, att_details, filters):
 			AND %s.attribute = '%s'""" %(att_trimmed,att_trimmed,att_trimmed,att)
 
 	query = """SELECT it.name, it.valuation_rate, it.valuation_rate_date, itp.price_list, 
-		itp.price_list_rate,  (it.valuation_rate/itp.price_list_rate*100) %s, 
+		itp.price_list_rate,  (it.valuation_rate/itp.price_list_rate*100), 
+		it.valuation_as_percent_of_default_selling_price %s, 
 		it.description, IFNULL(it.end_of_life, '2099-12-31'),
 		IFNULL(it.owner, "X"), it.creation
 		FROM `tabItem` it

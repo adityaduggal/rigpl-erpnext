@@ -1,5 +1,5 @@
 {
- "add_total_row": 0,
+ "add_total_row": 1,
  "creation": "2013-07-31 18:52:01",
  "disable_prepared_report": 0,
  "disabled": 0,
@@ -7,7 +7,7 @@
  "doctype": "Report",
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2019-04-08 09:19:26.273859",
+ "modified": "2019-11-12 12:57:30.797431",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Stock Valuation",

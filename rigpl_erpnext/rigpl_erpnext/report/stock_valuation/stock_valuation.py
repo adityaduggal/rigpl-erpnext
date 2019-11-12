@@ -18,27 +18,28 @@ def execute(filters=None):
 
 	data = []
 	for item, item_dict in iteritems(item_fifo):
-		fifo_queue = item_dict["fifo_queue"]
-		details = item_dict["details"]
-		if not fifo_queue: continue
+		if item_dict.get("total_qty") > 0.5:
+			fifo_queue = item_dict["fifo_queue"]
+			details = item_dict["details"]
+			if not fifo_queue: continue
 
-		qty_dict = iwb_map[details.name][details.warehouse]
+			qty_dict = iwb_map[details.name][details.warehouse]
 
-		average_age = get_average_age(fifo_queue, to_date)
-		earliest_age = date_diff(to_date, fifo_queue[0][1])
-		latest_age = date_diff(to_date, fifo_queue[-1][1])
-		it_dict = item_map[details.name]
+			average_age = get_average_age(fifo_queue, to_date)
+			earliest_age = date_diff(to_date, fifo_queue[0][1])
+			latest_age = date_diff(to_date, fifo_queue[-1][1])
+			it_dict = item_map[details.name]
 
 
 
-		row = [details.name, it_dict["desc"], details.warehouse, item_dict.get("total_qty"), 
-			pl_map.get(details.name,{}).get("LP"), qty_dict.val_rate, qty_dict.value, 
-			it_dict["bm"], it_dict["quality"], it_dict["tt"], it_dict["d1"], it_dict["w1"], 
-			it_dict["l1"], it_dict["d2"], it_dict["l2"], it_dict["rm"], it_dict["brand"], 
-			it_dict["vr"], lpr_map.get(details.name,{}).get("lpr"), it_dict["is_purchase_item"], 
-			average_age, earliest_age, latest_age]
+			row = [details.name, it_dict["desc"], details.warehouse, item_dict.get("total_qty"), 
+				pl_map.get(details.name,{}).get("LP"), qty_dict.val_rate, qty_dict.value, 
+				it_dict["bm"], it_dict["quality"], it_dict["tt"], it_dict["d1"], it_dict["w1"], 
+				it_dict["l1"], it_dict["d2"], it_dict["l2"], it_dict["rm"], it_dict["brand"], 
+				it_dict["vr"], lpr_map.get(details.name,{}).get("lpr"), it_dict["is_purchase_item"], 
+				average_age, earliest_age, latest_age]
 
-		data.append(row)
+			data.append(row)
 
 	return columns, data
 	
