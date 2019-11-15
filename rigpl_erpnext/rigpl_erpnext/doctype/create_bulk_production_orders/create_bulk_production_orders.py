@@ -193,5 +193,5 @@ class CreateBulkProductionOrders(Document):
 		for d in self.get('items'):
 			if not flt(d.planned_qty):
 				frappe.throw(_("Please enter Planned Qty for Item {0} at row {1}").format(d.item_code, d.idx))
-			if d.work_order:
-				frappe.throw(_("Work Order # {} already created for Row# {}").format(d.work_order, d.idx))
+			#if d.work_order:
+			#	frappe.throw(_("Work Order # {} already created for Row# {}").format(d.work_order, d.idx))
