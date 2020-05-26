@@ -18,12 +18,12 @@ class TrialTracking(Document):
 			doc.invoice_no = sid[0][0]
 		
 		if doc.target_life:
-			if doc.unit_of_tool_life is "":
+			if doc.unit_of_tool_life == "":
 				frappe.msgprint("Please select the Unit for Tool Life",raise_exception = 1)
 		
 		#Unit of Hardness validation with Hardness
 		if doc.hardness:
-			if doc.unit_of_hardness is "":
+			if doc.unit_of_hardness == "":
 				frappe.msgprint("Please select unit of Hardness", raise_exception=1)
 		if doc.feed:
 			min_feed = 30
@@ -33,7 +33,7 @@ class TrialTracking(Document):
 		
 		if doc.status in ("Material Ready", "Awaited", "Failed", "Passed"):
 			sod = frappe.get_doc("Sales Order Item", doc.prevdoc_detail_docname)
-			if sod.delivered_qty is None:
+			if sod.delivered_qty == None:
 				sod.delivered_qty = 0
 			if (sod.qty - sod.delivered_qty) > 0:
 				frappe.msgprint("Material not fully delivered hence cannot set this status", raise_exception=1)
