@@ -42,7 +42,15 @@ def check_price_list(doc):
 
 def update_fields(doc):
     cust_doc = frappe.get_doc("Customer", doc.customer)
-    doc.sales_team = cust_doc.sales_team
+    # Adding the Sales Team data from Customer to the Sales Team of Sales Order.
+    # This is how you add data in Child table.
+    doc.sales_team = []
+    steam_dict = {}
+    for d in cust_doc.sales_team:
+        steam_dict["sales_person"] = d.sales_person
+        steam_dict["allocated_percentage"] = d.allocated_percentage
+
+    doc.append('sales_team', steam_dict)
     doc.shipping_address_title = frappe.get_value("Address",
                                                   doc.shipping_address_name, "address_title")
     doc.transaction_date = nowdate()
