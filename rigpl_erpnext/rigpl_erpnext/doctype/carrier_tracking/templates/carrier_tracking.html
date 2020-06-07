@@ -1,0 +1,80 @@
+{% extends "rigpl_theme/templates/web.html" %}
+<!-- add-breadcrumbs -->
+<!-- show-sidebar -->
+<!-- no-sitemap -->
+{% block title %} Rohit Cutting Tools - Shipment Tracking {% endblock %}
+{% block page_content %}
+    <h1> Details of Shipment </h1>
+    <table class="table table-hover">
+        <tr>
+            <td><span style="font-weight:bold">{{ doc.document }}</span></td>
+            <td>{{ doc.document_name }}</td>
+        </tr>
+        <tr>
+            <td><span style="font-weight:bold">{{ "Courier" }}</span></td>
+            <td>{{ doc.carrier_name }}</td>
+        </tr>
+        <tr>
+            <td><span style="font-weight:bold">{{ "Master Tracking No" }}</span></td>
+            <td>{{ doc.awb_number }}</td>
+        </tr>
+        <tr>
+            <td><span style="font-weight:bold">{{ "Ship To City" }}</span></td>
+            <td>{{ doc.ship_to_city }}</td>
+        </tr>
+        <tr>
+            <td><span style="font-weight:bold">{{ "Total Shipment Weight" }}</span></td>
+            <td>{{ doc.total_weight }} {{ doc.weight_uom}}</td>
+        </tr>
+        <tr>
+            <td><span style="font-weight:bold">{{ "No of Packages" }}</span></td>
+            <td>{{ doc.total_handling_units }}</td>
+        </tr>
+        <tr>
+            <td><span style="font-weight:bold">{{ "Expected Delivery Date" }}</span></td>
+            <td>{{ doc.get_formatted("expected_delivery_date") }}</td>
+        </tr>
+        <tr>
+            <td><span style="font-weight:bold">{{ "Status" }}</span></td>
+            <td>{{ doc.status }}</td>
+        </tr>
+        {% if doc.recipient %}
+            <tr>
+                <td><span style="font-weight:bold">{{ "Recipient" }}</span></td>
+                <td>{{ doc.recipient }}</td>
+            </tr>
+        {% endif %}
+
+    </table>
+    <h2> Package Details </h2>
+    <table class="table table-hover">
+        <th>Package No</th>
+        <th>Package Weight</th>
+        <th>Tracking ID</th>
+        {% for d in doc.shipment_package_details %}
+        <tr>
+            <td style="width: 15%;">{{ d.idx }}</td>
+            <td style="width: 25%"> {{ d.package_weight }} {{ d.weight_uom }}</td>
+            <td style="width: 60%"> {{ d.tracking_id }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <h2> Tracking Details </h2>
+    <!--
+    <button type="submit" class="btn btn-primary mb-2" style="width:100%">Click Here to Get the Latest Status</button>
+    -->
+    <table class="table table-hover">
+        <th>S.No.</th>
+        <th>Date Time (Local Scan Time)</th>
+        <th>Location</th>
+        <th>Status Scan</th>
+        {% for scan in doc.scans %}
+        <tr>
+            <td style="width: 5%;">{{ scan.idx }}</td>
+            <td style="width: 25%"> {{ scan.get_formatted("time") }}</td>
+            <td style="width: 40%"> {{ scan.location }}</td>
+            <td style="width: 30%"> {{ scan.status_detail }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endblock %}

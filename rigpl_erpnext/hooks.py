@@ -23,7 +23,7 @@ hide_in_installer = True
 
 # Home Pages
 # ----------
-
+website_generators = ["Carrier Tracking"]
 # application home page (will override Website Settings)
 # home_page = "login"
 
