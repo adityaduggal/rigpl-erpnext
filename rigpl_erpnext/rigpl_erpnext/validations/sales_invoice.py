@@ -234,8 +234,9 @@ def check_existing_track(doctype, docname):
 
 def is_tracked_transporter(doc, method):
     fedex = frappe.get_value("Transporters", doc.transporters, "fedex_credentials")
+    fedex_track = frappe.get_value("Transporters", doc.transporters, "fedex_tracking_only")
     shipway = frappe.get_value("Transporters", doc.transporters, "track_on_shipway")
-    if fedex == 1 or shipway == 1:
+    if fedex == 1 or shipway == 1 or fedex_track == 1:
         ttrans = 1
     else:
         ttrans = 0

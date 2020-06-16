@@ -50,10 +50,14 @@ class CarrierTracking(WebsiteGenerator):
         else:
             self.docstatus = 1
         if self.published == 1:
-            self.route = self.document_name.lower() + self.name.lower()
+            self.route = self.name.lower()
         else:
             self.route = ""
         trans_doc = frappe.get_doc("Transporters", self.carrier_name)
+        if trans_doc.track_on_shipway != 1 and trans_doc.fedex_credentials != 1 and trans_doc.fedex_tracking_only != 1:
+            if trans_doc.docstatus != 1:
+                trans_doc.docstatus = 1
+                trans_doc.manual_exception_removed = 1
         self.update_fields(trans_doc)
         from_address_doc = frappe.get_doc("Address", self.from_address)
         to_address_doc = frappe.get_doc("Address", self.to_address)
@@ -82,7 +86,7 @@ class CarrierTracking(WebsiteGenerator):
 
     def on_submit(self):
         self.published = 1
-        self.route = self.document_name.lower() + self.name.lower()
+        self.route = self.name.lower()
         self.push_data_to_sales_invoice()
 
     def on_cancel(self):
@@ -189,7 +193,7 @@ class CarrierTracking(WebsiteGenerator):
                     if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb or \
                             si_doc.transporters != self.carrier_name:
                         create_new_carrier_track(si_doc, frappe)
-                        self.submit(ignore_permissions = True)
+                        self.submit()
                         # self.save(ignore_permissions=True)
                 #else:
                     #self.awb_number = si_doc.lr_no
@@ -329,7 +333,7 @@ class CarrierTracking(WebsiteGenerator):
                         if packages.idx == 1:
                             shipment_booking(self)
                             self.published = 1
-                            self.route = self.document_name.lower() + self.name.lower()
+                            self.route = self.name.lower()
                             self.docstatus = 1
                             self.save(ignore_permissions=True)
                     else:
@@ -380,12 +384,12 @@ class CarrierTracking(WebsiteGenerator):
             if len(str(to_address_doc.email_id) + ", " + str(contact_doc.email_id)) < 140:
                 self.customer_emails = str(to_address_doc.email_id) + ", " + str(contact_doc.email_id)
             else:
-                if len(contact_doc.email_id) < 140:
+                if len(str(contact_doc.email_id)) < 140:
                     self.customer_emails = contact_doc.email_id
                 elif len(to_address_doc.email_id) < 140:
                     self.customer_emails = to_address_doc.email_id
         else:
-            if len(contact_doc.email_id) < 140:
+            if len(str(contact_doc.email_id)) < 140:
                 self.customer_emails = contact_doc.email_id
             elif len(to_address_doc.email_id) < 140:
                 self.customer_emails = to_address_doc.email_id

@@ -135,12 +135,17 @@ def get_all_ship_data():
                 track_doc = frappe.get_doc("Carrier Tracking", tracks.name)
                 getOrderShipmentDetails(track_doc)
             else:
-                print("{}. Tracking was updated less than 6 hrs ago hence skipping {}".format(str(sno+1), tracks.name))
+                print("{}. Fedex Tracking was updated less than 6 hrs ago hence skipping {}".
+                      format(str(sno+1), tracks.name))
         elif (tracks.cred == 0 and tracks.tracking_only == 0) and days_diff < 60:
-            # Get from Shipway only less than 90 days old shipments
-            print("{}. Getting Tracking for {} from Shipway".format(str(sno+1), tracks.name))
-            track_doc = frappe.get_doc("Carrier Tracking", tracks.name)
-            getOrderShipmentDetails(track_doc)
+            # Get from Shipway only less than 60 days old shipments
+            if last_update_hrs > 6:
+                print("{}. Getting Tracking for {} from Shipway".format(str(sno+1), tracks.name))
+                track_doc = frappe.get_doc("Carrier Tracking", tracks.name)
+                getOrderShipmentDetails(track_doc)
+            else:
+                print("{}. Shipway Tracking was updated less than 6 hrs ago hence skipping {}".
+                      format(str(sno + 1), tracks.name))
         #track_doc.flags.ignore_permissions = True
         sno += 1
 
