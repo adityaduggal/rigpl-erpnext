@@ -11,7 +11,7 @@ from datetime import datetime, date
 from ..doctype.carrier_tracking.fedex_functions import get_tracking_from_fedex
 
 
-def update_ctrack_from_invoice():
+def update_costing_bypass():
     bypass_ct = frappe.db.sql("""SELECT ct.name FROM `tabCarrier Tracking` ct WHERE ct.docstatus<2 
         AND ct.document = 'Sales Invoice' ORDER BY ct.creation DESC""")
     sno = 0
@@ -25,6 +25,9 @@ def update_ctrack_from_invoice():
             ctrack_doc.bypass_courier_charged_check = 1
             ctrack_doc.save()
             sno += 1
+
+
+def update_ctrack_from_invoice():
     ct_list = frappe.db.sql("""SELECT ct.name, ct.document_name FROM `tabCarrier Tracking` ct 
         WHERE ct.docstatus !=2 AND ct.document = 'Sales Invoice' AND ct.invoice_integrity = 0 
         ORDER BY ct.creation DESC""", as_list=1)
