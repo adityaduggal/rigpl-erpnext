@@ -69,7 +69,7 @@ def get_data(filters):
 			document_name, invoice_integrity, docstatus, creation, owner, 
 			document, receiver_document
 			FROM `tabCarrier Tracking`
-			WHERE docstatus = 0
+			WHERE docstatus != 2 AND status != "Delivered" AND manual_exception_removed = 0 
 			ORDER BY creation ASC"""
 	else:
 		query = """SELECT name, carrier_name, awb_number, status, status_code, 

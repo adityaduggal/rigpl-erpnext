@@ -6,6 +6,7 @@ import re
 import frappe
 import base64
 from datetime import datetime
+from datetime import date
 from frappe.utils import flt, cstr
 from fedex.tools.conversion import sobject_to_dict
 from frappe.utils.file_manager import save_file
@@ -140,74 +141,94 @@ def rate_service(track_doc, credentials, from_address_doc, to_address_doc,
 def get_tracking_from_fedex(track_doc):
     credentials, from_address_doc, to_address_doc, from_country_doc, to_country_doc, transporter_doc, \
     contact_doc = get_required_docs(track_doc)
-    fedex_account = frappe.get_value("Transporters", track_doc.carrier_name, "fedex_credentials")
+    if frappe.get_value("Transporters", track_doc.carrier_name, "fedex_credentials") == 1 or \
+        frappe.get_value("Transporters", track_doc.carrier_name, "fedex_tracking_only") == 1:
+        fedex_account = 1
+    else:
+        fedex_account = 0
     if fedex_account == 1:
         from fedex.services.track_service import FedexTrackRequest
         tk_req = FedexTrackRequest(credentials)
         tk_req.SelectionDetails.PackageIdentifier.Value = track_doc.awb_number
         tk_req.ProcessingOptions = 'INCLUDE_DETAILED_SCANS'
         tk_req.IncludeDetailedScans = True
-        #frappe.throw(str(tk_req.__dict__))
         tk_req.send_request()
-        #frappe.msgprint(str(tk_req.response))
         if tk_req.response.HighestSeverity == "SUCCESS":
             response = sobject_to_dict(tk_req.response)
             comp_trks = response.get("CompletedTrackDetails")
+            if not comp_trks:
+                frappe.msgprint("No Tracking Found for {}".format(track_doc.name))
+                if track_doc.docstatus == 1:
+                    track_doc.docstatus = 2
+                else:
+                    track_doc.docstatus = 1
+                track_doc.manual_exception_removed = 1
+                track_doc.save()
+                exit()
             trk_details = comp_trks[0].get('TrackDetails')
-            stat_details = trk_details[0].get('StatusDetail')
-            status_code = stat_details.get('Code')
-            des_dict = trk_details[0].get('DestinationAddress')
-            scan_events = trk_details[0].get('Events')
-            des_city = des_dict.get('City', None)
-            des_state = des_dict.get('StateOrProvinceCode', None)
-            des_country = des_dict.get('CountryName', None)
-            ship_to_city = (str(des_city) + ", " if des_city is not None else "") + \
-                           (str(des_state) + ", " if des_state is not None else "") + \
-                           (str(des_country) if des_country is not None else "")
-
-            pickup_date = trk_details[0].get('DatesOrTimes')[0].get('DateOrTimestamp')
-            track_doc.pickup_date = datetime.strptime(pickup_date[:19], '%Y-%m-%dT%H:%M:%S')
-            if status_code == 'DL':
-                if trk_details[0].get('AvailableImages')[0].get('Type') == 'SIGNATURE_PROOF_OF_DELIVERY':
-                    track_doc.sign_proof = 'SIGNATURE_PROOF_OF_DELIVERY'
-                track_doc.recipient = trk_details[0].get('DeliverySignatureName')
-            scans = []
-            for event in scan_events:
-                row_dict = {}
-                row_dict["time"] = event.get('Timestamp').replace(tzinfo=None)
-                city = event.get('Address').get('City', None)
-                state = event.get('Address').get('StateOrProvinceCode', None)
-                postcode = event.get('Address').get('PostalCode', None)
-                country = event.get('Address').get('CountryName', None)
-                location = (str(city) if city is not None else "") + (", " if city is not None else "") + \
-                           (str(state) if state is not None else "") + (", " if state is not None else "") + \
-                           (str(postcode) if postcode is not None else "") + (
-                               ", " if postcode is not None else "") + \
-                           (str(country) if country is not None else "Base Location")
-                row_dict["location"] = location
-                event_desc = event.get('EventDescription', None)
-                excep_code = event.get('StatusExceptionCode', None)
-                excep_desc = event.get('StatusExceptionDescription', None)
-                event_full_desc = event_desc + (" Excep Code: " if excep_code is not None else "") + \
-                                  (str(excep_code) if excep_code is not None else "") + \
-                                  " " + (str(excep_desc) if excep_desc is not None else "")
-                row_dict["status_detail"] = event_full_desc
-                scans.append(row_dict)
-            track_doc.scans = []
-            track_doc.status_code = status_code
-            track_doc.ship_to_city = ship_to_city
-
-            for scan in scans:
-                track_doc.append("scans", scan)
-            if status_code == 'DL':
-                track_doc.status = 'Delivered'
-            elif status_code == 'CA':
-                track_doc.status = 'Cancelled'
-            elif status_code == 'OC':
-                track_doc.status = 'Booked'
+            trk_details_status = trk_details[0].get('Notification')
+            if trk_details_status.get('Severity') == 'SUCCESS':
+                stat_details = trk_details[0].get('StatusDetail')
+                status_code = stat_details.get('Code')
+                if status_code == 'DL':
+                    # if trk_details[0].get('AvailableImages')[0].get('Type') == 'SIGNATURE_PROOF_OF_DELIVERY':
+                    #    track_doc.sign_proof = 'SIGNATURE_PROOF_OF_DELIVERY'
+                    track_doc.status = 'Delivered'
+                    track_doc.recipient = trk_details[0].get('DeliverySignatureName')
+                elif status_code == 'CA':
+                    track_doc.status = 'Cancelled'
+                    track_doc.docstatus = 2
+                elif status_code == 'OC':
+                    track_doc.status = 'Booked'
+                else:
+                    track_doc.status = 'In Transit'
+                des_dict = trk_details[0].get('DestinationAddress')
+                scan_events = trk_details[0].get('Events')
+                des_city = des_dict.get('City', None)
+                des_state = des_dict.get('StateOrProvinceCode', None)
+                des_country = des_dict.get('CountryName', None)
+                ship_to_city = (str(des_city) + ", " if des_city is not None else "") + \
+                               (str(des_state) + ", " if des_state is not None else "") + \
+                               (str(des_country) if des_country is not None else "")
+                if trk_details[0].get('DatesOrTimes'):
+                    pickup_date = trk_details[0].get('DatesOrTimes')[0].get('DateOrTimestamp')
+                    track_doc.pickup_date = datetime.strptime(pickup_date[:19], '%Y-%m-%dT%H:%M:%S')
+                scans = []
+                if scan_events:
+                    for event in scan_events:
+                        row_dict = {"time": event.get('Timestamp').replace(tzinfo=None)}
+                        city = event.get('Address').get('City', None)
+                        state = event.get('Address').get('StateOrProvinceCode', None)
+                        postcode = event.get('Address').get('PostalCode', None)
+                        country = event.get('Address').get('CountryName', None)
+                        location = (str(city) if city is not None else "") + (", " if city is not None else "") + \
+                                   (str(state) if state is not None else "") + (", " if state is not None else "") + \
+                                   (str(postcode) if postcode is not None else "") + (
+                                       ", " if postcode is not None else "") + \
+                                   (str(country) if country is not None else "Base Location")
+                        row_dict["location"] = location
+                        event_desc = event.get('EventDescription', None)
+                        excep_code = event.get('StatusExceptionCode', None)
+                        excep_desc = event.get('StatusExceptionDescription', None)
+                        event_full_desc = event_desc + (" Excep Code: " if excep_code is not None else "") + \
+                                          (str(excep_code) if excep_code is not None else "") + \
+                                          " " + (str(excep_desc) if excep_desc is not None else "")
+                        row_dict["status_detail"] = event_full_desc
+                        scans.append(row_dict)
+                else:
+                    frappe.throw('NO SCANS Recevied')
+                track_doc.scans = []
+                track_doc.status_code = status_code
+                track_doc.ship_to_city = ship_to_city
+                for scan in scans:
+                    track_doc.append("scans", scan)
+                track_doc.save(ignore_permissions=True)
             else:
-                track_doc.status = 'In Transit'
-            track_doc.save()
+                track_doc.manual_exception_removed = 1
+                track_doc.docstatus = 2
+                #Cancel the doc since the AWB no is WRONG.
+                track_doc.add_comment(trk_details_status.get('Message'))
+                track_doc.save()
         else:
             print('Failed to Fetch Status from Fedex for {}'.format(track_doc.name))
             frappe.msgprint('Failed to Fetch Status from Fedex for {}'.format(track_doc.name))
@@ -309,7 +330,7 @@ def availabiltiy_commitment(credentials, from_address_doc, to_address_doc, from_
     avc_request.Origin.CountryCode = from_country_doc.code
     avc_request.Destination.PostalCode = str(to_address_doc.pincode)[0:10]
     avc_request.Destination.CountryCode = to_country_doc.code
-    avc_request.ShipDate = datetime.date.today().isoformat()
+    avc_request.ShipDate = date.today()
     avc_request.send_request()
     for option in avc_request.response.Options:
         frappe.msgprint("Ship Option:")
@@ -326,7 +347,13 @@ def availabiltiy_commitment(credentials, from_address_doc, to_address_doc, from_
 
 def get_required_docs(track_doc):
     transporter_doc = frappe.get_doc("Transporters", track_doc.carrier_name)
-    if transporter_doc.fedex_credentials != 1:
+    if transporter_doc.fedex_credentials == 1:
+        fedex_cred = 1
+    elif transporter_doc.fedex_tracking_only == 1:
+        fedex_cred = 1
+    else:
+        fedex_cred = 0
+    if fedex_cred != 1:
         frappe.throw("{0} is not a Valid Fedex Account".format(track_doc.carrier_name))
     to_address_doc = frappe.get_doc("Address", track_doc.to_address)
     to_country_doc = frappe.get_doc("Country", to_address_doc.country)
