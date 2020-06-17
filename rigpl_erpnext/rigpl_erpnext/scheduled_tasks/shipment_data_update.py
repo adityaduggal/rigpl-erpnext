@@ -11,6 +11,18 @@ from datetime import datetime, date
 from ..doctype.carrier_tracking.fedex_functions import get_tracking_from_fedex
 
 
+def update_delivery_date_time():
+    ctrack_dict = frappe.db.sql("""SELECT ct.name FROM `tabCarrier Tracking` ct WHERE ct.status = 'Delivered' 
+    AND ct.docstatus !=2 AND ct.status_code = 'DL' AND ct.delivery_date_time IS NULL 
+    ORDER BY ct.creation ASC""", as_dict=1)
+    sno=1
+    for ct in ctrack_dict:
+        ct_doc = frappe.get_doc('Carrier Tracking', ct.name)
+        print(str(sno) + ". " + ct.name + " is being Updated")
+        sno +=1
+        get_tracking_from_fedex(ct_doc)
+        frappe.db.commit()
+
 def update_costing_bypass():
     bypass_ct = frappe.db.sql("""SELECT ct.name FROM `tabCarrier Tracking` ct WHERE ct.docstatus<2 
         AND ct.document = 'Sales Invoice' ORDER BY ct.creation DESC""")

@@ -196,6 +196,8 @@ def get_tracking_from_fedex(track_doc):
                 scans = []
                 if scan_events:
                     for event in scan_events:
+                        if event.get('EventType') == 'DL':
+                            track_doc.delivery_date_time = event.get('Timestamp').replace(tzinfo=None)
                         row_dict = {"time": event.get('Timestamp').replace(tzinfo=None)}
                         city = event.get('Address').get('City', None)
                         state = event.get('Address').get('StateOrProvinceCode', None)
