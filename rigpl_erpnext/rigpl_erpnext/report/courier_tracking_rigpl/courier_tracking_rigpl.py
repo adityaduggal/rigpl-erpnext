@@ -38,7 +38,7 @@ def get_data(filters):
 			FROM `tabCarrier Tracking`
 			WHERE docstatus !=2 %s
 			GROUP BY carrier_name
-			ORDER BY carrier_name"""%(conditions, conditions)
+			ORDER BY carrier_name"""%(conditions)
 	elif filters.get("avg_delivery_times"):
 		query = """SELECT carrier_name, COUNT(name), AVG(DATEDIFF(delivery_date_time, pickup_date)),
 			MAX(DATEDIFF(delivery_date_time, pickup_date)), 
