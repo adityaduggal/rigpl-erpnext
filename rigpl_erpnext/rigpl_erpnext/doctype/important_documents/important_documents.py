@@ -25,6 +25,7 @@ class ImportantDocuments(Document):
         self.name = name
 
     def validate(self):
+        self.validate_fields()
         self.update_fields()
         if self.get("__is_local") == 1:
             pass
@@ -35,6 +36,13 @@ class ImportantDocuments(Document):
         file_dict = self.get_files()
         if not file_dict:
             frappe.throw("Cannot Submit {} without Attachments".format(self.name))
+
+    def validate_fields(self):
+        if self.item:
+            it_doc = frappe.get_doc('Item', self.item)
+            if self.template != it_doc.has_variants:
+                frappe.throw("Item: {} has_variants = {} but here template = {}".format(self.item,
+                                                                                it_doc.has_variants, self.template))
 
     def validate_files(self):
         file_dict = self.get_files()
@@ -80,6 +88,8 @@ class ImportantDocuments(Document):
         return file_dict
 
     def update_fields(self):
+        if self.category:
+            self.category_name = frappe.db.get_value("Item Attribute Value", self.category, "attribute_value")
         if self.sales_order:
             self.customer = frappe.db.get_value("Sales Order", self.sales_order, "customer")
         if self.sales_order_item:
@@ -98,13 +108,10 @@ class ImportantDocuments(Document):
 
         if self.type == 'Standard':
             title = 'STD: ' + self.standard_authority + ": " + str(self.standard_number)
-
             if self.standard_year:
                 title += ": " + str(self.standard_year)
-
             title += ": " + self.description
             self.title = title[:140]
-
         elif self.type == 'Drawing':
             title = 'DWG: ' + self.drawing_based_on
             if self.customer:
