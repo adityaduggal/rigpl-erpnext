@@ -5,6 +5,8 @@ from rigpl_erpnext.utils.sales_utils import *
 
 
 def validate(doc, method):
+    validate_address_google_update(doc.customer_address)
+    validate_address_google_update(doc.shipping_address_name)
     check_dynamic_link(parenttype="Address", parent=doc.customer_address,
                        link_doctype="Customer", link_name=doc.customer)
     check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name,

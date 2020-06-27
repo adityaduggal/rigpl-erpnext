@@ -14,6 +14,7 @@ from ...scheduled_tasks.shipment_data_update import getOrderShipmentDetails, pus
 from ...validations.sales_invoice import create_new_carrier_track
 from .fedex_functions import shipment_booking, start_delete_shipment, get_signature_proof, \
     validate_address, get_rates_from_fedex, get_available_services
+from ....utils.sales_utils import validate_address_google_update
 
 
 class CarrierTracking(WebsiteGenerator):
@@ -42,6 +43,10 @@ class CarrierTracking(WebsiteGenerator):
             self.validate()
 
     def validate(self):
+        if self.to_address:
+            validate_address_google_update(self.to_address)
+        if self.from_address:
+            validate_address_google_update(self.from_address)
         if self.docstatus != 1:
             self.published = 0
             self.route = ""
