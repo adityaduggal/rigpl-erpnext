@@ -7,8 +7,10 @@ from ...utils.sales_utils import check_get_pl_rate, get_hsn_code, check_taxes_in
 
 
 def validate(doc, method):
-    validate_address_google_update(doc.customer_address)
-    validate_address_google_update(doc.shipping_address_name)
+    if doc.customer_address:
+        validate_address_google_update(doc.customer_address)
+    if doc.shipping_address_name:
+        validate_address_google_update(doc.shipping_address_name)
     if doc.quotation_to == 'Customer':
         check_dynamic_link(parenttype="Address", parent=doc.customer_address,
                            link_doctype="Customer", link_name=doc.party_name)
