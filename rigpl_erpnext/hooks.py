@@ -1,14 +1,29 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+from .templates.generators.item.item import get_item_meta, get_item_attribute_data
+
+
 app_name = "rigpl_erpnext"
 app_title = "Rohit ERPNext Extensions"
-app_publisher = "Rohit Industries Ltd."
+app_publisher = "Rohit Industries Group Private Limited"
 app_description = "Rohit ERPNext Extensions"
 app_icon = "icon-paper-clip"
 app_color = "#007AFF"
 app_email = "aditya@rigpl.com"
 app_url = "https://github.com/adityaduggal/custom_erpnext"
 app_version = "0.0.1"
-fixtures = ["Custom Field", "Custom Script"]
+fixtures = ["Custom Script"]
 hide_in_installer = True
+home_page = "index"
+
+controller_context = {
+    'Item': 'rigpl_erpnext.templates.generators.item'
+}
+
+website_item = {
+    'get_item_meta': get_item_meta,
+    'get_item_attribute_data': get_item_attribute_data
+}
 
 # Includes in <head>
 # ------------------
@@ -23,7 +38,7 @@ hide_in_installer = True
 
 # Home Pages
 # ----------
-website_generators = ["Carrier Tracking"]
+website_generators = ["Carrier Tracking", "Item", "Item Group"]
 # application home page (will override Website Settings)
 # home_page = "login"
 
