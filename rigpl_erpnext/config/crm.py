@@ -3,7 +3,7 @@ from frappe import _
 def get_data():
 	return [
 		{
-			"label": _("Communication"),
+			"label": _("Sales Pipeline"),
 			"icon": "icon-star",
 			"items": [
 				{

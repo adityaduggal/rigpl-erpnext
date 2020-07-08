@@ -3,8 +3,7 @@ from frappe import _
 def get_data():
 	return [
 		{
-			"label": _("Billing"),
-			"icon": "icon-star",
+			"label": _("Accounts Receivable"),
 			"items": [
 				{
 					"type": "doctype",
