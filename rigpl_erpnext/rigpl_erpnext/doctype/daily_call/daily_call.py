@@ -5,11 +5,10 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.model.document import Document
-from datetime import datetime, date, timedelta
-from frappe.utils import getdate, add_days, now_datetime, nowtime, get_datetime, time_diff_in_seconds
+from frappe.utils import add_days, now_datetime, get_datetime, time_diff_in_seconds
 
 class DailyCall(Document):
-	#TODO: Move Many of the COmmunications' Validatoins to Comm
+	# TODO: Move Many of the COmmunications' Validatoins to Comm
 	def on_submit(self):
 		self.create_communications()
 

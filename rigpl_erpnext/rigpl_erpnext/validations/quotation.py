@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
-from frappe import msgprint
 from ...utils.sales_utils import check_get_pl_rate, get_hsn_code, check_taxes_integrity, check_dynamic_link, \
     validate_address_google_update
 

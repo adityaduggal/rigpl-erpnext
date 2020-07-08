@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import frappe, re
-from frappe import msgprint
+
+import re
+
 from rigpl_erpnext.utils.sales_utils import *
 
 
@@ -34,15 +35,13 @@ def on_submit(doc, method):
                 if any("System Manager" in s for s in roles):
                     pass
                 else:
-                    frappe.throw("You are not Authorised to Submit this Transaction \
-					ask a System Manager")
+                    frappe.throw("You are not Authorised to Submit this Transaction ask a System Manager")
         if d.sales_order is not None:
             so = frappe.get_doc("Sales Order", d.sales_order)
             if so.track_trial == 1:
                 dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
                 sod = dnd.so_detail
-                query = """SELECT tt.name FROM `tabTrial Tracking` tt where \
-					tt.prevdoc_detail_docname = '%s' """ % sod
+                query = """SELECT tt.name FROM `tabTrial Tracking` tt WHERE tt.prevdoc_detail_docname = '%s' """ % sod
                 name = frappe.db.sql(query, as_list=1)
                 if name:
                     tt = frappe.get_doc("Trial Tracking", name[0][0])
@@ -66,8 +65,7 @@ def on_cancel(doc, method):
             if so.track_trial == 1:
                 dnd = frappe.get_doc("Delivery Note Item", d.dn_detail)
                 sod = dnd.so_detail
-                query = """SELECT tt.name FROM `tabTrial Tracking` tt where \
-					tt.prevdoc_detail_docname = '%s' """ % sod
+                query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod
                 name = frappe.db.sql(query, as_list=1)
                 if name:
                     tt = frappe.get_doc("Trial Tracking", name[0][0])
@@ -94,7 +92,7 @@ def get_pl_rate(price_list, row):
         frappe.throw("Sales Invoices for {} are Blocked without prior Sales Order".format(row.price_list))
     else:
         item_price = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price` WHERE price_list = '%s' 
-        	AND selling = 1 AND item_code = '%s'""" % (row.price_list, row.item_code), as_list=1)
+        AND selling = 1 AND item_code = '%s'""" % (row.price_list, row.item_code), as_list=1)
         if item_price:
             if row.price_list_rate != item_price[0][0] and doc.currency == item_price[0][1]:
                 frappe.throw("Item: {} in Row# {} does not match with Price List Rate of {}. Reload the Item".format(
@@ -102,18 +100,6 @@ def get_pl_rate(price_list, row):
 
 
 def check_delivery_note_rule(doc, method):
-    '''
-	1. No Sales Invoice without Delivery Note to be mentioned without UPDATE stock, basically \
-		above rule is to ensure that if a DN is not made then STOCK is updated via SI
-	2. No Partial DN to be ALLOWED to be BILL, this is because if a customer's DN is for 100pcs of
-		one item and we send 50pcs then balance 50pcs he can deny especially for Special Items its
-		a problem
-	3. Also ensure that if there are 5 items in DN then all 5 items are in the SI with equal quantities
-	4. Remove the Trial Rule which means NO INVOICING with TT SUBMITTED should be REMOVED.
-	5. Disallow making a Sales Invoice for Items without SO but only DN, that is you make DN \
-		without SO and then make INVOICE is not POSSIBLE, means you SO => DN => SI or only SI also
-		denies SO => SI
-	'''
     dn_dict = frappe._dict()
     list_of_dn_dict = []
 
@@ -143,7 +129,7 @@ def check_delivery_note_rule(doc, method):
         if d.delivery_note is not None:
             dn_qty = frappe.db.get_value('Delivery Note Item', d.dn_detail, 'qty')
             if dn_qty != d.qty:
-                frappe.throw(("Invoice Qty should be equal to DN quantity of {0} at Row # {1}").format(dn_qty, d.idx))
+                frappe.throw("Invoice Qty should be equal to DN quantity of {0} at Row # {1}".format(dn_qty, d.idx))
     if list_of_dn_dict:
         unique_dn = {v['dn']: v for v in list_of_dn_dict}.values()
         for dn in unique_dn:
@@ -188,7 +174,7 @@ def create_new_carrier_track(doc, method):
                     doc.transporters = exist_track.carrier_name
                     exist_track.flags.ignore_permissions = True
                     exist_track.save()
-                    frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('Carrier Tracking', exist_track.name)))
+                    frappe.msgprint("Updated {0}".format(frappe.get_desk_link('Carrier Tracking', exist_track.name)))
                 elif exist_track.docstatus == 1:
                     route = exist_track.name.lower()
                     frappe.db.set_value("Carrier Tracking", exist_track.name, "published", 1)
@@ -200,8 +186,7 @@ def create_new_carrier_track(doc, method):
                     new_ctrack.amended_from = exist_track.name
                     new_ctrack.document_name = doc.name
                     new_ctrack.insert(ignore_permissions=True)
-                    frappe.msgprint(("Added New {0}").format(frappe.get_desk_link \
-                                                                 ('Carrier Tracking', new_ctrack.name)))
+                    frappe.msgprint("Added New {0}".format(frappe.get_desk_link('Carrier Tracking', new_ctrack.name)))
             else:
                 create_new_ship_track(doc)
 
@@ -221,12 +206,12 @@ def create_new_ship_track(si_doc):
     # track.shipment_package_details = [{"shipment_package":"PKG00001", "package_weight":1, "weight_uom":"Kg"}]
     track.flags.ignore_permissions = True
     track.insert()
-    frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('Carrier Tracking', track.name)))
+    frappe.msgprint("Created New {0}".format(frappe.get_desk_link('Carrier Tracking', track.name)))
 
 
 def check_existing_track(doctype, docname):
-    query = """SELECT name FROM `tabCarrier Tracking` WHERE document = '%s' AND 
-		(document_name = '%s' OR reference_document_name = '%s') AND docstatus != 2""" % (doctype, docname, docname)
+    query = """SELECT name FROM `tabCarrier Tracking` WHERE document = '%s' 
+    AND (document_name = '%s' OR reference_document_name = '%s') AND docstatus != 2""" % (doctype, docname, docname)
     exists = frappe.db.sql(query)
     if exists:
         return exists
@@ -249,8 +234,8 @@ def new_brc_tracking(doc, method):
     add_doc = frappe.get_doc("Address", doc.shipping_address_name)
     if stct_doc.is_export == 1 and add_doc.country != "India":
         if doc.amended_from:
-            is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` WHERE reference_name = '%s'
-				""" % (doc.amended_from), as_list=1)
+            is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` 
+            WHERE reference_name = '%s'""" % doc.amended_from, as_list=1)
             if not is_exist:
                 create_new_brc_tracking(doc, method)
             else:
@@ -258,10 +243,10 @@ def new_brc_tracking(doc, method):
                 exist_brc.reference_name = doc.name
                 exist_brc.flags.ignore_permissions = True
                 exist_brc.save()
-                frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('BRC MEIS Tracking', exist_brc.name)))
+                frappe.msgprint("Updated {0}".format(frappe.get_desk_link('BRC MEIS Tracking', exist_brc.name)))
         else:
-            is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` WHERE reference_name = '%s'
-				""" % (doc.name), as_list=1)
+            is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` 
+            WHERE reference_name = '%s'""" % doc.name, as_list=1)
             if not is_exist:
                 create_new_brc_tracking(doc, method)
 
@@ -273,13 +258,12 @@ def create_new_brc_tracking(doc, method):
     brc_doc.reference_doctype = doc.doctype
     brc_doc.reference_name = doc.name
     brc_doc.insert()
-    frappe.msgprint(("Created New {0}").format(frappe.get_desk_link('BRC MEIS Tracking', brc_doc.name)))
+    frappe.msgprint("Created New {0}".format(frappe.get_desk_link('BRC MEIS Tracking', brc_doc.name)))
 
 
 def update_shipment_booking(doc, method):
     if doc.amended_from:
-        bk_ship = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking`  
-			WHERE docstatus != 2 AND document = 'Sales Invoice'
-			AND document_name = '%s'""" % (doc.amended_from), as_list=1)
+        bk_ship = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking` WHERE docstatus != 2 
+        AND document = 'Sales Invoice' AND document_name = '%s'""" % doc.amended_from, as_list=1)
         for bks in bk_ship:
             frappe.db.set_value("Carrier Tracking", bks[0], "document_name", doc.name)
