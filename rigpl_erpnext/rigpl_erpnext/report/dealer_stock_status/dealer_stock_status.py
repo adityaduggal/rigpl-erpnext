@@ -3,66 +3,67 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt, getdate, nowdate
+
 
 def execute(filters=None):
-	if not filters: filters = {}
+    if not filters: filters = {}
 
-	columns = get_columns()
-	data = get_items(filters)
+    columns = get_columns()
+    data = get_items(filters)
 
-	return columns, data
+    return columns, data
+
 
 def get_columns():
-	return [
-		"Item:Link/Item:120", 
-		
-		###Below are attribute fields
-		"Series::60", "BM::60", "Qual::50", "TT::100",
-		"D1:Float:50", "W1:Float:50", "L1:Float:60",
-		"D2:Float:50", "L2:Float:60",
-		###Above are Attribute fields
-		
-		"Description::400", "Ready Stock:Int:100", "WIP1:Int:50", "WIP2:Int:50"
-	]
+    return [
+        "Item:Link/Item:120",
+
+        # Below are attribute fields
+        "Series::60", "BM::60", "Qual::50", "TT::100",
+        "D1:Float:50", "W1:Float:50", "L1:Float:60",
+        "D2:Float:50", "L2:Float:60",
+        # Above are Attribute fields
+
+        "Description::400", "Ready Stock:Int:100", "WIP1:Int:50", "WIP2:Int:50"
+    ]
+
 
 def get_items(filters):
-	if filters.get("min_rol"):
-		if filters.get("dead_stock") == 1:
-			rol_min = " AND IFNULL(ro.warehouse_reorder_level,0) = 0"
-		else:
-			rol_min = " AND IFNULL(ro.warehouse_reorder_level,0) >= %s " %filters["min_rol"]
-	else:
-		rol_min = ""
-		
-	if filters.get("max_rol"):
-		if filters.get("dead_stock") == 1:
-			rol_max = " AND IFNULL(ro.warehouse_reorder_level,0) = 0"
-		else:
-			rol_max = " AND IFNULL(ro.warehouse_reorder_level,0) <= %s " %filters["max_rol"]
-	else:
-		rol_max = ""
-	
-	if filters.get("rol_sort")==1:
-		if filters.get("dead_stock") == 1:
-			frappe.throw("Only one Check Box Allowed to be Selected")
-		else:
-			rol_sort = "ro.warehouse_reorder_level DESC,"
-	else:
-		rol_sort = ""
-		
-	if filters.get("dead_stock")==1:
-		if filters.get("rol_sort") == 1:
-			frappe.throw("Only one Check Box Allowed to be Selected")
-		else:
-			dead_stock = "AND IFNULL(ro.warehouse_reorder_level,0) = 0 "
-	else:
-		dead_stock = ""
-	
-	conditions_it = get_conditions(filters)
-	bm = filters["bm"]
-	data = frappe.db.sql("""
-	SELECT 
+    if filters.get("min_rol"):
+        if filters.get("dead_stock") == 1:
+            rol_min = " AND IFNULL(ro.warehouse_reorder_level,0) = 0"
+        else:
+            rol_min = " AND IFNULL(ro.warehouse_reorder_level,0) >= %s " % filters["min_rol"]
+    else:
+        rol_min = ""
+
+    if filters.get("max_rol"):
+        if filters.get("dead_stock") == 1:
+            rol_max = " AND IFNULL(ro.warehouse_reorder_level,0) = 0"
+        else:
+            rol_max = " AND IFNULL(ro.warehouse_reorder_level,0) <= %s " % filters["max_rol"]
+    else:
+        rol_max = ""
+
+    if filters.get("rol_sort") == 1:
+        if filters.get("dead_stock") == 1:
+            frappe.throw("Only one Check Box Allowed to be Selected")
+        else:
+            rol_sort = "ro.warehouse_reorder_level DESC,"
+    else:
+        rol_sort = ""
+
+    if filters.get("dead_stock") == 1:
+        if filters.get("rol_sort") == 1:
+            frappe.throw("Only one Check Box Allowed to be Selected")
+        else:
+            dead_stock = "AND IFNULL(ro.warehouse_reorder_level,0) = 0 "
+    else:
+        dead_stock = ""
+
+    conditions_it = get_conditions(filters)
+    bm = filters["bm"]
+    data = frappe.db.sql("""SELECT 
 		it.name,
 		IFNULL(series.attribute_value, "-"), IFNULL(bm.attribute_value, "-"),
 		IFNULL(quality.attribute_value, "-"), IFNULL(tt.attribute_value, "-"),
@@ -136,32 +137,34 @@ def get_items(filters):
 			CAST(w1.attribute_value AS DECIMAL(8,3)) ASC, 
 			CAST(l1.attribute_value AS DECIMAL(8,3)) ASC, 
 			CAST(d2.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, dead_stock, rol_max, rol_min, conditions_it, rol_sort), as_list=1)
-	
-	return data
-	
+			CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, dead_stock, rol_max, rol_min,
+                                                               conditions_it, rol_sort), as_list=1)
+
+    return data
+
+
 def get_conditions(filters):
-	conditions_it = ""
-		
-	if filters.get("bm"):
-		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
+    conditions_it = ""
 
-	if filters.get("series"):
-		conditions_it += " AND series.attribute_value = '%s'" % filters["series"]
-		
-	if filters.get("tt"):
-		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
+    if filters.get("bm"):
+        conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
 
-	if filters.get("brand"):
-		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
+    if filters.get("series"):
+        conditions_it += " AND series.attribute_value = '%s'" % filters["series"]
 
-	if filters.get("quality"):
-		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
+    if filters.get("tt"):
+        conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
 
-	if filters.get("spl"):
-		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
+    if filters.get("brand"):
+        conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
 
-	if filters.get("item"):
-		conditions_it += " and it.name = '%s'" % filters["item"]
-	
-	return conditions_it
+    if filters.get("quality"):
+        conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
+
+    if filters.get("spl"):
+        conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
+
+    if filters.get("item"):
+        conditions_it += " and it.name = '%s'" % filters["item"]
+
+    return conditions_it

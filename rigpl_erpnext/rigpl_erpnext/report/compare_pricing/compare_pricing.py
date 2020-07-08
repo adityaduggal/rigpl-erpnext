@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, nowdate
+
 
 def execute(filters=None):
 	if not filters: filters = {}
@@ -13,6 +13,7 @@ def execute(filters=None):
 	data = get_item_data(filters)
 
 	return columns, data
+
 
 def get_columns(filters):
 	return [
@@ -147,14 +148,14 @@ def get_columns(filters):
 		}
 	]
 
+
 def get_item_data(filters):
 	conditions_it = get_conditions(filters)
 	bm = filters["bm"]
 	pl1 = " AND itp1.price_list = '%s'" % filters.get("pl1")
 	pl2 = " AND itp2.price_list = '%s'" % filters.get("pl2")
 	pl3 = " AND itp3.price_list = '%s'" % filters.get("pl3")
-	query = """
-	SELECT
+	query = """SELECT
 		it.name, itp1.price_list_rate, IFNULL(itp1.currency, "-"),
 		itp2.price_list_rate, IFNULL(itp2.currency, "-"), IF(itp1.price_list_rate > 0, 
 		((itp2.price_list_rate-itp1.price_list_rate)/itp1.price_list_rate)*100,0),
@@ -219,9 +220,9 @@ def get_item_data(filters):
 		CAST(zn.attribute_value AS UNSIGNED) ASC,
 		CAST(d2.attribute_value AS DECIMAL(8,3)) ASC,
 		CAST(l2.attribute_value AS DECIMAL(8,3)) ASC,
-		spl.attribute_value""" %(pl1, pl2, pl3, bm, conditions_it)
-	
-	data = frappe.db.sql(query , as_list=1)
+		spl.attribute_value""" % (pl1, pl2, pl3, bm, conditions_it)
+
+	data = frappe.db.sql(query, as_list=1)
 
 	return data
 
@@ -240,26 +241,25 @@ def get_conditions(filters):
 
 	if filters.get("spl"):
 		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
-		
+
 	if filters.get("purpose"):
 		conditions_it += " AND purpose.attribute_value = '%s'" % filters["purpose"]
-		
+
 	if filters.get("type"):
 		conditions_it += " AND type.attribute_value = '%s'" % filters["type"]
-		
+
 	if filters.get("mtm"):
 		conditions_it += " AND mtm.attribute_value = '%s'" % filters["mtm"]
-		
+
 	if filters.get("tt"):
 		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
 
 	if filters.get("item"):
 		conditions_it += " AND it.name = '%s'" % filters["item"]
-		
+
 	if filters.get("template"):
 		conditions_it += " AND it.variant_of = '%s'" % filters["template"]
-		
+
 	if filters.get("is_pl") == 1:
 		conditions_it += " AND it.pl_item = 'Yes'"
 	return conditions_it
-
