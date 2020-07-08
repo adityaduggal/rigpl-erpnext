@@ -190,7 +190,7 @@ def create_new_carrier_track(doc, method):
                     exist_track.save()
                     frappe.msgprint(("Updated {0}").format(frappe.get_desk_link('Carrier Tracking', exist_track.name)))
                 elif exist_track.docstatus == 1:
-                    route = doc.name.lower() + exist_track.name.lower()
+                    route = exist_track.name.lower()
                     frappe.db.set_value("Carrier Tracking", exist_track.name, "published", 1)
                     frappe.db.set_value("Carrier Tracking", exist_track.name, "document_name", doc.name)
                     frappe.db.set_value("Carrier Tracking", exist_track.name, "reference_document_name", "")

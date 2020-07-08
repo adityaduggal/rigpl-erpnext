@@ -43,6 +43,10 @@ class CarrierTracking(WebsiteGenerator):
             self.validate()
 
     def validate(self):
+        if self.reference_document_name:
+            if self.reference_document_name.split('-')[0] != self.document_name.split('-'):
+                frappe.throw('{} is already linked to {} # {}'.\
+                             format(self.name, self.document, self.reference_document_name))
         if self.to_address:
             validate_address_google_update(self.to_address)
         if self.from_address:
@@ -77,17 +81,6 @@ class CarrierTracking(WebsiteGenerator):
             self.carrier_validations(trans_doc, from_address_doc, to_address_doc)
         else:
             self.non_fedex_validations()
-        #self.auto_submit_ctrack(trans_doc)
-
-    def auto_submit_ctrack(self, trans_doc):
-        if trans_doc.fedex_credentials == 1:
-            if self.status is not None and self.status != "Booked":
-                self.flags.ignore_permissions = True
-                self.submit()
-        elif trans_doc.track_on_shipway == 1:
-            if self.status is not None and self.status not in ["Posting Error", "Shipment Data Uploaded",
-                                                               "Pickup Scheduled", "Pickup Scheduled", "Booked"]:
-                self.submit()
 
     def on_submit(self):
         self.published = 1
@@ -208,7 +201,7 @@ class CarrierTracking(WebsiteGenerator):
         if self.status == "Delivered":
             frappe.db.set_value("Carrier Tracking", self.name, "docstatus", 1)
         if from_address_doc.pincode is None:
-            frappe.throw(("No Pincode Defined for Address {} if pincode not known enter NA").format(self.from_address))
+            frappe.throw("No Pin Code Defined for Address {} if pincode not known enter NA".format(self.from_address))
         if self.document == 'Sales Invoice':
             si_doc = frappe.get_doc("Sales Invoice", self.document_name)
             if self.carrier_name == si_doc.transporters and self.awb_number == si_doc.lr_no:
@@ -369,7 +362,7 @@ class CarrierTracking(WebsiteGenerator):
                 frappe.db.set_value("Shipment Package Details", shp[0], "tracking_id", "")
             remove_all(self.doctype, self.name)
         else:
-            frappe.throw(("Only Booked Shipments Can be Deleted, {} is in {} Stage").format(self.name, self.status))
+            frappe.throw("Only Booked Shipments Can be Deleted, {} is in {} Stage".format(self.name, self.status))
 
     def set_recipient_email(self, to_address_doc, contact_doc):
         if self.receiver_document == "Customer":
