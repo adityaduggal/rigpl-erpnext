@@ -3,11 +3,14 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe, re
+
+import frappe
+import re
 from frappe.model.document import Document
-from frappe.utils import getdate, add_days, now_datetime
+from frappe.utils import getdate, add_days
 from rigpl_erpnext.rigpl_erpnext.validations.employee import validate_pan
 from rigpl_erpnext.utils.other_utils import validate_ifsc_code, validate_brc_no
+
 
 class BRCMEISTracking(Document):
 	def validate(self):
@@ -49,7 +52,7 @@ class BRCMEISTracking(Document):
 			if self.reference_doctype != 'Sales Invoice':
 				frappe.throw('Only Sales Invoice is Allowed for Exports')
 
-			#Allow only Sales Invoices with Sales Taxes marked as export and shipping country outside India.
+			# Allow only Sales Invoices with Sales Taxes marked as export and shipping country outside India.
 			ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
 			stct_doc = frappe.get_doc("Sales Taxes and Charges Template", ref_doc.taxes_and_charges)
 			ship_add_doc = frappe.get_doc("Address", ref_doc.shipping_address_name)
@@ -102,10 +105,16 @@ class BRCMEISTracking(Document):
 				self.submission_date_deadline = add_days(self.reference_date, 21)
 
 			if self.brc_number:
+				if not self.port_code:
+					frappe.throw("Port Code is Mandatory for BRC Number")
+				if not self.shipping_bill_number or self.shipping_bill_number == "":
+					frappe.throw("Shipping Bill is Mandatory for BRC Number")
+				if not self.shipping_bill_date:
+					frappe.throw("Shipping Bill Date is Mandatory for BRC Number")
 				if not self.brc_date:
 					frappe.throw("BRC Date is Mandatory for BRC Number")
 				else:
-					if self.brc_date < add_days(self.shipping_bill_date, 15):
+					if add_days(self.brc_date, 1) < add_days(self.shipping_bill_date, 14):
 						frappe.throw("BRC Date is NOT VALID")
 				if not self.bank_ifsc_code:
 					frappe.throw("Bank IFSC is Mandatory for BRC Number")
@@ -129,7 +138,7 @@ class BRCMEISTracking(Document):
 			frappe.throw("Import Related Tracking Is Not Implemented Yet.")
 			if self.reference_doctype != 'Purchase Invoice':
 				frappe.throw('Only Purchase Invoice is Allowed for Imports')
-			#If IMPORT RELATED TRACKING
+			# If IMPORT RELATED TRACKING
 			isimport = frappe.db.get_value("Purchase Taxes and Charges Template", ref_doc.taxes_and_charges, "is_import")
 			if isimport != 1:
 				frappe.throw("Only Purchase Invoices Marked as Import are allowed here")

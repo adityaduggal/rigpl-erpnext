@@ -2,9 +2,7 @@
 from __future__ import unicode_literals
 from __future__ import division
 import frappe
-from frappe import msgprint
-from frappe.utils import getdate, cint, add_months, date_diff, add_days, nowdate, \
-    get_datetime_str, cstr, get_datetime, time_diff, time_diff_in_seconds
+from frappe.utils import getdate, add_days, get_datetime, time_diff_in_seconds
 from datetime import datetime, timedelta
 
 
@@ -14,12 +12,10 @@ def on_update(doc, method):
 
 def validate(doc, method):
     global attendance_date
-    att_tt = []
-    att_time = []
     attendance_date = getdate(doc.attendance_date)
     if doc.status != "Present" and doc.status != "Half Day" and doc.status != "On Leave":
-        frappe.throw(("Only Present or Half Day or On Leave Attendance is Allowed Check {0}").format(doc.name))
-    doc.deparment = frappe.get_value("Employee", doc.employee, "department")
+        frappe.throw("Only Present or Half Day or On Leave Attendance is Allowed Check {0}".format(doc.name))
+    doc.department = frappe.get_value("Employee", doc.employee, "department")
     check_employee(doc, method)
     shft = get_shift(doc, method)
     if doc.status != "On Leave" and shft.in_out_required:
@@ -32,11 +28,11 @@ def check_employee(doc, method):
     emp = frappe.get_doc("Employee", doc.employee)
     if emp.status == "Left":
         if emp.relieving_date < attendance_date:
-            frappe.throw(("Cannot create attendance for {0} as he/she has left on {1}"). \
+            frappe.throw("Cannot create attendance for {0} as he/she has left on {1}".
                          format(emp.employee_name, emp.relieving_date))
     else:
         if emp.date_of_joining > attendance_date:
-            frappe.throw(("Cannot create attendance for {0} as he/she has joined on {1}"). \
+            frappe.throw("Cannot create attendance for {0} as he/she has joined on {1}".
                          format(emp.employee_name, emp.date_of_joining))
 
 
@@ -63,14 +59,12 @@ def get_shift(doc, method):
                     % (attendance_date, doc.employee)
             sa_list = frappe.db.sql(query, as_list=1)
             if len(sa_list) < 1:
-                frappe.throw(("No Shift Assignment defined for {0} for \
-					date {1} which is a Holiday and its Previous Day"). \
+                frappe.throw("No Shift Assignment defined for {0} for date {1} which is a Holiday and its Previous Day".
                              format(doc.employee, doc.attendance_date))
             else:
                 doc.shift = sa_list[0][1]
         else:
-            frappe.throw(("No Shift Assignment defined for {0} for \
-				date {1}").format(doc.employee, doc.attendance_date))
+            frappe.throw("No Shift Assignment defined for {0} for date {1}".format(doc.employee, doc.attendance_date))
     else:
         doc.shift = sa_list[0][1]
 
@@ -113,12 +107,11 @@ def validate_time_with_shift(doc, method):
             for d in doc.attendance_time:
                 if d.idx == 1:
                     d.date_time = get_datetime(d.date_time)
-                    if d.date_time >= shft_intime_min and d.date_time <= shft_intime_max:
+                    if shft_intime_min <= d.date_time <= shft_intime_max:
                         pass
                     else:
-                        frappe.throw(("Time {0} in row#1 is not allowed for Shift# {1} for {2}.\
-							Check early and delayed entry settings in Shift Master"). \
-                                     format(d.date_time, doc.shift, doc.name))
+                        frappe.throw("Time {0} in row#1 is not allowed for Shift# {1} for {2}.Check early and "
+                                     "delayed entry settings in Shift Master".format(d.date_time, doc.shift, doc.name))
 
             return shft_intime, shft_lunchout, shft_lunchin, shft_hrs, shft_rounding, shft_marg
         else:
@@ -149,8 +142,7 @@ def calculate_overtime(doc, method):
         else:
             tt_out += time_diff_in_seconds(pu_data[i + 1][2], pu_data[i][2])
 
-    doc.overtime = ((tt_in - shft_hrs + shft_marg) - \
-                    ((tt_in + shft_marg - shft_hrs) % shft_rounding)) / 3600
+    doc.overtime = ((tt_in - shft_hrs + shft_marg) - ((tt_in + shft_marg - shft_hrs) % shft_rounding)) / 3600
 
 
 def check_punch_data(doc, method):
@@ -160,18 +152,17 @@ def check_punch_data(doc, method):
 
     for d in doc.attendance_time:
         if d.idx == 1 and d.time_type != 'In Time':
-            frappe.throw(("First Punch Data should be In Time for {0}").format(doc.name))
+            frappe.throw("First Punch Data should be In Time for {0}".format(doc.name))
         pu_data.append([d.idx, d.time_type, d.date_time])
 
     for i in range(len(pu_data) - 1):
         # Checks if In and Out are alternating
         if pu_data[i][1] == pu_data[i + 1][1]:
-            frappe.throw(("{1} should not be Followed by {1} for {2} check row # {3} & {4}"). \
+            frappe.throw("{1} should not be Followed by {1} for {2} check row # {3} & {4}".
                          format(pu_data[i][1], pu_data[i][1], doc.name, pu_data[i][0], pu_data[i + 1][0]))
         # Checks if Time Data is following the minimum time difference rule in shift
         if time_diff_in_seconds(pu_data[i + 1][2], pu_data[i][2]) <= shft_marg:
-            frappe.throw(("Difference between 2 punch data cannot be less than \
-				{0} mins check row# {1} and {2} for {3}"). \
+            frappe.throw("Difference between 2 punch data cannot be less than {0} mins check row# {1} and {2} for {3}".
                          format(shft_marg / 60, pu_data[i][0], pu_data[i + 1][0], doc.name))
 
     return pu_data
