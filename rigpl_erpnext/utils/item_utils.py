@@ -72,6 +72,11 @@ def web_catalog(it_doc):
 			it_doc.weightage = rol[0][0]
 
 
+def validate_attribute_numeric(it_doc):
+	for d in it_doc.attributes:
+		d.numeric_values = frappe.get_value("Item Attribute", d.attribute, "numeric_values")
+
+
 def validate_restriction(it_doc):
 	if it_doc.has_variants == 1:
 		# Check if the Restrictions Numeric check field is correctly selected

@@ -17,6 +17,7 @@ def validate(doc, method):
 			check_and_copy_attributes_to_variant(template, doc, insert_type="frontend")
 
 	validate_variants(doc)
+	validate_attribute_numeric(doc)
 	validate_reoder(doc)
 	web_catalog(doc)
 	doc.page_name = doc.item_name

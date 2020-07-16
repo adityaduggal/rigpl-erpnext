@@ -133,7 +133,7 @@
    "modified_by": "Administrator", 
    "name": "Purchase Order Item-gst_hsn_code", 
    "no_copy": 0, 
-   "options": "item_code.gst_hsn_code", 
+   "options": null,
    "owner": "Administrator", 
    "parent": null, 
    "parentfield": null, 
