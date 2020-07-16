@@ -11,11 +11,14 @@ def validate(doc, method):
     if doc.shipping_address_name:
         validate_address_google_update(doc.shipping_address_name)
     if doc.quotation_to == 'Customer':
-        check_dynamic_link(parenttype="Address", parent=doc.customer_address,
+        if doc.customer_address:
+            check_dynamic_link(parenttype="Address", parent=doc.customer_address,
                            link_doctype="Customer", link_name=doc.party_name)
-        check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name,
+        if doc.shipping_address_name:
+            check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name,
                            link_doctype="Customer", link_name=doc.party_name)
-        check_dynamic_link(parenttype="Contact", parent=doc.contact_person,
+        if doc.contact_person:
+            check_dynamic_link(parenttype="Contact", parent=doc.contact_person,
                            link_doctype="Customer", link_name=doc.party_name)
     else:
         if doc.customer_address:
