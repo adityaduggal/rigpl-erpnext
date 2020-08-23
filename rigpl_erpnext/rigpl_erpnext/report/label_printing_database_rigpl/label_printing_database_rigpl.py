@@ -5,6 +5,9 @@ from __future__ import unicode_literals
 import frappe
 
 
+# Most Important Note that Label Desc Field should always be COLUMN # 20 do not move this column or change the XLSX
+# Used in Laser Marking to reference Label Desc field dynamically till them don't move the column
+
 def execute(filters=None):
     columns = get_columns()
     data = get_data()
@@ -13,13 +16,10 @@ def execute(filters=None):
 
 def get_columns():
     return [
-        "Item:Link/Item:130",
-        "BM::80", "Brand::50", "Quality::50",
-        "TT::150", "SPL::50", "Series::50",
-        "Qual-Spl::80",
+        "Item:Link/Item:130", "BM::80", "Brand::50", "Quality::50", "TT::150", "SPL::50", "Series::50", "Qual-Spl::80",
         "d1::40", "d1_sfx::30", "w1::40", "w1_sfx::30", "l1::40", "l1_sfx::30", "d2::40", "d2_sfx::30",
-        "l2::40", "l2_sfx::30", "r1::40", "r1_sfx::30", "l3::40", "l3_sfx::30", "Zn::30", "Label Desc::150",
-        "Description::400 "]
+        "l2::40", "l2_sfx::30",  "Zn::30", "Label Desc::150", "Description::400 ", "r1::40", "r1_sfx::30", "l3::40",
+        "l3_sfx::30"]
 
 
 def get_data():
@@ -40,11 +40,11 @@ def get_data():
     IFNULL(l2_inch.attribute_value, l2_mm.attribute_value) AS l2, IF(l2_inch.attribute_value IS 
     NULL, IF(l2_mm.attribute_value IS NULL, "", ""), "''") AS l2_sfx, 
     IF(zn.attribute_value IS NOT NULL, CONCAT("Z", zn.attribute_value), NULL) AS zn,
+    '' AS lbl_desc, it.description AS description,
     IFNULL(r1_inch.attribute_value, r1_mm.attribute_value) AS r1, 
     IF(r1_inch.attribute_value IS NULL, IF (r1_mm.attribute_value IS NULL, "", ""), "''") AS r1_sfx,
     IFNULL(l3_inch.attribute_value, l3_mm.attribute_value) AS l3, 
-    IF(l3_inch.attribute_value IS NULL, IF(l3_mm.attribute_value IS NULL, "", ""), "''") AS l3_sfx ,
-    '' AS lbl_desc, it.description AS description
+    IF(l3_inch.attribute_value IS NULL, IF(l3_mm.attribute_value IS NULL, "", ""), "''") AS l3_sfx
     FROM `tabItem` it 
     LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent AND bm.attribute = 'Base Material' 
     LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent AND brand.attribute = 'Brand' 
@@ -100,7 +100,7 @@ def get_data():
 
     for d in data_dict:
         row = [d.item_code, d.base_mat, d.brand, d.qual, d.tt, d.spl, d.series, d.qualspl, d.d1, d.d1_sfx, d.w1,
-               d.w1_sfx, d.l1, d.l1_sfx, d.d2, d.d2_sfx, d.l2, d.l2_sfx, d.zn, d.r1, d.r1_sfx, d.l3, d.l3_sfx,
-               d.lbl_desc, d.description]
+               d.w1_sfx, d.l1, d.l1_sfx, d.d2, d.d2_sfx, d.l2, d.l2_sfx, d.zn, d.lbl_desc, d.description, d.r1,
+               d.r1_sfx, d.l3, d.l3_sfx]
         data.append(row)
     return data
