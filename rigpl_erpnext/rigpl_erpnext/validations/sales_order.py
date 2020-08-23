@@ -55,7 +55,8 @@ def update_fields(doc):
     doc.append('sales_team', steam_dict)
     doc.shipping_address_title = frappe.get_value("Address",
                                                   doc.shipping_address_name, "address_title")
-    doc.transaction_date = nowdate()
+    if doc.transaction_date < nowdate():
+        doc.transaction_date = nowdate()
     if doc.delivery_date < nowdate():
         doc.delivery_date = nowdate()
     for d in doc.items:
