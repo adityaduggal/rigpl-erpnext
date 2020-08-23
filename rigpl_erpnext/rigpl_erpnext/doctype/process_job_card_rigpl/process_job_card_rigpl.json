@@ -1,0 +1,394 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2020-07-30 22:32:47.987117",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "posting_date",
+  "posting_time",
+  "process_sheet",
+  "s_warehouse",
+  "qty_available",
+  "allow_consumption_of_rm",
+  "manual_posting_date_and_time",
+  "no_stock_entry",
+  "cb0",
+  "priority",
+  "operation",
+  "workstation",
+  "t_warehouse",
+  "allow_production_of_wip_materials",
+  "sb0",
+  "remarks",
+  "sb1",
+  "production_item",
+  "description",
+  "short_close_operation",
+  "cb1",
+  "employee",
+  "employee_name",
+  "status",
+  "sb2",
+  "time_logs",
+  "sb3",
+  "rm_consumed",
+  "sb4",
+  "item_manufactured",
+  "sb5",
+  "sb6",
+  "for_quantity",
+  "total_completed_qty",
+  "total_time_in_mins",
+  "cb2",
+  "total_rejected_qty",
+  "operation_id",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "process_sheet",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Process Sheet",
+   "options": "Process Sheet",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "read_only_depends_on": "eval:doc.manual_posting_date_and_time===0",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_consumption_of_rm",
+   "fieldtype": "Check",
+   "label": "Allow Consumption of RM",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_production_of_wip_materials",
+   "fieldtype": "Check",
+   "label": "Allow Production of WIP Materials",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:doc.remarks",
+   "fieldname": "sb0",
+   "fieldtype": "Section Break",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "rm_consumed",
+   "fieldtype": "Table",
+   "label": "RM Consumed",
+   "options": "Process Sheet Items"
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": "Production Details"
+  },
+  {
+   "fieldname": "item_manufactured",
+   "fieldtype": "Table",
+   "label": "Extra Items Manufactured",
+   "options": "Process Sheet Items"
+  },
+  {
+   "fieldname": "sb2",
+   "fieldtype": "Section Break",
+   "label": "Timing Details"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Process Job Card RIGPL",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "JCR-"
+  },
+  {
+   "fieldname": "workstation",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Workstation",
+   "options": "Workstation",
+   "reqd": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Process Job Card RIGPL",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fetch_from": "process_sheet.production_item",
+   "fieldname": "production_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Production Item",
+   "options": "Item",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:doc.allow_consumption_of_rm",
+   "depends_on": "eval:doc.allow_consumption_of_rm",
+   "fieldname": "sb3",
+   "fieldtype": "Section Break",
+   "label": "RM Consumed"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nWork In Progress\nMaterial Transferred\nOn Hold\nSubmitted\nCancelled\nCompleted",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:doc.allow_production_of_wip_materials",
+   "depends_on": "eval:doc.allow_production_of_wip_materials",
+   "fieldname": "sb4",
+   "fieldtype": "Section Break",
+   "label": "WIP Items Produced"
+  },
+  {
+   "fieldname": "time_logs",
+   "fieldtype": "Table",
+   "label": "Time Logs",
+   "options": "Job Card Time Log"
+  },
+  {
+   "fieldname": "sb5",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Consumeables Used"
+  },
+  {
+   "fieldname": "total_completed_qty",
+   "fieldtype": "Float",
+   "label": "Total Completed Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_time_in_mins",
+   "fieldtype": "Float",
+   "label": "Total Time in Mins",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "production_item.description",
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "in_list_view": 1,
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "for_quantity",
+   "fieldtype": "Float",
+   "label": "For Quantity",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "operation_id",
+   "fieldtype": "Data",
+   "label": "Operation ID",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Operation",
+   "options": "Operation",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.allow_consumption_of_rm != 1",
+   "fetch_from": "operation_id.source_warehouse",
+   "fieldname": "s_warehouse",
+   "fieldtype": "Link",
+   "label": "Source Warehouse",
+   "mandatory_depends_on": "eval:doc.allow_consumption_of_rm != 1",
+   "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "fieldname": "t_warehouse",
+   "fieldtype": "Link",
+   "label": "Target Warehouse",
+   "options": "Warehouse",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "posting_time",
+   "fieldtype": "Time",
+   "label": "Posting Time",
+   "read_only_depends_on": "eval:doc.manual_posting_date_and_time===0",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "short_close_operation",
+   "fieldtype": "Check",
+   "label": "Short Close Operation"
+  },
+  {
+   "default": "0",
+   "fieldname": "manual_posting_date_and_time",
+   "fieldtype": "Check",
+   "label": "Manual Posting Date and Time",
+   "permlevel": 1
+  },
+  {
+   "depends_on": "eval:doc.s_warehouse",
+   "fieldname": "qty_available",
+   "fieldtype": "Float",
+   "label": "Qty Available",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_rejected_qty",
+   "fieldtype": "Float",
+   "label": "Total Rejected Qty",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.docstatus == 0",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Priority"
+  },
+  {
+   "default": "0",
+   "fieldname": "no_stock_entry",
+   "fieldtype": "Check",
+   "label": "No Stock Entry",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "sb6",
+   "fieldtype": "Section Break",
+   "label": "Quantity Details"
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2020-08-14 12:44:31.946886",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Process Job Card RIGPL",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "set_user_permissions": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Inventory User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
