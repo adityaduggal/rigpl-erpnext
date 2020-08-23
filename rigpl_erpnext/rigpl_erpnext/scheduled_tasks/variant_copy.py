@@ -38,14 +38,13 @@ def check_items_as_per_sorting_for_website():
 		sno = 0
 		for it in item_dict:
 			sno += 1
-			if temp[0] == 'C3HS-Steel-High Performance Solid Carbide Drills-Short-Metric':
-				print(str(sno) + ". Checking Item = " + it.name)
-				it_doc = frappe.get_doc("Item", it.name)
-				temp_doc = frappe.get_doc("Item", temp[0])
-				validate_variants(it_doc, comm_type="backend")
-				check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
-				if sno % 100 == 0:
-					frappe.db.commit()
+			print(str(sno) + ". Checking Item = " + it.name)
+			it_doc = frappe.get_doc("Item", it.name)
+			temp_doc = frappe.get_doc("Item", temp[0])
+			validate_variants(it_doc, comm_type="backend")
+			check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
+			if sno % 100 == 0:
+				frappe.db.commit()
 
 
 def get_temp_attributes(temp_name):
@@ -79,8 +78,7 @@ def get_sorted_items_for_template(temp_name, att_dict):
 
 def copy_from_template():
 	limit_set = int(frappe.db.get_single_value("Stock Settings", "automatic_sync_field_limit"))
-	is_sync_allowed = frappe.db.get_single_value("Stock Settings",
-												 "automatically_sync_templates_data_to_items")
+	is_sync_allowed = frappe.db.get_single_value("Stock Settings", "automatically_sync_templates_data_to_items")
 	if is_sync_allowed == 1:
 		templates = frappe.db.sql("""SELECT it.name, (SELECT count(name) 
 		FROM `tabItem` WHERE variant_of = it.name) as variants FROM `tabItem` it WHERE it.has_variants = 1 
