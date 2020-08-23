@@ -1,0 +1,137 @@
+{
+ "actions": [],
+ "allow_events_in_timeline": 1,
+ "allow_import": 1,
+ "autoname": "BT.#######",
+ "creation": "2020-07-08 17:23:53.767487",
+ "doctype": "DocType",
+ "document_type": "Document",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "remarks",
+  "with_operations",
+  "cb0",
+  "formula",
+  "no_of_rm_items",
+  "sb0",
+  "fg_restrictions",
+  "sb1",
+  "routing",
+  "operations",
+  "rm_restrictions",
+  "wip_restrictions"
+ ],
+ "fields": [
+  {
+   "depends_on": "eval:doc.with_operations === 1",
+   "fieldname": "routing",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Routing",
+   "options": "Routing"
+  },
+  {
+   "depends_on": "eval:doc.with_operations === 1",
+   "fieldname": "operations",
+   "fieldtype": "Table",
+   "label": "Operations",
+   "options": "BOM Operation"
+  },
+  {
+   "fieldname": "formula",
+   "fieldtype": "Text",
+   "label": "Formula for Total Qty"
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sb0",
+   "fieldtype": "Section Break",
+   "label": "Finished Item Selection Criterion"
+  },
+  {
+   "default": "0",
+   "fieldname": "with_operations",
+   "fieldtype": "Check",
+   "label": "With Operations"
+  },
+  {
+   "fieldname": "no_of_rm_items",
+   "fieldtype": "Int",
+   "label": "No of RM Items",
+   "reqd": 1
+  },
+  {
+   "description": "Formula for variants can contain Finished Items, WIP and Raw Material attributes. For example d1_mm should be written as fg_d1_mm (prepend with fg_) for Finished Items and for Raw Material Items prepend the attribute with rm_ like rm_d1_mm and for WIP Item attributes prepend the attribute with wip_ like wip_d1_mm\n\nWhere d1_mm is the attribute name",
+   "fieldname": "wip_restrictions",
+   "fieldtype": "Table",
+   "label": "Work In Progress Restrictions",
+   "options": "Item Variant Restrictions"
+  },
+  {
+   "description": "Formula for variants should only contain Finished Items and Raw Material attributes. For example d1_mm should be written as fg_d1_mm (prepend with fg_) for Finished Items and for Raw Material Items prepend the attribute with rm_ like rm_d1_mm\n\nWhere d1_mm is the attribute name",
+   "fieldname": "rm_restrictions",
+   "fieldtype": "Table",
+   "label": "Raw Material Restriction",
+   "options": "Item Variant Restrictions"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Title",
+   "length": 255,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": "Operations, Raw Material and Consumeables"
+  },
+  {
+   "description": "Formula for variants should only contain Finished Items attributes. For example d1_mm should be written as fg_d1_mm (prepend with fg_)\n\nWhere d1_mm is the attribute name",
+   "fieldname": "fg_restrictions",
+   "fieldtype": "Table",
+   "label": "Finished Item Restrictions",
+   "options": "Item Variant Restrictions",
+   "reqd": 1
+  }
+ ],
+ "links": [],
+ "modified": "2020-08-09 15:45:44.561524",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "BOM Template RIGPL",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "restrict_to_domain": "Manufacturing",
+ "search_fields": "title, remarks",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "title",
+ "track_changes": 1
+}
