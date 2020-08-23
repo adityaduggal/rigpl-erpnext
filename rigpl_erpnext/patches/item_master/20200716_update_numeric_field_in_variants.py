@@ -9,7 +9,7 @@ import time
 
 def execute():
     variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of IS NOT NULL AND docstatus=0""", as_list=1)
-    sno=0
+    sno = 0
     for d in variants:
         print("Checking Item Code = " + d[0])
         it_doc = frappe.get_doc("Item", d[0])
