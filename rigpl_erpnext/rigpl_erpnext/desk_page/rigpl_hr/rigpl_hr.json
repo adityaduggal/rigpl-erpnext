@@ -1,0 +1,30 @@
+{
+ "cards": [
+  {
+   "hidden": 0,
+   "label": "RIGPL Docs and Reports",
+   "links": "[\n    {\n        \"description\": \"Employee Advance or Loan.\",\n        \"label\": \"Employee Loan or Advance\",\n        \"name\": \"Employee Advance\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    }\n]"
+  }
+ ],
+ "category": "Modules",
+ "charts": [],
+ "creation": "2020-08-21 14:01:17.689827",
+ "developer_mode_only": 0,
+ "disable_user_customization": 0,
+ "docstatus": 0,
+ "doctype": "Desk Page",
+ "extends": "HR",
+ "extends_another_page": 1,
+ "hide_custom": 0,
+ "idx": 0,
+ "is_standard": 1,
+ "label": "RIGPL HR",
+ "modified": "2020-08-21 14:01:41.100930",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "RIGPL HR",
+ "owner": "Administrator",
+ "pin_to_bottom": 0,
+ "pin_to_top": 0,
+ "shortcuts": []
+}

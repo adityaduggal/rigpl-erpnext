@@ -1,0 +1,30 @@
+{
+ "cards": [
+  {
+   "hidden": 0,
+   "label": "RIGPL Docs and Reports",
+   "links": "[\n    {\n        \"description\": \"Track BRC and MEIS Status.\",\n        \"label\": \"BRC MEIS Tracking\",\n        \"name\": \"BRC MEIS Tracking\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Track Shipments sent via Courier.\",\n        \"label\": \"Carrier Tracking\",\n        \"name\": \"Carrier Tracking\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Shipment Package Details used for Shipping.\",\n        \"label\": \"Shipment Packages\",\n        \"name\": \"Shipment Package\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"List of Transporters.\",\n        \"label\": \"Transporters\",\n        \"name\": \"Transporters\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Turn Over Discount Letters Received from Customers.\",\n        \"label\": \"TOD Letters\",\n        \"name\": \"Turn Over Discount\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n    \t\"dependencies\": [\n    \t\t\"Asset\"\n    \t],\n        \"description\": \"Asset Analysis.\",\n        \"label\": \"Asset Analysis\",\n        \"doctype\": \"Asset\",\n        \"name\": \"Asset Analysis\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n    \t\"dependencies\": [\n    \t\t\"Asset\"\n    \t],\n        \"description\": \"BRC Tracking Report\",\n        \"label\": \"BRC Tracking\",\n        \"doctype\": \"BRC MEIS Tracking\",\n        \"name\": \"BRC Tracking\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n        \"description\": \"Delivery Notes to be Billed\",\n        \"label\": \"DN To Be Billed\",\n        \"doctype\": \"Sales Invoice\",\n        \"name\": \"DN To Be Billed\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n    \t\"dependencies\": [\n    \t\t\"Purchase Receipt\"\n    \t],\n        \"description\": \"Purchase Receipts to be Billed\",\n        \"label\": \"PR to be Billed\",\n        \"doctype\": \"Purchase Receipt\",\n        \"name\": \"PR to be Billed\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n    \t\"dependencies\": [\n    \t\t\"Sales Partner\"\n    \t],\n        \"description\": \"Sales Partner Commission Details\",\n        \"label\": \"Sales Partner Commission Details\",\n        \"doctype\": \"Sales Invoice\",\n        \"name\": \"Sales Partner Commission Details\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n    \t\"dependencies\": [\n    \t\t\"Sales Invoice\"\n    \t],\n        \"description\": \"Turn Over Discount from Sales Invoices\",\n        \"label\": \"TOD Sales Invoice\",\n        \"doctype\": \"Sales Invoice\",\n        \"name\": \"TOD Sales Invoice\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n    \t\"dependencies\": [\n    \t\t\"Carrier Tracking\"\n    \t],\n        \"description\": \"Courier Tracking and Analysis\",\n        \"label\": \"Courier Tracking\",\n        \"doctype\": \"Carrier Tracking\",\n        \"name\": \"Courier Tracking RIGPL\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n        \"description\": \"Forex Transactions\",\n        \"label\": \"Forex Transactions\",\n        \"doctype\": \"GL Entry\",\n        \"name\": \"Forex Transactions\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n        \"description\": \"Sales Person Analysis\",\n        \"label\": \"Sales Person Analysis\",\n        \"doctype\": \"Integration Request\",\n        \"name\": \"Sales Person Analysis\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n        \"description\": \"Sales Invoice Import to RIGB or RU\",\n        \"label\": \"SI Import to RIGB or RU\",\n        \"doctype\": \"Sales Invoice\",\n        \"name\": \"SI Import to RIGB RU\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n        \"description\": \"Stock Valuation for Getting Profitability\",\n        \"label\": \"Stock Valuation\",\n        \"doctype\": \"Item Attribute\",\n        \"name\": \"Stock Valuation\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n        \"description\": \"Sales Invoice Details with Some Item Attributes\",\n        \"label\": \"Sales Invoice with Item Attributes\",\n        \"doctype\": \"Integration Request\",\n        \"name\": \"VA Sales Invoice\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    },\n    {\n        \"description\": \"Valuation Rate for Items\",\n        \"label\": \"Valuation Rate for Items\",\n        \"doctype\": \"Purchase Invoice\",\n        \"name\": \"Valuation Rate\",\n        \"onboard\": 0,\n        \"type\": \"report\",\n        \"is_query_report\": true\n    }\n]"
+  }
+ ],
+ "category": "Modules",
+ "charts": [],
+ "creation": "2020-08-20 16:43:38.166643",
+ "developer_mode_only": 0,
+ "disable_user_customization": 0,
+ "docstatus": 0,
+ "doctype": "Desk Page",
+ "extends": "Accounting",
+ "extends_another_page": 1,
+ "hide_custom": 0,
+ "idx": 0,
+ "is_standard": 1,
+ "label": "RIGPL Accounts",
+ "modified": "2020-08-21 15:05:59.055469",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "RIGPL Accounts",
+ "owner": "Administrator",
+ "pin_to_bottom": 0,
+ "pin_to_top": 0,
+ "shortcuts": []
+}

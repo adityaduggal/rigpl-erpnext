@@ -1,0 +1,30 @@
+{
+ "cards": [
+  {
+   "hidden": 0,
+   "label": "RIGPL Settings",
+   "links": "[\n    {\n        \"description\": \"Indiamart Pull Leads.\",\n        \"label\": \"Indiamart\",\n        \"name\": \"Indiamart Pull Leads\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"RIGPL Settings.\",\n        \"label\": \"RIGPL Settings\",\n        \"name\": \"RIGPL Settings\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Shipway Settings.\",\n        \"label\": \"Shipway Settings\",\n        \"name\": \"Shipway Settings\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Automated User Permission Settings.\",\n        \"label\": \"User Permission Automation\",\n        \"name\": \"User Permission Settings\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Automate User Share Settings.\",\n        \"label\": \"User Share Automation\",\n        \"name\": \"User Share Settings\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    }\n]"
+  }
+ ],
+ "category": "Modules",
+ "charts": [],
+ "creation": "2020-08-21 15:10:14.383558",
+ "developer_mode_only": 0,
+ "disable_user_customization": 0,
+ "docstatus": 0,
+ "doctype": "Desk Page",
+ "extends": "Settings",
+ "extends_another_page": 1,
+ "hide_custom": 0,
+ "idx": 0,
+ "is_standard": 1,
+ "label": "RIGPL Settings",
+ "modified": "2020-08-21 15:41:03.325009",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "RIGPL Settings",
+ "owner": "Administrator",
+ "pin_to_bottom": 0,
+ "pin_to_top": 0,
+ "shortcuts": []
+}

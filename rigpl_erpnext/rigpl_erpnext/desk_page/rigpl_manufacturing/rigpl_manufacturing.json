@@ -1,0 +1,31 @@
+{
+ "cards": [
+  {
+   "hidden": 0,
+   "label": "RIGPL Docs and Reports",
+   "links": "[\n    {\n        \"description\": \"BOM Template.\",\n        \"label\": \"BOM Template\",\n        \"name\": \"BOM Template RIGPL\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Important Documents Like Drawings and Standards\",\n        \"label\": \"Documents Like Drawings and Standards\",\n        \"name\": \"Important Documents\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Process Sheet for Manufacturing Like Old Work Orders\",\n        \"label\": \"Process Sheet for Production\",\n        \"name\": \"Process Sheet\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Process Job Card for Manufacturing\",\n        \"label\": \"Job Card\",\n        \"name\": \"Process Job Card RIGPL\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    }\n]"
+  }
+ ],
+ "category": "Domains",
+ "charts": [],
+ "creation": "2020-08-21 14:08:35.097430",
+ "developer_mode_only": 0,
+ "disable_user_customization": 0,
+ "docstatus": 0,
+ "doctype": "Desk Page",
+ "extends": "Manufacturing",
+ "extends_another_page": 1,
+ "hide_custom": 0,
+ "idx": 0,
+ "is_standard": 1,
+ "label": "RIGPL Manufacturing",
+ "modified": "2020-08-21 14:35:25.555372",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "RIGPL Manufacturing",
+ "owner": "Administrator",
+ "pin_to_bottom": 0,
+ "pin_to_top": 0,
+ "restrict_to_domain": "Manufacturing",
+ "shortcuts": []
+}
