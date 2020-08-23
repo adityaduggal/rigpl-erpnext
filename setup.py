@@ -7,7 +7,7 @@ setup(
     name='rigpl_erpnext',
     version=version,
     description='Rohit ERPNext Extensions',
-    author='Rohit Industries Ltd.',
+    author='Rohit Industries Group Pvt. Ltd.',
     author_email='aditya@rigpl.com',
     packages=find_packages(),
     zip_safe=False,
