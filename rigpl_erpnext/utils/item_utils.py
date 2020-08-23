@@ -426,3 +426,12 @@ def validate_sales_fields(it_doc):
 		frappe.throw("Pack Size should be Greater Than ZERO")
 	if it_doc.selling_mov == 0:
 		frappe.throw("Selling Minimum Order Value should be Greater than ZERO")
+
+
+def get_desc(attribute, attribute_value):
+	desc = frappe.db.sql("""SELECT description FROM `tabItem Attribute Value` WHERE parent = '%s' AND parenttype = 
+	'Item Attribute' AND attribute_value = '%s' 
+	AND parentfield = 'item_attribute_values'""" % (attribute, attribute_value), as_dict=1)
+	if desc:
+		desc = desc[0].description[1:-1]
+	return desc

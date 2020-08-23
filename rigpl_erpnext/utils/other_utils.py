@@ -84,3 +84,11 @@ def calcsum(number):
     for i, item in enumerate(reversed(str(number))):
         c = verhoeff_table_d[c][verhoeff_table_p[(i + 1) % 8][int(item)]]
     return verhoeff_table_inv[c]
+
+
+def round_down(num, divisor):
+    return num - (num%divisor)
+
+
+def round_up(num, divisor):
+    return num - (num % divisor) + divisor
