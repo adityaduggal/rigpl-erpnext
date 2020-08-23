@@ -1,0 +1,242 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2020-07-10 13:18:14.411420",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "status",
+  "naming_series",
+  "date",
+  "production_item",
+  "description",
+  "cb0",
+  "fg_warehouse",
+  "bom_template",
+  "quantity",
+  "update_qty_manually",
+  "produced_qty",
+  "sb0",
+  "routing",
+  "operations",
+  "sb1",
+  "manually_select_rm",
+  "rm_consumed",
+  "consumeables_issued",
+  "allow_zero_rol_for_wip",
+  "item_manufactured",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "production_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Production Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consumeables_issued",
+   "fieldtype": "Table",
+   "label": "Consumeables Issued",
+   "options": "Process Sheet Items",
+   "read_only": 1
+  },
+  {
+   "description": "To Automatically get WIP Items Clear the WIP Table and Save the Process Sheet",
+   "fieldname": "item_manufactured",
+   "fieldtype": "Table",
+   "label": "Item Manufactured",
+   "options": "Process Sheet Items"
+  },
+  {
+   "description": "To Automatically get RM Items Clear the RM Table and Save the Process Sheet",
+   "fieldname": "rm_consumed",
+   "fieldtype": "Table",
+   "label": "Raw Material Consumed",
+   "options": "Process Sheet Items",
+   "read_only_depends_on": "eval:doc.manually_select_rm === 0"
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval: doc.operations",
+   "depends_on": "eval:doc.bom_template",
+   "fieldname": "sb0",
+   "fieldtype": "Section Break",
+   "label": "Operations"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Process Sheet",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "update_qty_manually",
+   "fieldtype": "Check",
+   "label": "Update Qty Manually"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "\nPROIT"
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval: doc.rm_consumed",
+   "depends_on": "eval:doc.bom_template",
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": "RM, Consumeables and WIP"
+  },
+  {
+   "fieldname": "operations",
+   "fieldtype": "Table",
+   "label": "Operations",
+   "options": "BOM Operation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "routing",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Routing",
+   "options": "Routing"
+  },
+  {
+   "fetch_from": "production_item.description",
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fg_warehouse",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Finished Warehouse",
+   "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "\nCancelled\nCompleted\nDraft\nIn Progress\nStopped\nSubmitted",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "produced_qty",
+   "fieldtype": "Float",
+   "label": "Produced Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bom_template",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "BOM Template",
+   "options": "BOM Template RIGPL",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_zero_rol_for_wip",
+   "fieldtype": "Check",
+   "label": "Allow Zero ROL for WIP"
+  },
+  {
+   "default": "0",
+   "fieldname": "manually_select_rm",
+   "fieldtype": "Check",
+   "label": "Manually Select RM"
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2020-08-14 12:24:30.697432",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Process Sheet",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "permlevel": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Inventory User",
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "production_item, description, routing",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

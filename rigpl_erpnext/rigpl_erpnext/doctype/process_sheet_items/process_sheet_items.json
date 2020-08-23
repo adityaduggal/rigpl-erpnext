@@ -1,0 +1,115 @@
+{
+ "actions": [],
+ "creation": "2020-07-10 14:02:25.498691",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "source_warehouse",
+  "target_warehouse",
+  "bypass_qty_check",
+  "donot_consider_rm_for_production",
+  "cb0",
+  "description",
+  "calculated_qty",
+  "qty",
+  "qty_available",
+  "uom"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "source_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "columns": 1,
+   "fieldname": "target_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Target Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 3,
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "in_list_view": 1,
+   "label": "Description",
+   "options": "item_code.description",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "calculated_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Calculated Qty",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "columns": 1,
+   "fieldname": "qty_available",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty Available",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "bypass_qty_check",
+   "fieldtype": "Check",
+   "label": "Bypass Qty Check"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "0",
+   "fieldname": "donot_consider_rm_for_production",
+   "fieldtype": "Check",
+   "label": "Donot Consider RM for Production",
+   "read_only_depends_on": "eval:doc.qty > 0"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2020-08-07 13:29:33.217525",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Process Sheet Items",
+ "owner": "Administrator",
+ "permissions": [],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
