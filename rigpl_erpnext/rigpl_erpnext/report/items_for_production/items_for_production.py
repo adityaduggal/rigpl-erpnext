@@ -1,378 +1,250 @@
+# Copyright (c) 2013, Rohit Industries Ltd. and contributors
+# For license information, please see license.txt
+
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt, getdate, nowdate
+from frappe.utils import flt
+
 
 def execute(filters=None):
-	if not filters: filters = {}
+    wh_dict = frappe.db.sql("""SELECT name, listing_serial, short_code, warehouse_type FROM `tabWarehouse`
+        WHERE disabled=0 AND is_group=0 AND listing_serial != 0  and is_subcontracting_warehouse = 0 
+        ORDER BY listing_serial ASC""", as_dict=1)
+    columns = get_columns(wh_dict)
+    data = get_items(filters, wh_dict)
+    return columns, data
 
-	columns = get_columns()
-	data = get_items(filters)
 
-	return columns, data
+def get_columns(wh_dict):
+    columns = [
+        "Item:Link/Item:80",
 
-def get_columns():
-	return [
-		"Item:Link/Item:80", 
-		
-		###Below are attribute fields
-		"RM::30", "Brand::40", "Qual::50", "SPL::50", "TT::60",
-		"D1:Float:40", "W1:Float:40", "L1:Float:50",
-		"D2:Float:40", "L2:Float:40", "Zn:Float:40",
-		###Above are Attribute fields
-		
-		"CUT::120","URG::120",
-		"Total:Float:50",
-		"RO:Float:40", "SO:Float:40", "PO:Float:40",
-		"PL:Float:40","DE:Float:40", "BG:Float:40",
-		"Description::300",
-		"BRM:Float:50",
-		"BRG:Float:50", "BHT:Float:50", "BFG:Float:50", "BTS:Float:50",
-		"DRM:Float:50",
-		"Dead:Float:50", "DRG:Float:50", "DFG:Float:50", "DTS:Float:50",
-		"DRJ:Float:50", "DCN:Float:50", "BCN:Float:50", "JW:Int:30",
-		"Purchase:Int:30", "Sales:Int:30"
-	]
+        # Item Attribute fields
+        "RM::30", "Brand::40", "Qual::50", "SPL::50", "TT::60",
+        "D1:Float:40", "W1:Float:40", "L1:Float:50",
+        "D2:Float:40", "L2:Float:40", "Zn:Float:40",
+        # Item Attribute fields
 
-def get_items(filters):
-	conditions_it = get_conditions(filters)
-	bm = filters["bm"]
-	data = frappe.db.sql("""
-	SELECT 
-		it.name,
-		IFNULL(rm.attribute_value, "-"), IFNULL(brand.attribute_value, "-"),
-		IFNULL(quality.attribute_value, "-"), IFNULL(spl.attribute_value, "-"),
-		IFNULL(tt.attribute_value, "-"), 
-		CAST(d1.attribute_value AS DECIMAL(8,3)), 
-		CAST(w1.attribute_value AS DECIMAL(8,3)), 
-		CAST(l1.attribute_value AS DECIMAL(8,3)), 
-		CAST(d2.attribute_value AS DECIMAL(8,3)), 
-		CAST(l2.attribute_value AS DECIMAL(8,3)),
-		CAST(zn.attribute_value AS UNSIGNED),
-		if(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level),
-		if(sum(bn.reserved_qty)=0,NULL,sum(bn.reserved_qty)),
-		if(sum(bn.ordered_qty)=0,NULL,sum(bn.ordered_qty)),
-		if(sum(bn.planned_qty)=0,NULL,sum(bn.planned_qty)),
+        "CUT::120", "URG::120",
+        "Total:Float:50",
+        "RO:Float:40", "SO:Float:40", "PO:Float:40",
+        "PL:Float:40", "PRD_RES:Float:40"
+    ]
 
-		if(min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)),
+    for wh in wh_dict:
+        if wh.listing_serial < 10:
+            columns += [wh.short_code + ":Float:50"]
+    columns += ["Description::300"]
+    for wh in wh_dict:
+        if wh.listing_serial >= 10:
+            columns += [wh.short_code + ":Float:50"]
 
-		if(min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)),
+    columns += ["JW:Int:30", "Pur:Int:30", "Sale:Int:30"]
 
-		it.description,	
-		
-		if(min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)),
-		
-		if(min(case WHEN bn.warehouse="RG-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="RG-BGH655 - RIGPL" THEN bn.actual_qty end)),
+    return columns
 
-		if(min(case WHEN bn.warehouse="HT-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="HT-BGH655 - RIGPL" THEN bn.actual_qty end)),
 
-		if(min(case WHEN bn.warehouse="FG-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="FG-BGH655 - RIGPL" THEN bn.actual_qty end)),
+def get_items(filters, wh_dict):
+    actual_data = []
+    wh_query = ""
+    for wh in wh_dict:
+        if wh.listing_serial < 10:
+            wh_query += "IF(MIN(CASE WHEN bn.warehouse='%s' THEN bn.actual_qty END)=0,NULL," \
+                        "MIN(CASE WHEN bn.warehouse='%s' THEN bn.actual_qty END)) as '%s', " \
+                        % (wh.name, wh.name, wh.short_code)
+    wh_query += " it.description, "
+    for wh in wh_dict:
+        if wh.listing_serial >= 10:
+            wh_query += "IF(MIN(CASE WHEN bn.warehouse='%s' THEN bn.actual_qty END)=0,NULL," \
+                        "MIN(CASE WHEN bn.warehouse='%s' THEN bn.actual_qty END)) as '%s', " \
+                        % (wh.name, wh.name, wh.short_code)
 
-		if(min(case WHEN bn.warehouse="TEST-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="TEST-BGH655 - RIGPL" THEN bn.actual_qty end)),
+    conditions_it = get_conditions(filters)
+    bm = filters["bm"]
+    query = """SELECT it.name as name, IFNULL(rm.attribute_value, "-") as is_rm, 
+        IFNULL(brand.attribute_value, "-") as brand, 
+        IFNULL(quality.attribute_value, "-") as qual, IFNULL(spl.attribute_value, "-") as spl,
+        IFNULL(tt.attribute_value, "-") as tool_type, CAST(d1.attribute_value AS DECIMAL(8,3)) as d1, 
+        CAST(w1.attribute_value AS DECIMAL(8,3)) as w1, CAST(l1.attribute_value AS DECIMAL(8,3)) as l1, 
+        CAST(d2.attribute_value AS DECIMAL(8,3)) as d2, CAST(l2.attribute_value AS DECIMAL(8,3)) as l2,
+        CAST(zn.attribute_value AS UNSIGNED) as zn, "CUT WIP" as cut_urg, "PRD WIP" as prd_urg, 0 as total, 
+        IF(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level) AS rol, 
+        IF(sum(bn.reserved_qty)=0,NULL,sum(bn.reserved_qty)) AS on_so, 
+        IF(sum(bn.ordered_qty)=0,NULL,sum(bn.ordered_qty)) AS on_po, 
+        IF(sum(bn.planned_qty)=0,NULL,sum(bn.planned_qty)) AS on_prd,
+        IF(sum(bn.reserved_qty_for_production)=0, NULL, sum(bn.reserved_qty_for_production)) AS res_prd, %s
+        it.is_job_work as jw, it.is_purchase_item as pur, it.is_sales_item as sale, it.valuation_rate as vr 
+        FROM `tabItem` it
+        LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
+        LEFT JOIN `tabBin` bn ON it.name = bn.item_code
+        LEFT JOIN `tabWarehouse` wh ON bn.warehouse = wh.name
+        LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent AND rm.attribute = 'Is RM'
+        LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent AND bm.attribute = 'Base Material'
+        LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent AND brand.attribute = 'Brand'
+        LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent AND quality.attribute = '%s Quality'
+        LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent AND tt.attribute = 'Tool Type'
+        LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent AND spl.attribute = 'Special Treatment'
+        LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent AND d1.attribute = 'd1_mm'
+        LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent AND w1.attribute = 'w1_mm'
+        LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent AND l1.attribute = 'l1_mm'
+        LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent AND d2.attribute = 'd2_mm'
+        LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent AND l2.attribute = 'l2_mm'
+        LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent AND zn.attribute = 'Number of Flutes Zn'
+        WHERE bn.item_code != "" AND bn.item_code = it.name AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
+        GROUP BY bn.item_code
+        ORDER BY rm.attribute_value, brand.attribute_value, spl.attribute_value, tt.attribute_value, 
+            CAST(d1.attribute_value AS DECIMAL(8,3)) ASC, CAST(w1.attribute_value AS DECIMAL(8,3)) ASC,
+            CAST(l1.attribute_value AS DECIMAL(8,3)) ASC, CAST(d2.attribute_value AS DECIMAL(8,3)) ASC,
+            CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" % (wh_query, bm, conditions_it)
+    data = frappe.db.sql(query, as_dict=1)
 
-		if(min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)) ,
-			
-		if(min(case WHEN bn.warehouse="Dead Stock - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="Dead Stock - RIGPL" THEN bn.actual_qty end)),
+    subcon = frappe.db.sql("""SELECT bn.item_code, bn.actual_qty FROM `tabBin` bn, `tabWarehouse` wh
+        WHERE wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0 AND wh.name = bn.warehouse""", as_dict=1)
 
-		if(min(case WHEN bn.warehouse="RG-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="RG-DEL20A - RIGPL" THEN bn.actual_qty end)),
+    for i in range(0, len(data)):
+        ROL = flt(data[i].rol)
+        SO = flt(data[i].on_so)
+        PO = flt(data[i].on_po)
+        PLAN = flt(data[i].on_prd)
+        PRD_RES = flt(data[i].res_prd)
+        VR = flt(data[i].vr)
+        stock = 0
+        prd_qty = 0
+        dead = 0
+        urg = ""
+        prd = ""
 
-		if(min(case WHEN bn.warehouse="FG-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="FG-DEL20A - RIGPL" THEN bn.actual_qty end)) ,
+        for d in subcon:
+            if d.item_code == data[i].name:
+                PO += d.actual_qty
 
-		if(min(case WHEN bn.warehouse="TEST-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="TEST-DEL20A - RIGPL" THEN bn.actual_qty end)),
+        if data[i].is_rm == 1:
+            for wh in wh_dict:
+                if wh.warehouse_type == "Raw Material":
+                    stock += flt(data[i].get(wh.short_code))
+                elif wh.warehouse_type == "Finished Stock":
+                    stock += flt(data[i].get(wh.short_code))
+                elif wh.warehouse_type == "Dead Stock":
+                    dead += flt(data[i].get(wh.short_code))
+        else:
+            for wh in wh_dict:
+                if wh.warehouse_type == "Finished Stock":
+                    stock += flt(data[i].get(wh.short_code))
+                elif wh.warehouse_type != "Finished Stock" and wh.warehouse_type != "Recoverable Stock":
+                    if wh.warehouse_type == "Dead Stock":
+                        dead += flt(data[i].get(wh.short_code))
+                    else:
+                        prd_qty += flt(data[i].get(wh.short_code))
+        total = stock + prd_qty + PLAN + PO - PRD_RES
 
-		if(min(case WHEN bn.warehouse="REJ-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="REJ-DEL20A - RIGPL" THEN bn.actual_qty end)),
+        if 0 <= ROL * VR <= 1000:
+            ROL = 5 * ROL
+        elif 1000 < ROL * VR <= 2000:
+            ROL = 2.5 * ROL
+        elif 2000 < ROL * VR <= 5000:
+            ROL = 1.5 * ROL
 
-		if(min(case WHEN bn.warehouse="CN-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="CN-DEL20A - RIGPL" THEN bn.actual_qty end)),
-			
-		if(min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="CN-BGH655 - RIGPL" THEN bn.actual_qty end)),
-			
-		it.is_job_work, it.is_purchase_item, it.is_sales_item
+        if dead > 0:
+            urg = "Dead Stock"
+        elif total < SO:
+            urg = "1C ORD"
+        elif total < SO + (0.3 * ROL):
+            urg = "2C STK"
+        elif total < SO + (0.6 * ROL):
+            urg = "3C STK"
+        elif total < SO + (1 * ROL):
+            urg = "4C STK"
+        elif total < SO + (1.4 * ROL):
+            urg = "5C STK"
+        elif total < SO + (1.8 * ROL):
+            urg = "6C STK"
+        elif total > (SO + 2.5 * ROL):
+            if ROL > 0:
+                urg = "7 Over"
+            else:
+                urg = ""
+        else:
+            urg = ""
 
-	FROM `tabItem` it
-		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
-		LEFT JOIN `tabBin` bn ON it.name = bn.item_code
-		LEFT JOIN `tabWarehouse` wh ON bn.warehouse = wh.name
-		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
-			AND rm.attribute = 'Is RM'
-		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-			AND bm.attribute = 'Base Material'
-		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
-			AND brand.attribute = 'Brand'
-		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
-			AND quality.attribute = '%s Quality'
-		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-			AND tt.attribute = 'Tool Type'
-		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-			AND spl.attribute = 'Special Treatment'
-		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-			AND d1.attribute = 'd1_mm'
-		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-			AND w1.attribute = 'w1_mm'
-		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-			AND l1.attribute = 'l1_mm'
-		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
-			AND d2.attribute = 'd2_mm'
-		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
-			AND l2.attribute = 'l2_mm'
-		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
-			AND zn.attribute = 'Number of Flutes Zn'
-	
-	WHERE bn.item_code != ""
-		AND bn.item_code = it.name
-		AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
+        # Cutting Quantity
+        if urg != "":
+            c_qty = ((2 * ROL) + SO - total)
+            urg = urg + " Qty= " + str(c_qty)
 
-	GROUP BY bn.item_code
-	
-	ORDER BY rm.attribute_value, brand.attribute_value,
-			spl.attribute_value, tt.attribute_value, 
-			CAST(d1.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(w1.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(l1.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(d2.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it), as_list=1)
+        if dead > 0:
+            prd = "Dead Stock"
+        elif stock < SO:
+            prd = "1P ORD"
+        elif stock < SO + ROL:
+            prd = "2P STK"
+        elif stock < SO + 1.2 * ROL:
+            prd = "3P STK"
+        elif stock < SO + 1.4 * ROL:
+            prd = "4P STK"
+        elif stock < SO + 1.6 * ROL:
+            prd = "5P STK"
+        elif stock < SO + 1.8 * ROL:
+            prd = "6P STK"
+        elif stock < SO + 2 * ROL:
+            prd = "7P STK"
+        elif stock > SO + 2.5 * ROL:
+            if ROL > 0:
+                prd = "9 OVER"
+            else:
+                prd = ""
+        else:
+            prd = ""
 
-	subcon = frappe.db.sql("""SELECT bn.item_code, bn.actual_qty FROM `tabBin` bn, `tabWarehouse` wh
-		WHERE wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0 
-		AND wh.name = bn.warehouse""", as_dict = 1)
-	for i in range(0, len(data)):
-		v_rate = frappe.db.sql("""SELECT valuation_rate FROM `tabItem`
-			WHERE name = '%s'""" %data[i][0], as_list=1)
-		
-		if v_rate:	
-			VR = flt(v_rate[0][0])
-		else:
-			VR = 0
-		
-		if data[i][12] is None:
-			ROL=0
-		else:
-			ROL = data[i][12]
+        # Production Quantity
+        if prd != "":
+            shortage = (2 * ROL) - stock
+            if shortage < prd_qty:
+                prd = prd + " Qty= " + str(shortage)
+            else:
+                prd = prd + " Qty = " + str(prd_qty)
+        row = [data[i].name, data[i].is_rm, data[i].brand, data[i].qual, data[i].spl, data[i].tool_type, data[i].d1, \
+               data[i].w1, data[i].l1, data[i].d2, data[i].l2, data[i].zn, urg, prd, \
+               total, data[i].rol, data[i].on_so, PO, data[i].on_prd, PRD_RES]
+        for wh in wh_dict:
+            if wh.listing_serial < 10:
+                row += [data[i].get(wh.short_code)]
+        row += [data[i].description]
+        for wh in wh_dict:
+            if wh.listing_serial >= 10:
+                row += [data[i].get(wh.short_code)]
+        row += [data[i].jw, data[i].pur, data[i].sale]
+        actual_data.append(row)
+    return actual_data
 
-		if data[i][13] is None:
-			SO=0
-		else:
-			SO = data[i][13]
 
-		if data[i][14] is None:
-			PO=0
-		else:
-			PO = data[i][14]
-		
-		for d in subcon:
-			if d.item_code == data[i][0]:
-				data[i][14] = PO + flt(d.actual_qty)
-				PO = data[i][14]
-		
-		if data[i][15] is None:
-			PLAN=0
-		else:
-			PLAN = data[i][15]
-
-		if data[i][16] is None:
-			DEL = 0
-		else:
-			DEL = data[i][16]
-
-		if data[i][17] is None:
-			BGH=0
-		else:
-			BGH = data[i][17]
-
-		if data[i][19] is None:
-			BRM=0
-		else:
-			BRM = data[i][19]
-			
-		if data[i][20] is None:
-			BRG=0
-		else:
-			BRG = data[i][20]
-
-		if data[i][21] is None:
-			BHT=0
-		else:
-			BHT = data[i][21]
-
-		if data[i][22] is None:
-			BFG=0
-		else:
-			BFG = data[i][22]
-
-		if data[i][23] is None:
-			BTS=0
-		else:
-			BTS = data[i][23]
-
-		if data[i][24] is None:
-			DRM=0
-		else:
-			DRM = data[i][24]
-			
-		if data[i][25] is None:
-			DSL=0
-		else:
-			DSL = data[i][25]
-
-		if data[i][26] is None:
-			DRG=0
-		else:
-			DRG = data[i][26]
-
-		if data[i][27] is None:
-			DFG=0
-		else:
-			DFG = data[i][27]
-
-		if data[i][28] is None:
-			DTEST=0
-		else:
-			DTEST = data[i][28]
-			
-		if data[i][30] is None:
-			DCN=0
-		else:
-			DCN = data[i][30]
-
-		if data[i][31] is None:
-			BCN=0
-		else:
-			BCN = data[i][31]
-
-		total = (DEL + BGH + BRG + BHT + BFG + BTS
-		+ DSL + DRG + DFG + DTEST + DRM + BRM + DCN + BCN
-		+ PLAN + PO)
-
-		stock = DEL + BGH
-		prd_qty = total - stock
-
-		if 0 < ROL*VR <= 1000:
-			ROL = 5*ROL
-		elif 1000 < ROL*VR <= 2000:
-			ROL = 2.5*ROL
-		elif 2000 < ROL*VR <= 5000:
-			ROL = 1.5*ROL
-
-		if DSL > 0:
-			urg = "Dead Stock"
-		elif total < SO:
-			urg = "1C ORD"
-		elif total < SO + (0.3 * ROL):
-			urg = "2C STK"
-		elif total < SO + (0.6 * ROL):
-			urg = "3C STK"
-		elif total < SO + (1 * ROL):
-			urg = "4C STK"
-		elif total < SO + (1.4 * ROL):
-			urg = "5C STK"
-		elif total < SO + (1.8 * ROL):
-			urg = "6C STK"
-		elif total > (SO + 2.5 * ROL):
-			if ROL > 0:
-				urg = "7 Over"
-			else:
-				urg = ""
-		else:
-			urg = ""
-		
-		#Cutting Quantity
-		if urg != "":
-			c_qty = ((2 * ROL) + SO - total)
-			urg = urg + " Qty= " + str(c_qty)
-
-		if DSL > 0:
-			prd = "Dead Stock"
-		elif stock < SO:
-			prd = "1P ORD"
-		elif stock < SO + ROL:
-			prd = "2P STK"
-		elif stock < SO + 1.2*ROL:
-			prd = "3P STK"
-		elif stock < SO + 1.4*ROL:
-			prd = "4P STK"
-		elif stock < SO + 1.6*ROL:
-			prd = "5P STK"
-		elif stock < SO + 1.8*ROL:
-			prd = "6P STK"
-		elif stock < SO + 2*ROL:
-			prd = "7P STK"
-		elif stock > SO + 2.5*ROL:
-			if ROL >0:
-				prd = "9 OVER"
-			else:
-				prd = ""
-		else:
-			prd = ""
-
-		#Production Quantity
-		if prd != "":
-			shortage = (2 * ROL) - stock
-			if shortage < prd_qty:
-				prd = prd + " Qty= " + str(shortage)
-			else:
-				prd = prd + " Qty = " + str(prd_qty)
-		
-
-		data[i].insert (12, urg)
-		data[i].insert (13, prd)
-		data[i].insert (14, total)
-
-	for j in range(0,len(data)):
-		for k in range(0, len(data[j])):
-			if data[j][k] ==0:
-				data[j][k] = None
-				
-	attributes = ['Is RM', 'Brand', '%Quality', 'Special Treatment',
-	'Tool Type', 'Material to Machine', 'Purpose', 'Type Selector',
-	'd1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm']
-	
-	float_fields = ['d1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm']
-	
-	return data
-	
 def get_conditions(filters):
-	conditions_it = ""
+    conditions_it = ""
 
-	if filters.get("rm"):
-		conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
-		
-	if filters.get("bm"):
-		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
+    if filters.get("rm"):
+        conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
 
-	if filters.get("brand"):
-		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
+    if filters.get("bm"):
+        conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
 
-	if filters.get("quality"):
-		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
+    if filters.get("brand"):
+        conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
 
-	if filters.get("spl"):
-		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
-		
-	if filters.get("tt"):
-		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
+    if filters.get("quality"):
+        conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
 
+    if filters.get("spl"):
+        conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
 
-	if filters.get("show_in_website") ==1:
-		conditions_it += " and it.show_in_website =%s" % filters["show_in_website"]
+    if filters.get("tt"):
+        conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
 
-	if filters.get("item"):
-		conditions_it += " and it.name = '%s'" % filters["item"]
-	
-	if filters.get("variant_of"):
-		conditions_it += " and it.variant_of = '%s'" % filters["variant_of"]
+    if filters.get("show_in_website") == 1:
+        conditions_it += " and it.show_in_website =%s" % filters["show_in_website"]
 
-	return conditions_it
+    if filters.get("item"):
+        conditions_it += " and it.name = '%s'" % filters["item"]
 
+    if filters.get("variant_of"):
+        conditions_it += " and it.variant_of = '%s'" % filters["variant_of"]
+
+    return conditions_it

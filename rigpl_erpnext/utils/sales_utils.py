@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.utils import flt
+from frappe.desk.reportview import get_match_cond
 
 
 def validate_address_google_update(add_doc_name):
@@ -144,3 +145,15 @@ def check_gst_rules(bill_add_name, ship_add_name, taxes_name, naming_series, nam
                 frappe.throw(("Selected Tax {0} is for Indian Sales but Shipping Address is \
                     in Different Country {1}, hence either change Shipping Address or Change the \
                     Selected Tax").format(taxes_name, bill_country))
+
+
+@frappe.whitelist()
+def get_pending_so_with_items(doctype, txt, searchfield, start, page_len, filters):
+    return frappe.db.sql(f"""SELECT so.name, so.customer, soi.item_code, soi.description, soi.qty,
+        soi.delivered_qty, soi.name FROM `tabSales Order` so, `tabSales Order Item` soi WHERE so.docstatus = 1 AND 
+        soi.parent = so.name AND so.status != "Closed" AND soi.qty > soi.delivered_qty AND (so.name like %(txt)s or 
+        so.customer like %(txt)s) {get_match_cond(doctype)} ORDER BY  if(locate(%(_txt)s, so.name), 
+        locate(%(_txt)s, so.name), 1) LIMIT %(start)s, %(page_len)s""", {'txt': "%%%s%%" % txt,
+                                                                         '_txt': txt.replace("%", ""),
+                                                                         'start': start,
+                                                                         'page_len': page_len, })

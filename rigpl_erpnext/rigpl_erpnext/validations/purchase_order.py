@@ -212,6 +212,7 @@ def check_warehouse(doc, method, wh):
         frappe.throw("Warehouse {0} is not allowed to be Selected in PO# {1}".format(warehouse.name, doc.name))
 
 
+@frappe.whitelist()
 def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
     return frappe.db.sql(f"""SELECT DISTINCT(wo.name), wo.sales_order, wo.production_order_date,wo.item_description
 	FROM `tabWork Order` wo, `tabSales Order` so, `tabSales Order Item` soi WHERE wo.docstatus = 1 AND so.docstatus = 1 

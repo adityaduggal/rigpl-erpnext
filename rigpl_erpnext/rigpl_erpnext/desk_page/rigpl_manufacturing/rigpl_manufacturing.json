@@ -3,7 +3,7 @@
   {
    "hidden": 0,
    "label": "RIGPL Docs and Reports",
-   "links": "[\n    {\n        \"description\": \"BOM Template.\",\n        \"label\": \"BOM Template\",\n        \"name\": \"BOM Template RIGPL\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Important Documents Like Drawings and Standards\",\n        \"label\": \"Documents Like Drawings and Standards\",\n        \"name\": \"Important Documents\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Process Sheet for Manufacturing Like Old Work Orders\",\n        \"label\": \"Process Sheet for Production\",\n        \"name\": \"Process Sheet\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Process Job Card for Manufacturing\",\n        \"label\": \"Job Card\",\n        \"name\": \"Process Job Card RIGPL\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    }\n]"
+   "links": "[\n    {\n        \"description\": \"BOM Template.\",\n        \"label\": \"BOM Template\",\n        \"name\": \"BOM Template RIGPL\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Important Documents Like Drawings and Standards\",\n        \"label\": \"Documents Like Drawings and Standards\",\n        \"name\": \"Important Documents\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Process Sheet for Manufacturing Like Old Work Orders\",\n        \"label\": \"Process Sheet for Production\",\n        \"name\": \"Process Sheet\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Create Bulk Process Sheet\",\n        \"label\": \"Create Bulk Process Sheet\",\n        \"name\": \"Create Bulk Process Sheet\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Made to Order or Special Items' Attributes\",\n        \"label\": \"Made to Order or Special Item Attributes\",\n        \"name\": \"Made to Order Item Attributes\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    },\n    {\n        \"description\": \"Process Job Card for Manufacturing\",\n        \"label\": \"Job Card\",\n        \"name\": \"Process Job Card RIGPL\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    }\n]"
   }
  ],
  "category": "Domains",
@@ -19,7 +19,7 @@
  "idx": 0,
  "is_standard": 1,
  "label": "RIGPL Manufacturing",
- "modified": "2020-08-21 14:35:25.555372",
+ "modified": "2020-08-26 09:00:54.706749",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Manufacturing",

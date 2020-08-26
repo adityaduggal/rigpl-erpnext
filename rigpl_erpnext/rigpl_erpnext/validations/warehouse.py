@@ -12,7 +12,7 @@ def validate(doc, method):
             frappe.throw(("Warehouse {0} already allotted as Subcontracting Warehouse and only 1 Subcontracting "
                           "Warehouse is Allowed").format(other_subcontracting_warehouses[0][0]))
     if doc.is_group == 0:
-        if not doc.type_of_warehouse:
+        if not doc.warehouse_type:
             frappe.throw("Type of Warehouse is Mandatory for {}".format(doc.name))
         other_serial = frappe.db.sql("""SELECT name FROM `tabWarehouse` WHERE docstatus=0 AND is_group=0 
         AND name!='%s' AND listing_serial = %s""" % (doc.name, doc.listing_serial), as_list=1)

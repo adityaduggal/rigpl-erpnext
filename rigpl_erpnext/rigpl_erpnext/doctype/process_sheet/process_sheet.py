@@ -45,27 +45,45 @@ class ProcessSheet(Document):
 
     def validate(self):
         self.validate_other_psheet()
-        it_doc = frappe.get_doc('Item', self.production_item)
-        disallow_templates(self, it_doc)
-        bom_tmp_name = get_bom_template_from_item(it_doc)
-        if not bom_tmp_name:
-            frappe.throw("No BOM Template Found")
-        else:
-            bom_tmp_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
-            self.update_ps_fields(bom_tmp_doc, it_doc)
+        if not self.flags.ignore_mandatory:
+            it_doc = frappe.get_doc('Item', self.production_item)
+            disallow_templates(self, it_doc)
+            bom_tmp_name = get_bom_template_from_item(it_doc, self.sales_order_item)
+            if not bom_tmp_name:
+                frappe.throw("No BOM Template Found")
+            else:
+                bom_tmp_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
+                self.update_ps_fields(bom_tmp_doc, it_doc)
 
     def validate_other_psheet(self):
         if self.production_item:
-            other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 
-            AND production_item = '%s' AND name <> '%s' """ % (self.production_item, self.name), as_dict=1)
+            it_doc = frappe.get_doc("Item", self.production_item)
+            if it_doc.variant_of:
+                other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 
+                AND production_item = '%s' AND name <> '%s' """ % (self.production_item, self.name), as_dict=1)
+            else:
+                if self.sales_order_item:
+                    other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 AND 
+                    production_item = '%s' AND sales_order_item = '%s' AND name != '%s'""" %
+                                             (self.production_item, self.sales_order_item, self.name),
+                                             as_dict=1)
+                else:
+                    frappe.throw("Sales Order is Mandatory for Item: {} in Process Sheet {}".format(
+                        self.production_item, self.name))
             if other_ps:
-                frappe.throw("Process Sheet {} for Item: {} Already in Draft. Cannot Proceed".\
-                             format(get_link_to_form("Process Sheet", other_ps[0].name), self.production_item),
-                             title= "Another Process Sheet with Same Item in Draft")
+                if self.sales_order:
+                    frappe.throw("Process Sheet {} for Item: {} and Sales Order {} already in Draft. Cannot Proceed". \
+                                 format(get_link_to_form("Process Sheet", other_ps[0].name), self.production_item,
+                                        self.sales_order),
+                                 title="Another Process Sheet with Same Item in Draft")
+                else:
+                    frappe.throw("Process Sheet {} for Item: {} already in Draft. Cannot Proceed". \
+                                 format(get_link_to_form("Process Sheet", other_ps[0].name), self.production_item),
+                                 title="Another Process Sheet with Same Item in Draft")
 
     def fill_details_from_item(self):
         item_doc = frappe.get_doc('Item', self.production_item)
-        bom_template = get_bom_template_from_item(item_doc)
+        bom_template = get_bom_template_from_item(item_doc, self.sales_order_item)
         if bom_template:
             self.bom_template = bom_template
         else:
@@ -88,8 +106,8 @@ class ProcessSheet(Document):
         if self.rm_consumed:
             for rm in self.rm_consumed:
                 if flt(rm.calculated_qty) > flt(rm.qty_available):
-                    frappe.msgprint("For RM: {} in Row# {} Qty Required = {} but Available Qty = {}".\
-                        format(rm.item_code, rm.idx, rm.calculated_qty, rm.qty_available, self.name))
+                    frappe.msgprint("For RM: {} in Row# {} Qty Required = {} but Available Qty = {}". \
+                                    format(rm.item_code, rm.idx, rm.calculated_qty, rm.qty_available, self.name))
 
     def get_rm_sizes(self):
         def_rm_warehouse = ""
@@ -102,7 +120,7 @@ class ProcessSheet(Document):
         item_list = self.get_item_list(self.production_item, known_type="fg", unknown_type="rm")
         if self.manually_select_rm != 1:
             rm_item_dict = get_req_sizes_from_template(self.bom_template, item_list, "rm_restrictions",
-                                                       allow_zero_rol=1)
+                                                       allow_zero_rol=1, ps_name=self.name)
         else:
             rm_item_dict = []
             it_dict = frappe._dict({})
@@ -112,7 +130,8 @@ class ProcessSheet(Document):
                 it_dict["name"] = row.item_code
                 it_dict["description"] = description
                 rm_item_dict.append(it_dict.copy())
-        rm_calc_qty_list = calculated_value_from_formula(rm_item_dict, self.production_item, fg_qty=self.quantity)
+        rm_calc_qty_list = calculated_value_from_formula(rm_item_dict, self.production_item, fg_qty=self.quantity,
+                                                         so_detail=self.sales_order_item, process_sheet_name=self.name)
         wip_list = []
         for rm in rm_item_dict:
             wip_item_dict = get_req_wip_sizes_from_template(self.bom_template, fg_item=self.production_item,
@@ -174,11 +193,25 @@ class ProcessSheet(Document):
     def validate_qty_to_manufacture(self, it_doc):
         auto_qty = get_qty_to_manufacture(it_doc)
         if self.update_qty_manually != 1:
-            self.quantity = auto_qty
+            if not self.sales_order_item:
+                self.quantity = auto_qty
+            else:
+                self.quantity = self.get_balance_qty_from_so(self.sales_order_item)
         else:
-            if self.quantity != auto_qty:
-                frappe.msgprint("Calculated Qty to Manufacture = " + str(auto_qty) +
-                                " but Qty entered to Manufacture  = " + str(self.quantity))
+            if not self.sales_order_item:
+                if self.quantity != auto_qty:
+                    frappe.msgprint("Calculated Qty to Manufacture = " + str(auto_qty) +
+                                    " but Qty entered to Manufacture  = " + str(self.quantity))
+            else:
+                self.quantity = self.get_balance_qty_from_so(self.sales_order_item)
+                self.update_qty_manually = 0
+                frappe.msgprint("Since this Sheet is for Special Item the Quantity to Manufacture needs to be equal "
+                                "to balance qty for Sales Order")
+
+    def get_balance_qty_from_so(self, so_detail):
+        soi_doc = frappe.get_doc("Sales Order Item", so_detail)
+        forced_qty = soi_doc.qty - soi_doc.delivered_qty
+        return forced_qty
 
     def update_ps_status(self):
         if self.docstatus == 0:
@@ -190,10 +223,10 @@ class ProcessSheet(Document):
 
     def get_routing_from_template(self):
         fg_it_doc = frappe.get_doc("Item", self.production_item)
-        bom_tmp_name = get_bom_template_from_item(fg_it_doc)
+        bom_tmp_name = get_bom_template_from_item(fg_it_doc, self.sales_order_item)
         item_list = self.get_item_list(item_name=self.production_item, known_type="fg", unknown_type="rm")
         rm_item_dict = get_req_sizes_from_template(bom_tmp_name, item_list, "rm_restrictions",
-                                                   allow_zero_rol=1)
+                                                   allow_zero_rol=1, ps_name=self.name)
         bt_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
         query = """SELECT idx, name, operation, workstation, hour_rate, time_based_on_formula, time_in_mins,
         operation_time_formula, batch_size_based_on_formula, batch_size_formula FROM `tabBOM Operation` WHERE 

@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_copy": 1,
+ "creation": "2016-05-31 13:35:27.081710",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "get_items_from",
+  "filters",
+  "item",
+  "customer",
+  "cb",
+  "from_date",
+  "to_date",
+  "get_sales_orders_section",
+  "get_sales_orders",
+  "sales_orders",
+  "production_orders",
+  "create_process_sheet"
+ ],
+ "fields": [
+  {
+   "fieldname": "get_items_from",
+   "fieldtype": "Select",
+   "label": "Get Items From",
+   "options": "Sales Order"
+  },
+  {
+   "fieldname": "filters",
+   "fieldtype": "Section Break",
+   "label": "Filters"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "cb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date"
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date"
+  },
+  {
+   "fieldname": "get_sales_orders_section",
+   "fieldtype": "Section Break",
+   "label": "Get Sales Orders"
+  },
+  {
+   "fieldname": "get_sales_orders",
+   "fieldtype": "Button",
+   "label": "Get Sales Orders"
+  },
+  {
+   "fieldname": "sales_orders",
+   "fieldtype": "Table",
+   "label": "Sales Orders",
+   "options": "Production Plan Sales Order"
+  },
+  {
+   "fieldname": "production_orders",
+   "fieldtype": "Section Break",
+   "label": "Production Orders"
+  },
+  {
+   "fieldname": "create_process_sheet",
+   "fieldtype": "Button",
+   "label": "Create Process Sheet"
+  }
+ ],
+ "hide_toolbar": 1,
+ "in_create": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2020-08-25 13:53:07.513566",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Create Bulk Process Sheet",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "read_only": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

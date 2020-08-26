@@ -17,6 +17,9 @@
   "quantity",
   "update_qty_manually",
   "produced_qty",
+  "sales_order",
+  "sales_order_item",
+  "sno",
   "sb0",
   "routing",
   "operations",
@@ -130,6 +133,7 @@
   },
   {
    "fetch_from": "production_item.description",
+   "fetch_if_empty": 1,
    "fieldname": "description",
    "fieldtype": "Text",
    "label": "Description",
@@ -178,11 +182,33 @@
    "fieldname": "manually_select_rm",
    "fieldtype": "Check",
    "label": "Manually Select RM"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_order_item",
+   "fieldtype": "Link",
+   "label": "Sales Order Item",
+   "options": "Sales Order Item",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "sales_order_item.idx",
+   "fieldname": "sno",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Sales Order Serial Number",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2020-08-14 12:24:30.697432",
+ "modified": "2020-08-25 18:45:44.073448",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",
@@ -199,28 +225,8 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "set_user_permissions": 1,
    "share": 1,
-   "submit": 1,
-   "write": 1
-  },
-  {
-   "email": 1,
-   "export": 1,
-   "permlevel": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Manufacturing User",
    "submit": 1,
    "write": 1
   },
@@ -237,6 +243,5 @@
  ],
  "search_fields": "production_item, description, routing",
  "sort_field": "modified",
- "sort_order": "DESC",
- "track_changes": 1
+ "sort_order": "DESC"
 }

@@ -1,0 +1,165 @@
+{
+ "actions": [],
+ "autoname": "SPL.######",
+ "creation": "2020-08-25 14:58:43.763793",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sales_order",
+  "item_code",
+  "sno",
+  "cb0",
+  "sales_order_item",
+  "description",
+  "sb0",
+  "reference_item_code",
+  "reference_item_description",
+  "copy_attributes_from_item",
+  "cb1",
+  "reference_spl",
+  "copy_attributes_from_another_spl",
+  "sb1",
+  "attributes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "sales_order_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Order Item",
+   "options": "Sales Order Item",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval: doc.reference_item_code || doc.reference_spl",
+   "fieldname": "sb0",
+   "fieldtype": "Section Break",
+   "label": "References"
+  },
+  {
+   "fieldname": "attributes",
+   "fieldtype": "Table",
+   "label": "Attributes",
+   "options": "Item Variant Attribute"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Made to Order Item Attributes",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.docstatus===0",
+   "fieldname": "copy_attributes_from_item",
+   "fieldtype": "Button",
+   "label": "Copy Attributes from Item"
+  },
+  {
+   "fieldname": "reference_item_code",
+   "fieldtype": "Link",
+   "label": "Reference Item Code",
+   "options": "Item"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "reference_item_code.description",
+   "fieldname": "reference_item_description",
+   "fieldtype": "Data",
+   "label": "Reference Item Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": "Attributes"
+  },
+  {
+   "fieldname": "reference_spl",
+   "fieldtype": "Link",
+   "label": "Reference SPL",
+   "options": "Made to Order Item Attributes"
+  },
+  {
+   "depends_on": "eval:doc.docstatus===0",
+   "fieldname": "copy_attributes_from_another_spl",
+   "fieldtype": "Button",
+   "label": "Copy Attributes from Another SPL"
+  },
+  {
+   "allow_on_submit": 1,
+   "fetch_from": "sales_order_item.idx",
+   "fieldname": "sno",
+   "fieldtype": "Int",
+   "label": "Serial Number",
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2020-08-25 18:43:33.160724",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Made to Order Item Attributes",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "item_code, sales_order, description",
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

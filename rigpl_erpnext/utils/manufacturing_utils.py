@@ -215,13 +215,19 @@ def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
                 frappe.msgprint(message, title=warning_title)
 
 
-def calculated_value_from_formula(rm_item_dict, fg_item_name, fg_qty=0):
+def calculated_value_from_formula(rm_item_dict, fg_item_name, fg_qty=0, so_detail=None, process_sheet_name=None):
     qty_dict = frappe._dict({})
     qty_list = []
-    bom_temp_name = get_bom_template_from_item(frappe.get_doc("Item", fg_item_name))
+    bom_temp_name = get_bom_template_from_item(frappe.get_doc("Item", fg_item_name), so_detail=so_detail)
     bom_temp_doc = frappe.get_doc("BOM Template RIGPL", bom_temp_name)
     formula = replace_java_chars(bom_temp_doc.formula)
-    fg_att_dict = get_attributes(fg_item_name)
+    fg_item_doc = frappe.get_doc('Item', fg_item_name)
+    if not fg_item_doc.variant_of:
+        ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
+        special_item_attr_doc = get_special_item_attribute_doc(fg_item_name, ps_doc.sales_order_item, docstatus=1)
+        fg_att_dict = get_special_item_attributes(fg_item_name, special_item_attr_doc[0].name)
+    else:
+        fg_att_dict = get_attributes(fg_item_name)
     for d in rm_item_dict:
         rm_att_dict = get_attributes(d.name or d.item_code)
         qty = calculate_formula(rm_att_dict, fg_att_dict, formula, fg_qty)
@@ -303,7 +309,7 @@ def get_req_wip_sizes_from_template(bom_temp_name, fg_item, rm_item, table_name,
     return it_dict
 
 
-def get_req_sizes_from_template(bom_temp_name, item_type_list, table_name, allow_zero_rol=None):
+def get_req_sizes_from_template(bom_temp_name, item_type_list, table_name, allow_zero_rol=None, ps_name=None):
     # Item Type List is in Format [{known_item: 'Item Name', known_type = 'fg'},{known_item: "Item Name2",
     # known_type="rm"}]
     if allow_zero_rol == 1:
@@ -323,7 +329,7 @@ def get_req_sizes_from_template(bom_temp_name, item_type_list, table_name, allow
                             (att_table, att_table, att_table, att_table, d.attribute)
         else:
             for item in item_type_list:
-                att_cond += convert_rule_to_mysql_statement(d.rule, item)
+                att_cond += convert_rule_to_mysql_statement(d.rule, item, process_sheet_name=ps_name)
                 att_join += " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent AND %s.parenttype = " \
                             "'Item' AND %s.attribute = '%s'" % (att_table, att_table, att_table, att_table, d.attribute)
 
@@ -334,9 +340,15 @@ def get_req_sizes_from_template(bom_temp_name, item_type_list, table_name, allow
     return it_dict
 
 
-def convert_wip_rule_to_mysql_statement(rule, fg_item, rm_item):
+def convert_wip_rule_to_mysql_statement(rule, fg_item, rm_item, process_sheet_name=None):
     new_rule = replace_java_to_mysql(rule)
-    fg_att_dict = get_attributes(fg_item)
+    fg_item_doc = frappe.get_doc("Item", fg_item)
+    if not fg_item_doc.variant_of:
+        ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
+        special_item_attr_doc = get_special_item_attribute_doc(it_name, ps_doc.sales_order_item, docstatus=1)
+        fg_att_dict = get_special_item_attributes(it_name, special_item_attr_doc[0].name)
+    else:
+        fg_att_dict = get_attributes(fg_item)
     rm_att_dict = get_attributes(rm_item)
     res = re.findall(r'\w+', rule)
     for word in res:
@@ -354,10 +366,16 @@ def convert_wip_rule_to_mysql_statement(rule, fg_item, rm_item):
     return new_rule
 
 
-def convert_rule_to_mysql_statement(rule, it_dict):
+def convert_rule_to_mysql_statement(rule, it_dict, process_sheet_name=None):
     new_rule = replace_java_to_mysql(rule)
     it_name = it_dict.get("known_item")
-    known_it_att_dict = get_attributes(it_name)
+    it_doc = frappe.get_doc("Item", it_name)
+    if not it_doc.variant_of:
+        ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
+        special_item_attr_doc = get_special_item_attribute_doc(it_name, ps_doc.sales_order_item, docstatus=1)
+        known_it_att_dict = get_special_item_attributes(it_name, special_item_attr_doc[0].name)
+    else:
+        known_it_att_dict = get_attributes(it_name)
     known_type = it_dict.get(it_name)
     unknown_type = it_dict.get("unknown_type")
     res = re.findall(r'\w+', rule)
@@ -369,24 +387,25 @@ def convert_rule_to_mysql_statement(rule, it_dict):
 
         if word[:len(unknown_type) + 1] == unknown_type + '_':
             new_rule = new_rule.replace(word, word[len(unknown_type) + 1:] + '.attribute_value')
-        '''
-        elif word[:3] == 'rm_':
-            new_rule = new_rule.replace(word, word[3:] + '.attribute_value')
-        elif word[:4] == 'wip_':
-            new_rule = new_rule.replace(word, word[4:] + '.attribute_value')
-        '''
     new_rule = ' AND ' + new_rule
     return new_rule
 
 
-def get_attributes(item_name):
+def get_special_item_attributes(it_name, special_item_attribute):
+    attribute_dict = frappe.db.sql("""SELECT idx, name, attribute, attribute_value, numeric_values 
+        FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Made to Order Item Attributes' ORDER BY 
+        idx""" % special_item_attribute, as_dict=1)
+    return attribute_dict
+
+
+def get_attributes(item_name, so_detail=None):
     attribute_dict = frappe.db.sql("""SELECT idx, name, attribute, attribute_value, numeric_values 
         FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Item' ORDER BY idx""" % item_name,
                                    as_dict=1)
     return attribute_dict
 
 
-def get_bom_template_from_item(item_doc):
+def get_bom_template_from_item(item_doc, so_detail=None):
     bom_template = {}
     if item_doc.variant_of:
         it_att_dict = get_attributes(item_doc.name)
@@ -394,8 +413,42 @@ def get_bom_template_from_item(item_doc):
         if not bom_template:
             frappe.throw("No BOM Template found for Item: {}".format(item_doc.name))
     else:
-        frappe.throw('WIP')
+        # Find Item Attributes in Special Item Table or Create a New Special Item Table and ask user to fill it.
+        if so_detail:
+            special_attributes = get_special_item_attribute_doc(item_doc.name, so_detail, docstatus=1)
+            if not special_attributes:
+                sp_att_draft = get_special_item_attribute_doc(item_doc.name, so_detail, docstatus=0)
+                if sp_att_draft:
+                    frappe.throw("Special Item Attributes not Submitted please fill and Submit {}".
+                                 format(get_link_to_form("Made to Order Item Attributes", sp_att_draft[0].name)))
+                else:
+                    create_new_special_attributes(item_doc.name, so_detail)
+                    frappe.msgprint("Fill the Special Item Attributes and Try Again")
+            else:
+                # Get Special Attributes from the Table and then find bom template
+                it_att_dict = get_special_item_attributes(item_doc.name, special_attributes[0].name)
+                bom_template = get_bom_temp_from_it_att(item_doc, it_att_dict)
+        else:
+            frappe.throw("{} item seems like a Special Item hence Sales Order is Mandatory for the same.".format(
+                item_doc.name))
     return bom_template
+
+
+def create_new_special_attributes(it_name, so_detail):
+    special = frappe.new_doc("Made to Order Item Attributes")
+    special.item_code = it_name
+    special.sales_order_item = so_detail
+    special.sales_order = frappe.get_value("Sales Order Item", so_detail, "parent")
+    special.description = frappe.get_value("Sales Order Item", so_detail, "description")
+    special.insert()
+    frappe.db.commit()
+    frappe.msgprint(_("Special Item Attributes {0} created").format(get_link_to_form("Made to Order Item Attributes",
+                                                                                    special.name)))
+
+
+def get_special_item_attribute_doc(it_name, so_detail, docstatus=1):
+    return frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE docstatus = %s AND item_code = 
+    '%s' AND sales_order_item = '%s'""" % (docstatus, it_name, so_detail), as_dict=1)
 
 
 def get_bom_temp_from_it_att(item_doc, att_dict):
@@ -457,7 +510,7 @@ def get_qty_to_manufacture(it_doc):
         rol = flt(rol[0].warehouse_reorder_level)
     bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty, bn.actual_qty, bn.ordered_qty,
         bn.indented_qty, bn.planned_qty, bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract, 
-        wh.type_of_warehouse, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND 
+        wh.warehouse_type, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND 
         bn.item_code = '%s'"""
                              % it_doc.name, as_dict=1)
     fg = 0
@@ -470,6 +523,7 @@ def get_qty_to_manufacture(it_doc):
     so = 0
     ind = 0
     plan = 0
+    prd = 0
     lead = flt(it_doc.lead_time_days)
     if bin_dict:
         for d in bin_dict:
@@ -477,25 +531,26 @@ def get_qty_to_manufacture(it_doc):
             po += flt(d.ordered_qty)
             ind += flt(d.indented_qty)
             plan += flt(d.planned_qty)
+            prd += flt(d.reserved_qty_for_production)
 
-            if d.type_of_warehouse == 'Finished Stock':
+            if d.warehouse_type == 'Finished Stock':
                 fg += flt(d.actual_qty)
-            elif d.type_of_warehouse == 'Work In Progress':
+            elif d.warehouse_type == 'Work In Progress':
                 wipq += flt(d.actual_qty)
-            elif d.type_of_warehouse == 'Consumable':
+            elif d.warehouse_type == 'Consumable':
                 con += flt(d.actual_qty)
-            elif d.type_of_warehouse == 'Raw Material':
+            elif d.warehouse_type == 'Raw Material':
                 rm += flt(d.actual_qty)
-            elif d.type_of_warehouse == 'Dead Stock':
+            elif d.warehouse_type == 'Dead Stock':
                 dead += flt(d.actual_qty)
-            elif d.type_of_warehouse == 'Recoverable Stock':
+            elif d.warehouse_type == 'Recoverable Stock':
                 rej += flt(d.actual_qty)
-            elif d.type_of_warehouse == 'Subcontracting':
+            elif d.warehouse_type == 'Subcontracting':
                 po += flt(d.actual_qty)
 
             if lead == 0:
                 lead = 30
-        reqd_qty = (rol * lead / (30 * 2)) + so - fg - wipq
+        reqd_qty = (rol * lead / (30 * 2)) + so + prd - fg - wipq
         if reqd_qty < 0:
             reqd_qty = 0
         elif 10 < reqd_qty < 50:
