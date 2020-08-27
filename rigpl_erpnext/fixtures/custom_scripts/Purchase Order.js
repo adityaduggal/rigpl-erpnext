@@ -1,5 +1,33 @@
+frappe.ui.form.on("Purchase Order Item", {
+	schedule_date: function(frm, cdt, cdn) {
+		var row = locals[cdt][cdn];
+		if (row.schedule_date < now()) {
+			if(!frm.doc.schedule_date) {
+				erpnext.utils.copy_value_in_all_rows(frm.doc, cdt, cdn, "items", "schedule_date");
+			} else {
+				set_schedule_date(frm);
+			}
+		}
+	}
+});
+
+
 cur_frm.cscript.is_subcontracting = function(doc, cdt, cdn) {
     cur_frm.set_query("item_code", "items", function(){
+        if (cur_frm.doc.is_subcontracting == 1){
+            return{
+                query: "erpnext.controllers.queries.item_query",
+                filters:{ 'is_job_work': 1 }
+            }
+        }
+        else {
+            return{
+                query: "erpnext.controllers.queries.item_query",
+                filters:{'is_purchase_item':1}
+            }
+        }
+    });
+    cur_frm.set_query("subcontracted_item", "items", function(){
         if (cur_frm.doc.is_subcontracting == 1){
             return{
                 query: "erpnext.controllers.queries.item_query",
@@ -17,13 +45,13 @@ cur_frm.cscript.is_subcontracting = function(doc, cdt, cdn) {
 frappe.ui.form.on("Purchase Order", "refresh", function(frm) {
 
 // Get Items from Work Order
-cur_frm.add_custom_button(__('Work Order'),
+cur_frm.add_custom_button(__('Job Card'),
     function() {
         var dialog = new frappe.ui.Dialog({
-        title: "Get Items from Work Order",
+        title: "Get Items from Job Card",
         fields: [
-            {"fieldtype": "Link", "label": __("Work Order"), "fieldname": "production_order","options":'Work Order',"reqd": 1, 
-                get_query: function() { return {query: "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.get_pending_prd"}},
+            {"fieldtype": "Link", "label": __("Job Card"), "fieldname": "job_card","options":'Process Job Card RIGPL',"reqd": 1,
+                get_query: function() { return {query: "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.get_pending_jc"}},
             },
             {"fieldtype": "Button", "label": __("Get"), "fieldname": "get"},
             {"fieldtype": "HTML", "fieldname": "production_order_items_details"},
@@ -37,22 +65,23 @@ cur_frm.add_custom_button(__('Work Order'),
     frappe.call({    
         method: "frappe.client.get_list",
            args: {
-            doctype: "Work Order",
-               fields: ["production_item", "item_description ", "sales_order", "so_detail", "qty","fg_warehouse","stock_uom","name"],
-               filters: { "name" : value.production_order
+            doctype: "Process Job Card RIGPL",
+               fields: ["production_item", "description ", "for_quantity","t_warehouse","name"],
+               filters: { "name" : value.job_card
                 },
             },
             callback: function(res){
             if(res && res.message){
                     var row = frappe.model.add_child(cur_frm.doc, "Purchase Order Item", "items");
-                    row.qty = res.message[0]['qty'];
+                    row.qty = res.message[0]['for_quantity'];
                     if (cur_frm.doc.is_subcontracting == 1){
                         row.subcontracted_item = res.message[0]['production_item'];
                     } else{
                         row.item_code = res.message[0]['production_item'];
                     }
-                    row.description = res.message[0]['item_description'];
-                    row.so_detail = res.message[0]['so_detail'];
+                    row.description = res.message[0]['description'];
+                    row.from_warehouse = res.message[0]['t_warehouse']
+                    row.so_detail = res.message[0]['name'];
                     row.uom = res.message[0]['stock_uom'];
                     row.stock_uom = res.message[0]['stock_uom'];
                     row.conversion_factor = 1;
