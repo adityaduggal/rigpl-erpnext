@@ -44,6 +44,8 @@ def check_price_list(doc):
 
 def update_fields(doc):
     cust_doc = frappe.get_doc("Customer", doc.customer)
+    if cust_doc.follow_strict_po_rules == 1:
+        doc.follow_strict_po_rules = 1
     # Adding the Sales Team data from Customer to the Sales Team of Sales Order.
     # This is how you add data in Child table.
     doc.sales_team = []
