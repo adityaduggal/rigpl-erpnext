@@ -13,12 +13,6 @@ def validate(doc, method):
                        link_doctype="Customer", link_name=doc.customer)
     check_dynamic_link(parenttype="Contact", parent=doc.contact_person,
                        link_doctype="Customer", link_name=doc.customer)
-    update_fields(doc)
-    check_gst_rules(doc.customer_address, doc.shipping_address_name,
-                    doc.taxes_and_charges, doc.naming_series, doc.name, series=2)
-    check_taxes_integrity(doc)
-    frappe.msgprint("Selected Addresses Both Billing and Shipping Cannot be Changed Later")
-    check_price_list(doc)
     cust_doc = frappe.get_doc("Customer", doc.customer)
     if cust_doc.customer_primary_contact is None:
         frappe.throw("Cannot Book Sales Order since Customer " + cust_doc.name +
@@ -31,6 +25,12 @@ def validate(doc, method):
     if cust_doc.sales_team is None:
         frappe.throw("Cannot Book Sales Order since Customer " + cust_doc.name +
                      " does not have a Sales Team Defined")
+    update_fields(doc)
+    check_gst_rules(doc.customer_address, doc.shipping_address_name,
+                    doc.taxes_and_charges, doc.naming_series, doc.name, series=2)
+    check_taxes_integrity(doc)
+    frappe.msgprint("Selected Addresses Both Billing and Shipping Cannot be Changed Later")
+    check_price_list(doc)
 
 
 def check_price_list(doc):
@@ -51,8 +51,7 @@ def update_fields(doc):
     for d in cust_doc.sales_team:
         steam_dict["sales_person"] = d.sales_person
         steam_dict["allocated_percentage"] = d.allocated_percentage
-
-    doc.append('sales_team', steam_dict)
+        doc.append("sales_team", steam_dict.copy())
     doc.shipping_address_title = frappe.get_value("Address",
                                                   doc.shipping_address_name, "address_title")
     if doc.transaction_date < nowdate():
