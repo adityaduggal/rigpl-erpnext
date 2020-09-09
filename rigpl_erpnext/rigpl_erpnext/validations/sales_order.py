@@ -51,16 +51,17 @@ def update_fields(doc):
     for d in cust_doc.sales_team:
         steam_dict["sales_person"] = d.sales_person
         steam_dict["allocated_percentage"] = d.allocated_percentage
+        doc.append("sales_team", steam_dict.copy())
 
-    doc.append('sales_team', steam_dict)
     doc.shipping_address_title = frappe.get_value("Address",
                                                   doc.shipping_address_name, "address_title")
-    doc.transaction_date = nowdate()
-    if doc.delivery_date < nowdate():
-        doc.delivery_date = nowdate()
+    if doc.transaction_date < nowdate():
+        doc.transaction_date = nowdate()
+    if doc.delivery_date < doc.transaction_date:
+        doc.delivery_date = doc.transaction_date
     for d in doc.items:
-        if d.delivery_date < nowdate():
-            d.delivery_date = nowdate()
+        if d.delivery_date < doc.transaction_date:
+            d.delivery_date = doc.transaction_date
 
     letter_head_tax = frappe.db.get_value("Sales Taxes and Charges Template",
                                           doc.taxes_and_charges, "letter_head")
