@@ -11,10 +11,6 @@ from frappe.utils import add_days, flt, add_to_date
 from frappe.utils.global_search import rebuild_for_doctype, update_global_search
 
 
-def execute():
-    get_indiamart_leads()
-
-
 def get_indiamart_leads():
     update_lead_global_search()
     last_execution = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "last_execution")
@@ -46,7 +42,7 @@ def get_indiamart_leads():
     # frappe.msgprint(str(parsed_response))
     total_leads = parsed_response[0].get('TOTAL_COUNT')
     max_leads = flt(frappe.db.get_value("RIGPL Settings", "RIGPL Settings", "max_leads"))
-    print(str(days_to_add))
+    # print(str(days_to_add))
     if flt(total_leads) > max_leads:
         print("Exiting Since Max Leads breached " + str(max_leads))
         if days_to_add >= 2:
@@ -96,9 +92,7 @@ def get_date_range(days_to_add):
         to_date_dt = add_days(from_date_dt, days_to_add)
     elif days_to_add >= 0.01:
         hrs_to_add = int(flt(days_to_add * 100))
-        print(str(hrs_to_add))
         to_date_dt = add_to_date(from_date_dt, hours=hrs_to_add)
-        print(str(to_date_dt))
     else:
         to_date_dt = add_days(from_date_dt, max_days)
         frappe.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add", max_days)
@@ -145,22 +139,45 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
                 frappe.db.set_value("Lead", lead_name, "campaign_name", "India Mart")
                 recd_time = datetime.strptime(lead.get('DATE_TIME_RE'), '%d-%b-%Y %I:%M:%S %p')
                 frappe.db.set_value("Lead", lead_name, "creation", recd_time)
-                print("Updated Lead {}".format(str(lead_name)))
+                print("For Serial# {}, Updated Lead {}".format(str(lead.get('RN')), str(lead_name)))
         else:
             if lead.get('MOB') is None and lead.get('SENDEREMAIL') is None:
-                print('No Lead Created for Query ID' + lead.get("QUERY_ID"))
+                print('For Serial# {}, No Lead Created for Query ID {}'.format(lead.get('RN'), lead.get('QUERY_ID')))
             else:
-                print("Creating New Lead")
+                print("For Serial# {}, Creating New Lead".format(lead.get('RN')))
                 ld = frappe.new_doc("Lead")
                 ld.email_id = lead.get('SENDEREMAIL', 'IM-Email')
-                print(lead.get('QUERY_ID'))
                 if lead.get('GLUSR_USR_COMPANYNAME') is None or (str(lead.get('GLUSR_USR_COMPANYNAME'))).replace(" ",
                                                                                                                  "") == "":
                     ld.company_name = 'IM-Company'
                 else:
                     ld.company_name = lead.get('GLUSR_USR_COMPANYNAME')
                 ld.lead_name = lead.get('SENDERNAME')
-                ld.mobile_no = lead.get('MOB', '1234')
+                if lead.get('MOB', '1234') is None:
+                    mobile_number = '12345'
+                else:
+                    mobile_number = lead.get('MOB', '1234').strip() if not None else '123456'
+                ld.mobile_no = mobile_number
+                if lead.get('PHONE', '') is None:
+                    phone_no = ''
+                else:
+                    if lead.get('PHONE').strip() is not None:
+                        phone_no = lead.get('PHONE', '')
+                    else:
+                        phone_no = ''
+                if lead.get('PHONE_ALT', '1234') is None:
+                    phone_alt = ''
+                else:
+                    if lead.get('PHONE_ALT').strip() is not None:
+                        phone_alt = lead.get('PHONE_ALT', '').strip
+                    else:
+                        phone_alt = ''
+                if phone_no.strip() is not None:
+                    combined_no = phone_no
+                if phone_alt.strip() is not None:
+                    combined_no += ", " + phone_alt
+                if combined_no is not None:
+                    ld.phone = combined_no
                 if lead.get('COUNTRY_ISO') == 'IN':
                     ld.territory = 'India'
                 else:
@@ -169,7 +186,9 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
                 ld.campaign_name = 'India Mart'
                 ld.requirement = 100
                 ld.creation = datetime.strptime(lead.get('DATE_TIME_RE'), '%d-%b-%Y %I:%M:%S %p')
-                ld.remark = str(lead.get('SUBJECT')) + " " + str(lead.get('ENQ_MESSAGE'))
+                ld.remark = str(lead.get('SUBJECT')) + " " + str(lead.get('ENQ_MESSAGE') + " City: "+ str(lead.get(
+                    'ENQ_CITY')) + " State: " + str(lead.get('ENQ_STATE')) + " Country: " + str(lead.get(
+                    'COUNTRY_ISO')))
                 ld.save()
                 print("Created New Lead# " + ld.name)
                 frappe.db.commit()
@@ -186,10 +205,11 @@ def get_im_reply(from_date, to_date):
     link += 'GLUSR_MOBILE/' + str(im_mobile) + '/GLUSR_MOBILE_KEY/' + str(im_pass)
     link += '/Start_Time/' + str(from_date) + '/End_Time/' + str(to_date) + '/'
 
-    response = requests.get(link)
-    new_response = response.text
-    frappe.db.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "json_reply", new_response)
-    # new_response = json_reply
+    # response = requests.get(link)
+    # new_response = response.text
+    # json_reply = new_response
+    # frappe.db.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "json_reply", new_response)
+    new_response = json_reply
     parsed_response = json.loads(new_response)
     return parsed_response, link
 
@@ -227,6 +247,10 @@ def search_existing(search_e, search_m, country):
     if lead_e:
         for lead in lead_e:
             lead_list.append(lead.name)
+    if not lead_list:
+        print("No Lead Found for Mobile: " + str(search_m) + " and Email: " + str(search_e) + " Country: " + str(
+            country))
+        exit()
     return lead_list
 
 

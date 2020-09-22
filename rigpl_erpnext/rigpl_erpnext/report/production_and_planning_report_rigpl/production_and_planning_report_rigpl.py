@@ -21,8 +21,9 @@ def get_columns(filters):
 		]
 	elif filters.get("production_planning") == 1:
 		return [
-			"JC#:Link/Process Job Card RIGPL:100", "Item:Link/Item:120", "Description::250",
-			"Operation:Link/Operation:150", "Planned Qty:Float:80", "Priority:Int:80",
+			"JC#:Link/Process Job Card RIGPL:100", "Status::100", "Item:Link/Item:120", "Description::250",
+			"Operation:Link/Operation:150", "Allocated Machine:Link/Workstation:150",
+			"Planned Qty:Float:80", "Priority:Int:80", "Qty Avail:Float:80",
 			"ROL:Int:80", "SO:Int:80", "PO:Int:80", "Plan:Int:80", "Prod:Float:80", "Total Actual:Float:80",
 			"From Warehouse:Link/Warehouse:150", "To Warehouse:Link/Warehouse:150"
 		]
@@ -39,8 +40,9 @@ def get_data(filters):
 		FROM `tabProcess Job Card RIGPL` jc WHERE jc.docstatus = 1 %s 
 		ORDER BY jc.workstation, jc.production_item""" % cond_jc
 	elif filters.get("production_planning") == 1:
-		query = """SELECT jc.name, jc.production_item, jc.description, jc.operation, jc.for_quantity, 
-		IF(jc.priority=0, NULL, jc.priority),
+		query = """SELECT jc.name, jc.status, jc.production_item, jc.description, jc.operation, jc.workstation, 
+		jc.for_quantity, 
+		IF(jc.priority=0, NULL, jc.priority), IF(jc.qty_available=0, NULL, jc.qty_available),
 		IF(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level) AS rol,
 		IF(bn.on_so=0, NULL ,bn.on_so) AS on_so,
 		IF(bn.on_po=0, NULL ,bn.on_so) AS on_po,
@@ -50,14 +52,14 @@ def get_data(filters):
 		IFNULL(jc.s_warehouse, "X") as s_wh,
 		IFNULL(jc.t_warehouse, "X") as t_wh
 		FROM `tabProcess Job Card RIGPL` jc 
+		LEFT JOIN `tabBOM Operation` bo ON jc.operation_id = bo.name
 		LEFT JOIN `tabItem Reorder` ro ON jc.production_item = ro.parent
 		LEFT JOIN (SELECT item_code, SUM(reserved_qty) as on_so, SUM(ordered_qty) as on_po, SUM(actual_qty) as act,
 			SUM(planned_qty) as plan, SUM(reserved_qty_for_production) as prod, SUM(indented_qty) as indent
 			FROM `tabBin` GROUP BY item_code) bn 
 			ON jc.production_item = bn.item_code
 		WHERE jc.docstatus = 0 %s
-		ORDER BY jc.operation, jc.production_item""" % cond_jc
-	frappe.msgprint(query)
+		ORDER BY bo.idx, jc.operation, jc.production_item""" % cond_jc
 	data = frappe.db.sql(query, as_list=1)
 	return data
 
@@ -73,11 +75,12 @@ def get_conditions(filters):
 		cond_jc += " AND jc.posting_date >= '%s'" % filters.get("from_date")
 	if filters.get("to_date") and filters.get("summary") == 1:
 		cond_jc += " AND jc.posting_date <= '%s'" % filters.get("to_date")
-	if filters.get("summary") == 0:
+	if not filters.get("summary"):
+		if filters.get("jc_status"):
+			cond_jc += " AND jc.status = '%s'" % filters.get("jc_status")
 		if filters.get("operation"):
 			cond_jc += " AND jc.operation = '%s'" % filters.get("operation")
 		if filters.get("bm"):
 			cond_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
-
 
 	return cond_jc

@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import frappe
-from frappe.utils import nowdate, add_days
 from frappe.desk.reportview import get_match_cond
+from rigpl_erpnext.utils.manufacturing_utils import *
 
 
 def validate(doc, method):
@@ -10,12 +9,36 @@ def validate(doc, method):
     check_subcontracting(doc, method)
     check_gst_rules(doc, method)
     check_taxes_integrity(doc, method)
+    get_pricing_rule_based_on_attributes(doc)
+    get_qty_for_purchase(doc, reject=0)
+
+
+def on_submit(doc, method):
+    # Need to Check if JC is to be Submitted on PO Submission or after GRN Submission
+    # Update the JC start date to PO Date and Time
+    pass
+
+
+def on_cancel(doc, method):
+    # Need to Check if JC is to be Submitted on PO Submission or after GRN Submission
+    # Update the JC start date to PO Date and Time
+    pass
+
+
+def on_update(doc, method):
+    # Check what to be done on Update maybe update the JC Start Time
+    pass
+
+
+def get_qty_for_purchase(doc, reject=0):
+    if doc.is_subcontracting != 1:
+        for it in doc.items:
+            it_doc = frappe.get_doc("Item", it.item_code)
 
 
 def check_gst_rules(doc, method):
     ship_state = frappe.db.get_value("Address", doc.shipping_address, "state_rigpl")
     template_doc = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
-    ship_country = frappe.db.get_value("Address", doc.shipping_address, "country")
     supplier_state = frappe.db.get_value("Address", doc.supplier_address, "state_rigpl")
     supplier_country = frappe.db.get_value("Address", doc.supplier_address, "country")
 
@@ -52,9 +75,16 @@ def check_gst_rules(doc, method):
 
 
 def update_fields(doc, method):
-    if doc.is_subcontracting == 1:
-        doc.transaction_date = add_days(nowdate(), -1)
-    else:
+    doc.title = doc.supplier
+    if doc.schedule_date < nowdate():
+        doc.schedule_date = nowdate()
+        for d in doc.items:
+            if d.schedule_date < nowdate():
+                d.schedule_date = nowdate()
+            if d.expected_delivery_date and d.expected_delivery_date < nowdate():
+                d.expected_delivery_date = nowdate()
+
+    if doc.transaction_date < nowdate():
         doc.transaction_date = nowdate()
 
     letter_head_tax = frappe.db.get_value("Purchase Taxes and Charges Template", doc.taxes_and_charges, "letter_head")
@@ -92,12 +122,12 @@ def check_subcontracting(doc, method):
                 frappe.throw(("Only Purchase Items are allowed in Item Code for Purchase Orders. "
                               "Check Row # {0}").format(d.idx))
         if d.so_detail:
-            sod = frappe.get_doc("Sales Order Item", d.so_detail)
+            jc_doc = frappe.get_doc("Process Job Card RIGPL", d.so_detail)
             if doc.is_subcontracting != 1:
-                d.item_code = sod.item_code
+                d.item_code = jc_doc.production_item
             else:
-                d.subcontracted_item = sod.item_code
-            d.description = sod.description
+                d.subcontracted_item = jc_doc.production_item
+            d.description = jc_doc.description
         if doc.is_subcontracting == 1:
             sub_item = frappe.get_doc("Item", d.subcontracted_item)
             if d.so_detail:
@@ -107,117 +137,79 @@ def check_subcontracting(doc, method):
             if d.subcontracted_item is None or d.subcontracted_item == "":
                 frappe.throw("Subcontracted Item is Mandatory for Subcontracting Purchase Order "
                              "Check Row #{0}".format(d.idx))
-            if d.from_warehouse is None or d.from_warehouse == "":
-                frappe.throw("From Warehouse is Mandatory for Subcontracting Purchase Order "
-                             "Check Row #{0}".format(d.idx))
-            check_warehouse(doc, method, d.from_warehouse)
-
-
-def on_submit(doc, method):
-    if doc.is_subcontracting == 1:
-        chk_ste = get_existing_ste(doc, method)
-        if chk_ste:
-            if len(chk_ste) > 1:
-                frappe.throw("More than 1 Stock Entry Exists for the Same PO. ERROR!!!")
-            else:
-                name = chk_ste[0][0]
-                ste_exist = frappe.get_doc("Stock Entry", name)
-                ste_exist.submit()
-                frappe.msgprint('{0}{1}'.format("Submitted STE# ", ste_exist.name))
-        else:
-            frappe.throw("No Stock Entry Found for this PO")
-
-
-def on_cancel(doc, method):
-    if doc.is_subcontracting == 1:
-        chk_ste = get_existing_ste(doc, method)
-        if chk_ste:
-            if len(chk_ste) > 1:
-                frappe.throw("More than 1 Stock Entry Exists for the Same PO. ERROR!!!")
-            else:
-                name = chk_ste[0][0]
-                ste_exist = frappe.get_doc("Stock Entry", name)
-                ste_exist.cancel()
-                frappe.msgprint('{0}{1}'.format("Cancelled STE# ", ste_exist.name))
-        else:
-            frappe.msgprint("No Stock Entry Found for this PO")
-
-
-def on_update(doc, method):
-    if doc.is_subcontracting == 1:
-        create_ste(doc, method)
-
-
-def create_ste(doc, method):
-    ste_items = get_ste_items(doc, method)
-    chk_ste = get_existing_ste(doc, method)
-    if chk_ste:
-        if len(chk_ste) > 1:
-            frappe.throw("More than 1 Stock Entry Exists for the Same PO. ERROR!!!")
-        else:
-            ste_name = chk_ste[0][0]
-            ste_exist = frappe.get_doc("Stock Entry", ste_name)
-            ste_exist.items = []
-            for i in ste_items:
-                ste_exist.append("items", i)
-            ste_exist.posting_date = doc.transaction_date
-            ste_exist.posting_time = '23:59:59'
-            ste_exist.purpose = "Material Transfer"
-            ste_exist.purchase_order = doc.name
-            ste_exist.remarks = "Material Transfer Entry for PO#" + doc.name
-            ste_exist.save()
-            frappe.msgprint('{0}{1}'.format("Updated STE# ", ste_exist.name))
-    else:
-        ste = frappe.get_doc({
-            "doctype": "Stock Entry",
-            "purpose": "Material Transfer",
-            "posting_date": doc.transaction_date,
-            "posting_time": '23:59:59',
-            "purchase_order": doc.name,
-            "remarks": "Material Transfer Entry for PO#" + doc.name,
-            "items": ste_items
-        })
-        ste.insert()
-        frappe.msgprint('{0}{1}'.format("Created STE# ", ste.name))
-
-
-def get_ste_items(doc, method):
-    ste_items = []
-    target_warehouse = frappe.db.sql("""SELECT name FROM `tabWarehouse` 
-    WHERE is_subcontracting_warehouse =1""", as_list=1)
-    target_warehouse = target_warehouse[0][0]
-    for d in doc.items:
-        ste_temp = {}
-        ste_temp.setdefault("s_warehouse", d.from_warehouse)
-        ste_temp.setdefault("t_warehouse", target_warehouse)
-        ste_temp.setdefault("item_code", d.subcontracted_item)
-        item = frappe.get_doc("Item", d.subcontracted_item)
-        if d.stock_uom == item.stock_uom:
-            ste_temp.setdefault("qty", d.qty)
-        else:
-            ste_temp.setdefault("qty", d.conversion_factor)
-        ste_items.append(ste_temp)
-    return ste_items
-
-
-def get_existing_ste(doc, method):
-    chk_ste = frappe.db.sql("""SELECT ste.name FROM `tabStock Entry` ste WHERE ste.docstatus != 2 
-    AND ste.purchase_order = '%s'""" % doc.name, as_list=1)
-    return chk_ste
-
-
-def check_warehouse(doc, method, wh):
-    warehouse = frappe.get_doc("Warehouse", wh)
-    if warehouse.is_subcontracting_warehouse == 1:
-        frappe.throw("Warehouse {0} is not allowed to be Selected in PO# {1}".format(warehouse.name, doc.name))
 
 
 @frappe.whitelist()
-def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql(f"""SELECT DISTINCT(wo.name), wo.sales_order, wo.production_order_date,wo.item_description
-	FROM `tabWork Order` wo, `tabSales Order` so, `tabSales Order Item` soi WHERE wo.docstatus = 1 AND so.docstatus = 1 
-	AND soi.parent = so.name AND so.status != "Closed" AND soi.qty > soi.delivered_qty AND wo.sales_order = so.name
-	AND (wo.name like %(txt)s or wo.sales_order like %(txt)s) {get_match_cond(doctype)} order by
-	if(locate(%(_txt)s, `tabWork Order`.name), locate(%(_txt)s, `tabWork Order`.name), 1)
-	limit %(start)s, %(page_len)s""",
+def get_pending_jc(doctype, txt, searchfield, start, page_len, filters):
+    return frappe.db.sql(f"""SELECT DISTINCT(jc.name), ps.sales_order, jc.posting_date,jc.description, it.stock_uom
+    FROM `tabProcess Job Card RIGPL` jc, `tabProcess Sheet` ps, `tabItem` it
+    WHERE jc.docstatus = 0 AND jc.status = 'Work In Progress' AND it.name = jc.production_item
+    AND jc.process_sheet = ps.name AND (jc.name LIKE %(txt)s or ps.sales_order LIKE %(txt)s) 
+    {get_match_cond(doctype)} ORDER BY IF(locate(%(_txt)s, jc.name), 
+    locate(%(_txt)s, jc.name), 1) LIMIT %(start)s, %(page_len)s""",
                          {'txt': "%%%s%%" % txt, '_txt': txt.replace("%", ""), 'start': start, 'page_len': page_len, })
+
+
+def get_pricing_rule_based_on_attributes(doc):
+    if not doc.supplier:
+        frappe.throw("Please Select Supplier First in {}".format(doc.name))
+    supp_prule_dict = get_supplier_pricing_rule(doc.supplier)
+    if doc.is_subcontracting == 1:
+        for d in doc.items:
+            if d.so_detail:
+                ps_doc = frappe.get_doc("Process Sheet", frappe.get_value("Process Job Card RIGPL", d.so_detail,
+                                                                          "process_sheet"))
+                special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item, ps_doc.sales_order_item,
+                                                                       docstatus=1)
+                item_att_dict = get_special_item_attributes(d.subcontracted_item, special_item_attr_doc[0].name)
+            else:
+                item_att_dict = get_attributes(d.subcontracted_item)
+            if supp_prule_dict:
+                for prule in supp_prule_dict:
+                    prule_doc = frappe.get_doc("Pricing Rule", prule.name)
+                    found = check_prule_for_it_att(prule_doc, item_att_dict)
+                    if found == 1:
+                        if d.price_list_rate != prule_doc.rate:
+                            d.price_list_rate = prule_doc.rate
+                            break
+
+
+def check_prule_for_it_att(prule_doc, it_att_dict):
+    found = 0
+    total_score = len(prule_doc.attributes)
+    match_score = 0
+    exit_prule = 0
+    for prule_att in prule_doc.attributes:
+        if exit_prule == 0:
+            if prule_att.is_numeric != 1:
+                for att in it_att_dict:
+                    if prule_att.attribute == att.attribute:
+                        if prule_att.allowed_values == att.attribute_value:
+                            match_score += 1
+                            break
+                        else:
+                            exit_prule = 1
+            else:
+                formula = replace_java_chars(prule_att.rule)
+                formula_values = get_formula_values(it_att_dict, formula)
+                dont_calculate_formula = 0
+                for key in list(formula_values):
+                    if key not in formula:
+                        dont_calculate_formula = 1
+                        break
+                    if dont_calculate_formula == 0:
+                        calculated_value = calculate_formula_values(formula, formula_values)
+                    else:
+                        break
+                    if calculated_value == 1:
+                        match_score += 1
+                        break
+        if match_score == total_score:
+            found = 1
+            return found
+
+
+def get_supplier_pricing_rule(supplier):
+    prule_dict = frappe.db.sql("""SELECT name FROM `tabPricing Rule` WHERE apply_on = 'Attributes' AND buying = 1 
+    AND applicable_for = 'Supplier' AND supplier = '%s'""" % supplier, as_dict=1)
+    return prule_dict

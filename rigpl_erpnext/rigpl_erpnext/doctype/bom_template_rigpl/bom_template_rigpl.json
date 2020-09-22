@@ -16,6 +16,7 @@
   "formula",
   "no_of_rm_items",
   "sb0",
+  "item_template",
   "fg_restrictions",
   "sb1",
   "routing",
@@ -106,10 +107,16 @@
    "label": "Finished Item Restrictions",
    "options": "Item Variant Restrictions",
    "reqd": 1
+  },
+  {
+   "fieldname": "item_template",
+   "fieldtype": "Link",
+   "label": "Item Template",
+   "options": "Item"
   }
  ],
  "links": [],
- "modified": "2020-08-26 17:06:45.615725",
+ "modified": "2020-09-02 18:05:26.523954",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "BOM Template RIGPL",

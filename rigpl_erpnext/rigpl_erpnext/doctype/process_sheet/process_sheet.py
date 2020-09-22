@@ -48,11 +48,14 @@ class ProcessSheet(Document):
         if not self.flags.ignore_mandatory:
             it_doc = frappe.get_doc('Item', self.production_item)
             disallow_templates(self, it_doc)
-            bom_tmp_name = get_bom_template_from_item(it_doc, self.sales_order_item)
+            if not self.bom_template:
+                bom_tmp_name = get_bom_template_from_item(it_doc, self.sales_order_item)
+            else:
+                bom_tmp_name = [self.bom_template]
             if not bom_tmp_name:
                 frappe.throw("No BOM Template Found")
             else:
-                bom_tmp_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
+                bom_tmp_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name[0])
                 self.update_ps_fields(bom_tmp_doc, it_doc)
 
     def validate_other_psheet(self):
@@ -83,7 +86,14 @@ class ProcessSheet(Document):
 
     def fill_details_from_item(self):
         item_doc = frappe.get_doc('Item', self.production_item)
-        bom_template = get_bom_template_from_item(item_doc, self.sales_order_item)
+        if not self.bom_template:
+            bom_template = get_bom_template_from_item(item_doc, self.sales_order_item)
+            if not bom_template:
+                frappe.msgprint("NO BOM Template Found")
+            else:
+                bom_template = bom_template[0]
+        else:
+            bom_template = self.bom_template
         if bom_template:
             self.bom_template = bom_template
         else:
@@ -102,12 +112,13 @@ class ProcessSheet(Document):
         self.get_routing_from_template()
         self.update_ps_status()
         self.validate_qty_to_manufacture(it_doc)
-        self.get_rm_sizes()
-        if self.rm_consumed:
-            for rm in self.rm_consumed:
-                if flt(rm.calculated_qty) > flt(rm.qty_available):
-                    frappe.msgprint("For RM: {} in Row# {} Qty Required = {} but Available Qty = {}". \
-                                    format(rm.item_code, rm.idx, rm.calculated_qty, rm.qty_available, self.name))
+        if self.get("__islocal") != 1:
+            self.get_rm_sizes()
+            if self.rm_consumed:
+                for rm in self.rm_consumed:
+                    if flt(rm.calculated_qty) > flt(rm.qty_available):
+                        frappe.msgprint("For RM: {} in Row# {} Qty Required = {} but Available Qty = {}". \
+                                        format(rm.item_code, rm.idx, rm.calculated_qty, rm.qty_available, self.name))
 
     def get_rm_sizes(self):
         def_rm_warehouse = ""
@@ -119,8 +130,11 @@ class ProcessSheet(Document):
         item_dict["known_type"] = "fg"
         item_list = self.get_item_list(self.production_item, known_type="fg", unknown_type="rm")
         if self.manually_select_rm != 1:
-            rm_item_dict = get_req_sizes_from_template(self.bom_template, item_list, "rm_restrictions",
+            rm_item_dict = get_req_sizes_from_template(bom_temp_name=self.bom_template, item_type_list=item_list,
+                                                       table_name="rm_restrictions",
                                                        allow_zero_rol=1, ps_name=self.name)
+            if not rm_item_dict:
+                frappe.throw("NO RM Found")
         else:
             rm_item_dict = []
             it_dict = frappe._dict({})
@@ -131,12 +145,15 @@ class ProcessSheet(Document):
                 it_dict["description"] = description
                 rm_item_dict.append(it_dict.copy())
         rm_calc_qty_list = calculated_value_from_formula(rm_item_dict, self.production_item, fg_qty=self.quantity,
-                                                         so_detail=self.sales_order_item, process_sheet_name=self.name)
+                                                         so_detail=self.sales_order_item,
+                                                         process_sheet_name=self.name,
+                                                         bom_template_name=self.bom_template)
         wip_list = []
         for rm in rm_item_dict:
             wip_item_dict = get_req_wip_sizes_from_template(self.bom_template, fg_item=self.production_item,
                                                             table_name="wip_restrictions", rm_item=rm.name,
-                                                            allow_zero_rol=self.allow_zero_rol_for_wip)
+                                                            allow_zero_rol=self.allow_zero_rol_for_wip,
+                                                            process_sheet_name=self.name)
             dont_add = 0
             if wip_item_dict:
                 for wip in wip_item_dict:
@@ -223,10 +240,11 @@ class ProcessSheet(Document):
 
     def get_routing_from_template(self):
         fg_it_doc = frappe.get_doc("Item", self.production_item)
-        bom_tmp_name = get_bom_template_from_item(fg_it_doc, self.sales_order_item)
+        if not self.bom_template:
+            bom_tmp_name = get_bom_template_from_item(fg_it_doc, self.sales_order_item)
+        else:
+            bom_tmp_name = self.bom_template
         item_list = self.get_item_list(item_name=self.production_item, known_type="fg", unknown_type="rm")
-        rm_item_dict = get_req_sizes_from_template(bom_tmp_name, item_list, "rm_restrictions",
-                                                   allow_zero_rol=1, ps_name=self.name)
         bt_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
         query = """SELECT idx, name, operation, workstation, hour_rate, time_based_on_formula, time_in_mins,
         operation_time_formula, batch_size_based_on_formula, batch_size_formula FROM `tabBOM Operation` WHERE 
@@ -234,10 +252,15 @@ class ProcessSheet(Document):
         routing_dict = frappe.db.sql(query, as_dict=1)
         if self.routing:
             self.get_routing()
-            calculate_batch_size(self, routing_dict, fg_it_doc, rm_item_dict)
-            calculate_operation_time(self, routing_dict, fg_it_doc, rm_item_dict)
-            calculate_operation_cost(self)
-            update_warehouse_from_bt(self)
+            if self.get("__islocal") != 1:
+                rm_item_dict = get_req_sizes_from_template(bom_tmp_name, item_list, "rm_restrictions", allow_zero_rol=1,
+                                                           ps_name=self.name)
+                if not rm_item_dict:
+                    frappe.throw("NO RM Found")
+                calculate_batch_size(self, routing_dict, fg_it_doc, rm_item_dict)
+                calculate_operation_time(self, routing_dict, fg_it_doc, rm_item_dict)
+                calculate_operation_cost(self)
+                update_warehouse_from_bt(self)
 
     def get_routing(self):
         self.set("operations", [])

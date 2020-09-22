@@ -11,6 +11,14 @@ from frappe.model.document import Document
 
 class BOMTemplateRIGPL(Document):
     def validate(self):
+        if self.item_template:
+            it_doc = frappe.get_doc("Item", self.item_template)
+            if it_doc.has_variants != 1:
+                frappe.throw("{} is not a Template and Only Item Templates are Allowed in {}".format(
+                    frappe.get_desk_link("Item", self.item_template), self.name))
+            if it_doc.include_item_in_manufacturing != 1:
+                frappe.throw("{} is not Allowed for Manufacturing in {}".
+                             format(frappe.get_desk_link("Item", self.item_template), self.name))
         self.validate_restriction_rules("rm_restrictions")
         self.validate_restriction_rules("fg_restrictions")
         self.validate_restriction_rules("wip_restrictions")

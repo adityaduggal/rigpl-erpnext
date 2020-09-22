@@ -58,11 +58,11 @@ def update_fields(doc):
                                                   doc.shipping_address_name, "address_title")
     if doc.transaction_date < nowdate():
         doc.transaction_date = nowdate()
-    if doc.delivery_date < nowdate():
-        doc.delivery_date = nowdate()
+    if doc.delivery_date < doc.transaction_date:
+        doc.delivery_date = doc.transaction_date
     for d in doc.items:
-        if d.delivery_date < nowdate():
-            d.delivery_date = nowdate()
+        if d.delivery_date < doc.transaction_date:
+            d.delivery_date = doc.transaction_date
 
     letter_head_tax = frappe.db.get_value("Sales Taxes and Charges Template",
                                           doc.taxes_and_charges, "letter_head")

@@ -10,12 +10,16 @@ import json
 from frappe import _
 from frappe.utils import flt, nowdate, nowtime, get_link_to_form, get_datetime, time_diff_in_hours, getdate, get_time
 from erpnext.stock.stock_balance import update_bin_qty
+from erpnext.controllers.queries import get_fields
 from rigpl_erpnext.utils.other_utils import round_up
+from erpnext.stock.utils import get_bin
 
 
 def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, auto_create=False):
     doc = frappe.new_doc("Process Job Card RIGPL")
     doc.update({
+        'production_item': pro_sheet.production_item,
+        'description': pro_sheet.description,
         'process_sheet': pro_sheet.name,
         'operation': row.get("operation"),
         'workstation': row.get("workstation"),
@@ -215,11 +219,12 @@ def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
                 frappe.msgprint(message, title=warning_title)
 
 
-def calculated_value_from_formula(rm_item_dict, fg_item_name, fg_qty=0, so_detail=None, process_sheet_name=None):
+def calculated_value_from_formula(rm_item_dict, fg_item_name, bom_template_name, fg_qty=0, so_detail=None,
+                                  process_sheet_name=None):
     qty_dict = frappe._dict({})
     qty_list = []
     bom_temp_name = get_bom_template_from_item(frappe.get_doc("Item", fg_item_name), so_detail=so_detail)
-    bom_temp_doc = frappe.get_doc("BOM Template RIGPL", bom_temp_name)
+    bom_temp_doc = frappe.get_doc("BOM Template RIGPL", bom_template_name)
     formula = replace_java_chars(bom_temp_doc.formula)
     fg_item_doc = frappe.get_doc('Item', fg_item_name)
     if not fg_item_doc.variant_of:
@@ -278,7 +283,8 @@ def disallow_templates(doc, item_doc):
         frappe.throw('Template {} is not allowed in BOM {}'.format(item_doc.name, doc.name))
 
 
-def get_req_wip_sizes_from_template(bom_temp_name, fg_item, rm_item, table_name, allow_zero_rol=None):
+def get_req_wip_sizes_from_template(bom_temp_name, fg_item, rm_item, table_name, process_sheet_name,
+                                    allow_zero_rol=None):
     if allow_zero_rol == 1:
         rol_cond = ""
     else:
@@ -296,7 +302,7 @@ def get_req_wip_sizes_from_template(bom_temp_name, fg_item, rm_item, table_name,
                                 "AND %s.parenttype = 'Item' AND %s.attribute = '%s'" % \
                                 (att_table, att_table, att_table, att_table, d.attribute)
             else:
-                att_cond += convert_wip_rule_to_mysql_statement(d.rule, fg_item, rm_item)
+                att_cond += convert_wip_rule_to_mysql_statement(d.rule, fg_item, rm_item, process_sheet_name)
                 att_join += " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent AND %s.parenttype = 'Item' " \
                             "AND %s.attribute = '%s'" % (att_table, att_table, att_table, att_table, d.attribute)
 
@@ -345,8 +351,8 @@ def convert_wip_rule_to_mysql_statement(rule, fg_item, rm_item, process_sheet_na
     fg_item_doc = frappe.get_doc("Item", fg_item)
     if not fg_item_doc.variant_of:
         ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(it_name, ps_doc.sales_order_item, docstatus=1)
-        fg_att_dict = get_special_item_attributes(it_name, special_item_attr_doc[0].name)
+        special_item_attr_doc = get_special_item_attribute_doc(fg_item, ps_doc.sales_order_item, docstatus=1)
+        fg_att_dict = get_special_item_attributes(fg_item, special_item_attr_doc[0].name)
     else:
         fg_att_dict = get_attributes(fg_item)
     rm_att_dict = get_attributes(rm_item)
@@ -405,6 +411,27 @@ def get_attributes(item_name, so_detail=None):
     return attribute_dict
 
 
+@frappe.whitelist()
+def manual_bom_template_selection(source_name, target_doc=None):
+    frappe.msgprint(str(target_doc))
+    target_doc.bom_template = source_name
+
+
+@frappe.whitelist()
+def get_bom_template_from_item_name(doctype, txt, searchfield, start, page_len, filters, as_dict):
+    so_detail = filters.get("so_detail")
+    it_doc = frappe.get_doc("Item", filters.get("it_name"))
+    bt_list = get_bom_template_from_item(it_doc, so_detail)
+    if not bt_list:
+        frappe.throw("NO BOM Template Found")
+    elif len(bt_list) == 1:
+        bt_list = "('" + bt_list[0] + "')"
+    else:
+        bt_list = tuple(bt_list)
+    query = """SELECT name, title, remarks FROM `tabBOM Template RIGPL` WHERE name in {}""".format(bt_list)
+    return frappe.db.sql(query, as_dict=as_dict)
+
+
 def get_bom_template_from_item(item_doc, so_detail=None):
     bom_template = {}
     if item_doc.variant_of:
@@ -452,11 +479,9 @@ def get_special_item_attribute_doc(it_name, so_detail, docstatus=1):
 
 
 def get_bom_temp_from_it_att(item_doc, att_dict):
-    found = 0
+    bt_list = []
     all_bt = frappe.get_all("BOM Template RIGPL")
     for bt in all_bt:
-        if found == 1:
-            break
         bt_doc = frappe.get_doc("BOM Template RIGPL", bt.name)
         total_score = len(bt_doc.fg_restrictions)
         match_score = 0
@@ -488,8 +513,8 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
                                 exit_bt = 1
                                 break
         if match_score == total_score:
-            found = 1
-            return bt.name
+            bt_list.append(bt.name)
+    return bt_list
 
 
 def update_fields_from_template(doc, bt_doc):
@@ -634,11 +659,15 @@ def calculate_batch_size(doc, rt_dict, fg_it_doc, rm_it_dict):
                 d.batch_size = batch_size
 
 
-def get_formula_values(att_dict, formula, type_of_dict):
+def get_formula_values(att_dict, formula, type_of_dict=None):
     values = {}
     for att in att_dict:
-        if (type_of_dict + '_' + att.attribute) in formula:
-            values[(type_of_dict + '_' + att.attribute)] = flt(att.attribute_value)
+        if type_of_dict:
+            if (type_of_dict + '_' + att.attribute) in formula:
+                values[(type_of_dict + '_' + att.attribute)] = flt(att.attribute_value)
+        else:
+            if att.attribute in formula:
+                values[att.attribute] = flt(att.attribute_value)
     return values
 
 
@@ -701,7 +730,7 @@ def update_produced_qty(jc_doc, status="Submit"):
                 tc_comp_qty = jc_doc.total_completed_qty
                 frappe.db.set_value("BOM Operation", ps_r.name, "completed_qty", tc_comp_qty if tc_comp_qty > 0 else 0)
                 if tc_comp_qty < ps_r.planned_qty or jc_doc.short_close_operation == 1:
-                    frappe.db.set_value("BOM Operation", row.name, "status", "In Progress")
+                    frappe.db.set_value("BOM Operation", ps_r.name, "status", "In Progress")
 
             if ps_r.idx == 1 and status == "Submit":
                 tc_comp_qty = pro_sheet.produced_qty + jc_doc.total_completed_qty
@@ -908,3 +937,43 @@ def update_pro_sheet_rm_from_jc(jc_doc, status="Submit"):
                 else:
                     frappe.db.set_value("Process Sheet Items", row.name, "qty", row.calculated_qty)
         update_qty_for_prod(row.item_code, row.source_warehouse, table_name="rm_consumed")
+
+
+def update_jc_status(jc_doc):
+    if jc_doc.docstatus == 2:
+        jc_doc.status = 'Cancelled'
+    elif jc_doc.docstatus == 1:
+        jc_doc.status = 'Completed'
+    elif jc_doc.docstatus == 0:
+        # There are 2 options for Draft Job Cards 1 is Open and Other is Work In Progress
+        # WIP JC can be worked on and only possible if its 1st process in Process Sheet or if not then previous
+        # process should be complete or there should be stock for that item in the Source Warehouse
+        # Also if the Process Sheet is for Special Item then the JC can only be in WIP once previous process
+        # is complete.
+        op_doc = frappe.get_doc("BOM Operation", jc_doc.operation_id)
+        if op_doc.idx == 1:
+            jc_doc.status = "Work In Progress"
+        else:
+            pro_doc = frappe.get_doc('Process Sheet', jc_doc.process_sheet)
+            if pro_doc.sales_order_item:
+                for prev_op in pro_doc.operations:
+                    if prev_op.idx == op_doc.idx - 1:
+                        prev_op_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE 
+                        operation_id = '%s' AND docstatus != 2""" % prev_op.name, as_dict=1)
+                        if prev_op_jc:
+                            prev_op_jc_doc = frappe.get_doc("Process Job Card RIGPL", prev_op_jc[0].name)
+                            if prev_op_jc_doc.status == "Completed":
+                                jc_doc.status = 'Work In Progress'
+                            else:
+                                jc_doc.status = 'Open'
+                        else:
+                            frappe.throw("For Item: {} in JC# {} there is no Reference for Previous "
+                                         "Process".foramt(jc_doc.production_item, jc_doc.name))
+            else:
+                # Now the JC is for Items with Attributes or Stock Items. They can be WIP if there is stock in
+                # Source Warehouse
+                qty_available = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
+                if qty_available > 0:
+                    jc_doc.status = 'Work In Progress'
+                else:
+                    jc_doc.status = 'Open'

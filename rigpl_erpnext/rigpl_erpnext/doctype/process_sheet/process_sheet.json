@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "autoname": "naming_series:",
  "creation": "2020-07-10 13:18:14.411420",
  "doctype": "DocType",
@@ -97,6 +98,7 @@
    "label": "Update Qty Manually"
   },
   {
+   "default": "Today",
    "fieldname": "date",
    "fieldtype": "Date",
    "label": "Date",
@@ -208,7 +210,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2020-08-25 18:45:44.073448",
+ "modified": "2020-09-21 09:35:51.408132",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",
@@ -221,6 +223,7 @@
    "delete": 1,
    "email": 1,
    "export": 1,
+   "import": 1,
    "print": 1,
    "read": 1,
    "report": 1,
@@ -233,6 +236,7 @@
   {
    "create": 1,
    "email": 1,
+   "import": 1,
    "print": 1,
    "read": 1,
    "report": 1,

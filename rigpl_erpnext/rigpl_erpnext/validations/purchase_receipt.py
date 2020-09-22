@@ -6,7 +6,7 @@ import frappe
 def validate(doc, method):
     for d in doc.items:
         wh = frappe.get_doc("Warehouse", d.warehouse)
-        if wh.is_subcontracting_warehouse == 1:
+        if p:
             frappe.throw("Subcontracted Warehouse is Not Allowed Check Row# {0}".format(d.idx))
 
 

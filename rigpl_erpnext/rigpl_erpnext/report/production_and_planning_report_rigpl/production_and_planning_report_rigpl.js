@@ -25,6 +25,13 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"required": 0,
 			"options": "Operation"
 		},
+	    {
+			"fieldname":"jc_status",
+			"label": "Job Card Status",
+			"fieldtype": "Select",
+			"required": 0,
+			"options": "\nOpen\nWork In Progress"
+		},
 		{
 			"fieldname":"rm",
 			"label": "Is RM",

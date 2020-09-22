@@ -3,11 +3,11 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.indiamart import execute
+from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.indiamart import get_indiamart_leads
 from frappe.model.document import Document
 
 
 class IndiaMartPullLeads(Document):
 
     def get_leads(self):
-        execute()
+        get_indiamart_leads()

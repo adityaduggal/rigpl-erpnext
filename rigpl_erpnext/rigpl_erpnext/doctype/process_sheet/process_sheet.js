@@ -2,6 +2,47 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Process Sheet', {
+	refresh: function(frm){
+	    if (frm.doc.docstatus === 0){
+            me.frm.add_custom_button(__('Select BOM Template Manually'),
+                function(){
+                    var dialog = new frappe.ui.Dialog({
+                    title: "Select BOM Template Manually",
+                    fields: [
+                        {
+                            "fieldtype": "Link",
+                            "label": __("BOM Template"),
+                            "fieldname": "bom_template",
+                            "options":'BOM Template RIGPL',
+                            "reqd": 1,
+                            get_query: function() {
+                               var filters = {
+                                    it_name: frm.doc.production_item,
+                                    so_detail: frm.doc.sales_order_item
+                               }
+                               return {
+                                    query: "rigpl_erpnext.utils.manufacturing_utils.get_bom_template_from_item_name",
+                                    filters: filters
+                               };
+                            },
+                        },
+                        {
+                            "fieldtype": "Button",
+                            "label": __("Select"),
+                            "fieldname": "select"
+                        }
+                    ],
+                    });
+                    dialog.show();
+                    var fd = dialog.fields_dict;
+                    dialog.fields_dict.select.$input.click(function(){
+                        frm.doc.bom_template = fd.bom_template.value
+                        frm.refresh_fields("bom_template")
+                    });
+                }
+            )
+	    }
+	},
 	onload: function(frm){
 		frm.set_query("production_item", function(doc) {
 			return {

@@ -19,19 +19,19 @@ Price List rate if there is PL rate then it would check if its default or not.
 If there is no default PL then it would take the latest selling price list.
 4. If an item template is not for selling then it would check if its purchase
 5. If its purchase then the valuation rate would be as per the purchase invoice
-	- Here things to note, RM which is not purchased ever should be valued at 1
-	- If the RM which is not purchased ever does have valuation rate > 1 then
-	dont change anything. This is so that we can set them manually.
-	- Also for the Cut Pieces in Carbide RM take the price from RM purchased last
-	- Also consider the exchange rate for prices in NON INR (Default currency)
+    - Here things to note, RM which is not purchased ever should be valued at 1
+    - If the RM which is not purchased ever does have valuation rate > 1 then dont change anything. This is so that 
+    we can set them manually.
+    - Also for the Cut Pieces in Carbide RM take the price from RM purchased last
+    - Also consider the exchange rate for prices in NON INR (Default currency)
 6. It should also check for Items Where they are not part of a template for items
 like HSP, CSP, JCNO etc and set the valuation rate.
 
 
 * Now should I keep the valuation rate doctype or should I enter VR in item code
-	- Benefits of keeping the VR doctype is that it would give us the history
-	- But History is already there in Stock Ledger Entry Table.
-	- So Discard the VR Doctype and update it in Item Code only.
+    - Benefits of keeping the VR doctype is that it would give us the history
+    - But History is already there in Stock Ledger Entry Table.
+    - So Discard the VR Doctype and update it in Item Code only.
 '''
 
 

@@ -10,25 +10,32 @@ from erpnext.stock.utils import get_bin
 
 class ProcessJobCardRIGPL(Document):
     def on_submit(self):
+        update_jc_status(self)
         self.validate_rm_qty_consumed()
         update_produced_qty(self)
-        update_planned_qty(self.produdtion_item, frappe.get_value("Process Sheet", self.process_sheet,
-                                                                  "finished_warehouse"))
+        update_planned_qty(self.production_item, frappe.get_value("Process Sheet", self.process_sheet,
+                                                                  "fg_warehouse"))
         create_submit_ste_from_job_card(self)
         update_pro_sheet_rm_from_jc(self)
+        self.update_next_jc_status()
         # update_rm_qty_for_production(self)
         # frappe.throw("WIP")
 
     def on_cancel(self):
+        update_jc_status(self)
         cancel_delete_ste(self, trash_can=0)
         update_produced_qty(self, status="Cancel")
-        update_planned_qty(self.produdtion_item, frappe.get_value("Process Sheet", self.process_sheet,
-                                                                  "finished_warehouse"))
+        update_planned_qty(self.production_item, frappe.get_value("Process Sheet", self.process_sheet,
+                                                                  "fg_warehouse"))
         update_pro_sheet_rm_from_jc(self, status="Cancel")
+        self.update_next_jc_status()
 
     def validate(self):
+        update_jc_status(self)
         if self.s_warehouse:
             self.qty_available = get_bin(self.production_item, self.s_warehouse).get("actual_qty")
+            if self.s_warehouse == self.t_warehouse:
+                self.no_stock_entry = 1
         if not self.flags.ignore_mandatory:
             check_warehouse_in_child_tables(self, table_name="rm_consumed", type_of_table="Consume")
             check_warehouse_in_child_tables(self, table_name="item_manufactured", type_of_table="Production")
@@ -78,15 +85,18 @@ class ProcessJobCardRIGPL(Document):
 
     def update_calculated_qty(self, rm_item_dict):
         wip_rm_consume = 0
+        pro_sheet_doc = frappe.get_doc("Process Sheet", self.process_sheet)
         for d in self.item_manufactured:
-            wip_calc_qty_dict = calculated_value_from_formula(rm_item_dict, d.item_code, fg_qty=d.qty)
+            wip_calc_qty_dict = calculated_value_from_formula(rm_item_dict, d.item_code, fg_qty=d.qty,
+                                                              bom_template_name= pro_sheet_doc.bom_template)
             for wip_it in wip_calc_qty_dict:
                 if d.item_code == wip_it.fg_item_code and d.calculated_qty != wip_it.qty:
                     d.calculated_qty = wip_it.qty
                     wip_rm_consume += wip_it.qty
 
         rm_calc_qty_dict = calculated_value_from_formula(rm_item_dict, self.production_item,
-                                                         fg_qty=(self.total_completed_qty + self.total_rejected_qty))
+                                                         fg_qty=(self.total_completed_qty + self.total_rejected_qty),
+                                                         bom_template_name= pro_sheet_doc.bom_template)
         for rm in self.rm_consumed:
             for rm_it in rm_calc_qty_dict:
                 if rm.item_code == rm_it.rm_item_code:
@@ -104,3 +114,14 @@ class ProcessJobCardRIGPL(Document):
                              'Warehouse {}'.format(row.qty_available, row.qty, row.idx, row.item_code,
                                                    row.source_warehouse), title="Warehouse Shortage")
             check_qty_job_card(row, row.calculated_qty, row.qty, row.uom, row.bypass_qty_check)
+
+    def update_next_jc_status(self):
+        pro_doc = frappe.get_doc("Process Sheet", self.process_sheet)
+        for op in pro_doc.operations:
+            if op.name == self.operation_id:
+                self_idx = op.idx
+        for next_op in pro_doc.operations:
+            if next_op.idx == self_idx + 1:
+                next_op_name = next_op.name
+                next_op_doc = frappe.get_doc("BOM Operation", next_op_name)
+                update_jc_status(next_op_doc)
