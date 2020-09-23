@@ -54,10 +54,13 @@ def check_strict_po_rules(document):
             if it.idx == 1:
                 so_list.append(it.get(so_field))
             elif it.idx > 1 and follow_rules == 1:
+                frappe.throw("{} Follows Strict PO Rules for {} hence Row {} is Rejected. Make new {} "
+                             "for SO# {}".
+                             format(frappe.get_desk_link("Customer", document.customer),
+                                frappe.get_desk_link("Sales Order", it.get(so_field)), it.idx, document.doctype,
+                                frappe.get_desk_link("Sales Order", it.get(so_field))))
                 if it.get(so_field) not in so_list:
-                    frappe.throw("Customer {} Follows Strict PO Rules hence Row {} is Rejected. "
-                                 "Make new {} for SO# {}".format(document.customer, it.idx, document.doctype,
-                                                                 it.get(so_field)))
+                    pass
 
 
 def get_hsn_code(row_dict):
