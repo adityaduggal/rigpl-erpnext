@@ -4,7 +4,7 @@ from rigpl_erpnext.utils.rigpl_perm import *
 from frappe.utils import getdate
 from dateutil.relativedelta import relativedelta
 from rigpl_erpnext.utils.other_utils import validate_pan, validate_aadhaar
-from rigpl_erpnext.rigpl_erpnext.item import fn_check_digit
+from rigpl_erpnext.rigpl_erpnext.validations.item import fn_check_digit
 
 
 def validate(doc, method):
