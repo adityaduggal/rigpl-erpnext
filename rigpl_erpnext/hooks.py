@@ -111,8 +111,8 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.holiday_list.validate"
     },
     "Item": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.item.validate",
-        "autoname": "rigpl_erpnext.rigpl_erpnext.item.autoname"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.item.validate",
+        "autoname": "rigpl_erpnext.rigpl_erpnext.validations.item.autoname"
     },
     "Item Group": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"
@@ -151,9 +151,6 @@ doc_events = {
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_submit",
         "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_cancel",
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_update"
-    },
-    "Quality": {
-        "autoname": "rigpl_erpnext.rigpl_erpnext.quality.autoname"
     },
     "Quotation": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate"
