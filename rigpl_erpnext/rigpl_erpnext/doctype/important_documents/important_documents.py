@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import frappe
 from datetime import datetime
 from frappe.model.naming import getseries, get_default_naming_series
-from rigpl_erpnext.rigpl_erpnext.item import fn_check_digit
+from rigpl_erpnext.rigpl_erpnext.validations.item import fn_check_digit
 from frappe.model.document import Document
 
 
