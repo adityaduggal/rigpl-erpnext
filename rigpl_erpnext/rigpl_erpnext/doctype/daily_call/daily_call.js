@@ -13,21 +13,16 @@ frappe.ui.form.on('Daily Call', {
 				]
 			};
 		});
-		/*
 		frm.set_query("contact", "call_details", function(doc, cdt, cdn) {
-			var d = locals[cdt][cdn]
-			frappe.call({
-				method:"rigpl_erpnext.rigpl_erpnext.doctype.daily_call_tool.daily_call_tool.get_linked_contact",
-				args: {
-					link_doctype: d.document,
-					link_docname: d.document_name,
-				}, 
-			});
+		    var d = locals[cdt][cdn]
 			return {
-				query: ""
+				query: 'frappe.contacts.doctype.contact.contact.contact_query',
+				filters: {
+					link_doctype: d.document,
+					link_name: d.document_name
+				}
 			};
 		});
-		*/
 	},
 });
 frappe.ui.form.on('Daily Call Details', "document_name", function(frm, cdt, cdn){
@@ -51,7 +46,7 @@ frappe.ui.form.on('Daily Call Details', "document_name", function(frm, cdt, cdn)
 
 frappe.ui.form.on('Daily Call Details', "document", function(frm, cdt, cdn){
 	var d = locals[cdt][cdn]
-	if (d.document === 'Lead' && d.document_name !== ''){
+	if (d.document === 'Lead' && d.document_name){
 		frappe.call({
 			"method": "frappe.client.get",
 			args: {
