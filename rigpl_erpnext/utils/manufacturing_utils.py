@@ -44,9 +44,9 @@ def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, 
     return doc
 
 
-def check_existing_job_card(item_name, operation, docstatus=0):
-    exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = %s AND operation = 
-    '%s' AND production_item = '%s' """ % (docstatus, operation, item_name), as_dict=1)
+def check_existing_job_card(item_name, operation):
+    exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus !=2 AND operation_id = 
+    '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)
     return exist_jc
 
 
@@ -66,9 +66,9 @@ def make_jc_from_pro_sheet_row(pro_sheet_name, pro_sheet_row_id):
 
 
 def check_existing_pending_job_card(pro_sheet_name, pro_sheet_row_id):
-    exist_pro_sheet = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus=0 AND 
+    exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus=0 AND 
     process_sheet = '%s' AND operation_id = '%s'""" % (pro_sheet_name, pro_sheet_row_id), as_dict=1)
-    return exist_pro_sheet
+    return exist_jc
 
 
 def delete_job_card(pro_sheet_doc, trash_can=1):

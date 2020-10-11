@@ -93,6 +93,9 @@ def update_fields(doc, method):
 
 def check_taxes_integrity(doc, method):
     template = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
+    doc.billing_address = template.from_address
+    add_doc = frappe.get_doc('Address', doc.billing_address)
+    doc.company_gstin = add_doc.gstin
     for tax in doc.taxes:
         for temp in template.taxes:
             if tax.idx == temp.idx:
@@ -106,6 +109,9 @@ def check_taxes_integrity(doc, method):
 
 def check_subcontracting(doc, method):
     for d in doc.items:
+        it_gst = frappe.get_value('Item', d.item_code, 'customs_tariff_number')
+        if d.gst_hsn_code != it_gst:
+            d.gst_hsn_code = it_gst
         if doc.is_subcontracting != 1:
             if d.subcontracted_item:
                 frappe.throw(("Subcontracted Item only allowed for Sub Contracting PO. Check Row# {0}. "

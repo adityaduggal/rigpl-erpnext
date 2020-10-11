@@ -5,6 +5,89 @@ from frappe.utils import flt
 from frappe.desk.reportview import get_match_cond
 
 
+def dead_stock_order_booking(doc):
+    """Validation to Disallow Booking of Orders for More than Available Quantity for Items in Dead Stock"""
+    for it in doc.items:
+        qty_dict = frappe.db.sql("""SELECT bn.warehouse, bn.reserved_qty, bn.actual_qty, bn.reserved_qty_for_production,
+            wh.warehouse_type
+            FROM `tabBin` bn, `tabWarehouse` wh
+            WHERE bn.warehouse = wh.name AND wh.disabled =0 AND bn.item_code = '%s'"""% it.item_code, as_dict=1)
+        frappe.msgprint(str(qty_dict))
+        check_dead = 0
+        for wh in qty_dict:
+            if wh.warehouse_type == 'Dead Stock' and wh.actual_qty > 0:
+                check_dead = 1
+        if check_dead == 1:
+            tot_actual_qty = 0
+            tot_reserved_qty = 0
+            tot_reserved_qty_for_production = 0
+            for wh in qty_dict:
+                if wh.warehouse_type in ('Finished Stock', 'Dead Stock'):
+                    tot_actual_qty += wh.actual_qty
+                    tot_reserved_qty += wh.reserved_qty
+                    tot_reserved_qty_for_production += wh.reserved_qty_for_production
+            allowed_so_qty = tot_actual_qty - tot_reserved_qty - tot_reserved_qty_for_production
+            if it.qty > allowed_so_qty:
+                frappe.throw('Row# {}, {} is in Dead Stock and Allowed Qty for SO Booking = {}'.
+                             format(it.idx, frappe.get_desk_link('Item', it.item_code), allowed_so_qty))
+
+
+
+
+def validate_made_to_order_items(doc):
+    '''
+    This validation basically checks if an Item is Made to Order or Not if Item is Made to Order or Special Item
+    Then the system would check if all the Process Sheet Job Cards are completed or Not.
+    '''
+    for it in doc.items:
+        made_to_order = frappe.get_value('Item', it.item_code, 'made_to_order')
+        if made_to_order == 1 and doc.bypass_made_to_order_check != 1:
+            # Check if the Item as per the Process Sheet or Not
+            validate_special_items(doc, it)
+            validate_warehouse(doc, it)
+        elif doc.bypass_made_to_order_check != 1:
+            validate_warehouse(doc, it)
+
+
+def validate_special_items(doc, row):
+    pro_sheet = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE production_item = '%s' 
+        AND sales_order_item = '%s' AND docstatus = 1""" %(row.item_code, row.so_detail), as_list=1)
+    if not pro_sheet:
+        frappe.throw("There is No Processing Done for {} in Row# {} for {}".
+                     format(row.item_code, row.idx, frappe.get_desk_link(doc.doctype, doc.name)))
+    else:
+        # If there is a Submitted Process Sheet then Check if all the Job Cards are Submitted for the Same Quantity
+        ps_doc = frappe.get_doc('Process Sheet', pro_sheet[0][0])
+        for d in ps_doc.operations:
+            if d.final_operation == 1:
+                jc_list = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus !=2 
+                    AND operation_id = '%s'"""%(d.name), as_list=1)
+                if not jc_list:
+                    frappe.throw('There is No Job Card for {} final operation'.format(frappe.get_desk_link(
+                        doc.doctype, doc.name)))
+                else:
+                    jc_doc = frappe.get_doc('Process Job Card RIGPL', jc_list[0][0])
+                    if jc_doc.docstatus != 1:
+                        frappe.throw("For Row# {} in {}, the Final Process is Not Completed in {}".
+                                     format(row.idx, frappe.get_desk_link(doc.doctype, doc.name),
+                                            frappe.get_desk_link('Process Job Card RIGPL', jc_doc.name)))
+                    else:
+                        frappe.throw("HELLO")
+
+
+def validate_warehouse(doc, row):
+    """Only Allow from Finished Stock Warehouse"""
+    wh_doc = frappe.get_doc('Warehouse', row.warehouse)
+    if wh_doc.warehouse_type != 'Finished Stock':
+        frappe.throw("In {}, Row# {} and {} the {} selected is Not Finished Stock Warehouse".
+            format(frappe.get_desk_link(doc.doctype, doc.name), row.idx, frappe.get_desk_link('Item', row.item_code),
+                   frappe.get_desk_link('Warehouse', row.warehouse)))
+    elif wh_doc.disabled == 1:
+        frappe.throw("In {}, Row# {} and {} the {} selected is Disabled Warehouse".
+            format(frappe.get_desk_link(doc.doctype, doc.name), row.idx, frappe.get_desk_link('Item', row.item_code),
+                   frappe.get_desk_link('Warehouse', row.warehouse)))
+
+
 def validate_address_google_update(add_doc_name):
     add_doc = frappe.get_doc('Address', add_doc_name)
     if not add_doc.json_reply and add_doc.dont_update_from_google != 1:

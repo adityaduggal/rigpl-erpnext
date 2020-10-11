@@ -118,9 +118,7 @@ class CreateBulkProcessSheet(Document):
         items = self.get_production_items()
         pro_list = []
         for item in items:
-            frappe.msgprint("hello")
             process_sheet = self.create_process_sheet(item)
-            frappe.msgprint("hello2s")
             if process_sheet:
                 pro_list.append(process_sheet)
 
