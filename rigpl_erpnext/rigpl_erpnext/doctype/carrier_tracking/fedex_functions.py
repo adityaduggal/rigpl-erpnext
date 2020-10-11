@@ -629,7 +629,7 @@ def store_file(file_name, image_data, ps_doctype, ps_name):
 
 def get_fedex_credentials(transporter_doc):
     from fedex.config import FedexConfig
-    credentials = FedexConfig(key=transporter_doc.fedex_key,
+    credentials = FedexConfig(key=transporter_doc.api_key,
                               password=transporter_doc.fedex_password,
                               account_number=transporter_doc.fedex_account_number,
                               meter_number=transporter_doc.fedex_meter_number,

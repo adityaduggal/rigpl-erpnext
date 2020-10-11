@@ -10,10 +10,12 @@ from fedex.tools.conversion import sobject_to_dict
 from frappe.website.website_generator import WebsiteGenerator
 from frappe.utils import flt
 from frappe.utils.file_manager import remove_all
+from .common import get_rate_list_for_shipment, get_shipment_cost
 from ...scheduled_tasks.shipment_data_update import getOrderShipmentDetails, pushOrderData, courier_charges_validation
 from ...validations.sales_invoice import create_new_carrier_track
 from .fedex_functions import shipment_booking, start_delete_shipment, get_signature_proof, \
     validate_address, get_rates_from_fedex, get_available_services
+from .dtdc_functions import dtdc_shipment_booking
 from ....utils.sales_utils import validate_address_google_update
 
 
@@ -24,8 +26,13 @@ class CarrierTracking(WebsiteGenerator):
         pushOrderData(self)
 
     def get_status(self):
+        trans_doc = frappe.get_doc('Transporters', self.carrier_name)
+        if trans_doc.fedex_credentials == 1 or trans_doc.dtdc_credentials == 1:
+            api_booking = 1
+        else:
+            api_booking = 0
         if self.status == "":
-            if frappe.get_value("Transporters", self.carrier_name, "fedex_credentials") == 1:
+            if api_booking == 1:
                 frappe.throw("First Book the Shipment.")
         if self.status is not None or self.status != "Not Booked" or self.status != "":
             getOrderShipmentDetails(self)
@@ -43,6 +50,11 @@ class CarrierTracking(WebsiteGenerator):
             self.validate()
 
     def validate(self):
+        trans_doc = frappe.get_doc('Transporters', self.carrier_name)
+        if trans_doc.fedex_credentials == 1 or trans_doc.dtdc_credentials == 1:
+            api_booking = 1
+        else:
+            api_booking = 0
         if self.reference_document_name:
             if self.reference_document_name.split('-')[0] != self.document_name.split('-'):
                 frappe.throw('{} is already linked to {} # {}'.\
@@ -54,7 +66,7 @@ class CarrierTracking(WebsiteGenerator):
         if self.docstatus != 1:
             self.published = 0
             self.route = ""
-        if self.status == "" or self.status == "Not Booked":
+        if self.status == "" or self.status == "Not Booked" or api_booking == 1:
             pass
         else:
             self.docstatus = 1
@@ -73,6 +85,9 @@ class CarrierTracking(WebsiteGenerator):
         contact_doc = frappe.get_doc("Contact", self.contact_person)
         self.gen_add_validations(trans_doc, from_address_doc, to_address_doc)
         self.set_recipient_email(to_address_doc, contact_doc)
+        rate_list = get_rate_list_for_shipment(self)
+        self.validate_country(self.from_address, self.to_address)
+        self.shipment_cost = get_shipment_cost(rate_list, self.total_weight)
         if trans_doc.fedex_credentials == 1:
             self.fedex_account_number = trans_doc.fedex_account_number
             self.sales_invoice_validations_fedex()
@@ -308,7 +323,7 @@ class CarrierTracking(WebsiteGenerator):
         if self.shipment_package_details:
             pass
         else:
-            frappe.throw("Shipment Package Details Manadatory for Fedex Booking for {}".format(self.name))
+            frappe.throw("Shipment Package Details mandatory for Booking Shipment for {}".format(self.name))
 
 
     def available_services(self):
@@ -320,16 +335,24 @@ class CarrierTracking(WebsiteGenerator):
         get_rates_from_fedex(self)
 
     def book_shipment(self):
+        trans_doc = frappe.get_doc('Transporters', self.carrier_name)
         self.validate()
         self.validate_empty_shipment()
         if self.shipment_package_details:
             for packages in self.shipment_package_details:
                 if packages.tracking_id and packages.idx == 1:
-                    frappe.throw(("Shipment Already Booked with Tracking Number: {}").format(self.awb_number))
+                    frappe.throw("Shipment Already Booked with Tracking Number: {}".format(self.awb_number))
                 else:
                     if self.get("__islocal") != 1:
                         if packages.idx == 1:
-                            shipment_booking(self)
+                            if trans_doc.fedex_credentials == 1:
+                                shipment_booking(self)
+                            elif trans_doc.dtdc_credentials == 1:
+                                dtdc_shipment_booking(self)
+                            else:
+                                frappe.throw('Shipment booking for {} is Not Available in {}'.
+                                             format(frappe.get_desk_link('Transporters', self.carrier_name),
+                                                    frappe.get_desk_link(self.doctype, self.name)))
                             self.published = 1
                             self.route = self.name.lower()
                             self.docstatus = 1
@@ -411,11 +434,23 @@ class CarrierTracking(WebsiteGenerator):
         else:
             frappe.db.set_value(si_doc, si_name, "lr_no", "NA")
 
+    def validate_country(self, frm_add, to_add):
+        tpt_doc = frappe.get_doc('Transporters', self.carrier_name)
+        frm_add_doc = frappe.get_doc('Address', frm_add)
+        to_add_doc = frappe.get_doc('Address', to_add)
+        if tpt_doc.is_domestic_only == 1:
+            if frm_add_doc.country != to_add_doc.country:
+                frappe.throw('For {} {} is Only for Domestic Booking'.
+                             format(frappe.get_desk_link(self.doctype, self.name),
+                                    frappe.get_desk_link('Transporters', self.carrier_name)))
 
-'''
-    @staticmethod
-    def get_company_data(request_data, field_name):
-        shipper_details = frappe.db.get_value("Address", request_data.get("shipper_id"), "*", as_dict=True)
-        field_value = frappe.db.get_value("Company", shipper_details.get("company"), field_name)
-        return shipper_details, field_value
-'''
+
+@frappe.whitelist()
+def carrier_name_query(doctype, txt, searchfield, start, page_len, filters, as_dict=False):
+    query = """SELECT name 
+    FROM `tabTransporters`
+    WHERE (dtdc_credentials = 1 OR fedex_credentials = 1 OR track_on_shipway = 1 
+        OR fedex_tracking_only = 1 OR dtdc_tracking_only = 1) 
+        AND name LIKE {txt} 
+    ORDER BY name ASC""".format(txt=frappe.db.escape('%{0}%'.format(txt)))
+    return frappe.db.sql(query, as_dict=as_dict)

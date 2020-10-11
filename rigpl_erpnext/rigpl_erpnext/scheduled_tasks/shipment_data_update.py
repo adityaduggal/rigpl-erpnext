@@ -9,6 +9,7 @@ import frappe
 import requests
 from datetime import datetime, date
 from ..doctype.carrier_tracking.fedex_functions import get_tracking_from_fedex
+from ..doctype.carrier_tracking.dtdc_functions import get_tracking_from_dtdc
 
 
 def update_delivery_date_time():
@@ -167,8 +168,7 @@ def get_all_ship_data():
 def pushOrderData(track_doc):
     # First check if the AWB for the Same Shipper is there is Shipway if its there then
     trans_doc = frappe.get_doc('Transporters', track_doc.carrier_name)
-    if track_doc.get("__islocal") != 1 and track_doc.posted_to_shipway == 0 and (trans_doc.fedex_credentials != 1 or
-                                                                                 trans_doc.fedex_tracking_only != 1):
+    if track_doc.get("__islocal") != 1 and track_doc.posted_to_shipway == 0 and trans_doc.track_on_shipway == 1:
         check_upload = post_to_shipway(track_doc)
         username, license_key = get_shipway_pass()
         if check_upload.get("status") != "Success":
@@ -202,18 +202,26 @@ def pushOrderData(track_doc):
             track_doc.save()
     elif track_doc.posted_to_shipway == 1:
         frappe.msgprint("Already Posted to Shipway")
+    elif trans_doc.track_on_shipway != 1:
+        frappe.throw('{} for {} is Not Tracked on Shipway'.format(
+            frappe.get_desk_link(track_doc.doctype, track_doc.name),
+            frappe.get_desk_link(trans_doc.doctype, trans_doc.name)))
 
 
 def getOrderShipmentDetails(track_doc):
     print("Processing Carrier Tracking #: " + track_doc.name)
-    credentials = frappe.get_value("Transporters", track_doc.carrier_name, "fedex_credentials")
-    tracking_only = frappe.get_value("Transporters", track_doc.carrier_name, "fedex_tracking_only")
-    if credentials == 1 or tracking_only == 1:
-        fedex_cred = 1
-    else:
-        fedex_cred = 0
+    trans_doc = frappe.get_doc('Transporters', track_doc.carrier_name)
+    shipway = 0
+    fedex = 0
+    dtdc = 0
+    if trans_doc.fedex_credentials == 1 or trans_doc.fedex_tracking_only == 1:
+        fedex = 1
+    elif trans_doc.dtdc_credentials == 1 or trans_doc.dtdc_tracking_only == 1:
+        dtdc = 1
+    elif trans_doc.track_on_shipway == 1:
+        shipway = 1
     if track_doc.get("__islocal") != 1 and track_doc.status != "Delivered":
-        if fedex_cred != 1:
+        if shipway == 1:
             response = post_to_shipway(track_doc)
             track_doc.json_reply = str(response)
 
@@ -250,8 +258,10 @@ def getOrderShipmentDetails(track_doc):
                 track_doc.save()
             else:
                 track_doc.status = "Posting Error"
-        else:
+        elif fedex == 1:
             get_tracking_from_fedex(track_doc)
+        elif dtdc == 1:
+            get_tracking_from_dtdc(track_doc)
     elif track_doc.status == 'Delivered':
         frappe.msgprint(("{0} is Already Delivered").format(track_doc.name))
 

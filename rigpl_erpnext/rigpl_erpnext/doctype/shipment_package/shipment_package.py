@@ -15,8 +15,7 @@ class ShipmentPackage(Document):
 				vol_wt = volume/self.volumetric_factor
 			else:
 				frappe.throw("Volumetric Factor has to be greater than Zero")
-			frappe.msgprint(str(vol_wt))
-			self.volumetric_weight_in_kgs = self.round_up_to_factor(vol_wt, 0.5) + 0.5
+			self.volumetric_weight_in_kgs = self.round_up_to_factor(vol_wt, 0.5)
 
 	def round_up_to_factor(self, number, factor):
 		rounded_number = math.ceil(number/factor) * factor
