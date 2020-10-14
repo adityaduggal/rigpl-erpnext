@@ -15,7 +15,7 @@ def execute(filters=None):
 def get_columns(filters):
 	if filters.get("total_awb_by_transporter"):
 		return [
-			"Transporter:Link/Transporters:150", "Total AWB::80"
+			"Transporter:Link/Transporters:150", "Total AWB:Int:80", "Delivered:Int:80", "Exception:Int:80"
 		]
 	elif filters.get("avg_delivery_times"):
 		return [
@@ -37,52 +37,55 @@ def get_columns(filters):
 def get_data(filters):
 	conditions, cond_dates = get_conditions(filters)
 	if filters.get("total_awb_by_transporter"):
-		query = """SELECT carrier_name, COUNT(name)
-			FROM `tabCarrier Tracking`
-			WHERE docstatus !=2 %s
-			GROUP BY carrier_name
-			ORDER BY carrier_name""" % (conditions)
+		query = """SELECT ct.carrier_name, COUNT(ct.name) as total, 
+			COUNT(CASE WHEN ct.status = 'Delivered' THEN 1 END) as del, 
+			COUNT(CASE WHEN ct.manual_exception_removed = 1 THEN 1 END) as excep
+			FROM `tabCarrier Tracking` ct
+			WHERE ct.docstatus !=2 %s
+			GROUP BY ct.carrier_name
+			ORDER BY ct.carrier_name""" % (conditions)
 	elif filters.get("avg_delivery_times"):
-		query = """SELECT carrier_name, COUNT(name), AVG(DATEDIFF(delivery_date_time, pickup_date)),
-			MAX(DATEDIFF(delivery_date_time, pickup_date)), 
-			MIN(DATEDIFF(delivery_date_time, pickup_date))
-			FROM `tabCarrier Tracking`
-			WHERE docstatus !=2 AND status_code = "DEL" %s
-			GROUP BY carrier_name
-			ORDER BY carrier_name""" % (conditions)
+		query = """SELECT ct.carrier_name, COUNT(ct.name), AVG(DATEDIFF(ct.delivery_date_time, ct.pickup_date)),
+			MAX(DATEDIFF(ct.delivery_date_time, ct.pickup_date)), 
+			MIN(DATEDIFF(ct.delivery_date_time, ct.pickup_date))
+			FROM `tabCarrier Tracking` ct
+			WHERE ct.docstatus !=2 AND ct.status = "Delivered" %s
+			GROUP BY ct.carrier_name
+			ORDER BY ct.carrier_name""" % (conditions)
 	elif filters.get("detailed_report"):
-		query = """SELECT name, carrier_name, awb_number, status, status_code, 
-			receiver_name, CAST(IFNULL(total_weight,0) AS DECIMAL(10,2)), 
-			IFNULL(shipment_cost, 0), 
-			IFNULL(ship_to_city, 'X'), country, IFNULL(pickup_date, '1900-01-01'), 
-			IFNULL(from_address,"X"), delivery_date_time, 
-			DATEDIFF(IFNULL(delivery_date_time, CURDATE()), IFNULL(pickup_date, creation)),
-			document_name, invoice_integrity, docstatus, creation, owner, 
-			document, receiver_document
-			FROM `tabCarrier Tracking`
-			WHERE docstatus!=2 %s
-			ORDER BY creation ASC""" % (conditions)
+		query = """SELECT ct.name, ct.carrier_name, ct.awb_number, ct.status, ct.status_code, 
+			ct.receiver_name, CAST(IFNULL(ct.total_weight,0) AS DECIMAL(10,2)), 
+			IFNULL(ct.shipment_cost, 0), 
+			IFNULL(ct.ship_to_city, 'X'), adr.country, IFNULL(ct.pickup_date, '1900-01-01'), 
+			IFNULL(ct.from_address,"X"), ct.delivery_date_time, 
+			DATEDIFF(IFNULL(ct.delivery_date_time, CURDATE()), IFNULL(ct.pickup_date, ct.creation)),
+			ct.document_name, ct.invoice_integrity, ct.docstatus, ct.creation, ct.owner, 
+			ct.document, ct.receiver_document
+			FROM `tabCarrier Tracking` ct, `tabAddress` adr
+			WHERE ct.docstatus!=2 AND ct.to_address = adr.name %s
+			ORDER BY ct.creation ASC""" % (conditions)
 	elif filters.get("pending_exceptions"):
-		query = """SELECT name, carrier_name, awb_number, status, status_code, 
-			receiver_name, CAST(IFNULL(total_weight,0) AS DECIMAL(10,2)), 
-			IFNULL(shipment_cost, 0), 
-			IFNULL(ship_to_city, 'X'), country, pickup_date, IFNULL(from_address,"X"), 
-			delivery_date_time, 
-			DATEDIFF(IFNULL(delivery_date_time, CURDATE()), IFNULL(pickup_date, creation)),
-			document_name, invoice_integrity, docstatus, creation, owner, 
-			document, receiver_document
-			FROM `tabCarrier Tracking`
-			WHERE docstatus != 2 AND status != "Delivered" AND manual_exception_removed = 0 
-			ORDER BY creation ASC"""
+		query = """SELECT ct.name, ct.carrier_name, ct.awb_number, ct.status, ct.status_code, 
+			ct.receiver_name, CAST(IFNULL(ct.total_weight,0) AS DECIMAL(10,2)), 
+			IFNULL(ct.shipment_cost, 0), 
+			IFNULL(ct.ship_to_city, 'X'), adr.country, ct.pickup_date, IFNULL(ct.from_address,"X"), 
+			ct.delivery_date_time, 
+			DATEDIFF(IFNULL(ct.delivery_date_time, CURDATE()), IFNULL(ct.pickup_date, ct.creation)),
+			ct.document_name, ct.invoice_integrity, ct.docstatus, ct.creation, ct.owner, 
+			ct.document, ct.receiver_document
+			FROM `tabCarrier Tracking` ct, `tabAddress` adr
+			WHERE ct.docstatus != 2 AND ct.status != "Delivered" 
+				AND ct.manual_exception_removed = 0 AND ct.to_address = adr.name
+			ORDER BY ct.creation ASC"""
 	else:
-		query = """SELECT name, carrier_name, awb_number, status, status_code, 
-			receiver_name, ship_to_city, country, 
-			pickup_date, delivery_date_time, DATEDIFF(IFNULL(delivery_date_time, CURDATE()), 
-			IFNULL(pickup_date, creation)), document_name, invoice_integrity, 
-			docstatus, creation, document, receiver_document
-			FROM `tabCarrier Tracking`
-			WHERE docstatus != 0 AND status_code != 'DEL' %s
-			ORDER BY creation ASC""" % (cond_dates)
+		query = """SELECT ct.name, ct.carrier_name, ct.awb_number, ct.status, ct.status_code, 
+			ct.receiver_name, ct.ship_to_city, adr.country, 
+			ct.pickup_date, ct.delivery_date_time, DATEDIFF(IFNULL(ct.delivery_date_time, CURDATE()), 
+			IFNULL(ct.pickup_date, ct.creation)), ct.document_name, ct.invoice_integrity, 
+			ct.docstatus, ct.creation, ct.document, ct.receiver_document
+			FROM `tabCarrier Tracking` ct, `tabAddress` adr
+			WHERE ct.docstatus != 0 AND ct.status != 'Delivered'  AND ct.to_address = adr.name %s
+			ORDER BY ct.creation ASC""" % (cond_dates)
 	data = frappe.db.sql(query, as_list=1)
 
 	return data
@@ -92,36 +95,36 @@ def get_conditions(filters):
 	conditions = ""
 	cond_dates = ""
 	if filters.get("from_date"):
-		conditions += " AND creation >= '%s'" % (filters["from_date"])
-		cond_dates += " AND creation >= '%s'" % (filters["from_date"])
+		conditions += " AND ct.creation >= '%s'" % (filters["from_date"])
+		cond_dates += " AND ct.creation >= '%s'" % (filters["from_date"])
 	if filters.get("to_date"):
-		conditions += " AND creation <= '%s'" % (filters["to_date"])
-		cond_dates += " AND creation <= '%s'" % (filters["from_date"])
+		conditions += " AND ct.creation <= '%s'" % (filters["to_date"])
+		cond_dates += " AND ct.creation <= '%s'" % (filters["from_date"])
 	if filters.get("transporter"):
-		conditions += " AND carrier_name = '%s'" % filters["transporter"]
+		conditions += " AND ct.carrier_name = '%s'" % filters["transporter"]
 	if filters.get("awb_no"):
-		conditions += " AND awb_number = '%s'" % filters["awb_no"]
+		conditions += " AND ct.awb_number = '%s'" % filters["awb_no"]
 	if filters.get("document_name"):
-		conditions += " AND document_name = '%s'" % filters["document_name"]
+		conditions += " AND ct.document_name = '%s'" % filters["document_name"]
 
 	if filters.get("status"):
 		if filters.get("status") == "Delivered":
-			conditions += " AND status_code = 'DEL'"
+			conditions += " AND ct.status_code = 'DEL'"
 		elif filters.get("status") == "Not Delivered":
-			conditions += " AND status_code != 'DEL' AND docstatus = 0"
+			conditions += " AND ct.status_code != 'DEL' AND ct.docstatus = 0"
 		elif filters.get("status") == "No Information":
-			conditions += " AND status_code = 'NFI'"
+			conditions += " AND ct.status_code = 'NFI'"
 		elif filters.get("status") == "Cancelled":
-			conditions += " AND (status_code = 'CAN' OR status_code = 'UND')"
+			conditions += " AND (ct.status_code = 'CAN' OR ct.status_code = 'UND')"
 		else:
-			conditions += " AND status_code != 'CAN' AND status_code != 'NFI' AND status_code != 'DEL' " \
-						  "AND status_code != 'UND' "
+			conditions += " AND ct.status_code != 'CAN' AND ct.status_code != 'NFI' AND ct.status_code != 'DEL' " \
+						  "AND ct.status_code != 'UND' "
 
 	if filters.get("from_address"):
-		conditions += " AND from_address = '%s'" % (filters["from_address"])
+		conditions += " AND ct.from_address = '%s'" % (filters["from_address"])
 
 	if filters.get("receiver_name"):
-		conditions += " AND receiver_name = '%s'" % (filters["receiver_name"])
+		conditions += " AND ct.receiver_name = '%s'" % (filters["receiver_name"])
 
 	report_val = flt(filters.get("total_awb_by_transporter")) + flt(filters.get("avg_delivery_times")) + \
 				 flt(filters.get("detailed_report")) + flt(filters.get("pending_exceptions")) + \
