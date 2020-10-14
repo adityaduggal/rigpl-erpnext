@@ -7,7 +7,7 @@ from frappe.utils import getdate
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
-from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
+from erpnext.accounts.general_ledger import make_gl_entries, delete_gl_entries
 from erpnext.accounts.utils import get_fiscal_years, validate_fiscal_year, get_account_currency
 import math
 
@@ -95,4 +95,4 @@ class EmployeeAdvance(Document):
 			make_gl_entries(gl_map, cancel=0, adv_adj=0)
 
 	def on_cancel(self):
-		make_reverse_gl_entries(None, 'Employee Advance', self.name)
+		delete_gl_entries(None, 'Employee Advance', self.name)
