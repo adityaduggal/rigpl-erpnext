@@ -166,6 +166,7 @@ def get_tracking_from_fedex(track_doc):
                 track_doc.save()
                 exit()
             trk_details = comp_trks[0].get('TrackDetails')
+            # frappe.msgprint(str(trk_details))
             trk_details_status = trk_details[0].get('Notification')
             if trk_details_status.get('Severity') == 'SUCCESS':
                 stat_details = trk_details[0].get('StatusDetail')
@@ -267,7 +268,6 @@ def get_signature_proof(track_doc):
             and trans_doc.fedex_credentials == 1:
         from fedex.services.track_service import FedexTrackRequest
         spod = FedexTrackRequest(credentials)
-        # frappe.msgprint(str(spod.__dict__))
         for service in spod:
             frappe.msgprint(str(spod.__dict__))
         spod_req = spod.create_wsdl_object_of_type('GetTrackingDocumentsRequest')
@@ -277,9 +277,6 @@ def get_signature_proof(track_doc):
         spod_req_doc_specs.DocumentTypes = 'SIGNATURE_PROOF_OF_DELIVERY'
         spod_req_doc_specs.SignatureProofOfDeliveryDetail.DispositionType = 'RETURN'
         spod_req_doc_specs.SignatureProofOfDeliveryDetail.ImageType = 'PDF'
-        # frappe.msgprint(str(spod_req.__dict__))
-        # frappe.msgprint(str(spod_req_doc_specs.__dict__))
-        # frappe.throw(str(spod.__dict__))
         spod.send_request()
         # frappe.msgprint(str(spod.response))
         # label_data = base64.b64decode(spod.response.CompletedShipmentDetail.CompletedPackageDetails[0].Label.Parts[0].Image)

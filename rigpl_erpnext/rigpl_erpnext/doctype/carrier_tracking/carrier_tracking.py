@@ -15,12 +15,16 @@ from ...scheduled_tasks.shipment_data_update import getOrderShipmentDetails, pus
 from ...validations.sales_invoice import create_new_carrier_track
 from .fedex_functions import shipment_booking, start_delete_shipment, get_signature_proof, \
     validate_address, get_rates_from_fedex, get_available_services
-from .dtdc_functions import dtdc_shipment_booking
+from .dtdc_functions import dtdc_shipment_booking, dtdc_get_available_services, dtdc_get_pdf
 from ....utils.sales_utils import validate_address_google_update
 
 
 class CarrierTracking(WebsiteGenerator):
     allowed_docs_items = ['Sales Invoice', 'Purchase Order']
+
+
+    def get_dtdc_pdf(self):
+        dtdc_get_pdf(self.awb_number, self)
 
     def pushdata(self):
         pushOrderData(self)
@@ -59,6 +63,7 @@ class CarrierTracking(WebsiteGenerator):
             if self.reference_document_name.split('-')[0] != self.document_name.split('-'):
                 frappe.throw('{} is already linked to {} # {}'.\
                              format(self.name, self.document, self.reference_document_name))
+        self.update_fields(trans_doc)
         if self.to_address:
             validate_address_google_update(self.to_address)
         if self.from_address:
@@ -79,14 +84,13 @@ class CarrierTracking(WebsiteGenerator):
             if trans_doc.docstatus != 1:
                 trans_doc.docstatus = 1
                 trans_doc.manual_exception_removed = 1
-        self.update_fields(trans_doc)
         from_address_doc = frappe.get_doc("Address", self.from_address)
         to_address_doc = frappe.get_doc("Address", self.to_address)
         contact_doc = frappe.get_doc("Contact", self.contact_person)
         self.gen_add_validations(trans_doc, from_address_doc, to_address_doc)
         self.set_recipient_email(to_address_doc, contact_doc)
-        rate_list = get_rate_list_for_shipment(self)
         self.validate_country(self.from_address, self.to_address)
+        rate_list = get_rate_list_for_shipment(self)
         self.shipment_cost = get_shipment_cost(rate_list, self.total_weight)
         if trans_doc.fedex_credentials == 1:
             self.fedex_account_number = trans_doc.fedex_account_number
@@ -327,7 +331,11 @@ class CarrierTracking(WebsiteGenerator):
 
 
     def available_services(self):
-        get_available_services(self)
+        trans_doc = frappe.get_doc("Transporters", self.carrier_name)
+        if trans_doc.fedex_credentials == 1:
+            get_available_services(self)
+        elif trans_doc.dtdc_credentials == 1:
+            dtdc_get_available_services(self)
 
     def get_rates(self):
         self.validate()

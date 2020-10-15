@@ -91,6 +91,8 @@ frappe.ui.form.on('Carrier Tracking', {
 
 frappe.ui.form.on("Shipment Package Details", {
     package_weight: function(frm, dt, dn){
+        var d = locals[dt][dn]
+        d.package_weight = (Math.ceil(d.package_weight/0.5))*0.5
         cur_frm.cscript.update_total_weight(frm.doc)
         cur_frm.cscript.update_total_pkgs(frm.doc)
     }

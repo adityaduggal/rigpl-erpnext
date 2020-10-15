@@ -6,50 +6,137 @@ from __future__ import unicode_literals
 import frappe
 import requests
 import json
+import base64
 from datetime import datetime
+from frappe.utils.file_manager import save_file
 uom_mapper = {"gm": "gm", "Kg": "kg"}
 
 
+def dtdc_get_available_services(ctrack, cod=0):
+    frm_add_doc = frappe.get_doc("Address", ctrack.from_address)
+    to_add_doc = frappe.get_doc("Address", ctrack.to_address)
+    frm_pincode = frm_add_doc.pincode
+    to_pincode = to_add_doc.pincode
+    url = frappe.get_value("Transporters", ctrack.carrier_name, "dtdc_service_validation_link")
+    pincodes = {}
+    pincodes["orgPincode"] = frm_pincode
+    pincodes["desPincode"] = to_pincode
+    reply = requests.post(url=url, json=pincodes)
+    zip_resp = (reply.json()).get("ZIPCODE_RESP")[0]
+    pin_resp = (reply.json()).get("PIN_CITY")
+    if zip_resp.get("SERVFLAG") == 'N':
+        all_service = 0
+    else:
+        all_service = 1
+
+    if zip_resp.get("SERV_COD") == 'N':
+        cod_service = 0
+    else:
+        cod_service = 1
+
+    if cod==1 and cod_service == 0:
+        frappe.throw("COD Service is Not Available at {}".format(to_pincode))
+    if all_service == 1:
+        message = ""
+        for d in pin_resp:
+            message += "PIN Code: " + d.get("PIN") +  " Type of Services: " + d.get("PARTIALSERV_AREA_AND_CITY") + "\n"
+        frappe.msgprint(message)
+    else:
+        frappe.throw("NO Service Available at one of the PIN Codes {} or {}".format(frm_pincode, to_pincode))
+
+
 def dtdc_shipment_booking(track_doc):
+    dtdc_get_available_services(track_doc)
     trans_doc = frappe.get_doc('Transporters', track_doc.carrier_name)
     booking_json = get_dtdc_booking_data(track_doc, trans_doc)
     book_reply = post_dtdc_booking_request(booking_json, trans_doc)
-    frappe.throw(str(booking_json))
+    update_ctrack_doc(json_reply=book_reply, ctrack_doc=track_doc)
+    dtdc_get_pdf(track_doc.awb_number, track_doc)
+
+
+def dtdc_get_pdf(awb_no, track_doc):
+    url = frappe.get_value("Transporters", track_doc.carrier_name, "dtdc_base_link")
+    api_key = frappe.get_value("Transporters", track_doc.carrier_name, "api_key")
+    api_key_dict = {}
+    awb_dict = {}
+    awb_dict["reference_number"] = awb_no
+    api_key_dict["api-key"] = api_key
+    pdf_url = url + "label/multipiece/"
+    pdf_reply = requests.post(url=pdf_url, headers=api_key_dict, json=awb_dict)
+    if (pdf_reply.json()).get("status") == "OK":
+        pdf_data = (pdf_reply.json()).get("data")
+        for label in pdf_data:
+            label_data = base64.b64decode(label.get("label"))
+            file_name = "DTDC-{}.pdf".format(label.get("reference_number"))
+            save_file(file_name, label_data, track_doc.doctype, track_doc.name, is_private=1)
+    else:
+        frappe.throw("Error in Getting PDF for {}".format(track_doc.name))
+
+
+def update_ctrack_doc(json_reply, ctrack_doc):
+    if json_reply.get("status") == "OK":
+        booking_data = json_reply.get("data")[0]
+        if booking_data.get("success") == 1:
+            ctrack_doc.awb_number = booking_data.get("reference_number")
+            ctrack_doc.status = "Booked"
+            update_package_tracking_id(ctrack_doc, booking_data.get("pieces"))
+        else:
+            frappe.throw(str(booking_data))
+    else:
+        frappe.throw("Unable to Book Shipment for {}. Reply is {}".format(ctrack_doc.name, str(json_reply)))
+
+
+def update_package_tracking_id(ct_doc, pcs_list):
+    if len(pcs_list) == len(ct_doc.shipment_package_details):
+        for row in ct_doc.shipment_package_details:
+            for pkg_no in range(0, len(pcs_list)):
+                if row.idx == pkg_no + 1:
+                    row.tracking_id = pcs_list[pkg_no].get("reference_number")
+    else:
+        frappe.throw("No of Packages does not Match in {}".format(ct_doc))
 
 
 def post_dtdc_booking_request(booking_json, trans_doc):
     base_url = get_dtdc_base_url(trans_doc, type='base')
+    booking_url = base_url + 'softdata'
     api_key = trans_doc.api_key
+    booking_json = json.dumps(booking_json, indent=4)
+    booking_json = json.loads(booking_json)
     api_key_dict = {}
     api_key_dict["api-key"] = api_key
-    auth_reply = dtdc_auth_check(api_key_dict, base_url)
-    reply = requests.post(url=base_url, json=booking_json)
-    frappe.throw(str(reply.text))
-
-
-def dtdc_auth_check(api_dict, url):
-    api_dict = json.dumps(api_dict)
-    auth_reply = requests.post(url=url, data=api_dict)
-    frappe.throw(auth_reply.text)
+    api_key_dict = json.dumps(api_key_dict, indent=4)
+    api_key_dict = json.loads(api_key_dict)
+    frappe.msgprint(str(booking_url))
+    reply = requests.post(url=booking_url, json=booking_json, headers=api_key_dict)
+    return reply.json()
 
 
 def get_dtdc_booking_data(t_doc, tpt_doc):
     bk_json = {}
+    booking_json = {}
     bk_json["customer_code"] = tpt_doc.dtdc_customer_code
-    bk_json["origin_details"] = get_dtdc_address(t_doc.from_address)
-    bk_json["destination_details"] = get_dtdc_address(t_doc.to_address)
+    bk_json["service_type_id"] = tpt_doc.dtdc_service_id
+    if t_doc.is_inward == 1:
+        bk_json["consignment_type"] = "reverse"
+    else:
+        bk_json["consignment_type"] = "forward"
+    bk_json["commodity_id"] = "Cutting Tools"
+    bk_json["cod_amount"] = 0
     bk_json["load_type"] = "NON-DOCUMENT" # "DOCUMENT"
     bk_json["weight_unit"] = uom_mapper.get(t_doc.weight_uom)
     bk_json["weight"] = t_doc.total_weight
-    bk_json["service_type_id"] = tpt_doc.dtdc_service_id
     bk_json["declared_value"] = t_doc.amount
     bk_json["num_pieces"] = t_doc.total_handling_units
-    bk_json["pieces_detail"] = get_dtdc_packages(t_doc)
+    bk_json["is_risk_surcharge_applicable"] = "false"
     if t_doc.document == 'Sales Invoice':
-        si_doc = frappe.get_doc(t_doc.document, t_doc.document_name)
+        # si_doc = frappe.get_doc(t_doc.document, t_doc.document_name)
         bk_json["invoice_number"] = t_doc.document_name
-        bk_json["customer_reference_number"] = si_doc.po_no
-    return bk_json
+    bk_json["customer_reference_number"] = t_doc.name
+    bk_json["origin_details"] = get_dtdc_address(t_doc.from_address)
+    bk_json["destination_details"] = get_dtdc_address(t_doc.to_address)
+    bk_json["pieces_detail"] = get_dtdc_packages(t_doc)
+    booking_json["consignments"] = [bk_json]
+    return booking_json
 
 
 def get_dtdc_packages(track_doc):
@@ -91,46 +178,44 @@ def get_tracking_from_dtdc(track_doc):
 def dtdc_get_tracking_response(track_doc, url, token):
     json_data, header = dtdc_get_track_json(track_doc, token=token)
     json_data = json.loads(json_data)
-    frappe.msgprint(url)
-    frappe.msgprint(str(json_data))
     trk_resp = requests.post(url=url, json=json_data, headers=header)
-    frappe.throw(str(trk_resp.text))
-    dtdc_update_tracking(track_doc, json_data)
+    dtdc_update_tracking(track_doc, trk_resp.json())
     return trk_resp.json()
 
 
 def dtdc_update_tracking(doc, json_data):
-    if json_data.statusCode == 200:
-        header = json_data.trackHeader
-        doc.ship_to_city = header.strDestination
-        doc.recipient = header.strRemarks + " " + header.strStatusRelName
-        if json_data.strStatus == 'Delivered':
+    frappe.msgprint(str(json_data))
+    if json_data.get("statusCode") == 200:
+        header = json_data.get("trackHeader")
+        doc.ship_to_city = header.get("strDestination")
+        doc.recipient = header.get("strRemarks") + " " + header.get("strStatusRelName")
+        if json_data.get("strStatus") == 'Delivered':
             doc.status = 'Delivered'
-            doc.delivery_datetime = datetime.strptime((json_data.strStatusTransOn + json_data.strStatusTransTime),
-                                                      '%d%M%Y%H%M')
+            doc.delivery_datetime = datetime.strptime((json_data.get("strStatusTransOn") +
+                                                       json_data.get("strStatusTransTime")), '%d%M%Y%H%M')
         else:
             doc.status = 'In Transit'
         scans = []
-        for scan in json_data.trackDetails:
+        for scan in json_data.get("trackDetails"):
             scan_dict = {}
-            scan_dict["time"] = datetime.strptime((scan.strActionDate + scan.strActionTime), '%d%M%Y%H%M')
-            scan_dict["location"] = 'Frm: ' + scan.strOrigin + ' To: ' + scan.strDestination
-            scan_dict["status_detail"] = scan.strCode + ': ' + scan.strAction + "-" + scan.strManifestNo + " " + \
-                                         scan.sTrRemarks
+            scan_dict["time"] = datetime.strptime((scan.get("strActionDate") + scan.get("strActionTime")), '%d%M%Y%H%M')
+            scan_dict["location"] = 'Frm: ' + scan.get("strOrigin") + ' To: ' + scan.get("strDestination")
+            scan_dict["status_detail"] = scan.get("strCode") + ': ' + scan.get("strAction") + "-" + \
+                                         scan.get("strManifestNo") + " " + scan.get("sTrRemarks")
             scans.append(scan_dict.copy())
         for scan in scans:
             doc.append("scans", scan)
         doc.save(ignore_permissions=True)
     else:
-        frappe.throw('Error {}'.format(json_data.errorDetails))
+        frappe.throw('Error {}'.format(str(json_data.get("errorDetails"))))
 
 
 def dtdc_get_track_json(track_doc, token):
     json_data = {}
     header = {}
-    json_data["trkType"] = 'cnno' #cnno or reference
+    json_data["trkType"] = "cnno" #cnno or reference
     json_data["strcnno"] = track_doc.awb_number
-    json_data["addtnlDtl"] = 'N'
+    json_data["addtnlDtl"] = "N"
     header["X-Access-Token"] = token
     json_data = json.dumps(json_data)
     return json_data, header
@@ -141,9 +226,9 @@ def dtdc_track_auth_token(trans_doc):
     url = get_dtdc_base_url(trans_doc, type='track')
     auth = get_dtdc_authentication(trans_doc, type='track')
     full_url = url + auth
-    # frappe.throw(full_url)
     token_resp = requests.get(full_url)
-    token = (token_resp.text).split(':')[1]
+    token = token_resp.text
+    # token = (token_resp.text).split(':')[1]
     return token
 
 
