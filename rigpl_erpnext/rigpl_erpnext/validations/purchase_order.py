@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from frappe.desk.reportview import get_match_cond
+from ...utils.sales_utils import check_validated_gstin
 from rigpl_erpnext.utils.manufacturing_utils import *
 
 
@@ -11,6 +12,8 @@ def validate(doc, method):
     check_taxes_integrity(doc, method)
     get_pricing_rule_based_on_attributes(doc)
     get_qty_for_purchase(doc, reject=0)
+    check_validated_gstin(doc.shipping_address)
+    check_validated_gstin(doc.supplier_address)
 
 
 def on_submit(doc, method):

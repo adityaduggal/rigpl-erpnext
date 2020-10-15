@@ -2,14 +2,16 @@
 from __future__ import unicode_literals
 import frappe
 from ...utils.sales_utils import check_get_pl_rate, get_hsn_code, check_taxes_integrity, check_dynamic_link, \
-    validate_address_google_update
+    validate_address_google_update, check_validated_gstin
 
 
 def validate(doc, method):
     if doc.customer_address:
         validate_address_google_update(doc.customer_address)
+        check_validated_gstin(doc.customer_address)
     if doc.shipping_address_name:
         validate_address_google_update(doc.shipping_address_name)
+        check_validated_gstin(doc.shipping_address_name)
     if doc.quotation_to == 'Customer':
         if doc.customer_address:
             check_dynamic_link(parenttype="Address", parent=doc.customer_address,

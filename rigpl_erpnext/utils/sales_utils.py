@@ -2,7 +2,16 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.utils import flt
-from frappe.desk.reportview import get_match_cond
+
+
+def check_validated_gstin(add_name):
+    add_doc = frappe.get_doc("Address", add_name)
+    if add_doc.gstin:
+        if add_doc.gstin != "NA":
+            if add_doc.validated_gstin != add_doc.gstin:
+                frappe.throw("GSTIN# {} for {} is NOT Validated from GST Website. Please update the "
+                             "Address from GST Website".
+                             format(add_doc.gstin, frappe.get_desk_link(add_doc.doctype, add_doc.name)))
 
 
 def dead_stock_order_booking(doc):
@@ -30,8 +39,6 @@ def dead_stock_order_booking(doc):
             if it.qty > allowed_so_qty:
                 frappe.throw('Row# {}, {} is in Dead Stock and Allowed Qty for SO Booking = {}'.
                              format(it.idx, frappe.get_desk_link('Item', it.item_code), allowed_so_qty))
-
-
 
 
 def validate_made_to_order_items(doc):

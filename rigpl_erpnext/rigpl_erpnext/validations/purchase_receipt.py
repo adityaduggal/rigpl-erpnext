@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
+from ...utils.sales_utils import check_validated_gstin
 
 
 def validate(doc, method):
+    check_validated_gstin(doc.shipping_address)
+    check_validated_gstin(doc.supplier_address)
     for d in doc.items:
         wh = frappe.get_doc("Warehouse", d.warehouse)
         if p:
