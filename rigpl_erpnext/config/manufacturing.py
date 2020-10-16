@@ -12,6 +12,11 @@ def get_data():
                     "label": "BOM Template",
                 },
                 {
+                    "type": "doctype",
+                    "name": "Made to Order Item Attributes",
+                    "label": "Made to Order Item Definitions",
+                },
+                {
                     "type": "report",
                     "is_query_report": True,
                     "name": "BOM Templates",
@@ -48,9 +53,22 @@ def get_data():
                 {
                     "type": "report",
                     "is_query_report": True,
+                    "name": "Process Sheet Analysis",
+                    "doctype": "Process Sheet",
+                },
+                {
+                    "type": "report",
+                    "is_query_report": True,
                     "name": "Production and Planning Report RIGPL",
                     "label": "Production Planning",
                     "doctype": "Process Job Card RIGPL",
+                },
+                {
+                    "type": "report",
+                    "is_query_report": True,
+                    "name": "Standards and Drawings RIGPL",
+                    "label": "Standards and Drawings Report",
+                    "doctype": "Important Documents",
                 },
             ]
         },

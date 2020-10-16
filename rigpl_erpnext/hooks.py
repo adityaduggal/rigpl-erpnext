@@ -181,7 +181,7 @@ doc_events = {
     },
     "Stock Entry": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
-        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate"
+        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.on_submit"
     },
     "Stock Reconciliation": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"

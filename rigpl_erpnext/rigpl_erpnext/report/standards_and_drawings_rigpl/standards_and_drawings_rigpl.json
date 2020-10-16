@@ -8,7 +8,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": "OGL",
- "modified": "2020-06-19 00:31:46.116143",
+ "modified": "2020-10-16 13:44:17.952158",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Standards and Drawings RIGPL",
@@ -20,6 +20,12 @@
  "roles": [
   {
    "role": "System Manager"
+  },
+  {
+   "role": "Production Inventory User"
+  },
+  {
+   "role": "Manufacturing User"
   }
  ]
 }

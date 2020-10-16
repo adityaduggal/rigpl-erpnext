@@ -3,10 +3,18 @@ from __future__ import unicode_literals
 import frappe
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import flt
+from ...utils.manufacturing_utils import get_bom_template_from_item
 
 
 def validate(doc, method):
-    pass
+    it_doc = frappe.get_doc("Item", doc.production_item)
+    bom_temp = get_bom_template_from_item(it_doc)
+    if bom_temp:
+        for bt in bom_temp:
+            frappe.msgprint("{} already has {}. So make Process Sheet instead of Work Order".
+                            format(frappe.get_desk_link(it_doc.doctype, it_doc.name),
+                                   frappe.get_desk_link("BOM Template RIGPL", bt)))
+        frappe.throw("Not Allowed to Make Work Orders for {}".format(frappe.get_desk_link(it_doc.doctype, it_doc.name)))
 
 
 @frappe.whitelist()

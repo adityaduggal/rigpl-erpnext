@@ -29,7 +29,7 @@ def get_data(filters):
 		query = """SELECT idoc.name, idoc.drawing_based_on, idoc.customer, idoc.sales_order, idoc.item,
 			idoc.description, idoc.remarks, idoc.docstatus 
 			FROM `tabImportant Documents` idoc
-			WHERE %s ORDER BY idoc.drawing_based_on, idoc.customer, idoc.items"""%(conditions)
+			WHERE %s ORDER BY idoc.drawing_based_on, idoc.customer, idoc.item"""%(conditions)
 		data = frappe.db.sql(query, as_list=1)
 	else:
 		query = """SELECT idoc.name, idoc.standard_authority, idoc.standard_number, idoc.category_name, 

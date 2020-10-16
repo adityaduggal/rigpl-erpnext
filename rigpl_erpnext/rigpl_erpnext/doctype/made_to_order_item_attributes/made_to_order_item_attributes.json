@@ -1,5 +1,4 @@
 {
- "actions": [],
  "autoname": "SPL.######",
  "creation": "2020-08-25 14:58:43.763793",
  "doctype": "DocType",
@@ -136,8 +135,7 @@
   }
  ],
  "is_submittable": 1,
- "links": [],
- "modified": "2020-08-25 18:43:33.160724",
+ "modified": "2020-10-16 13:36:21.238486",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Made to Order Item Attributes",
@@ -155,6 +153,30 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Inventory User",
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
    "submit": 1,
    "write": 1
   }

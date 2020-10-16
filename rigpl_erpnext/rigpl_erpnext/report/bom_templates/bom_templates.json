@@ -8,7 +8,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": "RIGB",
- "modified": "2020-08-08 22:53:45.944745",
+ "modified": "2020-10-16 13:42:03.404166",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "BOM Templates",
@@ -20,6 +20,12 @@
  "roles": [
   {
    "role": "System Manager"
+  },
+  {
+   "role": "Production Inventory User"
+  },
+  {
+   "role": "Manufacturing User"
   }
  ]
 }

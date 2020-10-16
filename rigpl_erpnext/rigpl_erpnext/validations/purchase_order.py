@@ -131,12 +131,15 @@ def check_subcontracting(doc, method):
                 frappe.throw(("Only Purchase Items are allowed in Item Code for Purchase Orders. "
                               "Check Row # {0}").format(d.idx))
         if d.so_detail:
-            jc_doc = frappe.get_doc("Process Job Card RIGPL", d.so_detail)
-            if doc.is_subcontracting != 1:
-                d.item_code = jc_doc.production_item
+            if d.reference_dt == 'Process Job Card RIGPL':
+                jc_doc = frappe.get_doc("Process Job Card RIGPL", d.so_detail)
+                if doc.is_subcontracting != 1:
+                    d.item_code = jc_doc.production_item
+                else:
+                    d.subcontracted_item = jc_doc.production_item
+                d.description = jc_doc.description
             else:
-                d.subcontracted_item = jc_doc.production_item
-            d.description = jc_doc.description
+                d.description = frappe.get_value("Sales Order Item", d.so_detail, "description")
         if doc.is_subcontracting == 1:
             sub_item = frappe.get_doc("Item", d.subcontracted_item)
             if d.so_detail:
@@ -159,6 +162,24 @@ def get_pending_jc(doctype, txt, searchfield, start, page_len, filters):
                          {'txt': "%%%s%%" % txt, '_txt': txt.replace("%", ""), 'start': start, 'page_len': page_len, })
 
 
+@frappe.whitelist()
+def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
+    return frappe.db.sql("""SELECT DISTINCT(wo.name), wo.sales_order, wo.production_order_date,
+	wo.item_description FROM `tabWork Order` wo, `tabSales Order` so, `tabSales Order Item` soi 
+	WHERE wo.docstatus = 1 AND so.docstatus = 1 AND soi.parent = so.name AND so.status != "Closed" 
+	AND soi.qty > soi.delivered_qty AND wo.sales_order = so.name AND (wo.name LIKE %(txt)s OR 
+	wo.sales_order LIKE %(txt)s) {mcond} ORDER BY IF(locate(%(_txt)s, wo.name), locate(%(_txt)s, wo.name), 1)
+	LIMIT %(start)s, %(page_len)s""".format(**{
+		'key': searchfield,
+		'mcond': get_match_cond(doctype)
+	}), {
+		'txt': "%%%s%%" % txt,
+		'_txt': txt.replace("%", ""),
+		'start': start,
+		'page_len': page_len,
+	})
+
+
 def get_pricing_rule_based_on_attributes(doc):
     if not doc.supplier:
         frappe.throw("Please Select Supplier First in {}".format(doc.name))
@@ -166,11 +187,13 @@ def get_pricing_rule_based_on_attributes(doc):
     if doc.is_subcontracting == 1:
         for d in doc.items:
             if d.so_detail:
-                ps_doc = frappe.get_doc("Process Sheet", frappe.get_value("Process Job Card RIGPL", d.so_detail,
-                                                                          "process_sheet"))
-                special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item, ps_doc.sales_order_item,
-                                                                       docstatus=1)
-                item_att_dict = get_special_item_attributes(d.subcontracted_item, special_item_attr_doc[0].name)
+                if d.reference_dt == "Process Job Card RIGPL":
+                    ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` 
+                        WHERE sales_order_item = '%s'"""% d.so_detail, as_dict=1)
+                    ps_doc = frappe.get_doc("Process Sheet", ps_dict.name)
+                    special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item, ps_doc.sales_order_item,
+                                                                           docstatus=1)
+                    item_att_dict = get_special_item_attributes(d.subcontracted_item, special_item_attr_doc[0].name)
             else:
                 item_att_dict = get_attributes(d.subcontracted_item)
             if supp_prule_dict:

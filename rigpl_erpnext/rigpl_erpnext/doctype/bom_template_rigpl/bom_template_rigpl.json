@@ -1,5 +1,4 @@
 {
- "actions": [],
  "allow_events_in_timeline": 1,
  "allow_import": 1,
  "autoname": "BT.#######",
@@ -115,8 +114,7 @@
    "options": "Item"
   }
  ],
- "links": [],
- "modified": "2020-09-02 18:05:26.523954",
+ "modified": "2020-10-16 13:34:27.245517",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "BOM Template RIGPL",
@@ -134,6 +132,16 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Inventory User"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User"
   }
  ],
  "restrict_to_domain": "Manufacturing",
