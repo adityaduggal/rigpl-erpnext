@@ -13,7 +13,7 @@ def validate(doc, method):
     check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name,
                        link_doctype="Customer", link_name=doc.customer)
     check_dynamic_link(parenttype="Contact", parent=doc.contact_person, link_doctype="Customer", link_name=doc.customer)
-    check_gst_rules(doc.customer_address, doc.shipping_address_name, doc.taxes_and_charges, doc.naming_series, doc.name)
+    check_gst_rules(doc, doc.customer_address, doc.taxes_and_charges)
     check_delivery_note_rule(doc, method)
     validate_price_list(doc, method)
     check_strict_po_rules(doc)
@@ -79,13 +79,13 @@ def validate_price_list(doc, method):
             d.price_list = sod_doc.price_list
         else:
             if d.price_list:
-                get_pl_rate(d.price_list, d)
+                get_pl_rate(doc, d.price_list, d)
             else:
                 d.price_list = doc.selling_price_list
-                get_pl_rate(d.price_list, d)
+                get_pl_rate(doc, d.price_list, d)
 
 
-def get_pl_rate(price_list, row):
+def get_pl_rate(doc, price_list, row):
     pl_doc = frappe.get_doc("Price List", row.price_list)
     it_doc = frappe.get_doc("Item", row.item_code)
     if pl_doc.disable_so == 1 and it_doc.is_stock_item == 1:

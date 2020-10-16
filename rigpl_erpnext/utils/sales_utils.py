@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import re
 import frappe
 from frappe.utils import flt
+from ..utils.manufacturing_utils import replace_java_chars
 
 
 def check_validated_gstin(add_name):
@@ -206,21 +208,34 @@ def check_taxes_integrity(document):
                                                                       tax.idx))
 
 
-def check_gst_rules(bill_add_name, ship_add_name, taxes_name, naming_series, name, series=None):
+def check_gst_rules(doc, bill_add_name, taxes_name):
     bill_add_doc = frappe.get_doc("Address", bill_add_name)
-    ship_add_doc = frappe.get_doc("Address", ship_add_name)
     template_doc = frappe.get_doc("Sales Taxes and Charges Template", taxes_name)
-    series = flt(series)
 
     bill_state = bill_add_doc.state_rigpl
     bill_country = bill_add_doc.country
-    series_template = template_doc.series
 
     # Check series of Tax with the Series Selected for Invoice
-    if series_template != naming_series[int(series):int(series + 2)] and series_template != name[int(series):int(
-            series + 2)]:
-        frappe.throw("Selected Tax Template {0} Not Allowed since Series Selected {1} and Document# {2} don't match "
-                      "with the Selected Template".format(taxes_name, naming_series, name))
+    series_regex = replace_java_chars(template_doc.series)
+    if series_regex:
+        if 'or' in series_regex:
+            ser_regex = series_regex.split("or")
+        else:
+            ser_regex = [series_regex]
+        series_regex_pass = 0
+        for d in ser_regex:
+            p = re.compile(d.strip())
+            if not p.match(doc.name):
+                pass
+            else:
+                series_regex_pass = 1
+        if series_regex_pass != 1:
+            frappe.throw("{}: is not as per the defined Series in {}".
+                         format(doc.name, frappe.get_desk_link(template_doc.doctype, template_doc.name)))
+    else:
+        frappe.throw("Series Regex Not Defined for {} and {}".
+                     format(frappe.get_desk_link(doc.doctype, doc.name),
+                            frappe.get_desk_link(template_doc.doctype, template_doc.name)))
 
     if taxes_name != 'OGL':
         # Check if Shipping State is Same as Template State then check if the tax template is LOCAL

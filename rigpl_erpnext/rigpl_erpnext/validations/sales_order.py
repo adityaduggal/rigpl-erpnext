@@ -29,7 +29,7 @@ def validate(doc, method):
         frappe.throw("Cannot Book Sales Order since Customer " + cust_doc.name +
                      " does not have a Sales Team Defined")
     update_fields(doc)
-    check_gst_rules(doc.customer_address, doc.shipping_address_name,
+    check_gst_rules(doc, doc.customer_address, doc.shipping_address_name,
                     doc.taxes_and_charges, doc.naming_series, doc.name, series=2)
     check_taxes_integrity(doc)
     frappe.msgprint("Selected Addresses Both Billing and Shipping Cannot be Changed Later")
