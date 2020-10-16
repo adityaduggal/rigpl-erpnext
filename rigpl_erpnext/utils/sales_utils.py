@@ -23,7 +23,6 @@ def dead_stock_order_booking(doc):
             wh.warehouse_type
             FROM `tabBin` bn, `tabWarehouse` wh
             WHERE bn.warehouse = wh.name AND wh.disabled =0 AND bn.item_code = '%s'"""% it.item_code, as_dict=1)
-        frappe.msgprint(str(qty_dict))
         check_dead = 0
         for wh in qty_dict:
             if wh.warehouse_type == 'Dead Stock' and wh.actual_qty > 0:
