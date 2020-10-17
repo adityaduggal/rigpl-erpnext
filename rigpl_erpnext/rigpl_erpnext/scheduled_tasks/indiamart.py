@@ -7,74 +7,78 @@ import frappe
 import json
 import requests
 from datetime import datetime
-from frappe.utils import add_days, flt, add_to_date
+from frappe.utils import add_days, flt, add_to_date, get_datetime
 from frappe.utils.global_search import rebuild_for_doctype, update_global_search
 
 
-def get_indiamart_leads():
-    update_lead_global_search()
-    last_execution = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "last_execution")
+def execute():
+    get_indiamart_leads()
 
+
+def get_indiamart_leads():
+    rebuild_for_doctype('Lead')
+    days_to_add = flt(frappe.db.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add"))
+    from_date_dt, to_date_dt, max_days = get_date_range(days_to_add)
+    last_execution = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "last_execution")
+    last_exec_diff = (datetime.now() - get_datetime(last_execution)).total_seconds()
     if not last_execution:
         last_execution = '2010-01-01 00:00:00.000000'
+        frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'leads_data_updated', 1)
+        frappe.db.commit()
     else:
         last_execution = datetime.now()
-
-    days_to_add = flt(frappe.db.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add"))
-
-    from_date_dt, to_date_dt, max_days = get_date_range(days_to_add)
-    time_diff = (datetime.now() - to_date_dt).total_seconds()
-    time_diff_from_dt = (datetime.now() - from_date_dt).total_seconds()
-
-    if time_diff < 0:
-        if time_diff_from_dt > 24 * 3600:
-            days_to_add = int(time_diff_from_dt / 24 / 3600)
-        elif time_diff_from_dt > 3600:
-            days_to_add = (int(time_diff_from_dt / 3600)) / 100
-        else:
-            print("Less than 1 hour time difference")
-            exit()
-        from_date_dt, to_date_dt, max_days = get_date_range(days_to_add)
-
     from_date_txt = from_date_dt.strftime('%d-%b-%Y %H:%M:%S')  # Text Date
     to_date_txt = to_date_dt.strftime('%d-%b-%Y %H:%M:%S')
-    parsed_response, last_link = get_im_reply(from_date_txt, to_date_txt)
-    # frappe.msgprint(str(parsed_response))
-    total_leads = parsed_response[0].get('TOTAL_COUNT')
-    max_leads = flt(frappe.db.get_value("RIGPL Settings", "RIGPL Settings", "max_leads"))
-    # print(str(days_to_add))
-    if flt(total_leads) > max_leads:
-        print("Exiting Since Max Leads breached " + str(max_leads))
-        if days_to_add >= 2:
-            frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', (days_to_add - 1))
-            frappe.db.commit()
+    last_action_ok = int(frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "leads_data_updated"))
+    if last_action_ok == 1:
+        if last_exec_diff < 900:
+            print("Indiamart Does not allow to pull data from their servers more than once in 15 minutes")
             exit()
-        elif 1 > days_to_add > 0.01:
-            frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', (days_to_add - 0.01))
-            frappe.db.commit()
-            exit()
-        elif days_to_add == 0.01:
-            frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', 0.0059)
-            frappe.db.commit()
-            exit()
-        elif days_to_add < 0.01:
-            frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', days_to_add - 0.001)
-            frappe.db.commit()
-            exit()
-        elif days_to_add == 1:
-            frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', 0.23)
-            frappe.db.commit()
-            exit()
+        last_link = get_full_link(from_date=from_date_txt, to_date=to_date_txt)
+        print(last_link)
+        parsed_response= get_im_reply(last_link)
+        total_leads = parsed_response[0].get('TOTAL_COUNT')
+        max_leads = flt(frappe.db.get_value("RIGPL Settings", "RIGPL Settings", "max_leads"))
+        if flt(total_leads) > max_leads:
+            print("Exiting Since Max Leads breached " + str(max_leads))
+            if days_to_add >= 2:
+                frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', (days_to_add - 1))
+                frappe.db.commit()
+                exit()
+            elif 1 > days_to_add > 0.01:
+                frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', (days_to_add - 0.01))
+                frappe.db.commit()
+                exit()
+            elif days_to_add == 0.01:
+                frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', 0.0059)
+                frappe.db.commit()
+                exit()
+            elif days_to_add < 0.01:
+                frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', days_to_add - 0.001)
+                frappe.db.commit()
+                exit()
+            elif days_to_add == 1:
+                frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', 0.23)
+                frappe.db.commit()
+                exit()
+            else:
+                print('Unsupported Value for Days to Add')
+                exit()
         else:
-            print('Unsupported Value for Days to Add')
-            exit()
+            if days_to_add != max_days:
+                frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', max_days)
+            update_db(from_date_txt, to_date_txt, last_execution, last_link, total_leads)
+            make_or_update_lead(parsed_response, from_date_txt, to_date_txt, last_execution, last_link)
+            frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'leads_data_updated', 1)
     else:
-        if days_to_add != max_days:
-            frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'days_to_add', max_days)
+        last_link = get_full_link(from_date=from_date_txt, to_date=to_date_txt)
+        json_reply = frappe.db.get_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'json_reply')
+        parsed_response = json.loads(json_reply)
+        total_leads = parsed_response[0].get('TOTAL_COUNT')
         make_or_update_lead(parsed_response, from_date_txt, to_date_txt, last_execution, last_link)
-
-    update_db(from_date_txt, to_date_txt, last_execution, last_link, total_leads)
-    update_lead_global_search()
+        frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'last_lead_count', total_leads)
+        frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'leads_data_updated', 1)
+    rebuild_for_doctype('Lead')
     print('Done')
 
 
@@ -83,7 +87,9 @@ def get_date_range(days_to_add):
     max_days = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_days"))
     if from_date is None:
         from_date = '2010-01-01 00:00:00.000000'
-
+    elif get_datetime(from_date) > datetime.now():
+        from_date = add_to_date(datetime.today().date(), hours=-24)
+        from_date = datetime.combine(from_date, datetime.min.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
     from_date_dt = datetime.strptime(from_date, '%Y-%m-%d %H:%M:%S.%f')  # Date Time Date
     if days_to_add < 0.01 or days_to_add > max_days:
         days_to_add = max_days
@@ -96,11 +102,23 @@ def get_date_range(days_to_add):
     else:
         to_date_dt = add_days(from_date_dt, max_days)
         frappe.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add", max_days)
+    time_diff = (datetime.now() - to_date_dt).total_seconds()
+    time_diff_from_dt = (datetime.now() - from_date_dt).total_seconds()
+    if time_diff < 0:
+        if time_diff_from_dt > 24 * 3600:
+            days_to_add = int(time_diff_from_dt / 24 / 3600)
+            to_date_dt = add_days(from_date_dt, days_to_add)
+        elif time_diff_from_dt > 3600:
+            days_to_add = (int(time_diff_from_dt / 3600)) / 100
+            hrs_to_add = int(flt(days_to_add * 100))
+            to_date_dt = add_to_date(from_date_dt, hours=hrs_to_add)
+        else:
+            print("Less than 1 hour time difference")
+            exit()
+    return from_date_dt, to_date_dt, days_to_add
 
-    return from_date_dt, to_date_dt, max_days
 
-
-def update_db(frm_dt_txt, to_dt_txt, lst_exe_dt, last_link, total_leads=0):
+def update_db(frm_dt_txt, to_dt_txt, lst_exe_dt, last_link, total_leads=0, leads_updated=0):
     from_date = datetime.strptime(frm_dt_txt, '%d-%b-%Y %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S.%f')
     to_date = datetime.strptime(to_dt_txt, '%d-%b-%Y %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S.%f')
 
@@ -109,6 +127,7 @@ def update_db(frm_dt_txt, to_dt_txt, lst_exe_dt, last_link, total_leads=0):
     frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'last_lead_count', flt(total_leads))
     frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'last_link', last_link)
     frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'last_execution', lst_exe_dt)
+    frappe.db.set_value('Indiamart Pull Leads', 'Indiamart Pull Leads', 'leads_data_updated', leads_updated)
     frappe.db.commit()
 
 
@@ -120,10 +139,12 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
 
     if len(error_message) == len(em_time_limit):
         print('Time Limit Reached')
+        frappe.db.set_value("Indiamart Pull Leads", "Indiamart Pull Leads", "leads_data_updated", 1)
+        frappe.db.commit()
         exit()
     elif len(error_message) == len(em_no_lead):
         # Change the From Date and To Date and Execution Date and Lead Count so to run in future
-        update_db(frm_dt_txt, to_dt_txt, lst_exe_dt, last_link)
+        update_db(frm_dt_txt, to_dt_txt, lst_exe_dt, last_link, leads_updated=1)
         print('No Lead in Time Period')
         exit()
     elif error_message == "NO ERROR":
@@ -191,27 +212,28 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
                     'COUNTRY_ISO')))
                 ld.save()
                 print("Created New Lead# " + ld.name)
-                frappe.db.commit()
                 lead_doc = frappe.get_doc("Lead", ld.name)
                 update_global_search(lead_doc)
-            # update_lead_global_search()
+                frappe.db.commit()
 
 
-def get_im_reply(from_date, to_date):
-    link = 'https://mapi.indiamart.com/wservce/enquiry/listing/'
+def get_full_link(from_date, to_date):
+    base_link = 'https://mapi.indiamart.com/wservce/enquiry/listing/'
     im_mobile, im_pass = get_indiamart_login()
-    json_reply = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "json_reply")
+    base_link += 'GLUSR_MOBILE/' + str(im_mobile) + '/GLUSR_MOBILE_KEY/' + str(im_pass)
+    base_link += '/Start_Time/' + str(from_date) + '/End_Time/' + str(to_date) + '/'
+    return base_link
 
-    link += 'GLUSR_MOBILE/' + str(im_mobile) + '/GLUSR_MOBILE_KEY/' + str(im_pass)
-    link += '/Start_Time/' + str(from_date) + '/End_Time/' + str(to_date) + '/'
 
-    # response = requests.get(link)
-    # new_response = response.text
-    # json_reply = new_response
-    # frappe.db.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "json_reply", new_response)
-    new_response = json_reply
+def get_im_reply(full_link):
+    response = requests.get(full_link)
+    new_response = response.text
+    json_reply = new_response
+    frappe.db.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "json_reply", new_response)
+    frappe.db.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "leads_updated", 0)
+    frappe.db.commit()
     parsed_response = json.loads(new_response)
-    return parsed_response, link
+    return parsed_response
 
 
 def search_existing(search_e, search_m, country):
@@ -250,7 +272,6 @@ def search_existing(search_e, search_m, country):
     if not lead_list:
         print("No Lead Found for Mobile: " + str(search_m) + " and Email: " + str(search_e) + " Country: " + str(
             country))
-        exit()
     return lead_list
 
 
@@ -259,7 +280,3 @@ def get_indiamart_login():
     im_pass = rigpl_sett.indiamart_api_key
     im_mobile = rigpl_sett.indiamart_primary_mobile
     return im_mobile, im_pass
-
-
-def update_lead_global_search():
-    rebuild_for_doctype('Lead')
