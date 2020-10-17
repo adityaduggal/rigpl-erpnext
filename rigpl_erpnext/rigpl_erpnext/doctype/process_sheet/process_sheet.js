@@ -55,6 +55,8 @@ frappe.ui.form.on('Process Sheet', {
 		});
 	},
 	production_item: function(frm){
+	    frm.doc.bom_template = ''
+	    frm.doc.fg_warehouse = ''
 	    if (frm.doc.production_item){
 	        frappe.call({
 	            doc: frm.doc,

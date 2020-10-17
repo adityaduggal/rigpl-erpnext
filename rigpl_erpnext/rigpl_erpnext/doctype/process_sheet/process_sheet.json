@@ -11,6 +11,7 @@
   "date",
   "production_item",
   "description",
+  "bom_template_description",
   "cb0",
   "fg_warehouse",
   "bom_template",
@@ -205,10 +206,16 @@
    "in_standard_filter": 1,
    "label": "Sales Order Serial Number",
    "read_only": 1
+  },
+  {
+   "fieldname": "bom_template_description",
+   "fieldtype": "Data",
+   "label": "BOM Template Description",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-17 04:03:23.579009",
+ "modified": "2020-10-17 17:37:40.353799",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",

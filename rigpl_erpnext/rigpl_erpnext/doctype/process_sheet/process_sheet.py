@@ -108,6 +108,11 @@ class ProcessSheet(Document):
 
     def update_ps_fields(self, bt_doc, it_doc):
         self.bom_template = bt_doc.name
+        if bt_doc.remarks:
+            remarks = ", Remarks: " + bt_doc.remarks
+        else:
+            remarks = ""
+        self.bom_template_description = "Title: " + bt_doc.title + remarks
         self.routing = bt_doc.routing
         self.get_routing_from_template()
         self.update_ps_status()
