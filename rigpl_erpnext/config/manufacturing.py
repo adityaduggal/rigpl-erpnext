@@ -99,6 +99,12 @@ def get_data():
                     "name": "Label Printing Database RIGPL",
                     "doctype": "Item",
                 },
+                {
+                    "type": "report",
+                    "is_query_report": True,
+                    "name": "Items without BOM Templates",
+                    "doctype": "BOM Template RIGPL",
+                },
             ]
         }
 
