@@ -29,7 +29,7 @@ def get_indiamart_leads():
         last_execution = datetime.now()
     from_date_txt = from_date_dt.strftime('%d-%b-%Y %H:%M:%S')  # Text Date
     to_date_txt = to_date_dt.strftime('%d-%b-%Y %H:%M:%S')
-    last_action_ok = int(frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "leads_data_updated"))
+    last_action_ok = flt(frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "leads_data_updated"))
     if last_action_ok == 1:
         if last_exec_diff < 900:
             print("Indiamart Does not allow to pull data from their servers more than once in 15 minutes")
