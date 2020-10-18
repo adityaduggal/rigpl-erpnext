@@ -432,13 +432,16 @@ def get_bom_template_from_item_name(doctype, txt, searchfield, start, page_len, 
     return frappe.db.sql(query, as_dict=as_dict)
 
 
-def get_bom_template_from_item(item_doc, so_detail=None):
+def get_bom_template_from_item(item_doc, so_detail=None, no_error=0):
     bom_template = {}
     if item_doc.variant_of:
         it_att_dict = get_attributes(item_doc.name)
         bom_template = get_bom_temp_from_it_att(item_doc, it_att_dict)
         if not bom_template:
-            frappe.throw("No BOM Template found for Item: {}".format(item_doc.name))
+            if no_error == 0:
+                frappe.throw("No BOM Template found for Item: {}".format(item_doc.name))
+            else:
+                return []
     else:
         # Find Item Attributes in Special Item Table or Create a New Special Item Table and ask user to fill it.
         if so_detail:
