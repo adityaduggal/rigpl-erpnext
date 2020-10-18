@@ -236,7 +236,7 @@ def new_brc_tracking(doc, method):
         if doc.amended_from:
             is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` 
             WHERE reference_name = '%s'""" % doc.amended_from, as_list=1)
-            if not is_exist:
+            if not is_exist and stct_doc.is_sample != 1:
                 create_new_brc_tracking(doc, method)
             else:
                 exist_brc = frappe.get_doc("BRC MEIS Tracking", is_exist[0][0])
@@ -247,7 +247,7 @@ def new_brc_tracking(doc, method):
         else:
             is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` 
             WHERE reference_name = '%s'""" % doc.name, as_list=1)
-            if not is_exist:
+            if not is_exist and stct_doc.is_sample != 1:
                 create_new_brc_tracking(doc, method)
 
 
