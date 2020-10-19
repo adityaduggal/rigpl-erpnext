@@ -79,22 +79,23 @@ def validate(doc, method):
 
 def on_submit(doc, method):
     allowed = 0
-    user = frappe.get_user()
-    if "System Manager" in user.roles:
-        allowed = 1
-    if doc.doctype in user.can_cancel:
-        allowed = 1
-    validate(doc, method)
-    if not doc.flags.ignore_persmission:
-        if allowed == 0:
-            for it in doc.items:
-                it_doc = frappe.get_doc("Item", it.item_code)
-                bom_tmp = get_bom_template_from_item(it_doc)
-                if bom_tmp:
-                    for bt in bom_tmp:
-                        frappe.msgprint("{} already has {}. So make Stock Entries via Job Card".
-                                    format(frappe.get_desk_link(it_doc.doctype, it_doc.name),
-                                           frappe.get_desk_link("BOM Template RIGPL", bt)))
-                    frappe.throw("Not Allowed to Stock Entries for {}".
-                             format(frappe.get_desk_link(it_doc.doctype, it_doc.name)))
+    if doc.flags.ignore_persmission == False:
+        user = frappe.get_user()
+        if "System Manager" in user.roles:
+            allowed = 1
+        if doc.doctype in user.can_cancel:
+            allowed = 1
+        validate(doc, method)
+        if not doc.flags.ignore_persmission:
+            if allowed == 0:
+                for it in doc.items:
+                    it_doc = frappe.get_doc("Item", it.item_code)
+                    bom_tmp = get_bom_template_from_item(it_doc)
+                    if bom_tmp:
+                        for bt in bom_tmp:
+                            frappe.msgprint("{} already has {}. So make Stock Entries via Job Card".
+                                        format(frappe.get_desk_link(it_doc.doctype, it_doc.name),
+                                               frappe.get_desk_link("BOM Template RIGPL", bt)))
+                        frappe.throw("Not Allowed to Stock Entries for {}".
+                                 format(frappe.get_desk_link(it_doc.doctype, it_doc.name)))
 
