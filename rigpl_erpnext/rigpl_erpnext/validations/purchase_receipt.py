@@ -9,7 +9,7 @@ def validate(doc, method):
     check_validated_gstin(doc.supplier_address)
     for d in doc.items:
         wh = frappe.get_doc("Warehouse", d.warehouse)
-        if p:
+        if wh.warehouse_type == 'Subcontracting':
             frappe.throw("Subcontracted Warehouse is Not Allowed Check Row# {0}".format(d.idx))
 
 
