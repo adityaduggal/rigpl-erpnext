@@ -15,6 +15,7 @@
   "cb0",
   "fg_warehouse",
   "bom_template",
+  "total_applicable_bom_templates",
   "quantity",
   "update_qty_manually",
   "produced_qty",
@@ -212,10 +213,16 @@
    "fieldtype": "Long Text",
    "label": "BOM Template Description",
    "read_only": 1
+  },
+  {
+   "fieldname": "total_applicable_bom_templates",
+   "fieldtype": "Int",
+   "label": "Total Applicable BOM Templates",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-18 20:51:29.871156",
+ "modified": "2020-10-20 09:30:16.706287",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",

@@ -10,6 +10,7 @@
  "field_order": [
   "title",
   "remarks",
+  "disabled",
   "with_operations",
   "cb0",
   "formula",
@@ -112,9 +113,15 @@
    "fieldtype": "Link",
    "label": "Item Template",
    "options": "Item"
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled"
   }
  ],
- "modified": "2020-10-16 13:34:27.245517",
+ "modified": "2020-10-20 01:06:52.016250",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "BOM Template RIGPL",

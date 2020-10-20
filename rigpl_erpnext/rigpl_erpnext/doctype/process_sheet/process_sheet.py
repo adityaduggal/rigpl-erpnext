@@ -56,6 +56,7 @@ class ProcessSheet(Document):
                 frappe.throw("No BOM Template Found")
             else:
                 bom_tmp_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name[0])
+                self.total_applicable_bom_templates = len(bom_tmp_name)
                 self.update_ps_fields(bom_tmp_doc, it_doc)
 
     def validate_other_psheet(self):
@@ -91,6 +92,7 @@ class ProcessSheet(Document):
             if not bom_template:
                 frappe.msgprint("NO BOM Template Found")
             else:
+                self.total_applicable_bom_templates = len(bom_template)
                 bom_template = bom_template[0]
         else:
             bom_template = self.bom_template
@@ -247,6 +249,8 @@ class ProcessSheet(Document):
         fg_it_doc = frappe.get_doc("Item", self.production_item)
         if not self.bom_template:
             bom_tmp_name = get_bom_template_from_item(fg_it_doc, self.sales_order_item)
+            if bom_tmp_name:
+                self.total_applicable_bom_templates = len(bom_tmp_name)
         else:
             bom_tmp_name = self.bom_template
         item_list = self.get_item_list(item_name=self.production_item, known_type="fg", unknown_type="rm")
