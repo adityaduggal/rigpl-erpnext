@@ -43,6 +43,7 @@ class MadetoOrderItemAttributes(Document):
                 WHERE parent = '%s' AND parenttype= '%s'
                 ORDER BY idx""" % (self.reference_spl, self.doctype)
                 attributes = frappe.db.sql(query, as_dict=1)
+                self.set("attributes", [])
                 self.set_attributes_in_table(attributes)
         else:
             frappe.throw("First Select a Reference Special Item Attribute")
