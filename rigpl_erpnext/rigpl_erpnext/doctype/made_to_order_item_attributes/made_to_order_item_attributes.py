@@ -40,7 +40,8 @@ class MadetoOrderItemAttributes(Document):
             else:
                 query = """SELECT idx, name, attribute, attribute_value, numeric_values 
                 FROM `tabItem Variant Attribute` 
-                WHERE parent = '%s' AND parenttype= '%s'""" % (self.reference_spl, self.doctype)
+                WHERE parent = '%s' AND parenttype= '%s'
+                ORDER BY idx""" % (self.reference_spl, self.doctype)
                 attributes = frappe.db.sql(query, as_dict=1)
                 self.set_attributes_in_table(attributes)
         else:
