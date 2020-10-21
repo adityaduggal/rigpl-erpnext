@@ -77,7 +77,7 @@ frappe.ui.form.on('BOM Operation', {
         var child = locals[dt][dn];
         if (child.planned_qty > child.completed_qty && child.status != "Pending") {
             frappe.call({
-                method: "rigpl_erpnext.utils.manufacturing_utils.make_jc_from_pro_sheet_row",
+                method: "rigpl_erpnext.utils.job_card_utils.make_jc_from_pro_sheet_row",
                 args: {
                     "pro_sheet_row_id": child.name,
                     "pro_sheet_name": frm.doc.name

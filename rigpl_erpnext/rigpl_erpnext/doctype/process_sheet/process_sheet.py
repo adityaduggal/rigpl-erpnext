@@ -4,6 +4,7 @@
 
 from __future__ import unicode_literals
 from rigpl_erpnext.utils.manufacturing_utils import *
+from ....utils.job_card_utils import create_job_card
 from frappe.model.document import Document
 
 

@@ -5,13 +5,14 @@
 from __future__ import unicode_literals
 from frappe.model.document import Document
 from rigpl_erpnext.utils.manufacturing_utils import *
+from ....utils.job_card_utils import *
 from erpnext.stock.utils import get_bin
 
 
 class ProcessJobCardRIGPL(Document):
     def on_submit(self):
         validate_job_card_time_logs(self)
-        update_jc_status(self)
+        update_job_card_status(self)
         self.validate_rm_qty_consumed()
         update_produced_qty(self)
         update_planned_qty(self.production_item, frappe.get_value("Process Sheet", self.process_sheet,
@@ -23,7 +24,7 @@ class ProcessJobCardRIGPL(Document):
         # frappe.throw("WIP")
 
     def on_cancel(self):
-        update_jc_status(self)
+        update_job_card_status(self)
         cancel_delete_ste(self, trash_can=0)
         update_produced_qty(self, status="Cancel")
         update_planned_qty(self.production_item, frappe.get_value("Process Sheet", self.process_sheet,
@@ -32,7 +33,7 @@ class ProcessJobCardRIGPL(Document):
         self.update_next_jc_status()
 
     def validate(self):
-        update_jc_status(self)
+        update_job_card_status(self)
         if self.s_warehouse:
             self.qty_available = get_bin(self.production_item, self.s_warehouse).get("actual_qty")
             if self.s_warehouse == self.t_warehouse:
@@ -130,4 +131,4 @@ class ProcessJobCardRIGPL(Document):
             if next_op.idx == self_idx + 1:
                 next_op_name = next_op.name
                 next_op_doc = frappe.get_doc("BOM Operation", next_op_name)
-                update_jc_status(next_op_doc)
+                update_job_card_status(next_op_doc)

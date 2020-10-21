@@ -7,7 +7,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cstr, comma_and
-from ....utils.manufacturing_utils import get_produced_qty
+from ....utils.process_sheet_utils import get_produced_qty
 
 
 class CreateBulkProcessSheet(Document):
