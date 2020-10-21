@@ -89,6 +89,116 @@ def check_existing_pending_job_card(pro_sheet_name, pro_sheet_row_id):
     return exist_jc
 
 
+def check_existing_job_card(item_name, operation):
+    exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus !=2 AND operation_id = 
+    '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)
+    return exist_jc
+
+
+def create_submit_ste_from_job_card(jc_doc):
+    if jc_doc.no_stock_entry != 1:
+        remarks = 'STE for Process Job Card # {}'.format(jc_doc.name)
+        item_table = []
+        it_dict = {}
+        it_dict.setdefault("item_code", jc_doc.production_item)
+        it_dict.setdefault("allow_zero_valuation_rate", 1)
+        it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
+        it_dict.setdefault("t_warehouse", jc_doc.t_warehouse)
+        it_dict.setdefault("qty", jc_doc.total_completed_qty)
+        item_table.append(it_dict.copy())
+        for d in jc_doc.time_logs:
+            if d.rejected_qty > 0 and jc_doc.s_warehouse:
+                it_dict = {}
+                it_dict.setdefault("item_code", jc_doc.production_item)
+                it_dict.setdefault("allow_zero_valuation_rate", 1)
+                it_dict.setdefault("qty", d.salvage_qty)
+                it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
+                it_dict.setdefault("t_warehouse", "")
+                item_table.append(it_dict.copy())
+            if d.salvage_qty > 0:
+                it_dict = {}
+                it_dict.setdefault("item_code", jc_doc.production_item)
+                it_dict.setdefault("allow_zero_valuation_rate", 1)
+                it_dict.setdefault("qty", d.salvage_qty)
+                if jc_doc.s_warehouse:
+                    it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
+                it_dict.setdefault("t_warehouse", d.salvage_warehouse)
+                item_table.append(it_dict.copy())
+        if jc_doc.rm_consumed:
+            for row in jc_doc.rm_consumed:
+                if row.qty > 0:
+                    it_dict = {}
+                    it_dict.setdefault("item_code", row.item_code)
+                    it_dict.setdefault("allow_zero_valuation_rate", 1)
+                    it_dict.setdefault("qty", row.qty)
+                    it_dict.setdefault("s_warehouse", row.source_warehouse)
+                    it_dict.setdefault("t_warehouse", row.target_warehouse)
+                    item_table.append(it_dict.copy())
+        if jc_doc.item_manufactured:
+            for row in jc_doc.item_manufactured:
+                if row.qty > 0:
+                    it_dict = {}
+                    it_dict.setdefault("item_code", row.item_code)
+                    it_dict.setdefault("allow_zero_valuation_rate", 1)
+                    it_dict.setdefault("qty", row.qty)
+                    it_dict.setdefault("s_warehouse", row.source_warehouse)
+                    it_dict.setdefault("t_warehouse", row.target_warehouse)
+                    item_table.append(it_dict.copy())
+        ste_type = 'Repack'
+        ste = frappe.new_doc("Stock Entry")
+        ste.flags.ignore_permissions = True
+        for i in item_table:
+            ste.append("items", i)
+        ste.update({
+            "posting_date": jc_doc.posting_date,
+            "posting_time": jc_doc.posting_time,
+            "stock_entry_type": ste_type,
+            "set_posting_time": 1,
+            "process_job_card": jc_doc.name,
+            "remarks": remarks
+        })
+        ste.save()
+        ste.submit()
+        frappe.msgprint(_("Stock Entry {} created").format(get_link_to_form("Stock Entry", ste.name)))
+    else:
+        frappe.msgprint("No Stock Entry Created")
+
+
+def cancel_delete_ste(jc_doc, trash_can=1):
+    if jc_doc.no_stock_entry != 1:
+        if trash_can == 0:
+            ignore_on_trash = True
+        else:
+            ignore_on_trash = False
+
+        ste_jc = frappe.db.sql("""SELECT name FROM `tabStock Entry` WHERE process_job_card = '%s'""" %
+                               jc_doc.name, as_dict=1)
+        if ste_jc:
+            ste_doc = frappe.get_doc("Stock Entry", ste_jc[0].name)
+            ste_doc.flags.ignore_permissions = True
+            if ste_doc.docstatus == 1:
+                ste_doc.cancel()
+            frappe.delete_doc('Stock Entry', ste_jc[0].name, for_reload=ignore_on_trash)
+        sle_dict = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE voucher_type = 'Stock Entry' AND 
+        voucher_no = '%s'""" % ste_jc[0].name, as_dict=1)
+        for sle in sle_dict:
+            frappe.delete_doc('Stock Ledger Entry', sle.name, for_reload=ignore_on_trash)
+    else:
+        frappe.msgprint("No Stock Entry Cancelled")
+
+
+def delete_job_card(pro_sheet_doc, trash_can=1):
+    if trash_can == 0:
+        ignore_on_trash = True
+    else:
+        ignore_on_trash = False
+    for row in pro_sheet_doc.operations:
+        pro_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus < 1 AND operation_id 
+        = '%s'""" % row.name, as_dict=1)
+        if pro_jc:
+            frappe.delete_doc('Process Job Card RIGPL', pro_jc[0].name, for_reload=ignore_on_trash)
+
+
 @frappe.whitelist()
 def make_jc_from_pro_sheet_row(pro_sheet_name, pro_sheet_row_id):
     ps_doc = frappe.get_doc("Process Sheet", pro_sheet_name)
