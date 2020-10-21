@@ -5,9 +5,9 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import _
-from frappe.utils import nowdate
+from frappe.utils import nowdate, flt
 from erpnext.stock.utils import get_bin
-from .manufacturing_utils import get_items_from_process_sheet_for_job_card
+from .manufacturing_utils import get_items_from_process_sheet_for_job_card, convert_qty_per_uom
 
 
 def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, auto_create=False):
@@ -95,6 +95,32 @@ def check_existing_job_card(item_name, operation):
     return exist_jc
 
 
+def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
+    uom_doc = frappe.get_doc('UOM', uom)
+    error_title = "Error for Raw Material Quantity Entered"
+    warning_title = "Warning for Raw Material Quantity Entered"
+    if uom_doc.variance_allowed > 0:
+        variance = uom_doc.variance_allowed / 100
+        upper_limit = (1+variance)*flt(calculated_qty)
+        lower_limit = (1-variance)*flt(calculated_qty)
+        if flt(qty) > upper_limit or flt(qty) < lower_limit:
+            message = "Entered Quantity {} in Row# {} for {} is Not in Range and must be between {} and {}".\
+                format(row.qty, row.idx, row.parent, lower_limit, upper_limit)
+            if bypass == 0:
+                frappe.throw(message, title=error_title)
+            else:
+                frappe.msgprint(message, title=warning_title)
+    else:
+        calculated_qty = convert_qty_per_uom(calculated_qty, row.item_code)
+        if flt(qty) != calculated_qty:
+            message = "Entered Quantity = {} is Not Equal to the Calculated Qty = {} for RM Size = {} in Row# {}".\
+                format(row.qty, row.calculated_qty, row.item_code, row.idx)
+            if bypass == 0:
+                frappe.throw(message, title=error_title)
+            else:
+                frappe.msgprint(message, title=warning_title)
+
+
 def create_submit_ste_from_job_card(jc_doc):
     if jc_doc.no_stock_entry != 1:
         remarks = 'STE for Process Job Card # {}'.format(jc_doc.name)
@@ -159,7 +185,7 @@ def create_submit_ste_from_job_card(jc_doc):
         })
         ste.save()
         ste.submit()
-        frappe.msgprint(_("Stock Entry {} created").format(get_link_to_form("Stock Entry", ste.name)))
+        frappe.msgprint(_("Stock Entry {} created").format(frappe.get_desk_link("Stock Entry", ste.name)))
     else:
         frappe.msgprint("No Stock Entry Created")
 

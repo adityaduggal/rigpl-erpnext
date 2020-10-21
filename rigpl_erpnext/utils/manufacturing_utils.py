@@ -30,32 +30,6 @@ def get_items_from_process_sheet_for_job_card(document, table_name):
         })
 
 
-def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
-    uom_doc = frappe.get_doc('UOM', uom)
-    error_title = "Error for Raw Material Quantity Entered"
-    warning_title = "Warning for Raw Material Quantity Entered"
-    if uom_doc.variance_allowed > 0:
-        variance = uom_doc.variance_allowed / 100
-        upper_limit = (1+variance)*flt(calculated_qty)
-        lower_limit = (1-variance)*flt(calculated_qty)
-        if flt(qty) > upper_limit or flt(qty) < lower_limit:
-            message = "Entered Quantity {} in Row# {} for {} is Not in Range and must be between {} and {}".\
-                format(row.qty, row.idx, row.parent, lower_limit, upper_limit)
-            if bypass == 0:
-                frappe.throw(message, title=error_title)
-            else:
-                frappe.msgprint(message, title=warning_title)
-    else:
-        calculated_qty = convert_qty_per_uom(calculated_qty, row.item_code)
-        if flt(qty) != calculated_qty:
-            message = "Entered Quantity = {} is Not Equal to the Calculated Qty = {} for RM Size = {} in Row# {}".\
-                format(row.qty, row.calculated_qty, row.item_code, row.idx)
-            if bypass == 0:
-                frappe.throw(message, title=error_title)
-            else:
-                frappe.msgprint(message, title=warning_title)
-
-
 def calculated_value_from_formula(rm_item_dict, fg_item_name, bom_template_name, fg_qty=0, so_detail=None,
                                   process_sheet_name=None):
     qty_dict = frappe._dict({})
