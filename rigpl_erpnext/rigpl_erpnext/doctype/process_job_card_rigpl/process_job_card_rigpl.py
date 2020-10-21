@@ -54,12 +54,14 @@ class ProcessJobCardRIGPL(Document):
             else:
                 if not self.rm_consumed:
                     get_items_from_process_sheet_for_job_card(self, "rm_consumed")
+
             if self.rm_consumed:
                 rm_item_dict = frappe.get_all("Process Sheet Items", fields=["item_code"],
                                               filters={'parenttype': 'Process Job Card RIGPL', 'parent': self.name,
                                                        'parentfield': 'rm_consumed'})
                 self.update_calculated_qty(rm_item_dict)
                 rm_qty_dict = find_item_quantities(rm_item_dict)
+
                 for rm in rm_qty_dict:
                     for d in self.rm_consumed:
                         if rm.item_code == d.item_code and rm.warehouse == d.source_warehouse:
@@ -88,7 +90,9 @@ class ProcessJobCardRIGPL(Document):
         pro_sheet_doc = frappe.get_doc("Process Sheet", self.process_sheet)
         for d in self.item_manufactured:
             wip_calc_qty_dict = calculated_value_from_formula(rm_item_dict, d.item_code, fg_qty=d.qty,
-                                                              bom_template_name= pro_sheet_doc.bom_template)
+                                                              bom_template_name= pro_sheet_doc.bom_template,
+                                                              so_detail=pro_sheet_doc.sales_order_item,
+                                                              process_sheet_name=self.process_sheet)
             for wip_it in wip_calc_qty_dict:
                 if d.item_code == wip_it.fg_item_code and d.calculated_qty != wip_it.qty:
                     d.calculated_qty = wip_it.qty
@@ -96,7 +100,9 @@ class ProcessJobCardRIGPL(Document):
 
         rm_calc_qty_dict = calculated_value_from_formula(rm_item_dict, self.production_item,
                                                          fg_qty=(self.total_completed_qty + self.total_rejected_qty),
-                                                         bom_template_name= pro_sheet_doc.bom_template)
+                                                         bom_template_name= pro_sheet_doc.bom_template,
+                                                         so_detail= pro_sheet_doc.sales_order_item,
+                                                         process_sheet_name=self.process_sheet)
         for rm in self.rm_consumed:
             for rm_it in rm_calc_qty_dict:
                 if rm.item_code == rm_it.rm_item_code:

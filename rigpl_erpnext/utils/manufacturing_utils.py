@@ -24,6 +24,9 @@ def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, 
         'operation': row.get("operation"),
         'workstation': row.get("workstation"),
         'posting_date': nowdate(),
+        'sales_order': pro_sheet.sales_order,
+        'sales_order_item': pro_sheet.sales_order_item,
+        'sno': pro_sheet.sno,
         's_warehouse': row.get('source_warehouse'),
         't_warehouse': row.get('target_warehouse'),
         'allow_consumption_of_rm': row.allow_consumption_of_rm,
@@ -233,6 +236,7 @@ def calculated_value_from_formula(rm_item_dict, fg_item_name, bom_template_name,
         fg_att_dict = get_special_item_attributes(fg_item_name, special_item_attr_doc[0].name)
     else:
         fg_att_dict = get_attributes(fg_item_name)
+    frappe.msgprint(str(fg_att_dict))
     for d in rm_item_dict:
         rm_att_dict = get_attributes(d.name or d.item_code)
         qty = calculate_formula(rm_att_dict, fg_att_dict, formula, fg_qty)
@@ -818,6 +822,10 @@ def validate_job_card_time_logs(document):
     posting_date = getdate('1900-01-01')
     posting_time = get_time('00:00:00')
     now_time = get_datetime(nowtime())
+    if not document.employee:
+        frappe.throw("Employee is Needed in {}".format(frappe.get_desk_link(document.doctype, document.name)))
+    if not document.workstation:
+        frappe.throw("Workstation is Needed in {}".format(frappe.get_desk_link(document.doctype, document.name)))
     if document.get('time_logs'):
         tl_tbl = document.get('time_logs')
         for i in range(0, len(tl_tbl)):

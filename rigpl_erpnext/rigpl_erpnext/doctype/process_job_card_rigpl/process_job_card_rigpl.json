@@ -45,6 +45,9 @@
   "cb2",
   "total_rejected_qty",
   "operation_id",
+  "sales_order",
+  "sales_order_item",
+  "sno",
   "amended_from"
  ],
  "fields": [
@@ -329,10 +332,31 @@
    "fieldname": "sb6",
    "fieldtype": "Section Break",
    "label": "Quantity Details"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_order_item",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Sales Order Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sno",
+   "fieldtype": "Data",
+   "label": "Sales Order Serial Number",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-21 10:05:41.552141",
+ "modified": "2020-10-21 12:46:23.973990",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",

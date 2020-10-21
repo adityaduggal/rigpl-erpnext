@@ -227,10 +227,12 @@ class ProcessSheet(Document):
                     frappe.msgprint("Calculated Qty to Manufacture = " + str(auto_qty) +
                                     " but Qty entered to Manufacture  = " + str(self.quantity))
             else:
-                self.quantity = self.get_balance_qty_from_so(self.sales_order_item)
-                self.update_qty_manually = 0
-                frappe.msgprint("Since this Sheet is for Special Item the Quantity to Manufacture needs to be equal "
-                                "to balance qty for Sales Order")
+                pend_qty = self.get_balance_qty_from_so(self.sales_order_item)
+                if pend_qty < self.quantity:
+                    self.update_qty_manually = 0
+                    self.quantity = pend_qty
+                    frappe.msgprint("Since this Sheet is for Special Item the Quantity to Manufacture needs to be "
+                                    "less than or equal to balance qty for Sales Order")
 
     def get_balance_qty_from_so(self, so_detail):
         soi_doc = frappe.get_doc("Sales Order Item", so_detail)
