@@ -10,6 +10,7 @@ from erpnext.stock.utils import get_bin
 
 class ProcessJobCardRIGPL(Document):
     def on_submit(self):
+        validate_job_card_time_logs(self)
         update_jc_status(self)
         self.validate_rm_qty_consumed()
         update_produced_qty(self)
@@ -41,7 +42,6 @@ class ProcessJobCardRIGPL(Document):
             check_warehouse_in_child_tables(self, table_name="item_manufactured", type_of_table="Production")
             validate_qty_decimal(self, "rm_consumed")
             validate_qty_decimal(self, "item_manufactured")
-            validate_job_card_time_logs(self)
             pro_doc = frappe.get_doc('Process Sheet', self.process_sheet)
             for row in pro_doc.operations:
                 if row.name == self.operation_id:

@@ -1,5 +1,4 @@
 {
- "actions": [],
  "allow_import": 1,
  "autoname": "naming_series:",
  "creation": "2020-07-30 22:32:47.987117",
@@ -63,7 +62,6 @@
    "fieldname": "posting_date",
    "fieldtype": "Date",
    "label": "Posting Date",
-   "read_only_depends_on": "eval:doc.manual_posting_date_and_time===0",
    "reqd": 1
   },
   {
@@ -161,8 +159,7 @@
    "fieldtype": "Link",
    "ignore_user_permissions": 1,
    "label": "Employee",
-   "options": "Employee",
-   "reqd": 1
+   "options": "Employee"
   },
   {
    "fetch_from": "employee.employee_name",
@@ -263,7 +260,6 @@
    "fieldname": "s_warehouse",
    "fieldtype": "Link",
    "label": "Source Warehouse",
-   "mandatory_depends_on": "eval:doc.allow_consumption_of_rm != 1",
    "options": "Warehouse",
    "read_only": 1
   },
@@ -279,7 +275,6 @@
    "fieldname": "posting_time",
    "fieldtype": "Time",
    "label": "Posting Time",
-   "read_only_depends_on": "eval:doc.manual_posting_date_and_time===0",
    "reqd": 1
   },
   {
@@ -337,8 +332,7 @@
   }
  ],
  "is_submittable": 1,
- "links": [],
- "modified": "2020-09-21 09:34:11.797602",
+ "modified": "2020-10-21 10:05:41.552141",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
