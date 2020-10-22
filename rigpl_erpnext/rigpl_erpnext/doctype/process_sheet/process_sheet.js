@@ -54,9 +54,23 @@ frappe.ui.form.on('Process Sheet', {
 			};
 		});
 	},
+	bom_template: function(frm){
+	    frm.doc.fg_warehouse = ""
+	    frm.doc.bom_template_description = ""
+	    frm.doc.operations = []
+	    frm.doc.rm_consumed = []
+	    frm.doc.item_manufactured = []
+	    frm.doc.manually_select_rm = 0
+	    frm.doc.allow_zero_rol_for_wip = 0
+	},
 	production_item: function(frm){
-	    frm.doc.bom_template = ''
-	    frm.doc.fg_warehouse = ''
+	    frm.doc.bom_template = ""
+	    frm.doc.fg_warehouse = ""
+	    frm.doc.sales_order = ""
+	    frm.doc.sales_order_item = ""
+	    frm.doc.sales_order_serial_number = ""
+	    frm.doc.quantity = 0
+	    frm.doc.update_qty_manually = 0
 	    if (frm.doc.production_item){
 	        frappe.call({
 	            doc: frm.doc,

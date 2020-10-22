@@ -52,6 +52,8 @@ class BOMTemplateRIGPL(Document):
                              "Table".format(d.idx))
             if d.idx == len(self.operations):
                 d.final_operation = 1
+            else:
+                d.final_operation = 0
             if d.final_operation == 1 and not d.final_warehouse:
                 frappe.msgprint("Please set the Final Warehouse in Row# {} of Operations Table for "
                                 "Operation {}".format(d.idx, d.operation))
