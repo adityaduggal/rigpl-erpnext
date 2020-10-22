@@ -7,7 +7,7 @@ import frappe
 import re
 import math
 from frappe import _
-from frappe.utils import flt, nowtime, get_link_to_form, get_datetime, time_diff_in_hours, getdate, get_time
+from frappe.utils import flt
 from erpnext.stock.stock_balance import update_bin_qty
 
 
@@ -159,7 +159,7 @@ def get_bom_template_from_item(item_doc, so_detail=None, no_error=0):
                 sp_att_draft = get_special_item_attribute_doc(item_doc.name, so_detail, docstatus=0)
                 if sp_att_draft:
                     frappe.throw("Special Item Attributes not Submitted please fill and Submit {}".
-                                 format(get_link_to_form("Made to Order Item Attributes", sp_att_draft[0].name)))
+                                 format(frappe.get_desk_link("Made to Order Item Attributes", sp_att_draft[0].name)))
                 else:
                     create_new_special_attributes(item_doc.name, so_detail)
                     frappe.msgprint("Fill the Special Item Attributes and Try Again")
@@ -181,8 +181,7 @@ def create_new_special_attributes(it_name, so_detail):
     special.description = frappe.get_value("Sales Order Item", so_detail, "description")
     special.insert()
     frappe.db.commit()
-    frappe.msgprint(_("Special Item Attributes {0} created").format(get_link_to_form("Made to Order Item Attributes",
-                                                                                    special.name)))
+    frappe.msgprint(_("{} created").format(frappe.get_desk_link("Made to Order Item Attributes", special.name)))
 
 
 def get_special_item_attribute_doc(it_name, so_detail, docstatus=1):
@@ -460,102 +459,6 @@ def update_warehouse_from_bt(pro_sheet_doc):
                     row.source_warehouse = bt_row.source_warehouse
                 if not row.target_warehouse:
                     row.target_warehouse = bt_row.target_warehouse
-
-
-def validate_job_card_time_logs(document):
-    total_mins = 0
-    total_comp_qty = 0
-    total_rej_qty = 0
-    posting_date = getdate('1900-01-01')
-    posting_time = get_time('00:00:00')
-    now_time = get_datetime(nowtime())
-    if not document.employee:
-        frappe.throw("Employee is Needed in {}".format(frappe.get_desk_link(document.doctype, document.name)))
-    if not document.workstation:
-        frappe.throw("Workstation is Needed in {}".format(frappe.get_desk_link(document.doctype, document.name)))
-    if document.get('time_logs'):
-        tl_tbl = document.get('time_logs')
-        for i in range(0, len(tl_tbl)):
-            if i > 0:
-                if get_datetime(tl_tbl[i].from_time) < get_datetime(tl_tbl[i-1].to_time):
-                    frappe.throw("Row# {}: From Time Cannot be Less than To Time in Row# {}".format(tl_tbl[i].idx,
-                                                                                                    tl_tbl[i-1].idx))
-            if get_datetime(tl_tbl[i].to_time) > now_time:
-                frappe.throw("To Time is in Future for Row# {}".format(tl_tbl[i].idx))
-            if tl_tbl[i].completed_qty == 0:
-                frappe.throw("Zero Quantity Not Allowed for Row# {}".format(tl_tbl[i].idx))
-            if get_datetime(tl_tbl[i].from_time) > get_datetime(tl_tbl[i].to_time):
-                frappe.throw(_("Row {0}: From time must be less than to time").format(tl_tbl[i].idx))
-            data = get_overlap_for(document, tl_tbl[i])
-            if data:
-                frappe.throw(_("Row {0}: From Time and To Time of {1} is overlapping with {2}").format(tl_tbl[i],
-                        document.name, data.name))
-            if tl_tbl[i].from_time and tl_tbl[i].to_time:
-                if getdate(tl_tbl[i].to_time) > posting_date:
-                    posting_date = getdate(tl_tbl[i].to_time)
-                    posting_time = get_time(tl_tbl[i].to_time)
-                if int(time_diff_in_hours(tl_tbl[i].to_time, tl_tbl[i].from_time) * 60) != tl_tbl[i].time_in_mins:
-                    tl_tbl[i].time_in_mins = int(time_diff_in_hours(tl_tbl[i].to_time, tl_tbl[i].from_time) * 60)
-                total_mins += int(tl_tbl[i].time_in_mins)
-                if document.total_time_in_mins != int(total_mins):
-                    document.total_time_in_mins = int(total_mins)
-            if tl_tbl[i].completed_qty > 0:
-                total_comp_qty += tl_tbl[i].completed_qty
-            if flt(tl_tbl[i].rejected_qty) > 0:
-                total_rej_qty += tl_tbl[i].rejected_qty
-            if flt(tl_tbl[i].salvage_qty) > 0:
-                total_rej_qty += tl_tbl[i].salvage_qty
-                if not tl_tbl[i].salvage_warehouse:
-                    frappe.throw("Salvage Warehouse is Mandatory if Salvage Qty > 0 for Row # {}".format(tl_tbl[i].idx))
-                else:
-                    wh_doc = frappe.get_doc("Warehouse", tl_tbl[i].salvage_warehouse)
-                    if wh_doc.warehouse_type != "Rejected":
-                        roles_list = frappe.get_roles(frappe.session.user)
-                        if 'System Manager' not in roles_list:
-                            frappe.throw("Only System Manager allowed to Send Salvage Material to Non-Rejected "
-                                         "Warehouse in Row# {}".format(tl_tbl[i].idx))
-
-            if document.total_rejected_qty != total_rej_qty:
-                document.total_rejected_qty = total_rej_qty
-            if document.total_completed_qty != total_comp_qty:
-                document.total_completed_qty = total_comp_qty
-            if document.posting_date != posting_date and document.manual_posting_date_and_time != 1:
-                document.posting_date = posting_date
-            if document.posting_time != posting_time and document.manual_posting_date_and_time != 1:
-                document.posting_time = str(posting_time)
-            if document.manual_posting_date_and_time == 1:
-                if get_datetime(document.posting_date + " " + document.posting_time) > get_datetime(nowtime()):
-                    frappe.throw("Future Posting Date is Not Allowed for {}".format(document.name))
-    else:
-        frappe.throw("Time Logs Mandatory for Process Job Card {}".format(document.name))
-
-
-def get_overlap_for(document, row, check_next_available_slot=False):
-    production_capacity = 1
-
-    if document.workstation:
-        production_capacity = frappe.get_cached_value("Workstation", document.workstation, 'production_capacity') or 1
-        validate_overlap_for = " and jc.workstation = %(workstation)s "
-    else:
-        validate_overlap_for = ""
-
-    extra_cond = ''
-    if check_next_available_slot:
-        extra_cond = " or (%(from_time)s <= jctl.from_time and %(to_time)s <= jctl.to_time)"
-
-    existing = frappe.db.sql("""SELECT jc.name AS name, jctl.to_time FROM `tabJob Card Time Log` jctl, 
-    `tabProcess Job Card RIGPL` jc 
-    WHERE jctl.parent = jc.name AND jctl.parenttype = 'Process Job Card RIGPL' AND ((%(from_time)s > 
-    jctl.from_time and %(from_time)s < jctl.to_time) OR (%(to_time)s > jctl.from_time and %(to_time)s < 
-    jctl.to_time) OR (%(from_time)s <= jctl.from_time AND %(to_time)s >= jctl.to_time) {}) AND jctl.name != %(name)s 
-    AND jc.name != %(parent)s and jc.docstatus < 2 {} 
-    ORDER BY jctl.to_time desc limit 1""".format(extra_cond, validate_overlap_for), {"from_time": row.from_time,
-        "to_time": row.to_time, "name": row.name or "No Name", "parent": row.parent or "No Name",
-        "employee": document.employee, "workstation": document.workstation}, as_dict=True)
-    if existing and production_capacity > len(existing):
-        return
-
-    return existing[0] if existing else None
 
 
 def check_produced_qty_jc(doc):
