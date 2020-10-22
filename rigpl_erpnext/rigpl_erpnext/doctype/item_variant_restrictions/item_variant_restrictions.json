@@ -1,5 +1,4 @@
 {
- "actions": [],
  "creation": "2015-08-28 17:56:53.279258",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -7,6 +6,8 @@
  "field_order": [
   "attribute",
   "is_numeric",
+  "rename_field",
+  "renamed_field_name",
   "column_break",
   "allowed_values",
   "rule",
@@ -60,11 +61,22 @@
    "fieldtype": "Int",
    "in_list_view": 1,
    "label": "Item Number"
+  },
+  {
+   "default": "0",
+   "fieldname": "rename_field",
+   "fieldtype": "Check",
+   "label": "Rename Field"
+  },
+  {
+   "depends_on": "eval: doc.rename_field === 1",
+   "fieldname": "renamed_field_name",
+   "fieldtype": "Data",
+   "label": "Renamed Field Name"
   }
  ],
  "istable": 1,
- "links": [],
- "modified": "2020-08-05 16:55:30.326266",
+ "modified": "2020-10-22 13:28:29.041903",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Item Variant Restrictions",

@@ -21,7 +21,7 @@ frappe.ui.form.on('Process Sheet', {
                                     so_detail: frm.doc.sales_order_item
                                }
                                return {
-                                    query: "rigpl_erpnext.utils.manufacturing_utils.get_bom_template_from_item_name",
+                                    query: "rigpl_erpnext.utils.process_sheet_utils.get_bom_template_from_item_name",
                                     filters: filters
                                };
                             },

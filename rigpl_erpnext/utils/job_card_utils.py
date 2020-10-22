@@ -37,7 +37,7 @@ def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, 
         get_items_from_process_sheet_for_job_card(doc, "rm_consumed")
         get_items_from_process_sheet_for_job_card(doc, "item_manufactured")
         doc.insert()
-        frappe.msgprint(_("Job card {0} created").format(frappe.get_desk_link("Process Job Card RIGPL", doc.name)))
+        frappe.msgprint(_("{} created").format(frappe.get_desk_link("Process Job Card RIGPL", doc.name)))
 
     return doc
 
@@ -93,6 +93,11 @@ def check_existing_job_card(item_name, operation):
     exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus !=2 AND operation_id = 
     '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)
     return exist_jc
+
+
+def validate_qty_decimal(document, table_name):
+    for row in document.get(table_name):
+        row.qty = convert_qty_per_uom(row.qty, row.item_code)
 
 
 def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
@@ -185,7 +190,7 @@ def create_submit_ste_from_job_card(jc_doc):
         })
         ste.save()
         ste.submit()
-        frappe.msgprint(_("Stock Entry {} created").format(frappe.get_desk_link("Stock Entry", ste.name)))
+        frappe.msgprint(_("{} created").format(frappe.get_desk_link("Stock Entry", ste.name)))
     else:
         frappe.msgprint("No Stock Entry Created")
 
@@ -232,7 +237,7 @@ def make_jc_from_pro_sheet_row(pro_sheet_name, pro_sheet_row_id):
         if row.name == pro_sheet_row_id:
             existing_pending_job_card = check_existing_pending_job_card(pro_sheet_name, pro_sheet_row_id)
             if existing_pending_job_card:
-                frappe.throw("Job Card# {} is already pending for Process Sheet {} in Row# {} and Operation {}".
+                frappe.throw("{} is already pending for Process Sheet {} in Row# {} and Operation {}".
                              format(frappe.get_desk_link("Process Job Card RIGPL", existing_pending_job_card[0].name),
                                     pro_sheet_name, row.idx, row.operation))
             else:

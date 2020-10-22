@@ -9,7 +9,6 @@ import math
 from frappe import _
 from frappe.utils import flt, nowtime, get_link_to_form, get_datetime, time_diff_in_hours, getdate, get_time
 from erpnext.stock.stock_balance import update_bin_qty
-from rigpl_erpnext.utils.other_utils import round_up
 
 
 def get_items_from_process_sheet_for_job_card(document, table_name):
@@ -44,21 +43,15 @@ def calculated_value_from_formula(rm_item_dict, fg_item_name, bom_template_name,
         fg_att_dict = get_special_item_attributes(fg_item_name, special_item_attr_doc[0].name)
     else:
         fg_att_dict = get_attributes(fg_item_name)
-    frappe.msgprint(str(fg_att_dict))
     for d in rm_item_dict:
-        rm_att_dict = get_attributes(d.name or d.item_code)
-        qty = calculate_formula(rm_att_dict, fg_att_dict, formula, fg_qty)
-        qty = convert_qty_per_uom(qty, d.item)
-        qty_dict["rm_item_code"] = d.name or d.item_code
+        rm_att_dict = get_attributes(d.get("name") or d.get("item_code"))
+        qty = calculate_formula(rm_att_dict, fg_att_dict, formula, fg_qty, bom_template_name)
+        qty = convert_qty_per_uom(qty, d.get("item"))
+        qty_dict["rm_item_code"] = d.get("name") or d.get("item_code")
         qty_dict["fg_item_code"] = fg_item_name
         qty_dict["qty"] = qty
         qty_list.append(qty_dict.copy())
     return qty_list
-
-
-def validate_qty_decimal(document, table_name):
-    for row in document.get(table_name):
-        row.qty = convert_qty_per_uom(row.qty, row.item_code)
 
 
 def convert_qty_per_uom(qty, item_name):
@@ -75,87 +68,12 @@ def find_item_quantities(item_dict):
     availability = []
     for d in item_dict:
         one_item_availability = frappe.db.sql("""SELECT name, warehouse, item_code, stock_uom, valuation_rate, 
-        actual_qty FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s'""" % (d.name or d.item_code), as_dict=1)
+        actual_qty FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s'""" % (d.get("name") or d.get("item_code")),
+                                              as_dict=1)
         if one_item_availability:
             for available in one_item_availability:
                 availability.append(available)
     return availability
-
-
-def update_item_table(item_dict, table_name, document):
-    table_dict = {}
-    for d in item_dict:
-        table_dict["item_code"] = d.name
-        table_dict["description"] = d.description
-        document.append(table_name, table_dict.copy())
-
-
-def disallow_templates(doc, item_doc):
-    if item_doc.has_variants == 1:
-        frappe.throw('Template {} is not allowed in BOM {}'.format(item_doc.name, doc.name))
-
-
-def get_req_wip_sizes_from_template(bom_temp_name, fg_item, rm_item, table_name, process_sheet_name,
-                                    allow_zero_rol=None):
-    if allow_zero_rol == 1:
-        rol_cond = ""
-    else:
-        rol_cond = " AND rol.warehouse_reorder_level > 0"
-    bt_doc = frappe.get_doc("BOM Template RIGPL", bom_temp_name)
-    if bt_doc.get(table_name):
-        att_join = ""
-        att_cond = ""
-        for d in bt_doc.get(table_name):
-            att_table = d.attribute.replace(" ", "")
-            if d.is_numeric != 1:
-                if d.allowed_values != 'No':
-                    att_cond += " AND %s.attribute_value = '%s'" % (att_table, d.allowed_values)
-                    att_join += " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent " \
-                                "AND %s.parenttype = 'Item' AND %s.attribute = '%s'" % \
-                                (att_table, att_table, att_table, att_table, d.attribute)
-            else:
-                att_cond += convert_wip_rule_to_mysql_statement(d.rule, fg_item, rm_item, process_sheet_name)
-                att_join += " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent AND %s.parenttype = 'Item' " \
-                            "AND %s.attribute = '%s'" % (att_table, att_table, att_table, att_table, d.attribute)
-
-        query = """SELECT it.name, it.description FROM `tabItem` it LEFT JOIN `tabItem Reorder` rol ON 
-        rol.parenttype = 'Item' AND rol.parent = it.name %s WHERE it.disabled = 0 AND it.end_of_life >= CURDATE() %s %s
-        """ % (att_join, att_cond, rol_cond)
-        it_dict = frappe.db.sql(query, as_dict=1)
-    else:
-        it_dict = {}
-    return it_dict
-
-
-def get_req_sizes_from_template(bom_temp_name, item_type_list, table_name, allow_zero_rol=None, ps_name=None):
-    # Item Type List is in Format [{known_item: 'Item Name', known_type = 'fg'},{known_item: "Item Name2",
-    # known_type="rm"}]
-    if allow_zero_rol == 1:
-        rol_cond = ""
-    else:
-        rol_cond = " AND rol.warehouse_reorder_level > 0"
-    bt_doc = frappe.get_doc("BOM Template RIGPL", bom_temp_name)
-    att_join = ""
-    att_cond = ""
-    for d in bt_doc.get(table_name):
-        att_table = d.attribute.replace(" ", "")
-        if d.is_numeric != 1:
-            if d.allowed_values != 'No':
-                att_cond += " AND %s.attribute_value = '%s'" % (att_table, d.allowed_values)
-                att_join += " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent " \
-                            "AND %s.parenttype = 'Item' AND %s.attribute = '%s'" % \
-                            (att_table, att_table, att_table, att_table, d.attribute)
-        else:
-            for item in item_type_list:
-                att_cond += convert_rule_to_mysql_statement(d.rule, item, process_sheet_name=ps_name)
-                att_join += " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent AND %s.parenttype = " \
-                            "'Item' AND %s.attribute = '%s'" % (att_table, att_table, att_table, att_table, d.attribute)
-
-    query = """SELECT it.name, it.description FROM `tabItem` it LEFT JOIN `tabItem Reorder` rol ON 
-    it.parenttype = 'Item' AND it.parent = it.name %s WHERE it.disabled = 0 AND it.end_of_life >= CURDATE() %s %s""" \
-            % (att_join, att_cond, rol_cond)
-    it_dict = frappe.db.sql(query, as_dict=1)
-    return it_dict
 
 
 def convert_wip_rule_to_mysql_statement(rule, fg_item, rm_item, process_sheet_name=None):
@@ -221,27 +139,6 @@ def get_attributes(item_name, so_detail=None):
         FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Item' ORDER BY idx""" % item_name,
                                    as_dict=1)
     return attribute_dict
-
-
-@frappe.whitelist()
-def manual_bom_template_selection(source_name, target_doc=None):
-    frappe.msgprint(str(target_doc))
-    target_doc.bom_template = source_name
-
-
-@frappe.whitelist()
-def get_bom_template_from_item_name(doctype, txt, searchfield, start, page_len, filters, as_dict):
-    so_detail = filters.get("so_detail")
-    it_doc = frappe.get_doc("Item", filters.get("it_name"))
-    bt_list = get_bom_template_from_item(it_doc, so_detail)
-    if not bt_list:
-        frappe.throw("NO BOM Template Found")
-    elif len(bt_list) == 1:
-        bt_list = "('" + bt_list[0] + "')"
-    else:
-        bt_list = tuple(bt_list)
-    query = """SELECT name, title, remarks FROM `tabBOM Template RIGPL` WHERE name in {}""".format(bt_list)
-    return frappe.db.sql(query, as_dict=as_dict)
 
 
 def get_bom_template_from_item(item_doc, so_detail=None, no_error=0):
@@ -332,80 +229,6 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
     return bt_list
 
 
-def update_fields_from_template(doc, bt_doc):
-    doc.rm_cost_as_per = bt_doc.rm_cost_as_per
-    doc.with_operations = bt_doc.with_operations
-    doc.transfer_material_against = bt_doc.transfer_material_against
-    doc.routing = bt_doc.routing
-
-
-def get_qty_to_manufacture(it_doc):
-    qty = 100
-    rol = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty FROM `tabItem Reorder` 
-    WHERE parent = '%s' AND parenttype = '%s' AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype),
-                        as_dict=1)
-    if not rol:
-        rol = 0
-    else:
-        rol = flt(rol[0].warehouse_reorder_level)
-    bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty, bn.actual_qty, bn.ordered_qty,
-        bn.indented_qty, bn.planned_qty, bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract, 
-        wh.warehouse_type, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND 
-        bn.item_code = '%s'"""
-                             % it_doc.name, as_dict=1)
-    fg = 0
-    wipq = 0
-    con = 0
-    rm = 0
-    dead = 0
-    rej = 0
-    po = 0
-    so = 0
-    ind = 0
-    plan = 0
-    prd = 0
-    lead = flt(it_doc.lead_time_days)
-    if bin_dict:
-        for d in bin_dict:
-            so += flt(d.reserved_qty)
-            po += flt(d.ordered_qty)
-            ind += flt(d.indented_qty)
-            plan += flt(d.planned_qty)
-            prd += flt(d.reserved_qty_for_production)
-
-            if d.warehouse_type == 'Finished Stock':
-                fg += flt(d.actual_qty)
-            elif d.warehouse_type == 'Work In Progress':
-                wipq += flt(d.actual_qty)
-            elif d.warehouse_type == 'Consumable':
-                con += flt(d.actual_qty)
-            elif d.warehouse_type == 'Raw Material':
-                rm += flt(d.actual_qty)
-            elif d.warehouse_type == 'Dead Stock':
-                dead += flt(d.actual_qty)
-            elif d.warehouse_type == 'Recoverable Stock':
-                rej += flt(d.actual_qty)
-            elif d.warehouse_type == 'Subcontracting':
-                po += flt(d.actual_qty)
-
-            if lead == 0:
-                lead = 30
-        reqd_qty = (rol * lead / (30 * 2)) + so + prd - fg - wipq
-        if reqd_qty < 0:
-            reqd_qty = 0
-        elif 10 < reqd_qty < 50:
-            reqd_qty = round_up(reqd_qty, 5)
-        elif 50 < reqd_qty < 500:
-            reqd_qty = round_up(reqd_qty, 10)
-        elif 500 < reqd_qty < 1000:
-            reqd_qty = round_up(reqd_qty, 50)
-        elif reqd_qty > 1000:
-            reqd_qty = round_up(reqd_qty, 100)
-
-        qty = reqd_qty
-    return qty
-
-
 def replace_java_to_mysql(string):
     replace_dict = {
         'false': 'False',
@@ -425,14 +248,13 @@ def replace_java_to_mysql(string):
 
 def replace_java_chars(string):
     replace_dict = {
-        'false': 'False',
-        'true': 'True',
-        '&&': ' and ',
-        '||': ' or ',
-        '&gt;': '>',
-        '&lt;': '<'
+        "false": "False",
+        "true": "True",
+        "&&": " and ",
+        "||": " or ",
+        "&gt;": ">",
+        "&lt;": "<"
     }
-
     for k, v in replace_dict.items():
         string = string.replace(k, v)
     return string
@@ -486,7 +308,10 @@ def get_formula_values(att_dict, formula, type_of_dict=None):
     return values
 
 
-def calculate_formula(rm_att_dict, fg_att_dict, formula, fg_quantity):
+def calculate_formula(rm_att_dict, fg_att_dict, formula, fg_quantity, bt_name):
+    bt_doc = frappe.get_doc("BOM Template RIGPL", bt_name)
+    rm_att_dict = change_att_if_needed(rm_att_dict, bt_doc, "rm")
+    fg_att_dict = change_att_if_needed(fg_att_dict, bt_doc, "fg")
     formula_values = frappe._dict({})
     formula_values['qty'] = fg_quantity
     formula_values = formula_values.update(get_formula_values(rm_att_dict, formula, "rm"))
@@ -495,10 +320,24 @@ def calculate_formula(rm_att_dict, fg_att_dict, formula, fg_quantity):
     return calc_qty
 
 
+def change_att_if_needed(att_list, bom_template_doc, type_of_att):
+    for att in att_list:
+        for restriction in bom_template_doc.get(type_of_att + "_restrictions"):
+            if att.attribute == restriction.attribute:
+                if restriction.rename_field == 1:
+                    att.attribute = restriction.renamed_field_name
+    return att_list
+
+
 def calculate_formula_values(formula, formula_values_dict):
     original_keys = formula_values_dict.keys()
     try:
-        calc_value = eval(formula, formula_values_dict, formula_values_dict)
+        print(formula)
+        if "compile" in formula:
+            calc_value = (eval(formula))
+            calc_value = eval(calc_value, formula_values_dict, formula_values_dict)
+        else:
+            calc_value = eval(formula, formula_values_dict, formula_values_dict)
     except Exception as e:
         frappe.throw("\n\n".join(map(str, [formula, {k: v for k, v in formula_values_dict.items() if k in
                                                      original_keys}, e])))

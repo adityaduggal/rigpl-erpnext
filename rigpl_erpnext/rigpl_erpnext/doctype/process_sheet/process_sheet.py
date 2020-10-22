@@ -3,9 +3,10 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-from rigpl_erpnext.utils.manufacturing_utils import *
-from ....utils.job_card_utils import create_job_card, check_existing_job_card, delete_job_card
 from frappe.model.document import Document
+from rigpl_erpnext.utils.manufacturing_utils import *
+from rigpl_erpnext.utils.process_sheet_utils import *
+from ....utils.job_card_utils import create_job_card, check_existing_job_card, delete_job_card
 
 
 class ProcessSheet(Document):
@@ -57,7 +58,6 @@ class ProcessSheet(Document):
                 frappe.throw("No BOM Template Found")
             else:
                 bom_tmp_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name[0])
-                self.total_applicable_bom_templates = len(bom_tmp_name)
                 self.update_ps_fields(bom_tmp_doc, it_doc)
 
     def validate_other_psheet(self):
@@ -110,6 +110,7 @@ class ProcessSheet(Document):
         self.set("item_manufactured", [])
 
     def update_ps_fields(self, bt_doc, it_doc):
+        self.total_applicable_bom_templates = len(get_bom_template_from_item(it_doc, self.sales_order_item))
         self.bom_template = bt_doc.name
         if bt_doc.remarks:
             remarks = ", Remarks: " + bt_doc.remarks
@@ -138,20 +139,16 @@ class ProcessSheet(Document):
         item_dict["known_type"] = "fg"
         item_list = self.get_item_list(self.production_item, known_type="fg", unknown_type="rm")
         if self.manually_select_rm != 1:
-            rm_item_dict = get_req_sizes_from_template(bom_temp_name=self.bom_template, item_type_list=item_list,
-                                                       table_name="rm_restrictions",
-                                                       allow_zero_rol=1, ps_name=self.name)
+            if not self.rm_consumed:
+                rm_item_dict = get_req_sizes_from_template(bom_temp_name=self.bom_template, item_type_list=item_list,
+                                                            table_name="rm_restrictions",
+                                                            allow_zero_rol=1, ps_name=self.name)
+            else:
+                rm_item_dict = self.make_rm_item_dict()
             if not rm_item_dict:
                 frappe.throw("NO RM Found")
         else:
-            rm_item_dict = []
-            it_dict = frappe._dict({})
-            for row in self.rm_consumed:
-                description = frappe.get_value("Item", row.item_code, "description")
-                row.description = description
-                it_dict["name"] = row.item_code
-                it_dict["description"] = description
-                rm_item_dict.append(it_dict.copy())
+            rm_item_dict = self.make_rm_item_dict()
         rm_calc_qty_list = calculated_value_from_formula(rm_item_dict, self.production_item, fg_qty=self.quantity,
                                                          so_detail=self.sales_order_item,
                                                          process_sheet_name=self.name,
@@ -159,7 +156,7 @@ class ProcessSheet(Document):
         wip_list = []
         for rm in rm_item_dict:
             wip_item_dict = get_req_wip_sizes_from_template(self.bom_template, fg_item=self.production_item,
-                                                            table_name="wip_restrictions", rm_item=rm.name,
+                                                            table_name="wip_restrictions", rm_item=rm.get("name"),
                                                             allow_zero_rol=self.allow_zero_rol_for_wip,
                                                             process_sheet_name=self.name)
             dont_add = 0
@@ -322,3 +319,13 @@ class ProcessSheet(Document):
                 frappe.throw("For BOM Template {} No of Allowed RM Items = {} but Selected RM = {}".format(
                     get_link_to_form("BOM Template RIGPL", bt_doc.name), bt_doc.no_of_rm_items,
                     len(self.rm_consumed)), "Error: No of RM Selected is Wrong")
+
+
+    def make_rm_item_dict(self):
+        rm_item_dict = []
+        for d in self.rm_consumed:
+            rm_dict = {}
+            rm_dict["name"] = d.item_code
+            rm_dict["description"] = d.description
+            rm_item_dict.append(rm_dict.copy())
+        return rm_item_dict
