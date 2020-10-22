@@ -3,6 +3,7 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+from frappe.utils import nowdate
 from frappe.model.document import Document
 from rigpl_erpnext.utils.manufacturing_utils import *
 from rigpl_erpnext.utils.process_sheet_utils import *
@@ -77,13 +78,13 @@ class ProcessSheet(Document):
                         self.production_item, self.name))
             if other_ps:
                 if self.sales_order:
-                    frappe.throw("Process Sheet {} for Item: {} and Sales Order {} already in Draft. Cannot Proceed". \
-                                 format(get_link_to_form("Process Sheet", other_ps[0].name), self.production_item,
+                    frappe.throw("{} for Item: {} and Sales Order {} already in Draft. Cannot Proceed". \
+                                 format(frappe.get_desk_link("Process Sheet", other_ps[0].name), self.production_item,
                                         self.sales_order),
                                  title="Another Process Sheet with Same Item in Draft")
                 else:
-                    frappe.throw("Process Sheet {} for Item: {} already in Draft. Cannot Proceed". \
-                                 format(get_link_to_form("Process Sheet", other_ps[0].name), self.production_item),
+                    frappe.throw("{} for Item: {} already in Draft. Cannot Proceed". \
+                                 format(frappe.get_desk_link("Process Sheet", other_ps[0].name), self.production_item),
                                  title="Another Process Sheet with Same Item in Draft")
 
     def fill_details_from_item(self):
@@ -110,6 +111,8 @@ class ProcessSheet(Document):
         self.set("item_manufactured", [])
 
     def update_ps_fields(self, bt_doc, it_doc):
+        if self.date != nowdate():
+            self.date = nowdate()
         self.total_applicable_bom_templates = len(get_bom_template_from_item(it_doc, self.sales_order_item))
         self.bom_template = bt_doc.name
         if bt_doc.remarks:
@@ -312,12 +315,12 @@ class ProcessSheet(Document):
         if self.rm_consumed:
             for bt_op in bt_doc.operations:
                 if bt_op.allow_consumption_of_rm == 1 and not bt_op.rm_warehouse:
-                    frappe.throw("For BOM Template {} in Row# {} Raw Material Warehouse is Not Mentioned get it "
-                                 "corrected to Proceed.".format(get_link_to_form("BOM Template RIGPL", bt_doc.name),
+                    frappe.throw("For {} in Row# {} Raw Material Warehouse is Not Mentioned get it "
+                                 "corrected to Proceed.".format(frappe.get_desk_link("BOM Template RIGPL", bt_doc.name),
                                                                 bt_op.idx), "Error: BOM Template Error")
             if len(self.rm_consumed) != bt_doc.no_of_rm_items:
-                frappe.throw("For BOM Template {} No of Allowed RM Items = {} but Selected RM = {}".format(
-                    get_link_to_form("BOM Template RIGPL", bt_doc.name), bt_doc.no_of_rm_items,
+                frappe.throw("For {} No of Allowed RM Items = {} but Selected RM = {}".format(
+                    frappe.get_desk_link("BOM Template RIGPL", bt_doc.name), bt_doc.no_of_rm_items,
                     len(self.rm_consumed)), "Error: No of RM Selected is Wrong")
 
 

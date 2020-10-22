@@ -37,7 +37,13 @@ frappe.ui.form.on('Process Sheet', {
                     var fd = dialog.fields_dict;
                     dialog.fields_dict.select.$input.click(function(){
                         frm.doc.bom_template = fd.bom_template.value
-                        frm.refresh_fields("bom_template")
+                        frm.doc.bom_template_description = ""
+                        frm.doc.fg_warehouse = ""
+                        frm.doc.routing = ""
+                        frm.doc.operations = []
+                        frm.doc.rm_consumed = []
+                        frm.doc.item_manufactured = []
+                        frm.refresh_fields();
                     });
                 }
             )
@@ -62,6 +68,7 @@ frappe.ui.form.on('Process Sheet', {
 	    frm.doc.item_manufactured = []
 	    frm.doc.manually_select_rm = 0
 	    frm.doc.allow_zero_rol_for_wip = 0
+	    frm.refresh_fields();
 	},
 	production_item: function(frm){
 	    frm.doc.bom_template = ""
@@ -83,6 +90,19 @@ frappe.ui.form.on('Process Sheet', {
 	            }
 	        })
 	    }
+	    frm.refresh_fields();
+	},
+	routing: function(frm){
+	    frm.doc.operations = []
+	    frm.refresh_fields();
+	},
+	manually_select_rm: function(frm){
+	    frm.doc.rm_consumed = []
+	    frm.refresh_fields();
+	},
+	allow_zero_rol_for_wip: function(frm){
+	    frm.doc.item_manufactured = []
+	    frm.refresh_fields();
 	}
 });
 
