@@ -53,6 +53,7 @@ class ProcessJobCardRIGPL(Document):
             if self.allow_consumption_of_rm != 1:
                 self.set("rm_consumed", [])
             else:
+                self.s_warehouse = ''
                 if not self.rm_consumed:
                     get_items_from_process_sheet_for_job_card(self, "rm_consumed")
 
