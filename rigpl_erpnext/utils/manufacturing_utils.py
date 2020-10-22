@@ -29,31 +29,6 @@ def get_items_from_process_sheet_for_job_card(document, table_name):
         })
 
 
-def calculated_value_from_formula(rm_item_dict, fg_item_name, bom_template_name, fg_qty=0, so_detail=None,
-                                  process_sheet_name=None):
-    qty_dict = frappe._dict({})
-    qty_list = []
-    bom_temp_name = get_bom_template_from_item(frappe.get_doc("Item", fg_item_name), so_detail=so_detail)
-    bom_temp_doc = frappe.get_doc("BOM Template RIGPL", bom_template_name)
-    formula = replace_java_chars(bom_temp_doc.formula)
-    fg_item_doc = frappe.get_doc('Item', fg_item_name)
-    if not fg_item_doc.variant_of:
-        ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(fg_item_name, ps_doc.sales_order_item, docstatus=1)
-        fg_att_dict = get_special_item_attributes(fg_item_name, special_item_attr_doc[0].name)
-    else:
-        fg_att_dict = get_attributes(fg_item_name)
-    for d in rm_item_dict:
-        rm_att_dict = get_attributes(d.get("name") or d.get("item_code"))
-        qty = calculate_formula(rm_att_dict, fg_att_dict, formula, fg_qty, bom_template_name)
-        qty = convert_qty_per_uom(qty, d.get("item"))
-        qty_dict["rm_item_code"] = d.get("name") or d.get("item_code")
-        qty_dict["fg_item_code"] = fg_item_name
-        qty_dict["qty"] = qty
-        qty_list.append(qty_dict.copy())
-    return qty_list
-
-
 def convert_qty_per_uom(qty, item_name):
     uom_name = frappe.get_value("Item", item_name, "stock_uom")
     uom_whole_number = frappe.get_value("UOM", uom_name, "must_be_whole_number")
@@ -81,7 +56,8 @@ def convert_wip_rule_to_mysql_statement(rule, fg_item, rm_item, process_sheet_na
     fg_item_doc = frappe.get_doc("Item", fg_item)
     if not fg_item_doc.variant_of:
         ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(fg_item, ps_doc.sales_order_item, docstatus=1)
+        special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_item, so_detail=ps_doc.sales_order_item,
+                                                               docstatus=1)
         fg_att_dict = get_special_item_attributes(fg_item, special_item_attr_doc[0].name)
     else:
         fg_att_dict = get_attributes(fg_item)
@@ -108,7 +84,8 @@ def convert_rule_to_mysql_statement(rule, it_dict, process_sheet_name=None):
     it_doc = frappe.get_doc("Item", it_name)
     if not it_doc.variant_of:
         ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(it_name, ps_doc.sales_order_item, docstatus=1)
+        special_item_attr_doc = get_special_item_attribute_doc(item_name=it_name, so_detail=ps_doc.sales_order_item,
+                                                               docstatus=1)
         known_it_att_dict = get_special_item_attributes(it_name, special_item_attr_doc[0].name)
     else:
         known_it_att_dict = get_attributes(it_name)
@@ -154,9 +131,10 @@ def get_bom_template_from_item(item_doc, so_detail=None, no_error=0):
     else:
         # Find Item Attributes in Special Item Table or Create a New Special Item Table and ask user to fill it.
         if so_detail:
-            special_attributes = get_special_item_attribute_doc(item_doc.name, so_detail, docstatus=1)
+            special_attributes = get_special_item_attribute_doc(item_name=item_doc.name, so_detail=so_detail,
+                                                                docstatus=1)
             if not special_attributes:
-                sp_att_draft = get_special_item_attribute_doc(item_doc.name, so_detail, docstatus=0)
+                sp_att_draft = get_special_item_attribute_doc(item_name=item_doc.name, so_detail=so_detail, docstatus=0)
                 if sp_att_draft:
                     frappe.throw("Special Item Attributes not Submitted please fill and Submit {}".
                                  format(frappe.get_desk_link("Made to Order Item Attributes", sp_att_draft[0].name)))
@@ -184,9 +162,9 @@ def create_new_special_attributes(it_name, so_detail):
     frappe.msgprint(_("{} created").format(frappe.get_desk_link("Made to Order Item Attributes", special.name)))
 
 
-def get_special_item_attribute_doc(it_name, so_detail, docstatus=1):
+def get_special_item_attribute_doc(item_name, so_detail, docstatus=1):
     return frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE docstatus = %s AND item_code = 
-    '%s' AND sales_order_item = '%s'""" % (docstatus, it_name, so_detail), as_dict=1)
+    '%s' AND sales_order_item = '%s'""" % (docstatus, item_name, so_detail), as_dict=1)
 
 
 def get_bom_temp_from_it_att(item_doc, att_dict):
@@ -307,14 +285,45 @@ def get_formula_values(att_dict, formula, type_of_dict=None):
     return values
 
 
-def calculate_formula(rm_att_dict, fg_att_dict, formula, fg_quantity, bt_name):
+def calculated_value_from_formula(rm_item_dict, fg_item_name, bom_template_name, fg_qty=0, process_sheet_name=None,
+                                  is_wip=0):
+    qty_dict = frappe._dict({})
+    qty_list = []
+    # bom_temp_name = get_bom_template_from_item(frappe.get_doc("Item", fg_item_name), so_detail=so_detail)
+    bom_temp_doc = frappe.get_doc("BOM Template RIGPL", bom_template_name)
+    formula = replace_java_chars(bom_temp_doc.formula)
+    fg_item_doc = frappe.get_doc('Item', fg_item_name)
+    if not fg_item_doc.variant_of:
+        ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
+        special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_item_name,
+                                                               so_detail=ps_doc.sales_order_item, docstatus=1)
+        fg_att_dict = get_special_item_attributes(fg_item_name, special_item_attr_doc[0].name)
+    else:
+        fg_att_dict = get_attributes(fg_item_name)
+    for d in rm_item_dict:
+        rm_att_dict = get_attributes(d.get("name") or d.get("item_code"))
+        qty = calculate_formula(rm_att=rm_att_dict, fg_att=fg_att_dict, formula=formula, fg_qty=fg_qty,
+                                bt_name=bom_template_name, is_wip=is_wip)
+        qty = convert_qty_per_uom(qty, d.get("item"))
+        qty_dict["rm_item_code"] = d.get("name") or d.get("item_code")
+        qty_dict["fg_item_code"] = fg_item_name
+        qty_dict["qty"] = qty
+        qty_list.append(qty_dict.copy())
+    return qty_list
+
+
+def calculate_formula(rm_att, fg_att, formula, fg_qty, bt_name, is_wip=0):
+    if is_wip == 1:
+        table_pref = "wip"
+    else:
+        table_pref = "fg"
     bt_doc = frappe.get_doc("BOM Template RIGPL", bt_name)
-    rm_att_dict = change_att_if_needed(rm_att_dict, bt_doc, "rm")
-    fg_att_dict = change_att_if_needed(fg_att_dict, bt_doc, "fg")
+    rm_att = change_att_if_needed(rm_att, bt_doc, "rm")
+    fg_att = change_att_if_needed(fg_att, bt_doc, table_pref)
     formula_values = frappe._dict({})
-    formula_values['qty'] = fg_quantity
-    formula_values = formula_values.update(get_formula_values(rm_att_dict, formula, "rm"))
-    formula_values = formula_values.update(get_formula_values(fg_att_dict, formula, "fg"))
+    formula_values['qty'] = fg_qty
+    formula_values = formula_values.update(get_formula_values(rm_att, formula, "rm"))
+    formula_values = formula_values.update(get_formula_values(fg_att, formula, "fg"))
     calc_qty = calculate_formula_values(formula, formula_values)
     return calc_qty
 
@@ -365,7 +374,7 @@ def update_produced_qty(jc_doc, status="Submit"):
         min_bal_qty = min_qty - pro_sheet.produced_qty
     max_bal_qty = max_qty - pro_sheet.produced_qty
     pro_sheet = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
-    if min_bal_qty < jc_doc.total_completed_qty < max_bal_qty:
+    if min_bal_qty < jc_doc.total_completed_qty < max_bal_qty and bal_qty != 0:
         frappe.msgprint("Balance Ordered Qty = {} but Manufactured Qty = {} for Job Card# {} for Item Code: {}. Check "
                         "Short Close Operation to Short Close the Operation".format(bal_qty,
                                 jc_doc.total_completed_qty, jc_doc.name, jc_doc.production_item))

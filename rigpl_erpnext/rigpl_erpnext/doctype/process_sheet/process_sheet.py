@@ -153,7 +153,6 @@ class ProcessSheet(Document):
         else:
             rm_item_dict = self.make_rm_item_dict()
         rm_calc_qty_list = calculated_value_from_formula(rm_item_dict, self.production_item, fg_qty=self.quantity,
-                                                         so_detail=self.sales_order_item,
                                                          process_sheet_name=self.name,
                                                          bom_template_name=self.bom_template)
         wip_list = []

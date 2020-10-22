@@ -5,8 +5,9 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import _
+import datetime
 from erpnext.stock.utils import get_bin
-from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt
+from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt, add_to_date
 from .manufacturing_utils import get_items_from_process_sheet_for_job_card, convert_qty_per_uom
 
 
@@ -127,6 +128,8 @@ def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
 
 
 def validate_job_card_time_logs(document):
+    future_time = frappe.get_value("RIGPL Settings", "RIGPL Settings", "future_time_mins")
+    max_time = datetime.datetime.now() + datetime.timedelta(minutes=flt(future_time))
     total_mins = 0
     total_comp_qty = 0
     total_rej_qty = 0
@@ -144,16 +147,16 @@ def validate_job_card_time_logs(document):
                 if get_datetime(tl_tbl[i].from_time) < get_datetime(tl_tbl[i-1].to_time):
                     frappe.throw("Row# {}: From Time Cannot be Less than To Time in Row# {}".format(tl_tbl[i].idx,
                                                                                                     tl_tbl[i-1].idx))
-            if get_datetime(tl_tbl[i].to_time) > now_time:
-                frappe.throw("To Time is in Future for Row# {}".format(tl_tbl[i].idx))
+            if get_datetime(tl_tbl[i].to_time) > max_time:
+                frappe.throw("To Time Not Allowed Beyond {} in Row# {}".format(max_time, tl_tbl[i].idx))
             if tl_tbl[i].completed_qty == 0:
                 frappe.throw("Zero Quantity Not Allowed for Row# {}".format(tl_tbl[i].idx))
             if get_datetime(tl_tbl[i].from_time) > get_datetime(tl_tbl[i].to_time):
                 frappe.throw(_("Row {0}: From time must be less than to time").format(tl_tbl[i].idx))
             data = get_overlap_for(document, tl_tbl[i])
             if data:
-                frappe.throw(_("Row {0}: From Time and To Time of {1} is overlapping with {2}").format(tl_tbl[i],
-                        document.name, data.name))
+                frappe.throw(_("Row {}: From Time and To Time of {} is overlapping with {}").format(tl_tbl[i].idx,
+                        document.name, frappe.get_desk_link("Process Job Card RIGPL", data.name)))
             if tl_tbl[i].from_time and tl_tbl[i].to_time:
                 if getdate(tl_tbl[i].to_time) > posting_date:
                     posting_date = getdate(tl_tbl[i].to_time)
@@ -188,8 +191,8 @@ def validate_job_card_time_logs(document):
             if document.posting_time != posting_time and document.manual_posting_date_and_time != 1:
                 document.posting_time = str(posting_time)
             if document.manual_posting_date_and_time == 1:
-                if get_datetime(document.posting_date + " " + document.posting_time) > get_datetime(nowtime()):
-                    frappe.throw("Future Posting Date is Not Allowed for {}".format(document.name))
+                if get_datetime(document.posting_date + " " + document.posting_time) > max_time:
+                    frappe.throw("Posting Allowed only upto {}".format(max_time))
     else:
         frappe.throw("Time Logs Mandatory for Process Job Card {}".format(document.name))
 
