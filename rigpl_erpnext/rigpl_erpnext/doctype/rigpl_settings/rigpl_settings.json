@@ -11,7 +11,8 @@
   "indiamart_primary_mobile",
   "max_days",
   "sb1",
-  "future_time_mins"
+  "future_time_mins",
+  "check_overlap_for_machines"
  ],
  "fields": [
   {
@@ -54,10 +55,16 @@
    "fieldname": "future_time_mins",
    "fieldtype": "Int",
    "label": "Future Time Mins"
+  },
+  {
+   "default": "0",
+   "fieldname": "check_overlap_for_machines",
+   "fieldtype": "Check",
+   "label": "Check Overlap for Machines"
   }
  ],
  "issingle": 1,
- "modified": "2020-10-22 23:06:08.531114",
+ "modified": "2020-10-23 16:16:17.407658",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
