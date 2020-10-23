@@ -21,6 +21,7 @@
   "operation",
   "workstation",
   "t_warehouse",
+  "uom",
   "allow_production_of_wip_materials",
   "sb0",
   "remarks",
@@ -352,10 +353,18 @@
    "fieldtype": "Data",
    "label": "Sales Order Serial Number",
    "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UoM",
+   "options": "UOM",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-23 00:27:12.057271",
+ "modified": "2020-10-23 10:28:57.850820",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",

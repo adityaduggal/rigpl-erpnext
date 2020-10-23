@@ -11,6 +11,12 @@ frappe.ui.form.on("Purchase Order Item", {
 	}
 });
 
+frappe.ui.form.on("Purchase Order Item", "item_code", function(frm, cdt, cdn){
+    var d = locals[cdt][cdn];
+    description = get_description();
+    d.description = description;
+    frm.refresh_fields();
+});
 
 cur_frm.cscript.is_subcontracting = function(doc, cdt, cdn) {
     cur_frm.set_query("item_code", "items", function(){
@@ -66,26 +72,28 @@ cur_frm.add_custom_button(__('Job Card'),
         method: "frappe.client.get_list",
            args: {
             doctype: "Process Job Card RIGPL",
-               fields: ["production_item", "description ", "for_quantity","t_warehouse","name"],
+               fields: ["production_item", "description", "qty_available","s_warehouse","name",
+               "sales_order_item", "uom"],
                filters: { "name" : value.job_card
                 },
             },
             callback: function(res){
             if(res && res.message){
+                    console.log(res.message[0])
                     var row = frappe.model.add_child(cur_frm.doc, "Purchase Order Item", "items");
-                    row.qty = res.message[0]['for_quantity'];
+                    row.qty = res.message[0]['qty_available'];
                     if (cur_frm.doc.is_subcontracting == 1){
                         row.subcontracted_item = res.message[0]['production_item'];
                     } else{
                         row.item_code = res.message[0]['production_item'];
                     }
                     row.reference_dt = "Process Job Card RIGPL"
-                    row.reference_dn = value.job_card
+                    row.reference_dn = res.message[0]['name'];
                     row.description = res.message[0]['description'];
-                    row.from_warehouse = res.message[0]['t_warehouse']
-                    row.so_detail = res.message[0]['name'];
-                    row.uom = res.message[0]['stock_uom'];
-                    row.stock_uom = res.message[0]['stock_uom'];
+                    row.from_warehouse = res.message[0]['s_warehouse']
+                    row.so_detail = res.message[0]['sales_order_item'];
+                    row.uom = res.message[0]['uom'];
+                    row.stock_uom = res.message[0]['uom'];
                     row.conversion_factor = 1;
                 refresh_field("items");
             }

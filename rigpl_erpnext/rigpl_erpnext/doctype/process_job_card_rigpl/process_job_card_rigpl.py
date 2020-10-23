@@ -20,7 +20,7 @@ class ProcessJobCardRIGPL(Document):
         create_submit_ste_from_job_card(self)
         update_pro_sheet_rm_from_jc(self)
         self.update_next_jc_status()
-        # update_rm_qty_for_production(self)
+        self.create_new_jc_if_needed()
         # frappe.throw("WIP")
 
     def on_cancel(self):
@@ -34,6 +34,7 @@ class ProcessJobCardRIGPL(Document):
 
     def validate(self):
         update_job_card_status(self)
+        self.uom = frappe.get_value("Item", self.production_item, "stock_uom")
         if self.s_warehouse:
             self.qty_available = get_bin(self.production_item, self.s_warehouse).get("actual_qty")
             if self.s_warehouse == self.t_warehouse:
@@ -131,3 +132,50 @@ class ProcessJobCardRIGPL(Document):
                 next_op_name = next_op.name
                 next_op_doc = frappe.get_doc("BOM Operation", next_op_name)
                 update_job_card_status(next_op_doc)
+
+    def create_new_jc_if_needed(self):
+        new_jc_qty = 0
+        ps_doc = frappe.get_doc("Process Sheet", self.process_sheet)
+        jc_data = {}
+        jc_data["operation"] = self.operation
+        jc_data["workstation"] = self.workstation
+        jc_data["source_warehouse"] = self.s_warehouse
+        jc_data["target_warehouse"] = self.t_warehouse
+        jc_data["allow_consumption_of_rm"] = self.allow_consumption_of_rm
+        jc_data["allow_production_of_wip_materials"] = self.allow_production_of_wip_materials
+        jc_data["name"] = self.operation_id
+        new_jc_qty = (self.for_quantity - self.total_completed_qty)
+        if self.check_if_new_jc_needed() == 1:
+            create_job_card(pro_sheet=ps_doc, row=jc_data, quantity=new_jc_qty, auto_create=True)
+        else:
+            frappe.msgprint("No New Job Card needed")
+
+    def check_if_new_jc_needed(self):
+        allowance = flt(frappe.get_value("Manufacturing Settings", "Manufacturing Settings",
+                                     "overproduction_percentage_for_work_order"))
+        per_diff = abs(self.for_quantity - self.total_completed_qty)
+        # Returns 0 or 1: 0= No JC Needed and 1= New JC is needed
+        # Checks if new JC is needed for an existing JC if its transfer entry and for Stock Items
+        if self.for_quantity > self.total_completed_qty:
+            if per_diff > allowance:
+                if self.s_warehouse:
+                    if self.sales_order_item:
+                        return 1
+                    else:
+                        # This means stock item so check from Manufacturing Settings for allowance of closing
+                        if per_diff > allowance:
+                            return 1
+                        else:
+                            if self.shor_close_operation == 1:
+                                return 0
+                            else:
+                                return 1
+                else:
+                    return 1
+            else:
+                if self.short_close_operation == 1:
+                    return 0
+                else:
+                    return 1
+        else:
+            return 0

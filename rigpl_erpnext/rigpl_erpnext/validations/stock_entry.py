@@ -15,17 +15,21 @@ def validate(doc, method):
         grn = frappe.get_doc("Purchase Receipt", doc.purchase_receipt_no)
         doc.posting_date = grn.posting_date
         doc.posting_time = grn.posting_time
+    elif doc.process_job_card:
+        jc = frappe.get_doc("Process Job Card RIGPL", doc.process_job_card)
+        doc.posting_date = jc.posting_date
+        doc.posting_time = jc.posting_time
     else:
         for d in doc.items:
             # STE for Subcontracting WH only possible for linked with PO STE
             if d.t_warehouse:
                 wht = frappe.get_doc("Warehouse", d.t_warehouse)
                 if wht.is_subcontracting_warehouse == 1:
-                    frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO or GRN")
+                    frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO or GRN or Job Card")
             if d.s_warehouse:
                 whs = frappe.get_doc("Warehouse", d.s_warehouse)
                 if whs.is_subcontracting_warehouse == 1:
-                    frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO or GRN")
+                    frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO or GRN or Job Card")
 
     # Check if the Item has a Stock Reconciliation after the date and time or NOT.
     # if there is a Stock Reconciliation then the Update would FAIL

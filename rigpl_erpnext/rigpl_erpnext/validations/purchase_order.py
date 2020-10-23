@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+from frappe.utils import nowdate, nowtime
 from frappe.desk.reportview import get_match_cond
 from ...utils.sales_utils import check_validated_gstin
 from rigpl_erpnext.utils.manufacturing_utils import *
@@ -17,9 +18,15 @@ def validate(doc, method):
 
 
 def on_submit(doc, method):
-    # Need to Check if JC is to be Submitted on PO Submission or after GRN Submission
-    # Update the JC start date to PO Date and Time
-    pass
+    # Submit the Linked Job Card
+    for d in doc.items:
+        if d.reference_dt == 'Process Job Card RIGPL':
+            jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
+            if jc_doc.docstatus == 0:
+                jc_doc.posting_date = doc.transaction_date
+                jc_doc.posting_time = nowtime()
+                jc_doc.total_completed_qty = d.qty
+                jc_doc.submit()
 
 
 def on_cancel(doc, method):
@@ -153,9 +160,11 @@ def check_subcontracting(doc, method):
 
 @frappe.whitelist()
 def get_pending_jc(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql(f"""SELECT DISTINCT(jc.name), ps.sales_order, jc.posting_date,jc.description, it.stock_uom
-    FROM `tabProcess Job Card RIGPL` jc, `tabProcess Sheet` ps, `tabItem` it
+    return frappe.db.sql(f"""SELECT DISTINCT(jc.name), ps.sales_order, jc.posting_date,jc.description, 
+    it.stock_uom as uom, jc.sales_order_item, jc.s_warehouse, jc.qty_available
+    FROM `tabProcess Job Card RIGPL` jc, `tabProcess Sheet` ps, `tabItem` it, `tabOperation` op
     WHERE jc.docstatus = 0 AND jc.status = 'Work In Progress' AND it.name = jc.production_item
+    AND jc.operation = op.name AND op.is_subcontracting = 1
     AND jc.process_sheet = ps.name AND (jc.name LIKE %(txt)s or ps.sales_order LIKE %(txt)s) 
     {get_match_cond(doctype)} ORDER BY IF(locate(%(_txt)s, jc.name), 
     locate(%(_txt)s, jc.name), 1) LIMIT %(start)s, %(page_len)s""",
@@ -190,7 +199,8 @@ def get_pricing_rule_based_on_attributes(doc):
                 if d.reference_dt == "Process Job Card RIGPL":
                     ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` 
                         WHERE sales_order_item = '%s'"""% d.so_detail, as_dict=1)
-                    ps_doc = frappe.get_doc("Process Sheet", ps_dict.name)
+                    frappe.msgprint(str(ps_dict))
+                    ps_doc = frappe.get_doc("Process Sheet", ps_dict[0].name)
                     special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item, ps_doc.sales_order_item,
                                                                            docstatus=1)
                     item_att_dict = get_special_item_attributes(d.subcontracted_item, special_item_attr_doc[0].name)

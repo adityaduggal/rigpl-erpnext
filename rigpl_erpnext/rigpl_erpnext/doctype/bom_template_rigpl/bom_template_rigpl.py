@@ -44,6 +44,9 @@ class BOMTemplateRIGPL(Document):
         else:
             frappe.throw('Routing is Mandatory for {}'.format(self.name))
         for d in self.operations:
+            op_doc = frappe.get_doc("Operation", d.operation)
+            if op_doc.is_subcontracting == 1:
+                d.target_warehouse = op_doc.sub_contracting_warehouse
             if d.batch_size_based_on_formula == 1 and not d.batch_size_formula:
                 frappe.throw("Batch Size Based on Formula but Formula is Missing for Row# {} in Operation Table".format(
                     d.idx))

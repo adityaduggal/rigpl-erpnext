@@ -25,8 +25,8 @@ def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, 
         'sno': pro_sheet.sno,
         's_warehouse': row.get('source_warehouse'),
         't_warehouse': row.get('target_warehouse'),
-        'allow_consumption_of_rm': row.allow_consumption_of_rm,
-        'allow_production_of_wip_materials': row.allow_production_of_wip_materials,
+        'allow_consumption_of_rm': row.get("allow_consumption_of_rm"),
+        'allow_production_of_wip_materials': row.get("allow_production_of_wip_materials"),
         'for_quantity': quantity or (pro_sheet.get('quantity', 0) - pro_sheet.get('produced_qty', 0)),
         'operation_id': row.get("name")
     })
@@ -128,6 +128,10 @@ def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
 
 
 def validate_job_card_time_logs(document):
+    operation_doc = frappe.get_doc("Operation", document.operation)
+    if operation_doc.is_subcontracting == 1:
+        validate_sub_contracting_job_cards(document, operation_doc)
+        return
     future_time = frappe.get_value("RIGPL Settings", "RIGPL Settings", "future_time_mins")
     max_time = datetime.datetime.now() + datetime.timedelta(minutes=flt(future_time))
     total_mins = 0
@@ -292,6 +296,21 @@ def create_submit_ste_from_job_card(jc_doc):
         frappe.msgprint(_("{} created").format(frappe.get_desk_link("Stock Entry", ste.name)))
     else:
         frappe.msgprint("No Stock Entry Created")
+
+
+def validate_sub_contracting_job_cards(jc_doc, op_doc):
+    if jc_doc.no_stock_entry != 1:
+        check_po_submitted(jc_doc)
+
+
+def check_po_submitted(jc_doc):
+    po_list = frappe.db.sql("""SELECT name FROM `tabPurchase Order Item` 
+    WHERE docstatus=1 AND reference_dt = '%s' AND reference_dn = '%s'"""%(jc_doc.doctype, jc_doc.name), as_dict=1)
+    if po_list:
+        #Only allow Sub Contracting JC to be submitted after the  PO has been submitted
+        pass
+    else:
+        frappe.throw("No Submitted PO for {}".format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name)))
 
 
 def cancel_delete_ste(jc_doc, trash_can=1):
