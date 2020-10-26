@@ -207,9 +207,9 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
                 ld.campaign_name = 'India Mart'
                 ld.requirement = 100
                 ld.creation = datetime.strptime(lead.get('DATE_TIME_RE'), '%d-%b-%Y %I:%M:%S %p')
-                ld.remark = str(lead.get('SUBJECT')) + " " + str(lead.get('ENQ_MESSAGE') + " City: "+ str(lead.get(
-                    'ENQ_CITY')) + " State: " + str(lead.get('ENQ_STATE')) + " Country: " + str(lead.get(
-                    'COUNTRY_ISO')))
+                ld.remark = str(lead.get('SUBJECT', "")) + " " + str(lead.get('ENQ_MESSAGE', "") +
+                            " City: "+ str(lead.get('ENQ_CITY', "")) + " State: " + str(lead.get('ENQ_STATE', "")) +
+                            " Country: " + str(lead.get('COUNTRY_ISO', "")))
                 ld.save()
                 print("Created New Lead# " + ld.name)
                 lead_doc = frappe.get_doc("Lead", ld.name)
