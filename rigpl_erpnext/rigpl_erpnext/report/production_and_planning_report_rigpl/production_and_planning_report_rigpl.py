@@ -82,5 +82,7 @@ def get_conditions(filters):
 			cond_jc += " AND jc.operation = '%s'" % filters.get("operation")
 		if filters.get("bm"):
 			cond_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
+	if filters.get("item"):
+		cond_jc += " AND jc.production_item = '%s'" % filters.get("item")
 
 	return cond_jc
