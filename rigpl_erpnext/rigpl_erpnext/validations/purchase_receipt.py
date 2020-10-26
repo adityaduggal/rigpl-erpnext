@@ -2,11 +2,14 @@
 from __future__ import unicode_literals
 import frappe
 from ...utils.sales_utils import check_validated_gstin
+from ...utils.job_card_utils import get_next_job_card
 
 
 def validate(doc, method):
     check_validated_gstin(doc.shipping_address)
     check_validated_gstin(doc.supplier_address)
+    update_warehouses_for_job_card_items(doc)
+
     for d in doc.items:
         wh = frappe.get_doc("Warehouse", d.warehouse)
         if wh.warehouse_type == 'Subcontracting':
@@ -46,6 +49,7 @@ def on_cancel(doc, method):
 
 
 def on_update(doc, method):
+
     chk = check_subpo(doc, method)
     if chk == 1:
         create_ste(doc, method)
@@ -114,7 +118,26 @@ def get_existing_ste(doc, method):
     return chk_ste
 
 
+def update_warehouses_for_job_card_items(doc):
+    jc_list = []
+    for d in doc.items:
+        jc_dict = {}
+        if d.purchase_order_item:
+            poi = frappe.get_doc("Purchase Order Item", d.purchase_order_item)
+            if poi.reference_dt == "Process Job Card RIGPL":
+                nxt_jc_list = get_next_job_card(poi.reference_dn)
+                if nxt_jc_list:
+                    nxt_jc_doc = frappe.get_doc("Process Job Card RIGPL", nxt_jc_list[0][0])
+                    if nxt_jc_doc.s_warehouse and d.warehouse != nxt_jc_doc.s_warehouse:
+                        d.warehouse = nxt_jc_doc.s_warehouse
+        else:
+            frappe.throw("PO is Mandatory for Row# {} in {}".format(d.idx, frappe.get_desk_link(doc.doctype, doc.name)))
+    return jc_list
+
+
 def check_subpo(doc, method):
+    #Old Sub Contracting PO are based on Work Orders chk=1
+    #New Sub Contracting PO are based on Process Job Card RIGPL chk=2
     chk = 0
     for d in doc.items:
         po = frappe.get_doc("Purchase Order", d.purchase_order)
