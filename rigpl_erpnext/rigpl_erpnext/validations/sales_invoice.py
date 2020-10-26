@@ -232,6 +232,8 @@ def new_brc_tracking(doc, method):
     # If SI is from Cancelled DOC then UPDATE the details of same in BRC
     stct_doc = frappe.get_doc("Sales Taxes and Charges Template", doc.taxes_and_charges)
     add_doc = frappe.get_doc("Address", doc.shipping_address_name)
+    if stct_doc.is_sample == 1:
+        return
     if stct_doc.is_export == 1 and add_doc.country != "India":
         if doc.amended_from:
             is_exist = frappe.db.sql("""SELECT name FROM `tabBRC MEIS Tracking` 
