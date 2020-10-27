@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cstr, comma_and
+from frappe.utils import cstr, comma_and, flt
 
 
 class CreateBulkProcessSheet(Document):
@@ -45,7 +45,7 @@ class CreateBulkProcessSheet(Document):
         """ Add sales orders in the table"""
         self.clear_all_tables()
         for r in open_so:
-            already_planned_qty = self.get_planned_qty(r['soi_name'])
+            already_planned_qty = flt(self.get_planned_qty(r['soi_name']))
             it_doc = frappe.get_doc("Item", r["item_code"])
             pp_so = self.append('sales_orders', {})
             pp_so.sales_order = r['name']
@@ -92,7 +92,7 @@ class CreateBulkProcessSheet(Document):
     def get_production_items(self):
         item_details = []
         for d in self.get("items"):
-            already_planned_qty = self.get_planned_qty(d.sales_order_item)
+            already_planned_qty = flt(self.get_planned_qty(d.sales_order_item))
             pending_qty_for_planning = d.pending_qty - already_planned_qty
             if d.planned_qty > pending_qty_for_planning:
                 frappe.throw("For Row # {} in Items Table the Planned Quantity is Greater than Pending Qty Needed for "
