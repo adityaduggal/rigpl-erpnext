@@ -139,7 +139,7 @@ def check_subcontracting(doc, method):
                               "Check Row # {0}").format(d.idx))
         if d.so_detail:
             if d.reference_dt == 'Process Job Card RIGPL':
-                jc_doc = frappe.get_doc("Process Job Card RIGPL", d.so_detail)
+                jc_doc = frappe.get_doc("Process Job Card RIGPL", d.reference_dn)
                 if doc.is_subcontracting != 1:
                     d.item_code = jc_doc.production_item
                 else:
@@ -199,7 +199,6 @@ def get_pricing_rule_based_on_attributes(doc):
                 if d.reference_dt == "Process Job Card RIGPL":
                     ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` 
                         WHERE sales_order_item = '%s'"""% d.so_detail, as_dict=1)
-                    frappe.msgprint(str(ps_dict))
                     ps_doc = frappe.get_doc("Process Sheet", ps_dict[0].name)
                     special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item, ps_doc.sales_order_item,
                                                                            docstatus=1)
