@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from ...utils.sales_utils import check_validated_gstin
-from ...utils.job_card_utils import get_next_job_card
+from ...utils.job_card_utils import get_next_job_card, update_job_card_qty_available
 
 
 def validate(doc, method):
@@ -28,6 +28,7 @@ def on_submit(doc, method):
                 ste_exist = frappe.get_doc("Stock Entry", name)
                 ste_exist.submit()
                 frappe.msgprint('Submitted {}'.format(frappe.get_desk_link(ste_exist.doctype, ste_exist.name)))
+                update_job_card_status_from_grn(doc)
         else:
             frappe.throw("No Stock Entry Found for this GRN")
 
@@ -132,6 +133,19 @@ def update_warehouses_for_job_card_items(doc):
         else:
             frappe.throw("PO is Mandatory for Row# {} in {}".format(d.idx, frappe.get_desk_link(doc.doctype, doc.name)))
     return jc_list
+
+
+def update_job_card_status_from_grn(doc):
+    for d in doc.items:
+        jc_dict = {}
+        if d.purchase_order_item:
+            poi = frappe.get_doc("Purchase Order Item", d.purchase_order_item)
+            if poi.reference_dt == "Process Job Card RIGPL":
+                nxt_jc_list = get_next_job_card(poi.reference_dn)
+                if nxt_jc_list:
+                    nxt_jc_doc = frappe.get_doc("Process Job Card RIGPL", nxt_jc_list[0][0])
+                    update_job_card_qty_available(nxt_jc_doc)
+                    nxt_jc_doc.save()
 
 
 def check_subpo(doc, method):
