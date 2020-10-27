@@ -237,10 +237,16 @@ def replace_java_chars(string):
     return string
 
 
-def calculate_operation_time(doc, rt_dict, fg_it_doc, rm_it_dict):
+def calculate_operation_time(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
     if fg_it_doc.variant_of:
         fg_attributes = get_attributes(fg_it_doc.name)
-    for d in doc.operations:
+    elif fg_it_doc.made_to_order == 1:
+        special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_it_doc.name,
+                                                               so_detail=ps_doc.sales_order_item, docstatus=1)
+        fg_attributes = get_special_item_attributes(fg_it_doc.name, special_item_attr_doc[0].name)
+    else:
+        frappe.throw("{} selected is neither a Variant nor Made to Order Item".format(frappe.get_desk_link()))
+    for d in ps_doc.operations:
         formula_values = frappe._dict({})
         for op in rt_dict:
             if op.time_based_on_formula == 1 and d.operation == op.operation:
@@ -251,14 +257,19 @@ def calculate_operation_time(doc, rt_dict, fg_it_doc, rm_it_dict):
                     formula_values = formula_values.update(get_formula_values(rm_attributes, op_time_formula_edited,
                                                                               "rm"))
                 operation_time = calculate_formula_values(op_time_formula_edited, formula_values)
-                d.time_in_mins = int(operation_time * doc.quantity / d.batch_size)
+                d.time_in_mins = int(operation_time * ps_doc.quantity / d.batch_size)
             elif op.time_based_on_formula != 1:
-                d.time_in_mins = int(op.time_in_mins * doc.quantity / d.batch_size)
+                d.time_in_mins = int(op.time_in_mins * ps_doc.quantity / d.batch_size)
 
 
-def calculate_batch_size(doc, rt_dict, fg_it_doc, rm_it_dict):
-    fg_attributes = get_attributes(fg_it_doc.name)
-    for d in doc.operations:
+def calculate_batch_size(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
+    if ps_doc.sales_order_item:
+        special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_it_doc.name,
+                                                               so_detail=ps_doc.sales_order_item, docstatus=1)
+        fg_attributes = get_special_item_attributes(fg_it_doc.name, special_item_attr_doc[0].name)
+    else:
+        fg_attributes = get_attributes(fg_it_doc.name)
+    for d in ps_doc.operations:
         formula_values = frappe._dict({})
         for op in rt_dict:
             if op.batch_size_based_on_formula == 1 and d.operation == op.operation:

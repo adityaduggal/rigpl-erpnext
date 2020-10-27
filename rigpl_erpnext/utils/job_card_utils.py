@@ -315,11 +315,17 @@ def get_made_to_stock_qty(jc_doc):
             if op.idx == 1:
                 return 0
             else:
+                # Completed Qty is equal to Previous Process - Current Process JC Submitted
                 completed_qty = 0
-                jc_list = get_job_card_from_process_sno((op.idx - 1), ps_doc, docstatus=1)
-                if jc_list:
-                    for jc in jc_list:
+                prv_jc_list = get_job_card_from_process_sno((op.idx - 1), ps_doc, docstatus=1)
+                same_process_jc_list = get_job_card_from_process_sno(op.idx, ps_doc, docstatus=1)
+                if prv_jc_list:
+                    for jc in prv_jc_list:
                         completed_qty += frappe.db.get_value("Process Job Card RIGPL", jc[0], "total_completed_qty")
+                if same_process_jc_list:
+                    for same_op_jc in same_process_jc_list:
+                        completed_qty -= frappe.db.get_value("Process Job Card RIGPL", same_op_jc[0],
+                                                             "total_completed_qty")
                 return completed_qty
     if found == 0:
         frappe.throw("For {}, Operation {} is not mentioned in {}".
@@ -359,7 +365,8 @@ def get_job_card_from_process_sno(operation_sno, ps_doc, docstatus=0):
     for d in ps_doc.operations:
         if d.idx == operation_sno:
             query ="""SELECT name FROM `tabProcess Job Card RIGPL` WHERE operation = '%s' AND docstatus = %s 
-            AND production_item ='%s' """ % (d.operation, docstatus, ps_doc.production_item)
+            AND production_item ='%s' AND sales_order_item = '%s'""" % (d.operation, docstatus,
+                                                                        ps_doc.production_item, ps_doc.sales_order_item)
             jc_list = frappe.db.sql(query, as_list=1)
     return jc_list
 
