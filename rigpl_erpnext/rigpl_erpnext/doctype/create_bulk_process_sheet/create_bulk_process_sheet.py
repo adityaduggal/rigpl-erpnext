@@ -7,7 +7,6 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cstr, comma_and
-from ....utils.process_sheet_utils import get_produced_qty
 
 
 class CreateBulkProcessSheet(Document):
@@ -46,6 +45,7 @@ class CreateBulkProcessSheet(Document):
         """ Add sales orders in the table"""
         self.clear_all_tables()
         for r in open_so:
+            already_planned_qty = self.get_planned_qty(r['soi_name'])
             it_doc = frappe.get_doc("Item", r["item_code"])
             pp_so = self.append('sales_orders', {})
             pp_so.sales_order = r['name']
@@ -57,21 +57,30 @@ class CreateBulkProcessSheet(Document):
                 ppit_so = self.append("items", {})
                 ppit_so.item_code = r['item_code']
                 ppit_so.description = r['description']
-                ppit_so.planned_qty = r['pend_qty']
+                ppit_so.planned_qty = (r['pend_qty'] - already_planned_qty)
                 ppit_so.pending_qty = r['pend_qty']
                 ppit_so.ordered_qty = r['qty']
                 ppit_so.sales_order = r['name']
                 ppit_so.sales_order_item = r['soi_name']
+
+    def get_planned_qty(self, so_item):
+        query = """SELECT SUM(quantity) FROM `tabProcess Sheet` WHERE docstatus < 2 
+        AND sales_order_item = '%s'""" % so_item
+        already_planned_qty = frappe.db.sql(query, as_list=1)
+        if already_planned_qty:
+            return already_planned_qty[0][0]
+        else:
+            return 0
 
     def raise_process_sheet(self):
         # It will raise Process Sheet (Draft) for all distinct Items
         items = self.get_production_items()
         pro_list = []
         for item in items:
-            process_sheet = self.create_process_sheet(item)
-            if process_sheet:
-                pro_list.append(process_sheet)
-
+            if item.get("quantity") > 0:
+                process_sheet = self.create_process_sheet(item)
+                if process_sheet:
+                    pro_list.append(process_sheet)
         if pro_list:
             pro_list = ["""<a href="#Form/Process Sheet/%s" target="_blank">%s</a>""" % \
                         (p, p) for p in pro_list]
@@ -83,14 +92,11 @@ class CreateBulkProcessSheet(Document):
     def get_production_items(self):
         item_details = []
         for d in self.get("items"):
-            if d.planned_qty > d.pending_qty:
-                frappe.throw("For Row # {} in Items Table the Planned Quantity is Greater than Pending Qty".
-                             format(d.idx))
-            produced_qty = get_produced_qty(d.item_code, d.sales_order_item)
-            pend_qty_to_manuf = d.planned_qty - produced_qty
-            if d.planned_qty > pend_qty_to_manuf:
-                frappe.throw("For Row # {} in Items Table the Planned Qty is Greater than Items Needed to be Produced {}".
-                             format(d.idx, pend_qty_to_manuf))
+            already_planned_qty = self.get_planned_qty(d.sales_order_item)
+            pending_qty_for_planning = d.pending_qty - already_planned_qty
+            if d.planned_qty > pending_qty_for_planning:
+                frappe.throw("For Row # {} in Items Table the Planned Quantity is Greater than Pending Qty Needed for "
+                             "Planning which is {}".format(d.idx, pending_qty_for_planning))
             item_dict = {
                 "production_item"   : d.item_code,
                 "sales_order"		: d.sales_order,
