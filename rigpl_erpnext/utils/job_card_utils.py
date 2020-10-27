@@ -44,6 +44,13 @@ def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, 
 
 
 def update_job_card_qty_available(jc_doc):
+    ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+    if jc_doc.sales_order != ps_doc.sales_order:
+        jc_doc.sales_order = ps_doc.sales_order
+    if jc_doc.sales_order_item != ps_doc.sales_order_item:
+        jc_doc.sales_order_item = ps_doc.sales_order_item
+    if jc_doc.sno != ps_doc.sno:
+        jc_doc.sno = ps_doc.sno
     if jc_doc.s_warehouse:
         if not jc_doc.sales_order_item:
             jc_doc.qty_available = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
