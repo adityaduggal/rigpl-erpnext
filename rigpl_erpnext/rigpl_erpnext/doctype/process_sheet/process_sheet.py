@@ -217,6 +217,8 @@ class ProcessSheet(Document):
 
     def validate_qty_to_manufacture(self, it_doc):
         auto_qty = get_qty_to_manufacture(it_doc)
+        if auto_qty == self.quantity:
+            self.update_qty_manually = 0
         if self.update_qty_manually != 1:
             if not self.sales_order_item:
                 self.quantity = auto_qty
