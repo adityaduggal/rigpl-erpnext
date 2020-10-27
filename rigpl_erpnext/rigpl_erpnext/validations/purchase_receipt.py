@@ -26,6 +26,7 @@ def on_submit(doc, method):
             else:
                 name = chk_ste[0][0]
                 ste_exist = frappe.get_doc("Stock Entry", name)
+                ste_exist.flags.ignore_permissions = True
                 ste_exist.submit()
                 frappe.msgprint('Submitted {}'.format(frappe.get_desk_link(ste_exist.doctype, ste_exist.name)))
                 update_job_card_status_from_grn(doc)
@@ -43,6 +44,7 @@ def on_cancel(doc, method):
             else:
                 name = chk_ste[0][0]
                 ste_exist = frappe.get_doc("Stock Entry", name)
+                ste_exist.flags.ignore_permissions = True
                 ste_exist.cancel()
                 frappe.msgprint('{0}{1}'.format("Cancelled STE# ", ste_exist.name))
         else:
@@ -64,6 +66,7 @@ def create_ste(doc, method):
         else:
             ste_name = chk_ste[0][0]
             ste_exist = frappe.get_doc("Stock Entry", ste_name)
+            ste_exist.flags.ignore_permissions = True
             ste_exist.items = []
             for i in ste_items:
                 ste_exist.append("items", i)
@@ -86,6 +89,7 @@ def create_ste(doc, method):
             "remarks": "Material Transfer Entry for GRN#" + doc.name,
             "items": ste_items
         })
+        ste.flags.ignore_permissions = True
         ste.insert()
         frappe.msgprint('Created {}'.format(frappe.get_desk_link(ste.doctype, ste.name)))
 
