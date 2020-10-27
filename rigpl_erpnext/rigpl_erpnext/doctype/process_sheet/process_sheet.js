@@ -117,7 +117,8 @@ frappe.ui.form.on('BOM Operation', {
                     "operation": child.operation,
                     "ps_name": frm.doc.name,
                     "row_no": child.idx,
-                    "row_id": child.name
+                    "row_id": child.name,
+                    "so_detail": frm.doc.sales_order_item
                 },
                 callback: function(r){
                     if (!r.exc){
