@@ -8,7 +8,6 @@ def validate(doc, method):
     # Check if the Item has a Stock Reconciliation after the date and time or NOT.
     # if there is a Stock Reconciliation then the Update would FAIL
     # Also check if the items are from Same Price List SO as is the PL mentioned in the DN
-    validate_made_to_order_items(doc)
     check_strict_po_rules(doc)
     copy_address_and_check(doc)
     check_price_list(doc, method)
@@ -43,6 +42,7 @@ def check_price_list(doc, method):
 
 
 def on_submit(doc, method):
+    validate_made_to_order_items(doc)
     for dnd in doc.get("items"):
         if dnd.so_detail and dnd.against_sales_order:
             so = frappe.get_doc("Sales Order", dnd.against_sales_order)

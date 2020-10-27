@@ -395,14 +395,30 @@ def update_produced_qty(jc_doc, status="Submit"):
                     frappe.db.set_value("BOM Operation", ps_r.name, "status", "In Progress")
 
             if ps_r.idx == 1 and status == "Submit":
-                tc_comp_qty = pro_sheet.produced_qty + jc_doc.total_completed_qty
-                frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
-                else 0)
-                frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
+                if jc_doc.short_close_operation != 1:
+                    tc_comp_qty = pro_sheet.produced_qty + jc_doc.total_completed_qty
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
+                    else 0)
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
+                else:
+                    sc_qty = pro_sheet.quantity - jc_doc.total_completed_qty - pro_sheet.produced_qty
+                    tc_comp_qty = pro_sheet.quantity
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
+                    else 0)
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "short_closed_qty", sc_qty if sc_qty > 0
+                    else 0)
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
             elif ps_r.idx == 1 and status == 'Cancel':
-                tc_comp_qty = pro_sheet.produced_qty - jc_doc.total_completed_qty
-                frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
-                else 0)
+                if jc_doc.short_close_operation != 1:
+                    tc_comp_qty = pro_sheet.produced_qty - jc_doc.total_completed_qty
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
+                    else 0)
+                else:
+                    sc_qty = 0
+                    tc_comp_qty = pro_sheet.quantity - jc_doc.total_completed_qty - pro_sheet.short_closed_qty
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
+                    else 0)
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "short_closed_qty", 0)
 
 
 def close_process_sheet(ps_doc):

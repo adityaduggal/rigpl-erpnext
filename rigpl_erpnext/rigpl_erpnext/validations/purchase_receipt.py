@@ -27,7 +27,7 @@ def on_submit(doc, method):
                 name = chk_ste[0][0]
                 ste_exist = frappe.get_doc("Stock Entry", name)
                 ste_exist.submit()
-                frappe.msgprint('{0}{1}'.format("Submitted STE# ", ste_exist.name))
+                frappe.msgprint('Submitted {}'.format(frappe.get_desk_link(ste_exist.doctype, ste_exist.name)))
         else:
             frappe.throw("No Stock Entry Found for this GRN")
 
@@ -49,7 +49,6 @@ def on_cancel(doc, method):
 
 
 def on_update(doc, method):
-
     chk = check_subpo(doc, method)
     if chk == 1:
         create_ste(doc, method)
@@ -74,7 +73,7 @@ def create_ste(doc, method):
             ste_exist.difference_account = "Stock Adjustment - RIGPL"
             ste_exist.remarks = "Material Transfer Entry for GRN#" + doc.name
             ste_exist.save()
-            frappe.msgprint('{0}{1}'.format("Updated STE# ", ste_exist.name))
+            frappe.msgprint('Updated {}'.format(frappe.get_desk_link(ste_exist.doctype, ste_exist.name)))
     else:
         ste = frappe.get_doc({
             "doctype": "Stock Entry",
@@ -87,7 +86,7 @@ def create_ste(doc, method):
             "items": ste_items
         })
         ste.insert()
-        frappe.msgprint('{0}{1}'.format("Created STE# ", ste.name))
+        frappe.msgprint('Created {}'.format(frappe.get_desk_link(ste.doctype, ste.name)))
 
 
 def get_ste_items(doc, method):

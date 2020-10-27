@@ -4,6 +4,7 @@ import re
 import frappe
 from frappe.utils import flt
 from ..utils.manufacturing_utils import replace_java_chars
+from ..utils.job_card_utils import get_completed_qty_of_jc_for_operation
 
 
 def check_validated_gstin(add_name):
@@ -68,19 +69,11 @@ def validate_special_items(doc, row):
         ps_doc = frappe.get_doc('Process Sheet', pro_sheet[0][0])
         for d in ps_doc.operations:
             if d.final_operation == 1:
-                jc_list = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus !=2 
-                    AND operation_id = '%s'"""%(d.name), as_list=1)
-                if not jc_list:
-                    frappe.throw('There is No Job Card for {} final operation'.format(frappe.get_desk_link(
-                        doc.doctype, doc.name)))
-                else:
-                    jc_doc = frappe.get_doc('Process Job Card RIGPL', jc_list[0][0])
-                    if jc_doc.docstatus != 1:
-                        frappe.throw("For Row# {} in {}, the Final Process is Not Completed in {}".
-                                     format(row.idx, frappe.get_desk_link(doc.doctype, doc.name),
-                                            frappe.get_desk_link('Process Job Card RIGPL', jc_doc.name)))
-                    else:
-                        frappe.throw("HELLO")
+                qty_completed = get_completed_qty_of_jc_for_operation(item=row.item_code, operation=d.operation,
+                                                                      so_detail=row.so_detail)
+                if row.qty > flt(qty_completed):
+                    frappe.throw("Only allowed to Submit Qty= {} for Row# {} for {}".
+                                 format(flt(qty_completed), row.idx, frappe.get_desk_link(doc.doctype, doc.name)))
 
 
 def validate_warehouse(doc, row):

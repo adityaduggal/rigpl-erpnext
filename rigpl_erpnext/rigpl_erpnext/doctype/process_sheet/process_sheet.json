@@ -12,6 +12,9 @@
   "production_item",
   "description",
   "bom_template_description",
+  "sales_order",
+  "sales_order_item",
+  "sno",
   "cb0",
   "fg_warehouse",
   "bom_template",
@@ -19,9 +22,7 @@
   "quantity",
   "update_qty_manually",
   "produced_qty",
-  "sales_order",
-  "sales_order_item",
-  "sno",
+  "short_closed_qty",
   "sb0",
   "routing",
   "operations",
@@ -220,10 +221,16 @@
    "fieldtype": "Int",
    "label": "Total Applicable BOM Templates",
    "read_only": 1
+  },
+  {
+   "fieldname": "short_closed_qty",
+   "fieldtype": "Float",
+   "label": "Short Closed Qty",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-21 10:51:57.757249",
+ "modified": "2020-10-27 10:25:53.004935",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",

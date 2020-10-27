@@ -109,12 +109,15 @@ frappe.ui.form.on('Process Sheet', {
 frappe.ui.form.on('BOM Operation', {
     create_new_job_card: function(frm, dt, dn) {
         var child = locals[dt][dn];
-        if (child.planned_qty > child.completed_qty && child.status != "Pending") {
+        if (child.planned_qty > child.completed_qty) {
             frappe.call({
                 method: "rigpl_erpnext.utils.job_card_utils.make_jc_from_pro_sheet_row",
                 args: {
-                    "pro_sheet_row_id": child.name,
-                    "pro_sheet_name": frm.doc.name
+                    "production_item": frm.doc.production_item,
+                    "operation": child.operation,
+                    "ps_name": frm.doc.name,
+                    "row_no": child.idx,
+                    "row_id": child.name
                 },
                 callback: function(r){
                     if (!r.exc){
@@ -122,8 +125,8 @@ frappe.ui.form.on('BOM Operation', {
                     }
                 }
             })
-        } else if (child.planned_qty > child.completed_qty && child.status === 'Pending'){
-            frappe.msgprint("Pending Status")
+        } else if (child.planned_qty <= child.completed_qty){
+            frappe.msgprint("Completed All Pending Qty")
         }
     }
 });

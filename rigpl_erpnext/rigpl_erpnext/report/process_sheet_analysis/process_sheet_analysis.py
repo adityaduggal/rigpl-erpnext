@@ -24,11 +24,16 @@ def get_columns(filters):
 
 
 def get_data(conditions_it, filters):
+    bm = filters.get("bm")
+    query_join = get_joins(bm=bm, filters=filters)
+    frappe.msgprint(conditions_it)
+    frappe.msgprint(query_join)
     query = """SELECT ps.name, ps.production_item, bm.attribute_value, tt.attribute_value, spl.attribute_value, 
-    qual.attribute_value, brand.attribute_value, 
+    qual.attribute_value, brand.attribute_value, d1.attribute_value, w
     bt.formula
         FROM `tabBOM Template RIGPL` bt %s %s
-        ORDER BY %s bt.name""" % (conditions_it)
+        ORDER BY %s bt.name""" % (query_join, conditions_it)
+    frappe.throw(query)
     data = frappe.db.sql(query, as_list=1)
     return data
 
@@ -40,7 +45,7 @@ def define_join(string, table_name, allowed_values):
     return string
 
 
-def get_joins(bm, cond_rest, filters):
+def get_joins(bm, filters):
     query_join = ""
     if filters.get("rm"):
         tab = 'Is RM'

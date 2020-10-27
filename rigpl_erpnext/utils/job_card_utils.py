@@ -43,6 +43,16 @@ def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, 
     return doc
 
 
+def update_job_card_qty_available(jc_doc):
+    if jc_doc.s_warehouse:
+        if not jc_doc.sales_order_item:
+            jc_doc.qty_available = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
+        else:
+            jc_doc.qty_available = get_made_to_stock_qty(jc_doc)
+    else:
+        jc_doc.qty_available = 0
+
+
 def update_job_card_status(jc_doc):
     # Old Name = update_jc_status
     if jc_doc.docstatus == 2:
@@ -50,49 +60,25 @@ def update_job_card_status(jc_doc):
     elif jc_doc.docstatus == 1:
         jc_doc.status = 'Completed'
     elif jc_doc.docstatus == 0:
-        # There are 2 options for Draft Job Cards 1 is Open and Other is Work In Progress
-        # WIP JC can be worked on and only possible if its 1st process in Process Sheet or if not then previous
-        # process should be complete or there should be stock for that item in the Source Warehouse
-        # Also if the Process Sheet is for Special Item then the JC can only be in WIP once previous process
-        # is complete.
-        op_doc = frappe.get_doc("BOM Operation", jc_doc.operation_id)
-        if op_doc.idx == 1:
-            jc_doc.status = "Work In Progress"
-        else:
-            pro_doc = frappe.get_doc('Process Sheet', jc_doc.process_sheet)
-            if pro_doc.sales_order_item:
-                for prev_op in pro_doc.operations:
-                    if prev_op.idx == op_doc.idx - 1:
-                        prev_op_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE 
-                        operation_id = '%s' AND docstatus != 2""" % prev_op.name, as_dict=1)
-                        if prev_op_jc:
-                            prev_op_jc_doc = frappe.get_doc("Process Job Card RIGPL", prev_op_jc[0].name)
-                            if prev_op_jc_doc.status == "Completed":
-                                jc_doc.status = 'Work In Progress'
-                            else:
-                                jc_doc.status = 'Open'
-                        else:
-                            frappe.throw("For Item: {} in JC# {} there is no Reference for Previous "
-                                         "Process".foramt(jc_doc.production_item, jc_doc.name))
+        # Job Card is WIP if No Source Warehouse. If Source Warehouse then if qty available > 0 then WIP else Open
+        if jc_doc.s_warehouse:
+            if jc_doc.qty_available > 0:
+                jc_doc.status = "Work In Progress"
             else:
-                # Now the JC is for Items with Attributes or Stock Items. They can be WIP if there is stock in
-                # Source Warehouse
-                qty_available = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
-                if qty_available > 0:
-                    jc_doc.status = 'Work In Progress'
-                else:
-                    jc_doc.status = 'Open'
+                jc_doc.status = "Open"
+        else:
+            jc_doc.status = "Work In Progress"
 
 
-def check_existing_pending_job_card(pro_sheet_name, pro_sheet_row_id):
-    exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus=0 AND 
-    process_sheet = '%s' AND operation_id = '%s'""" % (pro_sheet_name, pro_sheet_row_id), as_dict=1)
-    return exist_jc
-
-
-def check_existing_job_card(item_name, operation):
-    exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus !=2 AND operation_id = 
-    '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)
+def check_existing_job_card(item_name, operation, so_detail=None):
+    it_doc = frappe.get_doc("Item", item_name)
+    if it_doc.made_to_order == 1:
+        exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
+            AND operation = '%s' AND sales_order_item = '%s' AND production_item = '%s'"""
+                                 %(operation, so_detail, item_name), as_dict=1)
+    else:
+        exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
+        AND operation = '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)
     return exist_jc
 
 
@@ -318,6 +304,66 @@ def check_po_submitted(jc_doc):
         frappe.throw("No Submitted PO for {}".format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name)))
 
 
+def get_made_to_stock_qty(jc_doc):
+    # First get the Process Number of the Job Cards if its first Process then qty available = 0
+    # Else the qty available is equal to the qty completed in previous process which are submitted.
+    ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+    found = 0
+    for op in ps_doc.operations:
+        if op.name == jc_doc.operation_id or op.operation == jc_doc.operation:
+            found = 1
+            if op.idx == 1:
+                return 0
+            else:
+                completed_qty = 0
+                jc_list = get_job_card_from_process_sno((op.idx - 1), ps_doc, docstatus=1)
+                if jc_list:
+                    for jc in jc_list:
+                        completed_qty += frappe.db.get_value("Process Job Card RIGPL", jc[0], "total_completed_qty")
+                return completed_qty
+    if found == 0:
+        frappe.throw("For {}, Operation {} is not mentioned in {}".
+                     format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name), jc_doc.operation,
+                            frappe.get_desk_link(ps_doc.doctype, ps_doc.name)))
+
+
+def get_completed_qty_of_jc_for_operation(item, operation, so_detail=None):
+    completed_qty = frappe.db.sql("""SELECT SUM(total_completed_qty) FROM `tabProcess Job Card RIGPL` 
+    WHERE docstatus = 1 AND production_item = '%s' AND operation = '%s' AND sales_order_item = '%s'""".
+                                  format(item, operation, so_detail), as_list=1)
+    if completed_qty[0][0]:
+        return flt(completed_qty)
+    else:
+        return 0
+
+
+def get_next_job_card(jc_no):
+    jc_doc = frappe.get_doc("Process Job Card RIGPL", jc_no)
+    ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+    jc_list = []
+    found = 0
+    for d in ps_doc.operations:
+        if d.name == jc_doc.operation_id or d.operation == jc_doc.operation:
+            #Found the Job Card Operation in PSheet
+            if d.idx == len(ps_doc.operations):
+                pass
+            else:
+                found = 1
+                jc_list = get_job_card_from_process_sno((d.idx+1), ps_doc)
+    if found == 0:
+        frappe.msgprint("For {} no operation found in Process Sheet".format(frappe.get_desk_link(jc_doc.doctype,
+                                                                                                 jc_doc.name)))
+    return jc_list
+
+def get_job_card_from_process_sno(operation_sno, ps_doc, docstatus=0):
+    for d in ps_doc.operations:
+        if d.idx == operation_sno:
+            query ="""SELECT name FROM `tabProcess Job Card RIGPL` WHERE operation = '%s' AND docstatus = %s 
+            AND production_item ='%s' """ % (d.operation, docstatus, ps_doc.production_item)
+            jc_list = frappe.db.sql(query, as_list=1)
+    return jc_list
+
+
 def cancel_delete_ste(jc_doc, trash_can=1):
     if jc_doc.no_stock_entry != 1:
         if trash_can == 0:
@@ -354,15 +400,14 @@ def delete_job_card(pro_sheet_doc, trash_can=1):
 
 
 @frappe.whitelist()
-def make_jc_from_pro_sheet_row(pro_sheet_name, pro_sheet_row_id):
-    ps_doc = frappe.get_doc("Process Sheet", pro_sheet_name)
-    for row in ps_doc.operations:
-        if row.name == pro_sheet_row_id:
-            existing_pending_job_card = check_existing_pending_job_card(pro_sheet_name, pro_sheet_row_id)
-            if existing_pending_job_card:
-                frappe.throw("{} is already pending for Process Sheet {} in Row# {} and Operation {}".
-                             format(frappe.get_desk_link("Process Job Card RIGPL", existing_pending_job_card[0].name),
-                                    pro_sheet_name, row.idx, row.operation))
-            else:
-                create_job_card(ps_doc, row, quantity=(row.planned_qty - row.completed_qty), auto_create=True)
-            break
+def make_jc_from_pro_sheet_row(ps_name, production_item, operation, row_no, row_id, so_detail=None):
+    existing_pending_job_card = check_existing_job_card(item_name=production_item, operation=operation,
+                                                        so_detail=so_detail)
+    if existing_pending_job_card:
+        frappe.throw("{} is already pending for {} in Row# {} and Operation {}".
+                     format(frappe.get_desk_link("Process Job Card RIGPL", existing_pending_job_card[0].name),
+                                    production_item, row_no, operation))
+    else:
+        ps_doc = frappe.get_doc("Process Sheet", ps_name)
+        row = frappe.get_doc("BOM Operation", row_id)
+        create_job_card(ps_doc, row, quantity=(row.planned_qty - row.completed_qty), auto_create=True)
