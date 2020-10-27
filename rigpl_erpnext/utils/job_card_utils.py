@@ -113,27 +113,27 @@ def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
                 frappe.msgprint(message, title=warning_title)
 
 
-def validate_job_card_time_logs(document):
-    operation_doc = frappe.get_doc("Operation", document.operation)
+def validate_job_card_time_logs(jc_doc):
+    operation_doc = frappe.get_doc("Operation", jc_doc.operation)
     check_overlap = frappe.get_value("RIGPL Settings", "RIGPL Settings", "check_overlap_for_machines")
+    update_job_card_posting_date(jc_doc)
     if operation_doc.is_subcontracting == 1:
-        validate_sub_contracting_job_cards(document, operation_doc)
+        validate_sub_contracting_job_cards(jc_doc, operation_doc)
         return
+    validate_job_card_quantities(jc_doc)
     if check_overlap == 1:
         future_time = frappe.get_value("RIGPL Settings", "RIGPL Settings", "future_time_mins")
         max_time = datetime.datetime.now() + datetime.timedelta(minutes=flt(future_time))
         total_mins = 0
-        total_comp_qty = 0
-        total_rej_qty = 0
         posting_date = getdate('1900-01-01')
         posting_time = get_time('00:00:00')
         now_time = get_datetime(nowtime())
-        if not document.employee:
-            frappe.throw("Employee is Needed in {}".format(frappe.get_desk_link(document.doctype, document.name)))
-        if not document.workstation:
-            frappe.throw("Workstation is Needed in {}".format(frappe.get_desk_link(document.doctype, document.name)))
-        if document.get('time_logs'):
-            tl_tbl = document.get('time_logs')
+        if not jc_doc.employee:
+            frappe.throw("Employee is Needed in {}".format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name)))
+        if not jc_doc.workstation:
+            frappe.throw("Workstation is Needed in {}".format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name)))
+        if jc_doc.get('time_logs'):
+            tl_tbl = jc_doc.get('time_logs')
             for i in range(0, len(tl_tbl)):
                 if i > 0:
                     if get_datetime(tl_tbl[i].from_time) < get_datetime(tl_tbl[i-1].to_time):
@@ -145,10 +145,10 @@ def validate_job_card_time_logs(document):
                     frappe.throw("Zero Quantity Not Allowed for Row# {}".format(tl_tbl[i].idx))
                 if get_datetime(tl_tbl[i].from_time) > get_datetime(tl_tbl[i].to_time):
                     frappe.throw(_("Row {0}: From time must be less than to time").format(tl_tbl[i].idx))
-                data = get_overlap_for(document, tl_tbl[i])
+                data = get_overlap_for(jc_doc, tl_tbl[i])
                 if data:
                     frappe.throw(_("Row {}: From Time and To Time of {} is overlapping with {}").format(tl_tbl[i].idx,
-                            document.name, frappe.get_desk_link("Process Job Card RIGPL", data.name)))
+                            jc_doc.name, frappe.get_desk_link("Process Job Card RIGPL", data.name)))
                 if tl_tbl[i].from_time and tl_tbl[i].to_time:
                     if getdate(tl_tbl[i].to_time) > posting_date:
                         posting_date = getdate(tl_tbl[i].to_time)
@@ -156,40 +156,52 @@ def validate_job_card_time_logs(document):
                     if int(time_diff_in_hours(tl_tbl[i].to_time, tl_tbl[i].from_time) * 60) != tl_tbl[i].time_in_mins:
                         tl_tbl[i].time_in_mins = int(time_diff_in_hours(tl_tbl[i].to_time, tl_tbl[i].from_time) * 60)
                     total_mins += int(tl_tbl[i].time_in_mins)
-                    if document.total_time_in_mins != int(total_mins):
-                        document.total_time_in_mins = int(total_mins)
-                if tl_tbl[i].completed_qty > 0:
-                    total_comp_qty += tl_tbl[i].completed_qty
-                if flt(tl_tbl[i].rejected_qty) > 0:
-                    total_rej_qty += tl_tbl[i].rejected_qty
-                if flt(tl_tbl[i].salvage_qty) > 0:
-                    total_rej_qty += tl_tbl[i].salvage_qty
-                    if not tl_tbl[i].salvage_warehouse:
-                        frappe.throw("Salvage Warehouse is Mandatory if Salvage Qty > 0 for Row # {}".
-                                     format(tl_tbl[i].idx))
-                    else:
-                        wh_doc = frappe.get_doc("Warehouse", tl_tbl[i].salvage_warehouse)
-                        if wh_doc.warehouse_type != "Rejected":
-                            roles_list = frappe.get_roles(frappe.session.user)
-                            if 'System Manager' not in roles_list:
-                                frappe.throw("Only System Manager allowed to Send Salvage Material to Non-Rejected "
-                                             "Warehouse in Row# {}".format(tl_tbl[i].idx))
-
-                if document.total_rejected_qty != total_rej_qty:
-                    document.total_rejected_qty = total_rej_qty
-                if document.total_completed_qty != total_comp_qty:
-                    document.total_completed_qty = total_comp_qty
-                if document.posting_date != posting_date and document.manual_posting_date_and_time != 1:
-                    document.posting_date = posting_date
-                if document.posting_time != posting_time and document.manual_posting_date_and_time != 1:
-                    document.posting_time = str(posting_time)
-                if document.manual_posting_date_and_time == 1:
-                    if get_datetime(document.posting_date + " " + document.posting_time) > max_time:
+                    if jc_doc.total_time_in_mins != int(total_mins):
+                        jc_doc.total_time_in_mins = int(total_mins)
+                if jc_doc.posting_date != posting_date and jc_doc.manual_posting_date_and_time != 1:
+                    jc_doc.posting_date = posting_date
+                if jc_doc.posting_time != posting_time and jc_doc.manual_posting_date_and_time != 1:
+                    jc_doc.posting_time = str(posting_time)
+                if jc_doc.manual_posting_date_and_time == 1:
+                    if get_datetime(jc_doc.posting_date + " " + jc_doc.posting_time) > max_time:
                         frappe.throw("Posting Allowed only upto {}".format(max_time))
         else:
-            frappe.throw("Time Logs Mandatory for Process Job Card {}".format(document.name))
+            frappe.throw("Time Logs Mandatory for Process Job Card {}".format(jc_doc.name))
     else:
         return
+
+
+def validate_job_card_quantities(jc_doc):
+    total_comp_qty = 0
+    total_rej_qty = 0
+    if jc_doc.get('time_logs'):
+        for tl in jc_doc.get("time_logs"):
+            if tl.completed_qty > 0:
+                total_comp_qty += tl.completed_qty
+            if flt(tl.rejected_qty) > 0:
+                total_rej_qty += tl.rejected_qty
+            if flt(tl.salvage_qty) > 0:
+                total_rej_qty += tl.salvage_qty
+                if not tl.salvage_warehouse:
+                    frappe.throw("Salvage Warehouse is Mandatory if Salvage Qty > 0 for Row # {}".
+                                 format(tl.idx))
+                else:
+                    wh_doc = frappe.get_doc("Warehouse", tl.salvage_warehouse)
+                    if wh_doc.warehouse_type != "Rejected":
+                        roles_list = frappe.get_roles(frappe.session.user)
+                        if 'System Manager' not in roles_list:
+                            frappe.throw("Only System Manager allowed to Send Salvage Material to Non-Rejected "
+                                         "Warehouse in Row# {}".format(tl.idx))
+
+    if jc_doc.total_rejected_qty != total_rej_qty:
+        jc_doc.total_rejected_qty = total_rej_qty
+    if jc_doc.total_completed_qty != total_comp_qty:
+        jc_doc.total_completed_qty = total_comp_qty
+
+def update_job_card_posting_date(jc_doc):
+    if jc_doc.manual_posting_date_and_time != 1:
+        jc_doc.posting_date = nowdate()
+        jc_doc.posting_time = nowtime()
 
 
 def get_overlap_for(document, row, check_next_available_slot=False):
