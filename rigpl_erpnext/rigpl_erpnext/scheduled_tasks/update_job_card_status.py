@@ -13,7 +13,7 @@ def execute():
     wip = "Work In Progress"
     start_time = time.time()
     jc_dict = frappe.db.sql("""SELECT name, status FROM `tabProcess Job Card RIGPL` 
-    WHERE docstatus = 0 ORDER BY name""", as_dict=1)
+    ORDER BY name""", as_dict=1)
     updated_jc_nos = 0
     for jc in jc_dict:
         jc_doc = frappe.get_doc("Process Job Card RIGPL", jc.name)
