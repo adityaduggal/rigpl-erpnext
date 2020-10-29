@@ -154,7 +154,7 @@ class ProcessJobCardRIGPL(Document):
     def check_if_new_jc_needed(self):
         allowance = flt(frappe.get_value("Manufacturing Settings", "Manufacturing Settings",
                                      "overproduction_percentage_for_work_order"))
-        per_diff = abs(self.for_quantity - self.total_completed_qty)
+        per_diff = abs(self.for_quantity - self.total_completed_qty - self.total_rejected_qty)
         # Returns 0 or 1: 0= No JC Needed and 1= New JC is needed
         # Checks if new JC is needed for an existing JC if its transfer entry and for Stock Items
         if self.for_quantity > self.total_completed_qty:

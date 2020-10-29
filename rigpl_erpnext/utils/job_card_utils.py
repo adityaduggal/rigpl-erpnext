@@ -261,7 +261,7 @@ def create_submit_ste_from_job_card(jc_doc):
                 it_dict = {}
                 it_dict.setdefault("item_code", jc_doc.production_item)
                 it_dict.setdefault("allow_zero_valuation_rate", 1)
-                it_dict.setdefault("qty", d.salvage_qty)
+                it_dict.setdefault("qty", d.rejected_qty)
                 it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
                 it_dict.setdefault("t_warehouse", "")
                 item_table.append(it_dict.copy())
