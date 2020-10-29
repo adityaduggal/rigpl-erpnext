@@ -10,7 +10,7 @@ from fedex.tools.conversion import sobject_to_dict
 from frappe.website.website_generator import WebsiteGenerator
 from frappe.utils import flt
 from frappe.utils.file_manager import remove_all
-from .common import get_rate_list_for_shipment, get_shipment_cost
+from .common import get_shipment_cost
 from ...scheduled_tasks.shipment_data_update import getOrderShipmentDetails, pushOrderData, courier_charges_validation
 from ...validations.sales_invoice import create_new_carrier_track
 from .fedex_functions import shipment_booking, start_delete_shipment, get_signature_proof, \
@@ -90,8 +90,7 @@ class CarrierTracking(WebsiteGenerator):
         self.gen_add_validations(trans_doc, from_address_doc, to_address_doc)
         self.set_recipient_email(to_address_doc, contact_doc)
         self.validate_country(self.from_address, self.to_address)
-        rate_list = get_rate_list_for_shipment(self)
-        self.shipment_cost = get_shipment_cost(rate_list, self.total_weight)
+        # self.shipment_cost = get_shipment_cost(self)
         if trans_doc.fedex_credentials == 1:
             self.fedex_account_number = trans_doc.fedex_account_number
             self.sales_invoice_validations_fedex()
@@ -338,9 +337,14 @@ class CarrierTracking(WebsiteGenerator):
             dtdc_get_available_services(self)
 
     def get_rates(self):
+        tpt_doc = frappe.get_doc("Transporters", self.carrier_name)
         self.validate()
         self.validate_empty_shipment()
-        get_rates_from_fedex(self)
+        if tpt_doc.calculate_cost_from_quote == 1:
+            self.shipment_cost = get_shipment_cost(self)
+            self.save()
+        else:
+            get_rates_from_fedex(self)
 
     def book_shipment(self):
         trans_doc = frappe.get_doc('Transporters', self.carrier_name)
@@ -356,6 +360,7 @@ class CarrierTracking(WebsiteGenerator):
                             if trans_doc.fedex_credentials == 1:
                                 shipment_booking(self)
                             elif trans_doc.dtdc_credentials == 1:
+                                self.get_rates()
                                 dtdc_shipment_booking(self)
                             else:
                                 frappe.throw('Shipment booking for {} is Not Available in {}'.
@@ -372,10 +377,12 @@ class CarrierTracking(WebsiteGenerator):
 
     def delete_shipment(self):
         if self.status == "Booked":
-            try:
-                start_delete_shipment(self)
-            except:
-                frappe.msgprint(('Some ERROR guess AWB not found on Fedex for AWB# {}').format(self.awb_number))
+            tpt_doc = frappe.get_doc("Transporters", self.carrier_name)
+            if tpt_doc.fedex_credentials == 1:
+                try:
+                    start_delete_shipment(self)
+                except:
+                    frappe.msgprint(('Some ERROR guess AWB not found on Fedex for AWB# {}').format(self.awb_number))
 
             frappe.db.set_value("Carrier Tracking", self.name, "docstatus", 0)
             frappe.db.set_value("Carrier Tracking", self.name, "awb_number", "NA")

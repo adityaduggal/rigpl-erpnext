@@ -131,8 +131,10 @@ def rate_service(track_doc, credentials, from_address_doc, to_address_doc,
                                     format(service.ServiceType, surcharge.Amount.Amount))
 
         for rate_detail in service.RatedShipmentDetails:
-            track_doc.shipment_cost = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Amount
-            track_doc.shipment_cost_currency = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Currency
+            cost = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Amount
+            currency = rate_detail.ShipmentRateDetail.TotalNetFedExCharge.Currency
+            track_doc.shipment_cost = cost
+            track_doc.shipment_cost_currency = currency
             track_doc.save()
     if stop == 1 and track_doc.allow_oda_shipment != 1:
         frappe.throw('Out of Delivery Area, Booking of Shipment Not Allowed')

@@ -106,7 +106,6 @@ def post_dtdc_booking_request(booking_json, trans_doc):
     api_key_dict["api-key"] = api_key
     api_key_dict = json.dumps(api_key_dict, indent=4)
     api_key_dict = json.loads(api_key_dict)
-    frappe.msgprint(str(booking_url))
     reply = requests.post(url=booking_url, json=booking_json, headers=api_key_dict)
     return reply.json()
 
@@ -184,7 +183,6 @@ def dtdc_get_tracking_response(track_doc, url, token):
 
 
 def dtdc_update_tracking(doc, json_data):
-    frappe.msgprint(str(json_data))
     if json_data.get("statusCode") == 200:
         header = json_data.get("trackHeader")
         doc.ship_to_city = header.get("strDestination")
@@ -207,7 +205,7 @@ def dtdc_update_tracking(doc, json_data):
             doc.append("scans", scan)
         doc.save(ignore_permissions=True)
     else:
-        frappe.throw('Error {}'.format(str(json_data.get("errorDetails"))))
+        frappe.msgprint('Error {}'.format(str(json_data.get("errorDetails"))))
 
 
 def dtdc_get_track_json(track_doc, token):
