@@ -33,14 +33,6 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"options": "\nOpen\nWork In Progress"
 		},
 		{
-			"fieldname":"rm",
-			"label": "Is RM",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_rm_query"}}
-		},
-		{
 			"fieldname":"bm",
 			"label": "Base Material",
 			"fieldtype": "Link",
@@ -49,16 +41,6 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
 		},
-		{
-			"fieldname":"brand",
-			"label": "Brand",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"reqd": 0,
-			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_brand_query"}}
-		},
-
 		{
 			"fieldname":"quality",
 			"label": "Quality",
@@ -85,6 +67,15 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"reqd": 0,
 			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_spl_query"}}
+		},
+		{
+			"fieldname":"series",
+			"label": "Series",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_series_query"}}
 		},
 		{
 			"fieldname":"item",

@@ -22,11 +22,12 @@ def get_columns(filters):
 		]
 	elif filters.get("production_planning") == 1:
 		return [
-			"JC#:Link/Process Job Card RIGPL:100", "Status::60", "Item:Link/Item:120", "Description::400",
-			"Operation:Link/Operation:150", "Allocated Machine:Link/Workstation:150",
+			"JC#:Link/Process Job Card RIGPL:100", "Status::60", "Item:Link/Item:120",
+			"BM::60", "TT::60", "SPL::60", "Series::60", "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50",
+			"L2:Float:50", "Description::400",
+			"Operation:Link/Operation:100", "Allocated Machine:Link/Workstation:150",
 			"Planned Qty:Float:80", "Priority:Int:80", "Qty Avail:Float:80",
-			"ROL:Int:80", "SO:Int:80", "PO:Int:80", "Plan:Int:80", "Prod:Float:80", "Total Actual:Float:80",
-			"From Warehouse:Link/Warehouse:150", "To Warehouse:Link/Warehouse:150"
+			"ROL:Int:80", "SO:Int:80", "PO:Int:80", "Plan:Int:80", "Prod:Float:80", "Total Actual:Float:80"
 		]
 	elif filters.get("order_wise_summary") == 1:
 		return [
@@ -49,26 +50,45 @@ def get_data(filters):
 		ORDER BY jc.workstation, jc.production_item""" % cond_jc
 		data = frappe.db.sql(query, as_list=1)
 	elif filters.get("production_planning") == 1:
-		query = """SELECT jc.name, jc.status, jc.production_item, jc.description, jc.operation, jc.workstation, 
-		jc.for_quantity, 
+		query = """SELECT jc.name, jc.status, jc.production_item, bm.attribute_value, tt.attribute_value,
+		spl.attribute_value, ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value,
+		d2.attribute_value, l2.attribute_value,
+		jc.description, jc.operation, jc.workstation, jc.for_quantity, 
 		IF(jc.priority=0, NULL, jc.priority), IF(jc.qty_available=0, NULL, jc.qty_available),
 		IF(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level) AS rol,
 		IF(bn.on_so=0, NULL ,bn.on_so) AS on_so,
 		IF(bn.on_po=0, NULL ,bn.on_so) AS on_po,
 		IF(bn.plan=0, NULL ,bn.plan) AS plan,
 		IF(bn.prod=0, NULL ,bn.prod) AS prod,
-		IF(bn.act=0, NULL ,bn.act) AS act,
-		IFNULL(jc.s_warehouse, "X") as s_wh,
-		IFNULL(jc.t_warehouse, "X") as t_wh
+		IF(bn.act=0, NULL ,bn.act) AS act
 		FROM `tabProcess Job Card RIGPL` jc 
+		LEFT JOIN `tabItem` it ON it.name = jc.production_item
 		LEFT JOIN `tabBOM Operation` bo ON jc.operation_id = bo.name
 		LEFT JOIN `tabItem Reorder` ro ON jc.production_item = ro.parent
 		LEFT JOIN (SELECT item_code, SUM(reserved_qty) as on_so, SUM(ordered_qty) as on_po, SUM(actual_qty) as act,
 			SUM(planned_qty) as plan, SUM(reserved_qty_for_production) as prod, SUM(indented_qty) as indent
 			FROM `tabBin` GROUP BY item_code) bn 
 			ON jc.production_item = bn.item_code
-		WHERE jc.docstatus = 0 %s
-		ORDER BY bo.idx, jc.operation, jc.production_item""" % cond_jc
+		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+			AND bm.attribute = 'Base Material'
+		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+			AND tt.attribute = 'Tool Type'
+		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
+			AND spl.attribute = 'Special Treatment'
+		LEFT JOIN `tabItem Variant Attribute` ser ON it.name = ser.parent
+			AND ser.attribute = 'Series'
+		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+			AND d1.attribute = 'd1_mm'
+		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+			AND w1.attribute = 'w1_mm'
+		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+			AND l1.attribute = 'l1_mm'
+		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+			AND d2.attribute = 'd2_mm'
+		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+			AND l2.attribute = 'l2_mm'
+		WHERE jc.docstatus = 0 %s %s
+		ORDER BY bo.idx, jc.operation, jc.production_item""" % (cond_jc, cond_it)
 		data = frappe.db.sql(query, as_list=1)
 	elif filters.get("order_wise_summary") == 1:
 		query = """SELECT so.name, so.transaction_date, soi.item_code, soi.description, 
@@ -78,7 +98,7 @@ def get_data(filters):
 		FROM `tabSales Order` so, `tabSales Order Item` soi, `tabItem` it
 		WHERE soi.parent = so.name AND so.docstatus = 1 AND (soi.qty - ifnull(soi.delivered_qty, 0)) > 0 
 		AND so.status != "Closed" AND so.transaction_date <= curdate() AND soi.item_code = it.name 
-		AND it.made_to_order = 1 %s """ % cond_so
+		AND it.made_to_order = 1 %s ORDER BY so.transaction_date, so.name, soi.item_code, soi.description""" % cond_so
 		so_data = frappe.db.sql(query, as_dict=1)
 		data = update_so_data_with_job_card(so_data)
 	else:
@@ -135,6 +155,12 @@ def get_conditions(filters):
 			cond_jc += " AND jc.operation = '%s'" % filters.get("operation")
 		if filters.get("bm"):
 			cond_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
+		if filters.get("tt"):
+			cond_it += " AND tt.attribute_value = '%s'" % filters.get("tt")
+		if filters.get("spl"):
+			cond_it += " AND spl.attribute_value = '%s'" % filters.get("spl")
+		if filters.get("series"):
+			cond_it += " AND ser.attribute_value = '%s'" % filters.get("series")
 		if filters.get("item"):
 			cond_jc += " AND jc.production_item = '%s'" % filters.get("item")
 
