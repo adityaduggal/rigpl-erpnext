@@ -335,23 +335,15 @@ def get_last_jc_for_so(so_item):
     FROM `tabProcess Job Card RIGPL` jc, `tabBOM Operation` bmop 
     WHERE jc.docstatus < 2 AND bmop.parent = jc.process_sheet AND bmop.operation = jc.operation
     AND jc.sales_order_item = '%s'""" % so_item, as_dict=1)
-    jc_dict =  sorted(jc_dict, key = lambda i: i['idx'], reverse=True)
-    count = 0
-    remarks_added = 0
+    jc_dict =  sorted(jc_dict, key = lambda i: i['idx'])
+
     for jc in jc_dict:
-        count += 1
+        jc["remarks"] = ""
         if jc.docstatus == 1:
-            if count == 1:
-                jc["remarks"] = "All Operations Complete Material Ready for Dispatch"
-                return jc
-            else:
-                jc["remarks"] = jc.operation + " Completed"
-                return jc
+            jc["remarks"] += " " + jc.operation + " Completed "
         else:
-            if remarks_added == 0:
-                jc["remarks"] = jc.operation + " Pending"
-                remarks_added = 1
-                return jc
+            jc["remarks"] += " " + jc.operation + " Pending "
+    return jc
 
 
 def get_made_to_stock_qty(jc_doc):
