@@ -10,6 +10,8 @@ from rigpl_erpnext.utils.manufacturing_utils import get_attributes
 
 class MadetoOrderItemAttributes(Document):
     def validate(self):
+        if self.reference_spl:
+            self.reference_spl = ""
         other_specials = frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE sales_order = 
         '%s' AND sales_order_item = '%s' AND item_code = '%s' AND name != '%s' AND docstatus != 2"""
                                        % (self.sales_order, self.sales_order_item, self.item_code, self.name),
