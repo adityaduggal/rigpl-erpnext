@@ -34,6 +34,7 @@ class ProcessJobCardRIGPL(Document):
         self.update_next_jc_status()
 
     def validate(self):
+        update_jc_posting_date_time(self)
         update_job_card_qty_available(self)
         update_job_card_status(self)
         self.uom = frappe.get_value("Item", self.production_item, "stock_uom")

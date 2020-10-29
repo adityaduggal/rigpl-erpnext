@@ -119,43 +119,35 @@ def check_taxes_integrity(doc, method):
 
 def check_subcontracting(doc, method):
     for d in doc.items:
+        it_doc = frappe.get_doc("Item", d.item_code)
         it_gst = frappe.get_value('Item', d.item_code, 'customs_tariff_number')
         if d.gst_hsn_code != it_gst:
             d.gst_hsn_code = it_gst
-        if doc.is_subcontracting != 1:
-            if d.subcontracted_item:
-                frappe.throw(("Subcontracted Item only allowed for Sub Contracting PO. Check Row# {0}. "
-                              "This PO is Not a Subcontracting PO check the box to make this PO "
-                              "as Subcontracting.").format(d.idx))
-    for d in doc.items:
-        item = frappe.get_doc("Item", d.item_code)
         if doc.is_subcontracting == 1:
-            if item.is_job_work != 1:
-                frappe.throw(("Only Sub Contracted Items are allowed in Item Code for Sub Contracting PO. "
-                              "Check Row # {0}").format(d.idx))
-        else:
-            if item.is_purchase_item != 1:
-                frappe.throw(("Only Purchase Items are allowed in Item Code for Purchase Orders. "
-                              "Check Row # {0}").format(d.idx))
-        if d.so_detail:
-            if d.reference_dt == 'Process Job Card RIGPL':
-                jc_doc = frappe.get_doc("Process Job Card RIGPL", d.reference_dn)
-                if doc.is_subcontracting != 1:
-                    d.item_code = jc_doc.production_item
-                else:
-                    d.subcontracted_item = jc_doc.production_item
-                d.description = jc_doc.description
-            else:
-                d.description = frappe.get_value("Sales Order Item", d.so_detail, "description")
-        if doc.is_subcontracting == 1:
+            jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
+            subcon_it = frappe.get_value("Operation", jc_doc.operation, "sub_contracting_item_code")
             sub_item = frappe.get_doc("Item", d.subcontracted_item)
+            if d.item_code != subcon_it:
+                d.item_code = subcon_it
             if d.so_detail:
-                pass
+                d.subcontracted_item = jc_doc.production_item
+                d.description = jc_doc.description
             else:
                 d.description = sub_item.description
             if d.subcontracted_item is None or d.subcontracted_item == "":
                 frappe.throw("Subcontracted Item is Mandatory for Subcontracting Purchase Order "
                              "Check Row #{0}".format(d.idx))
+            if it_doc.is_job_work != 1:
+                frappe.throw(("Only Sub Contracted Items are allowed in Item Code for Sub Contracting PO. "
+                              "Check Row # {0}").format(d.idx))
+        else:
+            if d.subcontracted_item:
+                frappe.throw(("Subcontracted Item only allowed for Sub Contracting PO. Check Row# {0}. "
+                              "This PO is Not a Subcontracting PO check the box to make this PO "
+                              "as Subcontracting.").format(d.idx))
+            if it_doc.is_purchase_item != 1:
+                frappe.throw(("Only Purchase Items are allowed in Item Code for Purchase Orders. "
+                              "Check Row # {0}").format(d.idx))
 
 
 @frappe.whitelist()

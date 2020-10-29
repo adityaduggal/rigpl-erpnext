@@ -94,6 +94,14 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
 		},
 		{
+			"fieldname":"sales_order",
+			"label": "Sales Order",
+			"fieldtype": "Link",
+			"options": "Sales Order",
+			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.doctype.create_bulk_process_sheet." +
+			    "create_bulk_process_sheet.get_so_pending_for_process_sheet"}}
+		},
+		{
 			"fieldname":"summary",
 			"label": "Post Production Summary",
 			"fieldtype": "Check",
@@ -102,6 +110,12 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 		{
 			"fieldname":"production_planning",
 			"label": "Production Planning",
+			"fieldtype": "Check",
+			"default": 0
+		},
+		{
+			"fieldname":"order_wise_summary",
+			"label": "SO wise Summary",
 			"fieldtype": "Check",
 			"default": 0
 		}

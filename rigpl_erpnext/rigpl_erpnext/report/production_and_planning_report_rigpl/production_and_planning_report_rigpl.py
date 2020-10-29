@@ -3,6 +3,7 @@
 
 from __future__ import unicode_literals
 import frappe
+from ....utils.job_card_utils import get_last_jc_for_so
 
 
 def execute(filters=None):
@@ -21,24 +22,32 @@ def get_columns(filters):
 		]
 	elif filters.get("production_planning") == 1:
 		return [
-			"JC#:Link/Process Job Card RIGPL:100", "Status::100", "Item:Link/Item:120", "Description::250",
+			"JC#:Link/Process Job Card RIGPL:100", "Status::60", "Item:Link/Item:120", "Description::400",
 			"Operation:Link/Operation:150", "Allocated Machine:Link/Workstation:150",
 			"Planned Qty:Float:80", "Priority:Int:80", "Qty Avail:Float:80",
 			"ROL:Int:80", "SO:Int:80", "PO:Int:80", "Plan:Int:80", "Prod:Float:80", "Total Actual:Float:80",
 			"From Warehouse:Link/Warehouse:150", "To Warehouse:Link/Warehouse:150"
 		]
+	elif filters.get("order_wise_summary") == 1:
+		return [
+			"SO#:Link/Sales Order:150", "SO Date:Date:80", "Item:Link/Item:120", "Description::450",
+			"Pending:Float:60", "Ordered:Float:60", "JC#:Link/Process Job Card RIGPL:80", "Status::60",
+			"Operation:Link/Operation:100", "Priority:Int:50", "Planned Qty:Float:80", "Qty Avail:Float:80",
+			"Remarks::200"
+		]
 	else:
-		frappe.throw("Select one of the 2 checkboxes Post Production or Planning")
+		frappe.throw("Select one of the 3 Check Boxes.")
 
 
 def get_data(filters):
-	cond_jc = get_conditions(filters)
+	cond_jc, cond_it, cond_so = get_conditions(filters)
 	if filters.get("summary") == 1:
 		query = """SELECT jc.employee_name, jc.workstation, jc.production_item, jc.description, 
 		jc.for_quantity, jc.total_completed_qty, jc.total_rejected_qty, jc.operation, jc.total_time_in_mins, 
 		ROUND((jc.total_time_in_mins/ (jc.total_completed_qty + jc.total_rejected_qty)),2), jc.name
 		FROM `tabProcess Job Card RIGPL` jc WHERE jc.docstatus = 1 %s 
 		ORDER BY jc.workstation, jc.production_item""" % cond_jc
+		data = frappe.db.sql(query, as_list=1)
 	elif filters.get("production_planning") == 1:
 		query = """SELECT jc.name, jc.status, jc.production_item, jc.description, jc.operation, jc.workstation, 
 		jc.for_quantity, 
@@ -60,29 +69,77 @@ def get_data(filters):
 			ON jc.production_item = bn.item_code
 		WHERE jc.docstatus = 0 %s
 		ORDER BY bo.idx, jc.operation, jc.production_item""" % cond_jc
-	data = frappe.db.sql(query, as_list=1)
+		data = frappe.db.sql(query, as_list=1)
+	elif filters.get("order_wise_summary") == 1:
+		query = """SELECT so.name, so.transaction_date, soi.item_code, soi.description, 
+		(soi.qty - ifnull(soi.delivered_qty, 0)) as pend_qty, soi.qty, "" as jc_name, "NO JC" as jc_status, 
+		"" as jc_operation, 0 as jc_priority, 0 as planned_qty, 0 as qty_avail, "Not in Production" as remarks, 
+		soi.name as so_item
+		FROM `tabSales Order` so, `tabSales Order Item` soi, `tabItem` it
+		WHERE soi.parent = so.name AND so.docstatus = 1 AND (soi.qty - ifnull(soi.delivered_qty, 0)) > 0 
+		AND so.status != "Closed" AND so.transaction_date <= curdate() AND soi.item_code = it.name 
+		AND it.made_to_order = 1 %s """ % cond_so
+		so_data = frappe.db.sql(query, as_dict=1)
+		data = update_so_data_with_job_card(so_data)
+	else:
+		frappe.throw("Select one of the 3 Check Boxes.")
+	return data
+
+
+def update_so_data_with_job_card(so_dict):
+	data = []
+	for so in so_dict:
+		line_data = []
+		so_jc = get_last_jc_for_so(so.so_item)
+		if so_jc:
+			so["jc_name"] = so_jc.name
+			so["jc_status"] = so_jc.status
+			so["jc_operation"] = so_jc.operation
+			so["jc_priority"] = so_jc.priority
+			so["planned_qty"] = so_jc.for_quantity
+			so["qty_avail"] = so_jc.qty_available
+			so["remarks"] = so_jc.remarks
+		line_data = [so.name, so.transaction_date, so.item_code, so.description, so.pend_qty, so.qty, so.jc_name,
+					 so.jc_status, so.jc_operation, so.jc_priority, so.planned_qty, so.qty_avail, so.remarks]
+		data.append(line_data)
 	return data
 
 
 def get_conditions(filters):
 	cond_jc = ""
 	cond_it = ""
-	if filters.get("summary") == 1 and filters.get("production_planning") == 1:
-		frappe.throw("Post Production and Planning cannot be checked together")
-	if filters.get("summary") == 0 and filters.get("production_planning") == 0:
-		frappe.throw("One of Post Production ot Planning needs to be Checked")
+	cond_so = ""
+	no_of_checks = 0
+	if filters.get("summary") == 1:
+		no_of_checks += 1
+	if filters.get("production_planning") == 1:
+		no_of_checks += 1
+	if filters.get("order_wise_summary") == 1:
+		no_of_checks += 1
+	if no_of_checks == 0:
+		frappe.throw("One checkbox is needed to be checked")
+	elif no_of_checks > 1:
+		frappe.throw("Only 1 checkbox should be checked")
+
 	if filters.get("from_date") and filters.get("summary") == 1:
 		cond_jc += " AND jc.posting_date >= '%s'" % filters.get("from_date")
 	if filters.get("to_date") and filters.get("summary") == 1:
 		cond_jc += " AND jc.posting_date <= '%s'" % filters.get("to_date")
+
 	if not filters.get("summary"):
+		if filters.get("sales_order") and filters.get("summary") != 1:
+			cond_jc += " AND jc.sales_order = '%s'" % filters.get("sales_order")
 		if filters.get("jc_status"):
 			cond_jc += " AND jc.status = '%s'" % filters.get("jc_status")
 		if filters.get("operation"):
 			cond_jc += " AND jc.operation = '%s'" % filters.get("operation")
 		if filters.get("bm"):
 			cond_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
-	if filters.get("item"):
-		cond_jc += " AND jc.production_item = '%s'" % filters.get("item")
+		if filters.get("item"):
+			cond_jc += " AND jc.production_item = '%s'" % filters.get("item")
 
-	return cond_jc
+	if filters.get("order_wise_summary") == 1:
+		if filters.get("sales_order"):
+			cond_so	+= " AND so.name = '%s'" % filters.get("sales_order")
+
+	return cond_jc, cond_it, cond_so

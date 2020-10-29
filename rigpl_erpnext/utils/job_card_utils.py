@@ -43,6 +43,12 @@ def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, 
     return doc
 
 
+def update_jc_posting_date_time(jc_doc):
+    if jc_doc.manual_posting_date_and_time != 1:
+        jc_doc.posting_date = nowdate()
+        jc_doc.posting_time = nowtime()
+
+
 def update_job_card_qty_available(jc_doc):
     ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     if jc_doc.sales_order != ps_doc.sales_order:
@@ -303,7 +309,7 @@ def create_submit_ste_from_job_card(jc_doc):
         })
         ste.save()
         ste.submit()
-        frappe.msgprint(_("{} created").format(frappe.get_desk_link("Stock Entry", ste.name)))
+        frappe.msgprint(_("{} Submitted").format(frappe.get_desk_link("Stock Entry", ste.name)))
     else:
         frappe.msgprint("No Stock Entry Created")
 
@@ -321,6 +327,31 @@ def check_po_submitted(jc_doc):
         pass
     else:
         frappe.throw("No Submitted PO for {}".format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name)))
+
+
+def get_last_jc_for_so(so_item):
+    jc_dict = frappe.db.sql("""SELECT jc.name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available, 
+    jc.docstatus, jc.process_sheet, bmop.idx
+    FROM `tabProcess Job Card RIGPL` jc, `tabBOM Operation` bmop 
+    WHERE jc.docstatus < 2 AND bmop.parent = jc.process_sheet AND bmop.operation = jc.operation
+    AND jc.sales_order_item = '%s'""" % so_item, as_dict=1)
+    jc_dict =  sorted(jc_dict, key = lambda i: i['idx'], reverse=True)
+    count = 0
+    remarks_added = 0
+    for jc in jc_dict:
+        count += 1
+        if jc.docstatus == 1:
+            if count == 1:
+                jc["remarks"] = "All Operations Complete Material Ready for Dispatch"
+                return jc
+            else:
+                jc["remarks"] = jc.operation + " Completed"
+                return jc
+        else:
+            if remarks_added == 0:
+                jc["remarks"] = jc.operation + " Pending"
+                remarks_added = 1
+                return jc
 
 
 def get_made_to_stock_qty(jc_doc):
