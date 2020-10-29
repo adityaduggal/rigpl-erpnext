@@ -33,7 +33,7 @@ def get_columns(filters):
 			"SO#:Link/Sales Order:150", "SO Date:Date:80", "Item:Link/Item:120", "Description::450",
 			"Pending:Float:60", "Ordered:Float:60", "JC#:Link/Process Job Card RIGPL:80", "Status::60",
 			"Operation:Link/Operation:100", "Priority:Int:50", "Planned Qty:Float:80", "Qty Avail:Float:80",
-			"Remarks::200"
+			"Remarks::400"
 		]
 	else:
 		frappe.throw("Select one of the 3 Check Boxes.")

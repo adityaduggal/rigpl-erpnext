@@ -17,8 +17,7 @@ def get_columns(filters):
 		"PO# :Link/Purchase Order:120", "PO Date:Date:80", 
 		"SCH Date:Date:80", "Supplier:Link/Supplier:200", "Item Code:Link/Item:120", 
 		"Description::280", "Pend Qty:Float:60", "Ordered Qty:Float:60", "Rejected Qty:Float:60",
-		"UoM::50", "Price:Currency:80",
-		"Item Qty:Float:100", "JCR:Link/Process Job Card RIGPL:100"
+		"UoM::50", "Price:Currency:80", "Item Qty:Float:100", "JC#:Link/Process Job Card RIGPL:80"
 		]
 	else:
 		return[
@@ -33,7 +32,7 @@ def get_items(filters, conditions):
 		query = """SELECT po.name, po.transaction_date, pod.schedule_date, po.supplier, 
 			pod.subcontracted_item, pod.description, (pod.qty - pod.received_qty), 
 			pod.qty, pod.returned_qty, pod.stock_uom, pod.base_rate,
-			pod.conversion_factor, pod.reference_dn
+			IF(pod.conversion_factor != 1, pod.conversion_factor, NULL), pod.reference_dn
 			FROM `tabPurchase Order` po, `tabPurchase Order Item` pod
 			WHERE po.docstatus = 1 AND po.name = pod.parent AND po.status != 'Closed' 
 			AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s

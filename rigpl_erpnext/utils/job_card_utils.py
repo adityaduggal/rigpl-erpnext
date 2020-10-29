@@ -330,19 +330,25 @@ def check_po_submitted(jc_doc):
 
 
 def get_last_jc_for_so(so_item):
-    jc_dict = frappe.db.sql("""SELECT jc.name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available, 
+    jc_list = frappe.db.sql("""SELECT jc.name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available, 
     jc.docstatus, jc.process_sheet, bmop.idx
     FROM `tabProcess Job Card RIGPL` jc, `tabBOM Operation` bmop 
     WHERE jc.docstatus < 2 AND bmop.parent = jc.process_sheet AND bmop.operation = jc.operation
     AND jc.sales_order_item = '%s'""" % so_item, as_dict=1)
-    jc_dict =  sorted(jc_dict, key = lambda i: i['idx'])
-
-    for jc in jc_dict:
-        jc["remarks"] = ""
-        if jc.docstatus == 1:
-            jc["remarks"] += " " + jc.operation + " Completed "
-        else:
-            jc["remarks"] += " " + jc.operation + " Pending "
+    jc_list =  sorted(jc_list, key = lambda i: i['idx'])
+    jc = {}
+    if jc_list:
+        for i in range(0, len(jc_list)):
+            if jc_list[i].docstatus == 1:
+                continue
+            else:
+                jc = jc_list[i]
+                jc["remarks"] = ""
+                if i == 0:
+                    jc["remarks"] += "Taken into Production but First Process is Pending"
+                else:
+                    jc["remarks"] += " " + jc.operation + " Pending and " + jc_list[i-1].operation + " Completed"
+                break
     return jc
 
 
