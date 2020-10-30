@@ -3,6 +3,7 @@
 
 from __future__ import unicode_literals
 import frappe
+from operator import itemgetter
 
 
 def execute(filters=None):
@@ -18,16 +19,18 @@ def get_columns(filters):
     columns = [
         "BT Name:Link/BOM Template RIGPL:100"
     ]
-    restrictions = frappe.db.sql("""SELECT DISTINCT(ivr.attribute), ivr.is_numeric FROM `tabItem Variant Restrictions` 
-    ivr WHERE parenttype = 'BOM Template RIGPL' AND parentfield = 'fg_restrictions'""", as_list=1)
+    restrictions = frappe.db.sql("""SELECT DISTINCT(ivr.attribute) AS attribute, ivr.is_numeric AS numeric_val
+    FROM `tabItem Variant Restrictions` ivr 
+    WHERE parenttype = 'BOM Template RIGPL' AND parentfield = 'fg_restrictions' """, as_dict=1)
+    restrictions = sorted(restrictions, key=itemgetter("numeric_val", "attribute"))
     rest_details = []
     for rest in restrictions:
         temp_dict = {}
-        temp_dict["name"] = rest[0]
-        temp_dict["is_numeric"] = rest[1]
-        if rest[1] != 1:
+        temp_dict["name"] = rest.attribute
+        temp_dict["is_numeric"] = rest.numeric_val
+        if rest.numeric_val != 1:
             max_length = frappe.db.sql("""SELECT MAX(CHAR_LENGTH(attribute_value)) FROM `tabItem Attribute Value` WHERE 
-                parent = '%s'""" % (rest[0]), as_list=1)
+                parent = '%s'""" % (rest.attribute), as_list=1)
             temp_dict["max_length"] = max_length[0][0]
         else:
             temp_dict["max_length"] = 6
@@ -36,7 +39,6 @@ def get_columns(filters):
         col_string = str(rest.get("name")) + '::' + str(rest.get("max_length")*8)
         columns.append(col_string)
     columns.append('Routing:Link/Routing:150, ')
-    columns.append('#of RMs:Int:50, ')
     columns.append('Remarks::300, ')
     columns.append('Formula::300')
     return columns, rest_details, restrictions
@@ -47,17 +49,17 @@ def get_data(cond_rest, restrictions, att_details, filters):
     att_query = ''
     att_order = ''
     for att in restrictions:
-        att_trimmed = att[0].replace(" ", "")
+        att_trimmed = (att.attribute).replace(" ", "")
         for i in att_details:
-            if att[0] == i["name"]:
+            if att.attribute == i["name"]:
                 att_query += """, IFNULL(%s.allowed_values, "-")""" % att_trimmed
                 att_order += """%s.allowed_values, """ % att_trimmed
 
         att_join += """ LEFT JOIN `tabItem Variant Restrictions` %s ON bt.name = %s.parent
             AND %s.parentfield = 'fg_restrictions' AND %s.attribute = '%s'""" % \
-                    (att_trimmed, att_trimmed, att_trimmed, att_trimmed, att[0])
+                    (att_trimmed, att_trimmed, att_trimmed, att_trimmed, att.attribute)
 
-    query = """SELECT bt.name %s, bt.routing, bt.no_of_rm_items, bt.remarks, bt.formula
+    query = """SELECT bt.name %s, bt.routing, bt.remarks, bt.formula
         FROM `tabBOM Template RIGPL` bt %s %s
         ORDER BY %s bt.name""" % (att_query, att_join, cond_rest, att_order)
     data = frappe.db.sql(query, as_list=1)
