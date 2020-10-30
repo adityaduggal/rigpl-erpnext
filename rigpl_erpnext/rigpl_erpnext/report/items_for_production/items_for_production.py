@@ -17,24 +17,24 @@ def execute(filters=None):
 
 def get_columns(wh_dict):
     columns = [
-        "Item:Link/Item:80",
+        "Item:Link/Item:120",
 
         # Item Attribute fields
-        "RM::30", "Brand::40", "Qual::50", "SPL::50", "TT::60",
+        "RM::30", "Brand::50", "Series::50", "Qual::50", "SPL::50", "TT::60",
         "D1:Float:40", "W1:Float:40", "L1:Float:50",
         "D2:Float:40", "L2:Float:40", "Zn:Float:40",
         # Item Attribute fields
 
         "CUT::120", "URG::120",
-        "Total:Float:50",
-        "RO:Float:40", "SO:Float:40", "PO:Float:40",
-        "PL:Float:40", "PRD_RES:Float:40"
+        "Total:Float:60",
+        "RO:Int:40", "SO:Int:40", "PO:Int:40",
+        "PL:Int:40", "PRD_RES:Int:40"
     ]
 
     for wh in wh_dict:
         if wh.listing_serial < 10:
             columns += [wh.short_code + ":Float:50"]
-    columns += ["Description::300"]
+    columns += ["Description::400"]
     for wh in wh_dict:
         if wh.listing_serial >= 10:
             columns += [wh.short_code + ":Float:50"]
@@ -62,7 +62,7 @@ def get_items(filters, wh_dict):
     conditions_it = get_conditions(filters)
     bm = filters["bm"]
     query = """SELECT it.name as name, IFNULL(rm.attribute_value, "-") as is_rm, 
-        IFNULL(brand.attribute_value, "-") as brand, 
+        IFNULL(brand.attribute_value, "-") as brand, IFNULL(series.attribute_value, "-") as series, 
         IFNULL(quality.attribute_value, "-") as qual, IFNULL(spl.attribute_value, "-") as spl,
         IFNULL(tt.attribute_value, "-") as tool_type, CAST(d1.attribute_value AS DECIMAL(8,3)) as d1, 
         CAST(w1.attribute_value AS DECIMAL(8,3)) as w1, CAST(l1.attribute_value AS DECIMAL(8,3)) as l1, 
@@ -81,6 +81,7 @@ def get_items(filters, wh_dict):
         LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent AND rm.attribute = 'Is RM'
         LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent AND bm.attribute = 'Base Material'
         LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent AND brand.attribute = 'Brand'
+        LEFT JOIN `tabItem Variant Attribute` series ON it.name = series.parent AND series.attribute = 'Series'
         LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent AND quality.attribute = '%s Quality'
         LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent AND tt.attribute = 'Tool Type'
         LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent AND spl.attribute = 'Special Treatment'
@@ -135,7 +136,7 @@ def get_items(filters, wh_dict):
                         dead += flt(data[i].get(wh.short_code))
                     else:
                         prd_qty += flt(data[i].get(wh.short_code))
-        total = stock + prd_qty + PLAN + PO - PRD_RES
+        total = stock + prd_qty + dead + PLAN + PO - PRD_RES
 
         if 0 <= ROL * VR <= 1000:
             ROL = 5 * ROL
@@ -147,7 +148,10 @@ def get_items(filters, wh_dict):
         if dead > 0:
             urg = "Dead Stock"
         elif total < SO:
-            urg = "1C ORD"
+            if SO > 0:
+                urg = "1C ORD"
+            else:
+                urg = "1C For Production"
         elif total < SO + (0.3 * ROL):
             urg = "2C STK"
         elif total < SO + (0.6 * ROL):
@@ -174,7 +178,10 @@ def get_items(filters, wh_dict):
         if dead > 0:
             prd = "Dead Stock"
         elif stock < SO:
-            prd = "1P ORD"
+            if SO > 0:
+                prd = "1P ORD"
+            else:
+                prd = "1P for Production"
         elif stock < SO + ROL:
             prd = "2P STK"
         elif stock < SO + 1.2 * ROL:
@@ -197,14 +204,22 @@ def get_items(filters, wh_dict):
 
         # Production Quantity
         if prd != "":
-            shortage = (2 * ROL) - stock
+            shortage = (2 * ROL) - stock - dead
             if shortage < prd_qty:
                 prd = prd + " Qty= " + str(shortage)
             else:
                 prd = prd + " Qty = " + str(prd_qty)
-        row = [data[i].name, data[i].is_rm, data[i].brand, data[i].qual, data[i].spl, data[i].tool_type, data[i].d1, \
-               data[i].w1, data[i].l1, data[i].d2, data[i].l2, data[i].zn, urg, prd, \
-               total, data[i].rol, data[i].on_so, PO, data[i].on_prd, PRD_RES]
+        if total == 0:
+            total = None
+        if PO == 0:
+            PO = None
+        if PRD_RES == 0:
+            PRD_RES = None
+        row = [
+            data[i].name, data[i].is_rm, data[i].brand, data[i].series, data[i].qual, data[i].spl,
+            data[i].tool_type, data[i].d1, data[i].w1, data[i].l1, data[i].d2, data[i].l2,
+            data[i].zn, urg, prd, total, data[i].rol, data[i].on_so, PO, data[i].on_prd, PRD_RES
+            ]
         for wh in wh_dict:
             if wh.listing_serial < 10:
                 row += [data[i].get(wh.short_code)]
@@ -226,8 +241,8 @@ def get_conditions(filters):
     if filters.get("bm"):
         conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
 
-    if filters.get("brand"):
-        conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
+    if filters.get("series"):
+        conditions_it += " AND series.attribute_value = '%s'" % filters["series"]
 
     if filters.get("quality"):
         conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]

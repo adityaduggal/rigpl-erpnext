@@ -18,15 +18,14 @@ frappe.query_reports["Items For Production"] = {
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
 		},
 		{
-			"fieldname":"brand",
-			"label": "Brand",
+			"fieldname":"series",
+			"label": "Series",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
 			"reqd": 0,
 			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_brand_query"}}
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_series_query"}}
 		},
-
 		{
 			"fieldname":"quality",
 			"label": "Quality",
