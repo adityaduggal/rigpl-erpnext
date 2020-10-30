@@ -435,3 +435,43 @@ def get_desc(attribute, attribute_value):
 	if desc:
 		desc = desc[0].description[1:-1]
 	return desc
+
+
+def check_numeric_attributes(att_doc, att_value, deny=1):
+	if att_value.isnumeric() == 1:
+		if att_doc.from_range < flt(att_value) < att_doc.to_range:
+			pass
+		else:
+			range_message = "Allowed Values for {} should be between {} and {}".\
+				format(att_doc.name, att_doc.from_range, att_doc.to_range)
+			if deny == 1:
+				frappe.throw(range_message)
+			else:
+				frappe.msgprint(range_message)
+	else:
+		non_numeric_message = "{} entered for {} is Not Allowed".format(att_value, att_doc.name)
+		if deny == 1:
+			frappe.throw(non_numeric_message)
+		else:
+			frappe.msgprint(non_numeric_message)
+
+
+def check_text_attributes(att_doc, att_value, error=1):
+	if att_doc.item_attribute_values:
+		found = 0
+		allowed_values = []
+		for d in att_doc.item_attribute_values:
+			if d.attribute_value == att_value:
+				found = 1
+				break
+			else:
+				allowed_values.append(d.attribute_value)
+		if found != 1:
+			not_found = "{} entered is not allowed. Allowed Values are {}".format(att_value, str(allowed_values))
+			if error == 1:
+				frappe.throw(not_found)
+			else:
+				frappe.msgprint(not_found)
+	else:
+		frappe.throw("For {} No Attribute Values are Defined".format(frappe.get_desk_link(att_doc.doctype,
+																						  att_doc.name)))

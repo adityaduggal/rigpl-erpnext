@@ -7,6 +7,7 @@
   "sb0",
   "cb0",
   "sales_order",
+  "pull_non_pending_sales_orders",
   "filters",
   "item",
   "customer",
@@ -122,12 +123,19 @@
    "fieldtype": "Table",
    "label": "Items",
    "options": "Production Plan Item"
+  },
+  {
+   "default": "0",
+   "fieldname": "pull_non_pending_sales_orders",
+   "fieldtype": "Check",
+   "label": "Pull Non Pending Sales Orders",
+   "permlevel": 1
   }
  ],
  "hide_toolbar": 1,
  "in_create": 1,
  "issingle": 1,
- "modified": "2020-10-21 16:12:30.506099",
+ "modified": "2020-10-30 10:14:03.379091",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Create Bulk Process Sheet",
@@ -155,6 +163,12 @@
    "read": 1,
    "role": "Manufacturing User",
    "share": 1,
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "System Manager",
    "write": 1
   }
  ],

@@ -126,14 +126,21 @@ class ProcessSheet(Document):
         self.update_ps_status()
         self.validate_qty_to_manufacture(it_doc)
         if self.get("__islocal") != 1:
-            self.get_rm_sizes()
+            self.get_rm_sizes(bt_doc)
             if self.rm_consumed:
                 for rm in self.rm_consumed:
                     if flt(rm.calculated_qty) > flt(rm.qty_available):
                         frappe.msgprint("For RM: {} in Row# {} Qty Required = {} but Available Qty = {}". \
                                         format(rm.item_code, rm.idx, rm.calculated_qty, rm.qty_available, self.name))
 
-    def get_rm_sizes(self):
+    def get_rm_sizes(self, bt_doc):
+        get_rm = 0
+        for op in bt_doc.operations:
+            if op.allow_consumption_of_rm == 1:
+                get_rm = 1
+        if get_rm != 1:
+            return
+
         def_rm_warehouse = ""
         for d in self.operations:
             if d.allow_consumption_of_rm == 1:

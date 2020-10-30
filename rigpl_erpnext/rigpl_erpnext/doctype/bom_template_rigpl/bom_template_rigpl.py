@@ -4,8 +4,7 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt
-from rigpl_erpnext.utils.item_utils import get_desc
+from rigpl_erpnext.utils.item_utils import get_desc, check_text_attributes
 from frappe.model.document import Document
 
 
@@ -68,6 +67,8 @@ class BOMTemplateRIGPL(Document):
                 if d.is_numeric == 1:
                     d.allowed_values = ""
                 else:
+                    att_doc = frappe.get_doc("Item Attribute", d.attribute)
+                    check_text_attributes(att_doc=att_doc, att_value=d.allowed_values, error=0)
                     d.rule = ""
 
     def generate_title(self):

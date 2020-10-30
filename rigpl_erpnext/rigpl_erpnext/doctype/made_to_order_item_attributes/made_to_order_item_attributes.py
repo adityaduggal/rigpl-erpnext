@@ -6,10 +6,12 @@ from __future__ import unicode_literals
 import frappe
 from frappe.model.document import Document
 from rigpl_erpnext.utils.manufacturing_utils import get_attributes
+from rigpl_erpnext.utils.item_utils import check_numeric_attributes, check_text_attributes
 
 
 class MadetoOrderItemAttributes(Document):
     def validate(self):
+        self.validate_attribute_values()
         if self.reference_spl:
             self.reference_spl = ""
         other_specials = frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE sales_order = 
@@ -59,3 +61,13 @@ class MadetoOrderItemAttributes(Document):
                 cust_att.numeric_values = att['numeric_values']
         else:
             frappe.throw("No Attributes defined for Selection")
+
+    def validate_attribute_values(self):
+        for att in self.attributes:
+            att_doc = frappe.get_doc("Item Attribute", att.attribute)
+            if att_doc.numeric_values == 1:
+                # Check numeric values are Numeric only and within range of Attribute and within defined increment
+                check_numeric_attributes(att_doc=att_doc, att_value=att.attribute_value)
+            else:
+                # Check text fields with matching case or else change it with guess work
+                check_text_attributes(att_doc=att_doc, att_value=att.attribute_value)

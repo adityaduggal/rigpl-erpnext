@@ -19,27 +19,40 @@ class CreateBulkProcessSheet(Document):
             self.clear_table(d)
 
     def get_open_sales_orders(self):
-        """ Pull sales orders  which are pending to deliver based on criteria selected"""
         so_filter = item_filter = ""
-        if self.sales_order:
-            so_filter += " AND so.name = '%s'" % self.sales_order
-        if self.from_date:
-            so_filter += " AND so.transaction_date >= '%s'" % self.from_date
-        if self.to_date:
-            so_filter += " AND so.transaction_date <= '%s'" % self.to_date
-        if self.customer:
-            so_filter += " AND so.customer = '%s'" % self.customer
+        if self.pull_non_pending_sales_orders == 1:
+            if not self.sales_order:
+                frappe.throw("Sales Order is Mandatory to pull Non-Pending SO")
+            else:
+                so_filter += " AND so.name = '%s'" % self.sales_order
 
-        if self.item:
-            item_filter += " AND soi.item_code = '%s'" % self.item
+                query = """SELECT so.name, so.transaction_date, so.customer, soi.item_code, soi.description, soi.qty, 
+                soi.delivered_qty, soi.name as soi_name, soi.qty as pend_qty 
+                FROM `tabSales Order` so, `tabSales Order Item` soi 
+                WHERE soi.parent = so.name AND so.docstatus = 1 %s 
+                ORDER BY so.transaction_date, so.name""" % so_filter
+        else:
+            """ Pull sales orders  which are pending to deliver based on criteria selected"""
+            if self.sales_order:
+                so_filter += " AND so.name = '%s'" % self.sales_order
+            if self.from_date:
+                so_filter += " AND so.transaction_date >= '%s'" % self.from_date
+            if self.to_date:
+                so_filter += " AND so.transaction_date <= '%s'" % self.to_date
+            if self.customer:
+                so_filter += " AND so.customer = '%s'" % self.customer
 
-        query = """SELECT so.name, so.transaction_date, so.customer, soi.item_code, soi.description, soi.qty, 
-        soi.delivered_qty, soi.name as soi_name, soi.qty - soi.delivered_qty as pend_qty 
-        FROM `tabSales Order` so, `tabSales Order Item` soi 
-        WHERE soi.parent = so.name AND so.docstatus = 1 AND so.status != "Closed" 
-        AND soi.qty > soi.delivered_qty %s %s ORDER BY so.transaction_date, so.name""" % (so_filter, item_filter)
-        open_so = frappe.db.sql(query, as_dict=1)
-        self.add_so_in_table(open_so)
+            if self.item:
+                item_filter += " AND soi.item_code = '%s'" % self.item
+
+            query = """SELECT so.name, so.transaction_date, so.customer, soi.item_code, soi.description, soi.qty, 
+            soi.delivered_qty, soi.name as soi_name, soi.qty - soi.delivered_qty as pend_qty 
+            FROM `tabSales Order` so, `tabSales Order Item` soi 
+            WHERE soi.parent = so.name AND so.docstatus = 1 AND so.status != "Closed" 
+            AND soi.qty > soi.delivered_qty %s %s ORDER BY so.transaction_date, so.name""" % (so_filter, item_filter)
+
+        so_list = frappe.db.sql(query, as_dict=1)
+        self.add_so_in_table(so_list)
 
     def add_so_in_table(self, open_so):
         """ Add sales orders in the table"""
