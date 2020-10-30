@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 from frappe.utils import nowdate
 from rigpl_erpnext.utils.sales_utils import *
+from rigpl_erpnext.utils.stock_utils import make_sales_job_work_ste, cancel_delete_ste_from_name
 
 
 def validate(doc, method):
@@ -31,7 +32,6 @@ def validate(doc, method):
     update_fields(doc)
     check_gst_rules(doc, doc.customer_address, doc.taxes_and_charges)
     check_taxes_integrity(doc)
-    frappe.msgprint("Selected Addresses Both Billing and Shipping Cannot be Changed Later")
     check_price_list(doc)
 
 
@@ -75,6 +75,7 @@ def update_fields(doc):
 
 
 def on_submit(so, method):
+    make_sales_job_work_ste(so_no=so.name)
     so.submitted_by = so.modified_by
     if so.track_trial == 1:
         no_of_team = 0
@@ -104,6 +105,11 @@ def on_submit(so, method):
 
 
 def on_cancel(so, method):
+    existing_ste = frappe.db.sql("""SELECT name FROM `tabStock Entry` WHERE docstatus=1 
+    AND sales_order='%s'"""% so.name, as_dict=1)
+    if existing_ste:
+        for ste in existing_ste:
+            cancel_delete_ste_from_name(ste.name, trash_can=0)
     if so.track_trial == 1:
         for sod in so.get("items"):
             query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name

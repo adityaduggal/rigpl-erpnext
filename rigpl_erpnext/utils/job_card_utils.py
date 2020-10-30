@@ -9,6 +9,7 @@ import datetime
 from erpnext.stock.utils import get_bin
 from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt, add_to_date
 from .manufacturing_utils import get_items_from_process_sheet_for_job_card, convert_qty_per_uom
+from .stock_utils import cancel_delete_ste_from_name
 
 
 def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, auto_create=False):
@@ -421,23 +422,10 @@ def get_job_card_from_process_sno(operation_sno, ps_doc, docstatus=0):
 
 def cancel_delete_ste(jc_doc, trash_can=1):
     if jc_doc.no_stock_entry != 1:
-        if trash_can == 0:
-            ignore_on_trash = True
-        else:
-            ignore_on_trash = False
-
         ste_jc = frappe.db.sql("""SELECT name FROM `tabStock Entry` WHERE process_job_card = '%s'""" %
                                jc_doc.name, as_dict=1)
         if ste_jc:
-            ste_doc = frappe.get_doc("Stock Entry", ste_jc[0].name)
-            ste_doc.flags.ignore_permissions = True
-            if ste_doc.docstatus == 1:
-                ste_doc.cancel()
-            frappe.delete_doc('Stock Entry', ste_jc[0].name, for_reload=ignore_on_trash)
-        sle_dict = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE voucher_type = 'Stock Entry' AND 
-        voucher_no = '%s'""" % ste_jc[0].name, as_dict=1)
-        for sle in sle_dict:
-            frappe.delete_doc('Stock Ledger Entry', sle.name, for_reload=ignore_on_trash)
+            cancel_delete_ste_from_name(ste_jc[0].name, trash_can=trash_can)
     else:
         frappe.msgprint("No Stock Entry Cancelled")
 
