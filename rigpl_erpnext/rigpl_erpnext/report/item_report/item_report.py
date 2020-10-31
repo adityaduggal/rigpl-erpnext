@@ -84,7 +84,7 @@ def get_columns(templates):
 					col = "::%s" %(width)
 				columns = columns + [(label + col)]
 	
-	columns = columns + [_("Pack Size") + ":Int:40"] + \
+	columns = columns + [_("Lead Time") + ":Int:40"] + [_("Pack Size") + ":Int:40"] + \
 		[_("Selling MoV") + ":Int:40"] + [_("Purchase MoQ") + ":Int:40"] + \
 		[_("Is PL") + "::40"] + [_("TOD") + "::40"] +[_("ROL") + ":Int:40"] + \
 		[_("Template or Variant Of") + ":Link/Item:300"] + \
@@ -166,7 +166,8 @@ def get_items(conditions_it, attributes, att_details, filters):
 		att_join += """LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent
 			AND %s.attribute = '%s'""" %(att_trimmed,att_trimmed,att_trimmed,att)
 
-	query = """SELECT it.name %s, IF(it.pack_size =0, NULL, it.pack_size),
+	query = """SELECT it.name %s, IF(it.lead_time_days =0, NULL, it.lead_time_days),
+		IF(it.pack_size =0, NULL, it.pack_size),
 		IF(it.selling_mov =0, NULL, it.selling_mov),
 		IF(it.min_order_qty =0, NULL, it.min_order_qty),
 		IFNULL(it.pl_item, "-"), IFNULL(it.stock_maintained, "-"),
