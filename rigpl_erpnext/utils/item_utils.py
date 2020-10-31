@@ -438,22 +438,21 @@ def get_desc(attribute, attribute_value):
 
 
 def check_numeric_attributes(att_doc, att_value, deny=1):
-	if att_value.isnumeric() == 1:
+	try:
+		val = float(att_value)
 		if att_doc.from_range < flt(att_value) < att_doc.to_range:
 			pass
 		else:
+			frappe.msgprint(str(flt(att_value)))
 			range_message = "Allowed Values for {} should be between {} and {}".\
 				format(att_doc.name, att_doc.from_range, att_doc.to_range)
 			if deny == 1:
 				frappe.throw(range_message)
 			else:
 				frappe.msgprint(range_message)
-	else:
-		non_numeric_message = "{} entered for {} is Not Allowed".format(att_value, att_doc.name)
-		if deny == 1:
-			frappe.throw(non_numeric_message)
-		else:
-			frappe.msgprint(non_numeric_message)
+	except ValueError:
+		non_numeric_message = "{} entered for {} is not numeric value hence not allowed".format(att_value, att_doc.name)
+		frappe.throw(non_numeric_message)
 
 
 def check_text_attributes(att_doc, att_value, error=1):
