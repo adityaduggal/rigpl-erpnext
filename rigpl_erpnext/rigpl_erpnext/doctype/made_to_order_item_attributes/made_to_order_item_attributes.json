@@ -8,9 +8,11 @@
   "sales_order",
   "item_code",
   "sno",
+  "has_variants",
   "cb0",
   "sales_order_item",
   "description",
+  "auto_description",
   "sb0",
   "reference_item_code",
   "reference_item_description",
@@ -35,11 +37,10 @@
   },
   {
    "fieldname": "sales_order_item",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Sales Order Item",
-   "options": "Sales Order Item",
    "read_only": 1,
    "reqd": 1
   },
@@ -132,10 +133,24 @@
    "fieldtype": "Int",
    "label": "Serial Number",
    "read_only": 1
+  },
+  {
+   "fieldname": "auto_description",
+   "fieldtype": "Text",
+   "label": "Auto Description",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "has_variants",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Has Variants",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-16 13:36:21.238486",
+ "modified": "2020-10-31 10:40:25.699608",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Made to Order Item Attributes",

@@ -198,9 +198,8 @@
   },
   {
    "fieldname": "sales_order_item",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "label": "Sales Order Item",
-   "options": "Sales Order Item",
    "read_only": 1
   },
   {
@@ -238,7 +237,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-30 10:12:13.605360",
+ "modified": "2020-10-31 10:36:17.745062",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",
