@@ -354,15 +354,20 @@ def get_last_jc_for_so(so_item):
 
 
 def get_made_to_stock_qty(jc_doc):
-    # First get the Process Number of the Job Cards if its first Process then qty available = 0
+    # First get the Process Number of the Job Cards if its first Process then qty available = 0 for Made to Order
+    # But first process qty = qty of Sales Order if the Item is Sales Job Work Item since JW items are received at SO
     # Else the qty available is equal to the qty completed in previous process which are submitted.
     ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+    it_doc = frappe.get_doc("Item", jc_doc.production_item)
     found = 0
     for op in ps_doc.operations:
         if op.name == jc_doc.operation_id or op.operation == jc_doc.operation:
             found = 1
             if op.idx == 1:
-                return 0
+                if it_doc.sales_job_card == 1:
+                    return flt(frappe.get_value("Sales Order Item", jc_doc.sales_order_item, "qty"))
+                else:
+                    return 0
             else:
                 # Completed Qty is equal to Previous Process - Current Process JC Submitted
                 completed_qty = 0
