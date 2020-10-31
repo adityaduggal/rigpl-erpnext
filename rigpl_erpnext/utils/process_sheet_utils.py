@@ -78,70 +78,71 @@ def get_req_wip_sizes_from_template(bom_temp_name, fg_item, rm_item, table_name,
     return it_dict
 
 
-def get_qty_to_manufacture(it_doc):
-    qty = 100
-    rol = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty FROM `tabItem Reorder` 
-    WHERE parent = '%s' AND parenttype = '%s' AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype),
-                        as_dict=1)
-    if not rol:
-        rol = 0
-    else:
-        rol = flt(rol[0].warehouse_reorder_level)
-    bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty, bn.actual_qty, bn.ordered_qty,
-        bn.indented_qty, bn.planned_qty, bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract, 
-        wh.warehouse_type, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND 
-        bn.item_code = '%s'"""
-                             % it_doc.name, as_dict=1)
-    fg = 0
-    wipq = 0
-    con = 0
-    rm = 0
-    dead = 0
-    rej = 0
-    po = 0
-    so = 0
-    ind = 0
-    plan = 0
-    prd = 0
-    lead = flt(it_doc.lead_time_days)
-    if bin_dict:
-        for d in bin_dict:
-            so += flt(d.reserved_qty)
-            po += flt(d.ordered_qty)
-            ind += flt(d.indented_qty)
-            plan += flt(d.planned_qty)
-            prd += flt(d.reserved_qty_for_production)
+def get_qty_to_manufacture(it_doc, so_item=None):
+    qty = 0
+    if it_doc.made_to_order != 1:
+        rol = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty FROM `tabItem Reorder` 
+        WHERE parent = '%s' AND parenttype = '%s' AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype),
+                            as_dict=1)
+        if not rol:
+            rol = 0
+        else:
+            rol = flt(rol[0].warehouse_reorder_level)
+        bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty, bn.actual_qty, bn.ordered_qty,
+            bn.indented_qty, bn.planned_qty, bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract, 
+            wh.warehouse_type, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND 
+            bn.item_code = '%s'"""
+                                 % it_doc.name, as_dict=1)
+        fg = 0
+        wipq = 0
+        con = 0
+        rm = 0
+        dead = 0
+        rej = 0
+        po = 0
+        so = 0
+        ind = 0
+        plan = 0
+        prd = 0
+        lead = flt(it_doc.lead_time_days)
+        if bin_dict:
+            for d in bin_dict:
+                so += flt(d.reserved_qty)
+                po += flt(d.ordered_qty)
+                ind += flt(d.indented_qty)
+                plan += flt(d.planned_qty)
+                prd += flt(d.reserved_qty_for_production)
 
-            if d.warehouse_type == 'Finished Stock':
-                fg += flt(d.actual_qty)
-            elif d.warehouse_type == 'Work In Progress':
-                wipq += flt(d.actual_qty)
-            elif d.warehouse_type == 'Consumable':
-                con += flt(d.actual_qty)
-            elif d.warehouse_type == 'Raw Material':
-                rm += flt(d.actual_qty)
-            elif d.warehouse_type == 'Dead Stock':
-                dead += flt(d.actual_qty)
-            elif d.warehouse_type == 'Recoverable Stock':
-                rej += flt(d.actual_qty)
-            elif d.warehouse_type == 'Subcontracting':
-                po += flt(d.actual_qty)
+                if d.warehouse_type == 'Finished Stock':
+                    fg += flt(d.actual_qty)
+                elif d.warehouse_type == 'Work In Progress':
+                    wipq += flt(d.actual_qty)
+                elif d.warehouse_type == 'Consumable':
+                    con += flt(d.actual_qty)
+                elif d.warehouse_type == 'Raw Material':
+                    rm += flt(d.actual_qty)
+                elif d.warehouse_type == 'Dead Stock':
+                    dead += flt(d.actual_qty)
+                elif d.warehouse_type == 'Recoverable Stock':
+                    rej += flt(d.actual_qty)
+                elif d.warehouse_type == 'Subcontracting':
+                    po += flt(d.actual_qty)
 
-            if lead == 0:
-                lead = 30
-        reqd_qty = (rol * lead / (30 * 2)) + so + prd - fg - wipq
-        if reqd_qty < 0:
-            reqd_qty = 0
-        elif 10 < reqd_qty < 50:
-            reqd_qty = round_up(reqd_qty, 5)
-        elif 50 < reqd_qty < 500:
-            reqd_qty = round_up(reqd_qty, 10)
-        elif 500 < reqd_qty < 1000:
-            reqd_qty = round_up(reqd_qty, 50)
-        elif reqd_qty > 1000:
-            reqd_qty = round_up(reqd_qty, 100)
+                if lead == 0:
+                    lead = 30
+            reqd_qty = (rol * lead / (30 * 2)) + so + prd - fg - wipq
+            if reqd_qty < 0:
+                reqd_qty = 0
+            elif 10 < reqd_qty < 50:
+                reqd_qty = round_up(reqd_qty, 5)
+            elif 50 < reqd_qty < 500:
+                reqd_qty = round_up(reqd_qty, 10)
+            elif 500 < reqd_qty < 1000:
+                reqd_qty = round_up(reqd_qty, 50)
+            elif reqd_qty > 1000:
+                reqd_qty = round_up(reqd_qty, 100)
 
-        qty = reqd_qty
+            qty = reqd_qty
     return qty
 
 
