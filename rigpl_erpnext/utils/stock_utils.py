@@ -15,7 +15,8 @@ def make_sales_job_work_ste(so_no):
         it_doc = frappe.get_doc("Item", it.item_code)
         if it_doc.sales_job_work == 1:
             ste_item_table = make_ste_table(so_row=it, ste_it_tbl=ste_item_table, it_doc=it_doc)
-    make_stock_entry(so_no=so_no, item_table=ste_item_table)
+    if ste_item_table:
+        make_stock_entry(so_no=so_no, item_table=ste_item_table)
 
 
 def make_ste_table(so_row, ste_it_tbl, it_doc):
