@@ -364,7 +364,7 @@ def get_made_to_stock_qty(jc_doc):
         if op.name == jc_doc.operation_id or op.operation == jc_doc.operation:
             found = 1
             if op.idx == 1:
-                if it_doc.sales_job_card == 1:
+                if it_doc.sales_job_work == 1:
                     return flt(frappe.get_value("Sales Order Item", jc_doc.sales_order_item, "qty"))
                 else:
                     return 0
