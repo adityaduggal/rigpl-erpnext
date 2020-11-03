@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 from frappe.utils import nowdate
 from rigpl_erpnext.utils.sales_utils import *
-from rohit_common.utils.rohit_common_utils import check_dynamic_link
+from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
 from rigpl_erpnext.utils.stock_utils import make_sales_job_work_ste, cancel_delete_ste_from_name
 
 
@@ -32,7 +32,7 @@ def validate(doc, method):
                      " does not have a Sales Team Defined")
     update_fields(doc)
     check_gst_rules(doc, doc.customer_address, doc.taxes_and_charges)
-    check_taxes_integrity(doc)
+    check_sales_taxes_integrity(doc)
     check_price_list(doc)
 
 
