@@ -112,7 +112,8 @@ def send_bulk_tracks():
     for tracks in unposted:
         track_doc = frappe.get_doc("Carrier Tracking", tracks[0])
         trans_doc = frappe.get_doc("Transporters", track_doc.carrier_name)
-        if trans_doc.fedex_credentials == 1 or trans_doc.fedex_tracking_only == 1:
+        if trans_doc.fedex_credentials == 1 or trans_doc.fedex_tracking_only == 1 or trans_doc.dtdc_tracking_only == 1 \
+                or trans_doc.dtdc_credentials == 1:
             print(("Direct Fedex Booking for {}. Not Posting to Shipway").format(track_doc.name))
         else:
             days_diff = (datetime.today().date() - track_doc.modified.date()).days
@@ -130,27 +131,37 @@ def send_bulk_tracks():
 def get_all_ship_data():
     # Pause of 5seconds for sending data means 720 shipment data per hour can be sent
     # Get the list of all Shipments which are POSTED and NOT DELIVERED
-    pending_ships = frappe.db.sql("""SELECT ctrack.name as name, tpt.fedex_credentials as cred, 
-        ctrack.creation as creation, tpt.fedex_tracking_only as tracking_only, ctrack.modified as modified
+    pending_ships = frappe.db.sql("""SELECT ctrack.name as name, tpt.fedex_credentials as fed_cred,
+        tpt.dtdc_credentials as dtdc_cred, tpt.dtdc_tracking_only as dtdc_track,
+        ctrack.creation as creation, tpt.fedex_tracking_only as fed_track, ctrack.modified as modified
         FROM `tabCarrier Tracking` ctrack, `tabTransporters` tpt 
-        WHERE (ctrack.posted_to_shipway = 1 OR tpt.fedex_credentials = 1 or tpt.fedex_tracking_only = 1) 
+        WHERE (ctrack.posted_to_shipway = 1 OR tpt.fedex_credentials = 1 or tpt.fedex_tracking_only = 1 
+        OR tpt.dtdc_credentials = 1 OR tpt.dtdc_tracking_only = 1) 
         AND ctrack.manual_exception_removed = 0 AND ctrack.docstatus != 2 AND tpt.name = ctrack.carrier_name 
         AND ctrack.status != "Delivered" 
         AND ctrack.awb_number != "NA" AND ctrack.awb_number != "" ORDER BY ctrack.creation DESC """, as_dict=1)
     sno = 0
     for tracks in pending_ships:
         days_diff = (datetime.today().date() - tracks.creation.date()).days
-        last_update_hrs = (datetime.now() - tracks.modified).seconds/3600
-        if (tracks.cred == 1 or tracks.tracking_only == 1) and days_diff < 150:
-            # Get from Fedex only if less than 150 days old
+        last_update_hrs = (datetime.now() - tracks.modified).total_seconds()/3600
+        fedex = tracks.fed_track or tracks.fed_cred
+        dtdc = tracks.dtdc_track or tracks.dtdc_cred
+        if fedex == 1:
+            track_name = "Fedex"
+        elif dtdc == 1:
+            track_name = "DTDC"
+        if (tracks.fed_cred == 1 or tracks.fed_track == 1 or tracks.dtdc_cred == 1 or tracks.dtdc_track == 1) and \
+                days_diff < 150:
+            # Get from Fedex or DTDC only if less than 150 days old
             if last_update_hrs > 6:
-                print("{}. Getting Tracking for {} from Fedex".format(str(sno+1), tracks.name))
+                print("{}. Getting Tracking for {} from {}".format(str(sno+1), tracks.name, track_name))
                 track_doc = frappe.get_doc("Carrier Tracking", tracks.name)
                 getOrderShipmentDetails(track_doc)
             else:
-                print("{}. Fedex Tracking was updated less than 6 hrs ago hence skipping {}".
-                      format(str(sno+1), tracks.name))
-        elif (tracks.cred == 0 and tracks.tracking_only == 0) and days_diff < 60:
+                print("{}. {} Tracking was updated less than 6 hrs ago hence skipping {}".
+                      format(str(sno+1), track_name, tracks.name))
+        elif (tracks.fed_cred == 0 and tracks.fed_track == 0 and tracks.dtdc_cred == 0 and tracks.dtdc_track == 0) \
+                and days_diff < 60:
             # Get from Shipway only less than 60 days old shipments
             if last_update_hrs > 6:
                 print("{}. Getting Tracking for {} from Shipway".format(str(sno+1), tracks.name))
