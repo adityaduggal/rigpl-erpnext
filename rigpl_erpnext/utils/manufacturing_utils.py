@@ -9,7 +9,7 @@ import math
 from frappe import _
 from frappe.utils import flt
 from erpnext.stock.stock_balance import update_bin_qty
-from rohit_common.rohit_common.utils.rohit_common_utils import replace_java_chars
+from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
 def get_items_from_process_sheet_for_job_card(document, table_name):

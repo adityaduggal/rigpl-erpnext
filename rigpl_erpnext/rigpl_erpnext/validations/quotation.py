@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from ...utils.sales_utils import check_get_pl_rate, get_hsn_code, validate_address_google_update, check_validated_gstin
-from rohit_common.rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
+from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
 
 
 def validate(doc, method):

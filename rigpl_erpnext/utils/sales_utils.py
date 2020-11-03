@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import re
 import frappe
 from frappe.utils import flt
-from rohit_common.rohit_common.utils.rohit_common_utils import replace_java_chars
+from rohit_common.utils.rohit_common_utils import replace_java_chars
 from ..utils.job_card_utils import get_completed_qty_of_jc_for_operation
 
 

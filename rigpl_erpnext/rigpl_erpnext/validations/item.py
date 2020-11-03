@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 from rigpl_erpnext.utils.item_utils import *
 from datetime import date, datetime
 from frappe.utils import getdate
-from rohit_common.rohit_common.utils.rohit_common_utils import fn_check_digit, fn_next_string
+from rohit_common.utils.rohit_common_utils import fn_check_digit, fn_next_string
 
 def validate(doc, method):
 	if doc.variant_of:
