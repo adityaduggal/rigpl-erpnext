@@ -332,7 +332,7 @@ def check_po_submitted(jc_doc):
 
 def get_last_jc_for_so(so_item):
     jc_list = frappe.db.sql("""SELECT jc.name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available, 
-    jc.docstatus, jc.process_sheet, bmop.idx
+    jc.docstatus, jc.process_sheet, bmop.idx, jc.total_completed_qty
     FROM `tabProcess Job Card RIGPL` jc, `tabBOM Operation` bmop 
     WHERE jc.docstatus < 2 AND bmop.parent = jc.process_sheet AND bmop.operation = jc.operation
     AND jc.sales_order_item = '%s'""" % so_item, as_dict=1)
@@ -341,7 +341,11 @@ def get_last_jc_for_so(so_item):
     if jc_list:
         for i in range(0, len(jc_list)):
             if jc_list[i].docstatus == 1:
-                continue
+                if i == len(jc_list) - 1:
+                    jc = jc_list[i]
+                    jc["remarks"] = ""
+                    jc["remarks"] += " All Operations Completed {} Qty Ready for Dispatch".\
+                        format(jc_list[i].total_completed_qty)
             else:
                 jc = jc_list[i]
                 jc["remarks"] = ""
@@ -388,11 +392,12 @@ def get_made_to_stock_qty(jc_doc):
 
 
 def get_completed_qty_of_jc_for_operation(item, operation, so_detail=None):
-    completed_qty = frappe.db.sql("""SELECT SUM(total_completed_qty) FROM `tabProcess Job Card RIGPL` 
-    WHERE docstatus = 1 AND production_item = '%s' AND operation = '%s' AND sales_order_item = '%s'""".
-                                  format(item, operation, so_detail), as_list=1)
+    query = """SELECT SUM(total_completed_qty) FROM `tabProcess Job Card RIGPL` 
+    WHERE docstatus = 1 AND production_item = '%s' AND operation = '%s' 
+    AND sales_order_item = '%s'""" % (item, operation, so_detail)
+    completed_qty = frappe.db.sql(query, as_list=1)
     if completed_qty[0][0]:
-        return flt(completed_qty)
+        return flt(completed_qty[0][0])
     else:
         return 0
 
