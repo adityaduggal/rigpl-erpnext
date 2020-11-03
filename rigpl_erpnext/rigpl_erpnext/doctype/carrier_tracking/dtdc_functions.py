@@ -185,9 +185,14 @@ def dtdc_update_tracking(doc, json_data):
     if json_data.get("statusCode") == 200:
         header = json_data.get("trackHeader")
         doc.ship_to_city = header.get("strDestination")
-        pdt = header.get("strBookedDate") + " " + header.get("strBookedTime")
-        pickup_date_time = datetime.strptime(pdt, "%d%m%Y %H:%M:%S")
-        exp_delivery_date = datetime.strptime(header.get("strExpectedDeliveryDate"), "%d%m%Y")
+        if header.get("strBookedDate") != "" and header.get("strBookedTime") != "":
+            pdt = header.get("strBookedDate") + " " + header.get("strBookedTime")
+        else:
+            pdt = ""
+        if pdt != "":
+            pickup_date_time = datetime.strptime(pdt, "%d%m%Y %H:%M:%S")
+        if header.get("strExpectedDeliveryDate") != "":
+            exp_delivery_date = datetime.strptime(header.get("strExpectedDeliveryDate"), "%d%m%Y")
         doc.pickup_date = pickup_date_time
         doc.expected_delivery_date = exp_delivery_date.date()
         doc.recipient = header.get("strRemarks") + " " + header.get("strStatusRelName")
@@ -198,19 +203,21 @@ def dtdc_update_tracking(doc, json_data):
         else:
             doc.status = 'In Transit'
         scans = []
-        for scan in json_data.get("trackDetails"):
-            scan_dict = {}
-            scan_dict["time"] = datetime.strptime((scan.get("strActionDate") + scan.get("strActionTime")), '%d%m%Y%H%M')
-            scan_dict["location"] = 'Frm: ' + scan.get("strOrigin") + ' To: ' + scan.get("strDestination")
-            status_detail = scan.get("strCode") + ': ' + scan.get("strAction") + "-" + scan.get("strManifestNo") + \
-                            " " + scan.get("sTrRemarks")
-            if len(status_detail) > 140:
-                status_detail = status_detail[:140]
-            scan_dict["status_detail"] = status_detail
-            scans.append(scan_dict.copy())
-        doc.scans = []
-        for scan in scans:
-            doc.append("scans", scan)
+        if json_data.get("trackDetails"):
+            for scan in json_data.get("trackDetails"):
+                scan_dict = {}
+                scan_dict["time"] = datetime.strptime((scan.get("strActionDate") +
+                                                       scan.get("strActionTime")), '%d%m%Y%H%M')
+                scan_dict["location"] = 'Frm: ' + scan.get("strOrigin") + ' To: ' + scan.get("strDestination")
+                status_detail = scan.get("strCode") + ': ' + scan.get("strAction") + "-" + scan.get("strManifestNo") + \
+                                " " + scan.get("sTrRemarks")
+                if len(status_detail) > 140:
+                    status_detail = status_detail[:140]
+                scan_dict["status_detail"] = status_detail
+                scans.append(scan_dict.copy())
+            doc.scans = []
+            for scan in scans:
+                doc.append("scans", scan)
         doc.save(ignore_permissions=True)
     else:
         frappe.msgprint('Error {}'.format(str(json_data.get("errorDetails"))))
