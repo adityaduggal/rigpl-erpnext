@@ -171,14 +171,13 @@ def get_tracking_from_dtdc(track_doc):
     track_token = dtdc_track_auth_token(trans_doc)
     track_url = dtdc_get_tracking_url(trans_doc)
     track_response = dtdc_get_tracking_response(track_doc, url=track_url, token=track_token)
-    dtdc_update_tracking(track_doc, track_response.json())
+    dtdc_update_tracking(track_doc, track_response)
 
 
 def dtdc_get_tracking_response(track_doc, url, token):
     json_data, header = dtdc_get_track_json(track_doc, token=token)
     json_data = json.loads(json_data)
     trk_resp = requests.post(url=url, json=json_data, headers=header)
-    dtdc_update_tracking(track_doc, trk_resp.json())
     return trk_resp.json()
 
 
@@ -186,21 +185,30 @@ def dtdc_update_tracking(doc, json_data):
     if json_data.get("statusCode") == 200:
         header = json_data.get("trackHeader")
         doc.ship_to_city = header.get("strDestination")
+        pdt = header.get("strBookedDate") + " " + header.get("strBookedTime")
+        pickup_date_time = datetime.strptime(pdt, "%d%m%Y %H:%M:%S")
+        exp_delivery_date = datetime.strptime(header.get("strExpectedDeliveryDate"), "%d%m%Y")
+        doc.pickup_date = pickup_date_time
+        doc.expected_delivery_date = exp_delivery_date.date()
         doc.recipient = header.get("strRemarks") + " " + header.get("strStatusRelName")
-        if json_data.get("strStatus") == 'Delivered':
+        if header.get("strStatus") == 'Delivered':
             doc.status = 'Delivered'
-            doc.delivery_datetime = datetime.strptime((json_data.get("strStatusTransOn") +
-                                                       json_data.get("strStatusTransTime")), '%d%M%Y%H%M')
+            doc.delivery_date_time = datetime.strptime((header.get("strStatusTransOn") +
+                                                       header.get("strStatusTransTime")), '%d%m%Y%H%M')
         else:
             doc.status = 'In Transit'
         scans = []
         for scan in json_data.get("trackDetails"):
             scan_dict = {}
-            scan_dict["time"] = datetime.strptime((scan.get("strActionDate") + scan.get("strActionTime")), '%d%M%Y%H%M')
+            scan_dict["time"] = datetime.strptime((scan.get("strActionDate") + scan.get("strActionTime")), '%d%m%Y%H%M')
             scan_dict["location"] = 'Frm: ' + scan.get("strOrigin") + ' To: ' + scan.get("strDestination")
-            scan_dict["status_detail"] = scan.get("strCode") + ': ' + scan.get("strAction") + "-" + \
-                                         scan.get("strManifestNo") + " " + scan.get("sTrRemarks")
+            status_detail = scan.get("strCode") + ': ' + scan.get("strAction") + "-" + scan.get("strManifestNo") + \
+                            " " + scan.get("sTrRemarks")
+            if len(status_detail) > 140:
+                status_detail = status_detail[:140]
+            scan_dict["status_detail"] = status_detail
             scans.append(scan_dict.copy())
+        doc.scans = []
         for scan in scans:
             doc.append("scans", scan)
         doc.save(ignore_permissions=True)
@@ -213,7 +221,7 @@ def dtdc_get_track_json(track_doc, token):
     header = {}
     json_data["trkType"] = "cnno" #cnno or reference
     json_data["strcnno"] = track_doc.awb_number
-    json_data["addtnlDtl"] = "N"
+    json_data["addtnlDtl"] = "Y"
     header["X-Access-Token"] = token
     json_data = json.dumps(json_data)
     return json_data, header
