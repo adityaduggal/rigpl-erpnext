@@ -139,7 +139,7 @@ def get_all_ship_data():
         OR tpt.dtdc_credentials = 1 OR tpt.dtdc_tracking_only = 1) 
         AND ctrack.manual_exception_removed = 0 AND ctrack.docstatus != 2 AND tpt.name = ctrack.carrier_name 
         AND ctrack.status != "Delivered" 
-        AND ctrack.awb_number != "NA" AND ctrack.awb_number != "" ORDER BY ctrack.creation DESC """, as_dict=1)
+        AND ctrack.awb_number != "NA" AND ctrack.awb_number != "" ORDER BY ctrack.creation ASC """, as_dict=1)
     sno = 0
     for tracks in pending_ships:
         days_diff = (datetime.today().date() - tracks.creation.date()).days
@@ -151,7 +151,7 @@ def get_all_ship_data():
         elif dtdc == 1:
             track_name = "DTDC"
         if (tracks.fed_cred == 1 or tracks.fed_track == 1 or tracks.dtdc_cred == 1 or tracks.dtdc_track == 1) and \
-                days_diff < 150:
+                150 > days_diff > 1:
             # Get from Fedex or DTDC only if less than 150 days old
             if last_update_hrs > 6:
                 print("{}. Getting Tracking for {} from {}".format(str(sno+1), tracks.name, track_name))
@@ -161,7 +161,7 @@ def get_all_ship_data():
                 print("{}. {} Tracking was updated less than 6 hrs ago hence skipping {}".
                       format(str(sno+1), track_name, tracks.name))
         elif (tracks.fed_cred == 0 and tracks.fed_track == 0 and tracks.dtdc_cred == 0 and tracks.dtdc_track == 0) \
-                and days_diff < 60:
+                and 2 < days_diff < 60:
             # Get from Shipway only less than 60 days old shipments
             if last_update_hrs > 6:
                 print("{}. Getting Tracking for {} from Shipway".format(str(sno+1), tracks.name))
