@@ -6,13 +6,7 @@ from rigpl_erpnext.utils.sales_utils import *
 
 def validate(doc, method):
     update_fields(doc)
-    check_dynamic_link(parenttype="Address", parent=doc.customer_address, link_doctype="Customer",
-                       link_name=doc.customer)
-    check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name,
-                       link_doctype="Customer", link_name=doc.customer)
-    check_dynamic_link(parenttype="Contact", parent=doc.contact_person, link_doctype="Customer", link_name=doc.customer)
     check_gst_rules(doc, doc.customer_address, doc.taxes_and_charges)
-    check_delivery_note_rule(doc, method)
     validate_price_list(doc, method)
     check_strict_po_rules(doc)
     copy_address_and_check(doc)
@@ -95,47 +89,6 @@ def get_pl_rate(doc, price_list, row):
             if row.price_list_rate != item_price[0][0] and doc.currency == item_price[0][1]:
                 frappe.throw("Item: {} in Row# {} does not match with Price List Rate of {}. Reload the Item".format(
                     row.item_code, row.idx, item_price[0][0]))
-
-
-def check_delivery_note_rule(doc, method):
-    dn_dict = frappe._dict()
-    list_of_dn_dict = []
-
-    for d in doc.items:
-        # Stock Items without DN would need Update Stock Check
-        if d.delivery_note is None:
-            item_doc = frappe.get_doc('Item', d.item_code)
-            if item_doc.is_stock_item == 1 and doc.update_stock != 1:
-                frappe.throw(("Item Code {0} in Row # {1} is Stock Item without any DN so please check "
-                              "Update Stock Button").format(d.item_code, d.idx))
-
-        if d.dn_detail not in list_of_dn_dict and d.delivery_note is not None:
-            dn_dict['dn'] = d.delivery_note
-            dn_dict['dn_detail'] = d.dn_detail
-            dn_dict['item_code'] = d.item_code
-            list_of_dn_dict.append(dn_dict.copy())
-        # With SO DN is mandatory
-        if d.sales_order is not None and d.delivery_note is None:
-            # Rule no.5 in the above description for disallow SO=>SI no skipping DN
-            frappe.throw(("""Error in Row# {0} has SO# {1} but there is no DN. 
-            Hence making of Invoice is DENIED""").format(d.idx, d.sales_order))
-        # With DN SO is mandatory
-        if d.delivery_note is not None and d.sales_order is None:
-            frappe.throw(("""Error in Row# {0} has DN# {1} but there is no SO. 
-            Hence making of Invoice is DENIED""").format(d.idx, d.delivery_note))
-        # For DN items quantities should be same
-        if d.delivery_note is not None:
-            dn_qty = frappe.db.get_value('Delivery Note Item', d.dn_detail, 'qty')
-            if dn_qty != d.qty:
-                frappe.throw("Invoice Qty should be equal to DN quantity of {0} at Row # {1}".format(dn_qty, d.idx))
-    if list_of_dn_dict:
-        unique_dn = {v['dn']: v for v in list_of_dn_dict}.values()
-        for dn in unique_dn:
-            dn_doc = frappe.get_doc('Delivery Note', dn.dn)
-            for d in dn_doc.items:
-                if not any(x['dn_detail'] == d.name for x in list_of_dn_dict):
-                    frappe.throw(("Item No: {0} with Item Code: {1} in DN# {2} is not mentioned in "
-                                  "SI# {3}").format(d.idx, d.item_code, dn_doc.name, doc.name))
 
 
 def update_fields(doc):

@@ -4,6 +4,7 @@ from frappe.utils import nowdate, nowtime
 from frappe.desk.reportview import get_match_cond
 from ...utils.sales_utils import check_validated_gstin
 from rigpl_erpnext.utils.manufacturing_utils import *
+from rohit_common.rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
 def validate(doc, method):

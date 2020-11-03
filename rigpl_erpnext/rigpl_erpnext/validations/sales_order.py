@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 from frappe.utils import nowdate
 from rigpl_erpnext.utils.sales_utils import *
+from rohit_common.rohit_common.utils.rohit_common_utils import check_dynamic_link
 from rigpl_erpnext.utils.stock_utils import make_sales_job_work_ste, cancel_delete_ste_from_name
 
 

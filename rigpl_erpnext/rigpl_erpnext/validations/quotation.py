@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
-from ...utils.sales_utils import check_get_pl_rate, get_hsn_code, check_taxes_integrity, check_dynamic_link, \
-    validate_address_google_update, check_validated_gstin
+from ...utils.sales_utils import check_get_pl_rate, get_hsn_code, validate_address_google_update, check_validated_gstin
+from rohit_common.rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
 
 
 def validate(doc, method):
@@ -30,7 +30,7 @@ def validate(doc, method):
             check_dynamic_link(parenttype="Address", parent=doc.shipping_address_name,
                                link_doctype="Lead", link_name=doc.party_name)
 
-    check_taxes_integrity(doc)
+    check_sales_taxes_integrity(doc)
     for rows in doc.items:
         if not rows.price_list:
             rows.price_list = doc.selling_price_list

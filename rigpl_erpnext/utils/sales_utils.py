@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import re
 import frappe
 from frappe.utils import flt
-from ..utils.manufacturing_utils import replace_java_chars
+from rohit_common.rohit_common.utils.rohit_common_utils import replace_java_chars
 from ..utils.job_card_utils import get_completed_qty_of_jc_for_operation
 
 
@@ -173,30 +173,6 @@ def check_get_pl_rate(document, row_dict):
     else:
         frappe.msgprint("In {}# {} at Row# {} and Item Code: {} Price List Rate is Not Defined".format(
             document.doctype, document.name, row_dict.idx, row_dict.item_code))
-
-
-def check_dynamic_link(parenttype, parent, link_doctype, link_name):
-    link_type = frappe.db.sql("""SELECT name FROM `tabDynamic Link` 
-        WHERE docstatus = 0 AND parenttype = '%s' AND parent = '%s'
-        AND link_doctype = '%s' AND link_name = '%s'""" % (parenttype, parent, link_doctype, link_name), as_list=1)
-    if not link_type:
-        frappe.throw("{} {} does not belong to {} {}".format(parenttype, parent, link_doctype, link_name))
-
-
-def check_taxes_integrity(document):
-    template = frappe.get_doc("Sales Taxes and Charges Template", document.taxes_and_charges)
-    if len(template.taxes) != len(document.taxes):
-        frappe.throw("Tax Template {} Data does not match with Document# {}'s Tax {}".
-                     format(template.name,document.name, document.taxes_and_charges))
-    for tax in document.taxes:
-        for temp in template.taxes:
-            if tax.idx == temp.idx:
-                if tax.charge_type != temp.charge_type or tax.row_id != temp.row_id or tax.account_head != \
-                        temp.account_head or tax.included_in_print_rate != temp.included_in_print_rate or tax.rate !=\
-                        temp.rate:
-                    frappe.throw(("Selected Tax {0}'s table does not match with tax table of Sales Order# {1}. Check "
-                                  "Row # {2} or reload Taxes").format(document.taxes_and_charges, document.name,
-                                                                      tax.idx))
 
 
 def check_gst_rules(doc, bill_add_name, taxes_name):

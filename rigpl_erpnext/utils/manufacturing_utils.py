@@ -9,6 +9,7 @@ import math
 from frappe import _
 from frappe.utils import flt
 from erpnext.stock.stock_balance import update_bin_qty
+from rohit_common.rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
 def get_items_from_process_sheet_for_job_card(document, table_name):
@@ -218,20 +219,6 @@ def replace_java_to_mysql(string):
         '!=': '!='
     }
 
-    for k, v in replace_dict.items():
-        string = string.replace(k, v)
-    return string
-
-
-def replace_java_chars(string):
-    replace_dict = {
-        "false": "False",
-        "true": "True",
-        "&&": " and ",
-        "||": " or ",
-        "&gt;": ">",
-        "&lt;": "<"
-    }
     for k, v in replace_dict.items():
         string = string.replace(k, v)
     return string
