@@ -21,6 +21,7 @@ class BOMTemplateRIGPL(Document):
         self.validate_restriction_rules("rm_restrictions")
         self.validate_restriction_rules("fg_restrictions")
         self.validate_restriction_rules("wip_restrictions")
+        self.validate_operations()
         self.generate_title()
         if self.routing:
             routing_dict = {}
@@ -70,6 +71,17 @@ class BOMTemplateRIGPL(Document):
                     att_doc = frappe.get_doc("Item Attribute", d.attribute)
                     check_text_attributes(att_doc=att_doc, att_value=d.allowed_values, error=0)
                     d.rule = ""
+
+    def validate_operations(self):
+        for d in self.operations:
+            op_doc = frappe.get_doc("Operation", d.operation)
+            if op_doc.is_subcontracting == 1:
+                if d.idx == 1:
+                    frappe.throw("First Operation Cannot be Sub-Contracting")
+                if d.allow_consumption_of_rm == 1:
+                    frappe.throw("Sub-Contracting Operation cannot consume Raw Material for Row# {}".format(d.idx))
+                if d.idx == len(self.operations):
+                    frappe.throw("Sub-Contracting Operation cannot be Last Operation.")
 
     def generate_title(self):
         title = ""
