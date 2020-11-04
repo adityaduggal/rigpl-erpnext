@@ -24,12 +24,13 @@ def on_submit(doc, method):
         if d.reference_dt == 'Process Job Card RIGPL':
             jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
             if jc_doc.docstatus == 0:
+                it_doc = frappe.get_doc("Item", d.item_code)
                 jc_doc.posting_date = doc.transaction_date
                 jc_doc.posting_time = nowtime()
-                if d.conversion_factor == 1:
-                    jc_doc.total_completed_qty = d.qty
-                else:
+                if d.conversion_factor != 1 or it_doc.stock_uom != d.uom:
                     jc_doc.total_completed_qty = d.conversion_factor
+                else:
+                    jc_doc.total_completed_qty = d.qty
                 jc_doc.submit()
 
 
