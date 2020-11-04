@@ -6,7 +6,7 @@ from ...utils.manufacturing_utils import get_bom_template_from_item
 
 def validate(doc, method):
     # If STE linked to PO then status of Stock Entry cannot be different from PO
-    # along with posting date and time
+    # along with posting date and time  
     if doc.purchase_order:
         po = frappe.get_doc("Purchase Order", doc.purchase_order)
         doc.posting_date = po.transaction_date
@@ -19,17 +19,6 @@ def validate(doc, method):
         jc = frappe.get_doc("Process Job Card RIGPL", doc.process_job_card)
         doc.posting_date = jc.posting_date
         doc.posting_time = jc.posting_time
-    else:
-        for d in doc.items:
-            # STE for Subcontracting WH only possible for linked with PO STE
-            if d.t_warehouse:
-                wht = frappe.get_doc("Warehouse", d.t_warehouse)
-                if wht.is_subcontracting_warehouse == 1:
-                    frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO or GRN or Job Card")
-            if d.s_warehouse:
-                whs = frappe.get_doc("Warehouse", d.s_warehouse)
-                if whs.is_subcontracting_warehouse == 1:
-                    frappe.throw("Subcontracting Warehouse Stock Entries only possible with PO or GRN or Job Card")
 
     # Check if the Item has a Stock Reconciliation after the date and time or NOT.
     # if there is a Stock Reconciliation then the Update would FAIL

@@ -26,7 +26,10 @@ def on_submit(doc, method):
             if jc_doc.docstatus == 0:
                 jc_doc.posting_date = doc.transaction_date
                 jc_doc.posting_time = nowtime()
-                jc_doc.total_completed_qty = d.qty
+                if d.conversion_factor == 1:
+                    jc_doc.total_completed_qty = d.qty
+                else:
+                    jc_doc.total_completed_qty = d.conversion_factor
                 jc_doc.submit()
 
 
