@@ -4,6 +4,7 @@ from frappe.utils import nowdate
 from rigpl_erpnext.utils.sales_utils import *
 from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
 from rigpl_erpnext.utils.stock_utils import make_sales_job_work_ste, cancel_delete_ste_from_name
+from rigpl_erpnext.utils.process_sheet_utils import create_ps_from_so_item
 
 
 def validate(doc, method):
@@ -77,6 +78,7 @@ def update_fields(doc):
 
 def on_submit(so, method):
     make_sales_job_work_ste(so_no=so.name)
+    makes_process_sheet_if_needed(so)
     so.submitted_by = so.modified_by
     if so.track_trial == 1:
         no_of_team = 0
@@ -106,6 +108,7 @@ def on_submit(so, method):
 
 
 def on_cancel(so, method):
+    delete_process_sheet(so)
     existing_ste = frappe.db.sql("""SELECT name FROM `tabStock Entry` WHERE docstatus=1 
     AND sales_order='%s'"""% so.name, as_dict=1)
     if existing_ste:
@@ -118,3 +121,22 @@ def on_cancel(so, method):
             if name:
                 frappe.delete_doc("Trial Tracking", name[0])
                 frappe.msgprint('{0}{1}'.format("Deleted Trial Tracking No: ", name[0][0]))
+
+
+def makes_process_sheet_if_needed(so):
+    for it in so.items:
+        it_doc = frappe.get_doc("Item", it.item_code)
+        if it_doc.made_to_order == 1:
+            create_ps_from_so_item(it)
+
+
+def delete_process_sheet(so):
+    for it in so.items:
+        it_doc = frappe.get_doc("Item", it.item_code)
+        if it_doc.made_to_order == 1:
+            ps_list = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 
+            AND sales_order_item = '%s' AND sales_order = '%s'""" % (it.name, so.name), as_dict=1)
+            if ps_list:
+                for ps in ps_list:
+                    frappe.delete_doc("Process Sheet", ps.name, for_reload=False)
+

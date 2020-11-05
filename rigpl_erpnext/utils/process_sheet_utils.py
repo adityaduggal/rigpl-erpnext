@@ -4,6 +4,7 @@
 
 from __future__ import unicode_literals
 import frappe
+from datetime import date
 from frappe.utils import flt
 from rigpl_erpnext.utils.other_utils import round_up
 from .manufacturing_utils import convert_rule_to_mysql_statement, convert_wip_rule_to_mysql_statement, \
@@ -176,6 +177,21 @@ def get_produced_qty(item_code, so_item=None):
                 for qty in qty_list:
                     prod_qty += qty.quantity
     return prod_qty
+
+
+def create_ps_from_so_item(so_row):
+    ps_doc = frappe.new_doc("Process Sheet")
+    ps_doc.flags.ignore_mandatory = True
+    ps_doc.production_item = so_row.item_code
+    ps_doc.description = so_row.description
+    ps_doc.date = date.today()
+    ps_doc.quantity = so_row.qty
+    ps_doc.sales_order = so_row.parent
+    ps_doc.sales_order_item = so_row.name
+    ps_doc.sno = so_row.idx
+    ps_doc.insert()
+    frappe.msgprint("Created {} for Row# {}".format(frappe.get_desk_link("Process Sheet", ps_doc.name), so_row.idx))
+
 
 
 @frappe.whitelist()
