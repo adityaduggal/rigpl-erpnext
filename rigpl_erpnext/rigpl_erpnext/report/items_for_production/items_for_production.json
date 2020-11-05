@@ -7,14 +7,33 @@
  "doctype": "Report",
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2019-04-02 10:33:43.442127",
+ "modified": "2020-11-05 21:05:13.151841",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Items For Production",
  "owner": "aditya@rigpl.com",
  "prepared_report": 1,
- "ref_doctype": "Work Order",
+ "ref_doctype": "Process Sheet",
  "report_name": "Items For Production",
  "report_type": "Script Report",
- "roles": []
+ "roles": [
+  {
+   "role": "Manufacturing User"
+  },
+  {
+   "role": "Stock User"
+  },
+  {
+   "role": "Dispatch RIGPL"
+  },
+  {
+   "role": "Manufacturing Manager"
+  },
+  {
+   "role": "Production Inventory User"
+  },
+  {
+   "role": "System Manager"
+  }
+ ]
 }
