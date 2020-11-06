@@ -9,6 +9,21 @@ from ...utils.job_card_utils import update_job_card_qty_available, update_job_ca
 
 
 def execute():
+    ps_dict = frappe.db.sql("""SELECT name, status FROM `tabProcess Sheet` 
+    WHERE docstatus = 1 AND status != 'Completed' AND status != 'Stopped' AND status != 'Short Closed' 
+    ORDER BY name""", as_dict=1)
+    ps_count = 0
+    for ps in ps_dict:
+        ps_doc = frappe.get_doc("Process Sheet", ps.name)
+        if ps_doc.short_closed_qty > 0:
+            ps_doc.status = "Short Closed"
+            print("Short Closed {}".format(ps_doc.name))
+        elif ps_doc.quantity <= ps_doc.produced_qty:
+            ps_count += 1
+            ps_doc.status = "Completed"
+            print("Completed {}".format(ps_doc.name))
+        ps_doc.save()
+    frappe.db.commit()
     open = "Open"
     wip = "Work In Progress"
     start_time = time.time()
@@ -32,6 +47,8 @@ def execute():
                 frappe.db.commit()
                 print("Committing Changes after {} Nos JC Updation".format(updated_jc_nos))
     end_time = time.time()
+    total_time = int(end_time - start_time)
     print("Total Number of Job Cards in Draft: " + str(len(jc_dict)))
     print("Total Number of Job Cards Updated: " + str(updated_jc_nos))
-    print(f"Total Execution Time: {end_time - start_time} seconds")
+    print("Total Number of Process Sheets Updated: " + str(ps_count))
+    print(f"Total Execution Time: {total_time} seconds")
