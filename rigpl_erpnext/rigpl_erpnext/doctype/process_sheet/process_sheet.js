@@ -3,6 +3,26 @@
 
 frappe.ui.form.on('Process Sheet', {
 	refresh: function(frm){
+        if (frm.doc.status === "In Progress"){
+            me.frm.add_custom_button(__("Stop"), function(){
+                frappe.call({
+                    method: "rigpl_erpnext.utils.process_sheet_utils.stop_process_sheet",
+                    args: {
+                        "ps_name": frm.doc.name
+                    }
+                })
+            })
+        }
+        if (frm.doc.status === "Stopped"){
+            me.frm.add_custom_button(__("UnStop"), function(){
+                frappe.call({
+                    method: "rigpl_erpnext.utils.process_sheet_utils.unstop_process_sheet",
+                    args: {
+                        "ps_name": frm.doc.name
+                    }
+                })
+            })
+        }
 	    if (frm.doc.docstatus === 0){
             me.frm.add_custom_button(__('Select BOM Template Manually'),
                 function(){
@@ -59,6 +79,22 @@ frappe.ui.form.on('Process Sheet', {
 				}
 			};
 		});
+		frm.set_query("raw_material_source_warehouse", function(doc) {
+			return {
+				"filters": {
+					"disabled": 0,
+					"is_group": 0
+				}
+			};
+		});
+	},
+	raw_material_source_warehouse: function(frm){
+	    frm.doc.rm_consumed = []
+	    frm.refresh_fields();
+	},
+	show_unavailable_rm: function(frm){
+	    frm.doc.rm_consumed = []
+	    frm.refresh_fields();
 	},
 	bom_template: function(frm){
 	    frm.doc.fg_warehouse = ""

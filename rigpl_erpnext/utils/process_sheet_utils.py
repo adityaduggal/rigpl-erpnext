@@ -8,7 +8,24 @@ from datetime import date
 from frappe.utils import flt
 from rigpl_erpnext.utils.other_utils import round_up
 from .manufacturing_utils import convert_rule_to_mysql_statement, convert_wip_rule_to_mysql_statement, \
-    get_bom_template_from_item
+    get_bom_template_from_item, update_planned_qty, update_qty_for_prod
+from .job_card_utils import check_existing_job_card, create_job_card
+
+
+def update_process_sheet_quantities(ps_doc):
+    update_planned_qty(item_code=ps_doc.production_item, warehouse=ps_doc.fg_warehouse)
+    for rm in ps_doc.rm_consumed:
+        update_qty_for_prod(item_code=rm.item_code, warehouse=rm.source_warehouse, table_name="rm_consumed")
+
+
+def make_jc_for_process_sheet(ps_doc):
+    for row in ps_doc.operations:
+        if row.status == 'Pending':
+            existing_job_card = check_existing_job_card(item_name=ps_doc.production_item, operation=row.operation,
+                                                        so_detail=ps_doc.sales_order_item)
+            if not existing_job_card:
+                create_job_card(ps_doc, row, auto_create=True)
+                frappe.db.set_value("BOM Operation", row.name, "status", "In Progress")
 
 
 def disallow_templates(doc, item_doc):
@@ -192,6 +209,68 @@ def create_ps_from_so_item(so_row):
     ps_doc.insert()
     frappe.msgprint("Created {} for Row# {}".format(frappe.get_desk_link("Process Sheet", ps_doc.name), so_row.idx))
 
+
+@frappe.whitelist()
+def stop_process_sheet(ps_name):
+    ps_doc = frappe.get_doc("Process Sheet", ps_name)
+    allowed = get_process_sheet_permission(ps_doc)
+    if allowed == 1:
+        if ps_doc.status == "In Progress":
+            if ps_doc.produced_qty >= ps_doc.quantity:
+                ps_doc.status = "Completed"
+            else:
+                ps_doc.status = "Stopped"
+            # Delete Job Cards for Process Sheeet
+            jc_list = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus=0 
+            AND process_sheet = '%s'""" % ps_name, as_dict=1)
+            if jc_list:
+                for jc in jc_list:
+                    frappe.delete_doc("Process Job Card RIGPL", jc.name, for_reload=False)
+        ps_doc.save()
+        update_process_sheet_quantities(ps_doc)
+    else:
+        frappe.throw("Don't Have Permission to Stop Process Sheet {}".format(ps_name))
+
+
+@frappe.whitelist()
+def unstop_process_sheet(ps_name):
+    ps_doc = frappe.get_doc("Process Sheet", ps_name)
+    allowed = get_process_sheet_permission(ps_doc)
+    if allowed == 1:
+        ps_doc.status = "In Progress"
+        for op in ps_doc.operations:
+            existing_job_card = check_existing_job_card(item_name=ps_doc.production_item, operation=op.operation,
+                                                        so_detail=ps_doc.sales_order_item)
+            if not existing_job_card:
+                create_job_card(ps_doc, op, auto_create=True)
+        ps_doc.save()
+        update_process_sheet_quantities(ps_doc)
+    else:
+        frappe.throw("Don't Have Permission to Un-Stop Process Sheet {}".format(ps_name))
+
+
+def get_process_sheet_permission(ps_doc):
+    user = frappe.session.user
+    usr_role_list = frappe.db.sql("""SELECT role FROM `tabHas Role` WHERE parenttype = 'User' 
+    AND parent = '%s'""" % user, as_list=1)
+    is_sys_mgr = any("System Manager" in sublist for sublist in usr_role_list)
+    if is_sys_mgr == 1:
+        return 1
+    custom_perm_cancel = frappe.db.sql("""SELECT role, parent, cancel FROM `tabCustom DocPerm` 
+    WHERE parenttype = 'DocType' AND parent = '%s' AND cancel=1""" % ps_doc.doctype, as_dict=1)
+    if custom_perm_cancel:
+        for role in custom_perm_cancel:
+            cancel_allowed = any(role.role in sublist for sublist in usr_role_list)
+            if cancel_allowed == 1:
+                return 1
+    else:
+        std_perm_cancel = frappe.db.sql("""SELECT role, parent, cancel FROM `tabDocPerm` 
+        WHERE parenttype = 'DocType' AND parent = '%s' AND cancel=1""" % ps_doc.doctype, as_dict=1)
+        for role in std_perm_cancel:
+            cancel_allowed = any(role.role in sublist for sublist in usr_role_list)
+            if cancel_allowed == 1:
+                return 1
+    return 0
 
 
 @frappe.whitelist()

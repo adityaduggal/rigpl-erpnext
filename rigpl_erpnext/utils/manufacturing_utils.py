@@ -382,6 +382,8 @@ def update_produced_qty(jc_doc, status="Submit"):
             if status == "Submit":
                 tc_comp_qty = jc_doc.total_completed_qty
                 frappe.db.set_value("BOM Operation", ps_r.name, "completed_qty", tc_comp_qty if tc_comp_qty > 0 else 0)
+                if pro_sheet.status == "Submitted":
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
                 if tc_comp_qty >= ps_r.planned_qty or jc_doc.short_close_operation == 1:
                     frappe.db.set_value("BOM Operation", ps_r.name, "status", "Completed")
                 else:
@@ -393,10 +395,12 @@ def update_produced_qty(jc_doc, status="Submit"):
                     frappe.db.set_value("BOM Operation", ps_r.name, "status", "In Progress")
 
             if ps_r.idx == 1 and status == "Submit":
-                if jc_doc.short_close_operation != 1:
-                    tc_comp_qty = pro_sheet.produced_qty + jc_doc.total_completed_qty
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
-                    else 0)
+                tc_comp_qty = pro_sheet.produced_qty + jc_doc.total_completed_qty
+                frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
+                else 0)
+                if tc_comp_qty >= pro_sheet.quantity:
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "Completed")
+                elif jc_doc.short_close_operation != 1:
                     frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
                 else:
                     sc_qty = pro_sheet.quantity - jc_doc.total_completed_qty - pro_sheet.produced_qty
@@ -405,7 +409,7 @@ def update_produced_qty(jc_doc, status="Submit"):
                     else 0)
                     frappe.db.set_value("Process Sheet", pro_sheet.name, "short_closed_qty", sc_qty if sc_qty > 0
                     else 0)
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
+                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "Short Closed")
             elif ps_r.idx == 1 and status == 'Cancel':
                 if jc_doc.short_close_operation != 1:
                     tc_comp_qty = pro_sheet.produced_qty - jc_doc.total_completed_qty
@@ -419,10 +423,6 @@ def update_produced_qty(jc_doc, status="Submit"):
                     frappe.db.set_value("Process Sheet", pro_sheet.name, "short_closed_qty", 0)
 
 
-def close_process_sheet(ps_doc):
-    pass
-
-
 def update_qty_for_prod(item_code, warehouse, table_name):
     update_bin_qty(item_code, warehouse, {"reserved_qty_for_production": get_qty_for_prod(item_code, warehouse,
                                                                                           table_name)})
@@ -432,8 +432,8 @@ def get_qty_for_prod(item_code, warehouse, table_name):
     qty_res_for_prod = frappe.db.sql("""SELECT SUM(psi.calculated_qty - psi.qty) FROM `tabProcess Sheet Items` psi, 
     `tabProcess Sheet` ps 
     WHERE ps.name = psi.parent AND psi.parenttype = 'Process Sheet' AND ps.docstatus = 1 AND psi.parentfield = '%s' AND
-    ps.status NOT IN ("Stopped", "Completed") AND psi.donot_consider_rm_for_production != 1 AND psi.item_code = '%s' 
-    AND psi.source_warehouse = '%s'""" % (table_name, item_code, warehouse))
+    ps.status NOT IN ("Stopped", "Completed", "Short Closed") AND psi.donot_consider_rm_for_production != 1 
+    AND psi.item_code = '%s' AND psi.source_warehouse = '%s'""" % (table_name, item_code, warehouse))
 
     return flt(qty_res_for_prod[0][0]) if qty_res_for_prod else 0
 
@@ -446,8 +446,8 @@ def update_planned_qty(item_code, warehouse):
 
 def get_planned_qty_process(item_code, warehouse):
     planned_qty = frappe.db.sql(""" SELECT IF(SUM(quantity - produced_qty) > 0, SUM(quantity - produced_qty), 0) FROM 
-    `tabProcess Sheet` WHERE production_item = %s and fg_warehouse = %s and status not in ("Stopped", "Completed") 
-    AND docstatus=1 AND quantity > produced_qty""", (item_code, warehouse))
+    `tabProcess Sheet` WHERE production_item = %s and fg_warehouse = %s and status NOT IN 
+    ("Stopped", "Completed", "Short Closed") AND docstatus=1 AND quantity > produced_qty""", (item_code, warehouse))
 
     return flt(planned_qty[0][0]) if planned_qty else 0
 

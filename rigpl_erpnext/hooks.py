@@ -212,10 +212,6 @@ scheduler_events = {
         "10 3 * * *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all"
             # Runs everyday at 3:10 AM
-        ],
-        "*/5 * * * *": [
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.execute"
-            # Runs 5 mins
         ]
     },
     "all": [
@@ -231,7 +227,8 @@ scheduler_events = {
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.execute"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.execute",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.execute"
     ]
     # 	"monthly": [
     # 		"rigpl_erpnext.tasks.monthly"

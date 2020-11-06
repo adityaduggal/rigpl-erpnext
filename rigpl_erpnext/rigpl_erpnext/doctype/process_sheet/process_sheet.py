@@ -24,20 +24,14 @@ class ProcessSheet(Document):
             else:
                 self.validate_no_of_raw_material_items(bt_doc)
 
-        if self.quantity < 1:
-            frappe.throw("Not Allowed to Submit Quantity Less than 1")
+        if self.quantity == 0:
+            frappe.throw("Not Allowed to Submit Quantity Equal to ZERO")
         frappe.db.set_value('Process Sheet', self.name, "status", "Submitted")
         update_planned_qty(self.production_item, self.fg_warehouse)
         for d in self.rm_consumed:
             update_qty_for_prod(d.item_code, d.source_warehouse, table_name="rm_consumed")
         update_psheet_operation_status(self, status="Pending", for_value="all")
-        for row in self.operations:
-            if row.status == 'Pending':
-                existing_job_card = check_existing_job_card(item_name=self.production_item, operation=row.operation,
-                                                            so_detail=self.sales_order_item)
-                if not existing_job_card:
-                    create_job_card(self, row, auto_create=True)
-                    frappe.db.set_value("BOM Operation", row.name, "status", "In Progress")
+        make_jc_for_process_sheet(self)
 
     def on_cancel(self):
         frappe.db.set_value("Process Sheet", self.name, "status", "Cancelled")
