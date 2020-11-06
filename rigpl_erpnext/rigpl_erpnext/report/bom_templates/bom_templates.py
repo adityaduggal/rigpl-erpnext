@@ -38,6 +38,7 @@ def get_columns(filters):
     for rest in rest_details:
         col_string = str(rest.get("name")) + '::' + str(rest.get("max_length")*8)
         columns.append(col_string)
+    columns.append('# of Ops:In:50, ')
     columns.append('Routing:Link/Routing:150, ')
     columns.append('Remarks::300, ')
     columns.append('Formula::300')
@@ -59,7 +60,8 @@ def get_data(cond_rest, restrictions, att_details, filters):
             AND %s.parentfield = 'fg_restrictions' AND %s.attribute = '%s'""" % \
                     (att_trimmed, att_trimmed, att_trimmed, att_trimmed, att.attribute)
 
-    query = """SELECT bt.name %s, bt.routing, bt.remarks, bt.formula
+    query = """SELECT bt.name %s, (SELECT COUNT(name) FROM `tabBOM Operation` WHERE 
+        parenttype = 'BOM Template RIGPL' AND parent = bt.name),bt.routing, bt.remarks, bt.formula
         FROM `tabBOM Template RIGPL` bt %s %s
         ORDER BY %s bt.name""" % (att_query, att_join, cond_rest, att_order)
     data = frappe.db.sql(query, as_list=1)
