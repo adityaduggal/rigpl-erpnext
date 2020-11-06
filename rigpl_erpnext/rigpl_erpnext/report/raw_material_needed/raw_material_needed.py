@@ -103,7 +103,6 @@ def get_items(filters):
 			CAST(d1.attribute_value AS DECIMAL(8,3)) ASC, 
 			CAST(w1.attribute_value AS DECIMAL(8,3)) ASC, 
 			CAST(l1.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it), as_dict=1)
-
 	for i in range(0, len(data)):
 		rol = flt(data[i].rol)
 		so = flt(data[i].so)
@@ -123,28 +122,28 @@ def get_items(filters):
 		prod = total - stock
 		fut_stock = "X"
 
-		if rol <10:
-			rol = 3*rol
+		if rol < 10:
+			calc_rol = 3*rol
 		elif 10 <= rol < 20:
-			rol = 2*rol
+			calc_rol = 2*rol
 		elif 20 <= rol < 50:
-			rol = 1.5*rol
+			calc_rol = 1.5*rol
 
 		if total < so:
 			fut_stock = "Raise More PO and Indent"
-		elif total < so + rol:
+		elif total < so + calc_rol:
 			fut_stock = "1<30 Days"
-		elif total < so + 2*rol:
+		elif total < so + 2*calc_rol:
 			fut_stock = "2<60 Days"
-		elif total < so + 3*rol:
+		elif total < so + 3*calc_rol:
 			fut_stock = "3<90 Days"
-		elif total < so + 4*rol:
+		elif total < so + 4*calc_rol:
 			fut_stock = "4<120 Days"
-		elif total < so + 5*rol:
+		elif total < so + 5*calc_rol:
 			fut_stock = "5<150 Days"
-		elif total < so + 6*rol:
+		elif total < so + 6*calc_rol:
 			fut_stock = "6<180 Days"
-		elif total > so + 6*rol:
+		elif total > so + 6*calc_rol:
 			if rol >0:
 				fut_stock = "7 Over Stocked >180 Days"
 			else:
@@ -152,21 +151,21 @@ def get_items(filters):
 		else:
 			fut_stock = "-"
 			
-		if stock < rol:
+		if stock < calc_rol:
 			cur_stock = "NO STOCK"
-		elif stock < so + rol:
+		elif stock < so + calc_rol:
 			cur_stock = "1<30 Days"
-		elif stock < so + 2*rol:
+		elif stock < so + 2*calc_rol:
 			cur_stock = "2<60 Days"
-		elif stock < so + 3*rol:
+		elif stock < so + 3*calc_rol:
 			cur_stock = "3<90 Days"
-		elif stock < so + 4*rol:
+		elif stock < so + 4*calc_rol:
 			cur_stock = "4<120 Days"
-		elif stock < so + 5*rol:
+		elif stock < so + 5*calc_rol:
 			cur_stock = "5<150 Days"
-		elif stock < so + 6*rol:
+		elif stock < so + 6*calc_rol:
 			cur_stock = "6<180 Days"
-		elif stock > so + 6*rol:
+		elif stock > so + 6*calc_rol:
 			if rol >0:
 				cur_stock = "7 Over Stocked >180 Days"
 			else:
