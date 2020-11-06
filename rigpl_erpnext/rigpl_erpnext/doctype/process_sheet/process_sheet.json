@@ -15,6 +15,8 @@
   "sales_order",
   "sales_order_item",
   "sno",
+  "raw_material_source_warehouse",
+  "show_unavailable_rm",
   "cb0",
   "fg_warehouse",
   "bom_template",
@@ -153,12 +155,13 @@
    "read_only": 1
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "\nCancelled\nCompleted\nDraft\nIn Progress\nStopped\nSubmitted",
+   "options": "\nCancelled\nCompleted\nDraft\nIn Progress\nShort Closed\nStopped\nSubmitted",
    "read_only": 1
   },
   {
@@ -223,6 +226,7 @@
    "read_only": 1
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "short_closed_qty",
    "fieldtype": "Float",
    "label": "Short Closed Qty",
@@ -234,10 +238,22 @@
    "fieldtype": "Check",
    "label": "Bypass all Qty Checks",
    "permlevel": 1
+  },
+  {
+   "fieldname": "raw_material_source_warehouse",
+   "fieldtype": "Link",
+   "label": "Raw Material Source Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_unavailable_rm",
+   "fieldtype": "Check",
+   "label": "Show Unavailable RM"
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-31 10:36:17.745062",
+ "modified": "2020-11-05 22:55:40.903095",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",
