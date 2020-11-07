@@ -21,7 +21,7 @@ def get_columns(filters):
     ]
     restrictions = frappe.db.sql("""SELECT DISTINCT(ivr.attribute) AS attribute, ivr.is_numeric AS numeric_val
     FROM `tabItem Variant Restrictions` ivr 
-    WHERE parenttype = 'BOM Template RIGPL' AND parentfield = 'fg_restrictions' """, as_dict=1)
+    WHERE parenttype = 'BOM Template RIGPL' AND parentfield = 'fg_restrictions' AND ivr.is_numeric=0""", as_dict=1)
     restrictions = sorted(restrictions, key=itemgetter("numeric_val", "attribute"))
     rest_details = []
     for rest in restrictions:
@@ -62,38 +62,29 @@ def get_data(cond_rest, restrictions, att_details, filters):
 
     query = """SELECT bt.name %s, (SELECT COUNT(name) FROM `tabBOM Operation` WHERE 
         parenttype = 'BOM Template RIGPL' AND parent = bt.name),bt.routing, bt.remarks, bt.formula
-        FROM `tabBOM Template RIGPL` bt %s %s
+        FROM `tabBOM Template RIGPL` bt %s 
+        WHERE bt.docstatus = 0 %s
         ORDER BY %s bt.name""" % (att_query, att_join, cond_rest, att_order)
     data = frappe.db.sql(query, as_list=1)
     return data
 
 
 def get_conditions(filters):
-    cond_rest = ""
 
-    if filters.get("rm"):
-        cond_rest += " AND IsRM.allowed_values = '%s'" % filters.get("rm")
+    cond_rest = ""
 
     if filters.get("bm"):
         cond_rest += " AND BaseMaterial.allowed_values = '%s'" % filters.get("bm")
 
-    if filters.get("series"):
-        cond_rest += " AND Series.allowed_values = '%s'" % filters.get("series")
-
     if filters.get("quality"):
-        cond_rest += " AND %sQuality.allowed_values = '%s'" % (bm, filters.get("quality"))
+        if filters.get("bm"):
+            bm = filters.get("bm")
+            cond_rest += " AND %sQuality.allowed_values = '%s'" % (bm, filters.get("quality"))
+        else:
+            frappe.throw("Select Base Material before Selecting Quality")
 
     if filters.get("spl"):
         cond_rest += " AND SpecialTreatment.allowed_values = '%s'" % filters.get("spl")
-
-    if filters.get("purpose"):
-        cond_rest += " AND Purpose.allowed_values = '%s'" % filters.get("purpose")
-
-    if filters.get("type"):
-        cond_rest += " AND TypeSelector.allowed_values = '%s'" % filters.get("type")
-
-    if filters.get("mtm"):
-        cond_rest += " AND MaterialtoMachine.allowed_values = '%s'" % filters.get("mtm")
 
     if filters.get("tt"):
         cond_rest += " AND ToolType.allowed_values = '%s'" % filters.get("tt")

@@ -5,14 +5,6 @@
 frappe.query_reports["BOM Templates"] = {
 	"filters": [
 		{
-			"fieldname":"rm",
-			"label": "Is RM",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_rm_query"}}
-		},
-		{
 			"fieldname":"bm",
 			"label": "Base Material",
 			"fieldtype": "Link",
@@ -21,16 +13,6 @@ frappe.query_reports["BOM Templates"] = {
 			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
 		},
-		{
-			"fieldname":"brand",
-			"label": "Brand",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"reqd": 0,
-			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_brand_query"}}
-		},
-
 		{
 			"fieldname":"quality",
 			"label": "Quality",
