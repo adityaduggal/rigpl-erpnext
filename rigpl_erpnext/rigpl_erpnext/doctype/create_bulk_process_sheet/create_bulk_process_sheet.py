@@ -116,6 +116,7 @@ class CreateBulkProcessSheet(Document):
                 "description"		: d.description,
                 "status"			: "Draft",
                 "sales_order_item"	: d.sales_order_item,
+                "sno"               : d.idx,
                 "quantity"				: d.planned_qty
             }
             item_details.append(item_dict.copy())
