@@ -484,21 +484,6 @@ def update_warehouse_from_bt(pro_sheet_doc):
                     row.target_warehouse = bt_row.target_warehouse
 
 
-def check_produced_qty_jc(doc):
-    if not doc.s_warehouse:
-        min_qty, max_qty = get_min_max_ps_qty(doc.for_quantity)
-        if (min_qty > doc.total_completed_qty and doc.short_close_operation == 1) or doc.total_completed_qty > max_qty:
-            frappe.throw("For Job Card# {} allowed quantities to Manufacture is between {} and {}. So if you "
-                         "are producing lower quantities then you cannot short close the Operation".format(doc.name,
-                                                                                                    min_qty, max_qty))
-    else:
-        if doc.qty_available < (doc.total_completed_qty + doc.total_rejected_qty):
-            frappe.throw("For Job Card# {} Qty Available for Item Code: {} in Warehouse: {} is {} but you are trying "
-                         "to process {} quantities. Please correct this error.".\
-                         format(doc.name, doc.production_item, doc.s_warehouse, doc.qty_available,
-                                (doc.total_completed_qty + doc.total_rejected_qty)))
-
-
 def get_min_max_ps_qty(qty):
     manuf_settings = frappe.get_single("Manufacturing Settings")
     over_prod = manuf_settings.overproduction_percentage_for_work_order

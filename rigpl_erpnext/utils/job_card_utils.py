@@ -7,8 +7,8 @@ import frappe
 from frappe import _
 import datetime
 from erpnext.stock.utils import get_bin
-from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt, add_to_date
-from .manufacturing_utils import get_items_from_process_sheet_for_job_card, convert_qty_per_uom
+from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt
+from .manufacturing_utils import get_items_from_process_sheet_for_job_card, convert_qty_per_uom, get_min_max_ps_qty
 from .stock_utils import cancel_delete_ste_from_name
 
 
@@ -48,6 +48,21 @@ def update_jc_posting_date_time(jc_doc):
     if jc_doc.manual_posting_date_and_time != 1:
         jc_doc.posting_date = nowdate()
         jc_doc.posting_time = nowtime()
+
+
+def check_produced_qty_jc(doc):
+    if not doc.s_warehouse:
+        min_qty, max_qty = get_min_max_ps_qty(doc.for_quantity)
+        if (min_qty > doc.total_completed_qty and doc.short_close_operation == 1) or doc.total_completed_qty > max_qty:
+            frappe.throw("For Job Card# {} allowed quantities to Manufacture is between {} and {}. So if you "
+                         "are producing lower quantities then you cannot short close the Operation".format(doc.name,
+                                                                                                    min_qty, max_qty))
+    else:
+        if doc.qty_available < (doc.total_completed_qty + doc.total_rejected_qty):
+            frappe.throw("For Job Card# {} Qty Available for Item Code: {} in Warehouse: {} is {} but you are trying "
+                         "to process {} quantities. Please correct this error.".\
+                         format(doc.name, doc.production_item, doc.s_warehouse, doc.qty_available,
+                                (doc.total_completed_qty + doc.total_rejected_qty)))
 
 
 def update_job_card_qty_available(jc_doc):
