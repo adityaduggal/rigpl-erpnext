@@ -96,13 +96,13 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"fieldname":"summary",
 			"label": "Post Production Summary",
 			"fieldtype": "Check",
-			"default": 1
+			"default": 0
 		},
 		{
 			"fieldname":"production_planning",
 			"label": "Production Planning",
 			"fieldtype": "Check",
-			"default": 0
+			"default": 1
 		},
 		{
 			"fieldname":"order_wise_summary",
