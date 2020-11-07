@@ -97,10 +97,10 @@ class ProcessJobCardRIGPL(Document):
                                                               bom_template_name= pro_sheet_doc.bom_template,
                                                               process_sheet_name=self.process_sheet, is_wip=1)
             for wip_it in wip_calc_qty_dict:
-                if d.item_code == wip_it.fg_item_code and d.calculated_qty != wip_it.qty:
-                    d.calculated_qty = wip_it.qty
+                if d.item_code == wip_it.fg_item_code:
                     wip_rm_consume += wip_it.qty
-
+                    if d.calculated_qty != wip_it.qty:
+                        d.calculated_qty = wip_it.qty
         rm_calc_qty_dict = calculated_value_from_formula(rm_item_dict, self.production_item,
                                                          fg_qty=(self.total_completed_qty + self.total_rejected_qty),
                                                          bom_template_name= pro_sheet_doc.bom_template,
