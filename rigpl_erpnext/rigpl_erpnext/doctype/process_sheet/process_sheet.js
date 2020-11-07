@@ -3,7 +3,7 @@
 
 frappe.ui.form.on('Process Sheet', {
 	refresh: function(frm){
-	    if (frm.doc.show_unavailable_rm !== 1){
+	    if (frm.doc.show_unavailable_rm !== 1 && frm.doc.rm_consumed){
 	        var rm = frm.doc.rm_consumed
 	        var i = rm.length
 	        while (i--){
