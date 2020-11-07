@@ -158,7 +158,7 @@ def get_qty_to_manufacture(it_doc, so_item=None):
 
                 if lead == 0:
                     lead = 30
-            reqd_qty = (calc_rol * lead / 30) + so + prd - fg - wipq
+            reqd_qty = (calc_rol * lead / 30) + so + prd - fg - wipq - plan
             if reqd_qty < 0:
                 reqd_qty = 0
             if rol > 0:
