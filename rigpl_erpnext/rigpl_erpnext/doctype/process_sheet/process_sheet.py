@@ -217,7 +217,9 @@ class ProcessSheet(Document):
                 row.planned_qty = self.quantity
 
     def validate_qty_to_manufacture(self, it_doc):
-        auto_qty = get_qty_to_manufacture(it_doc)
+        auto_qty, dead_qty = get_qty_to_manufacture(it_doc)
+        if dead_qty > 0 and self.bypass_all_qty_checks != 1:
+            frappe.throw("There are {} Qty in Dead Stock for {}".format(dead_qty, self.production_item))
         if self.bypass_all_qty_checks == 1:
             if auto_qty != self.quantity:
                 frappe.msgprint("Qty Calculated = {} But Entered Qty= {}".format(auto_qty, self.quantity))
@@ -240,12 +242,28 @@ class ProcessSheet(Document):
                     self.update_qty_manually = 0
                     self.quantity = pend_qty
                     frappe.msgprint("For {} Item in Row#{} Pending Qty= {} but Qty Planned= {}".
-                                    format(frappe.get_desk_link("Sales Order", self.sales_order), self.sales_order_sno,
+                                    format(frappe.get_desk_link("Sales Order", self.sales_order), self.sno,
                                            pend_qty, self.quantity))
 
     def get_balance_qty_from_so(self, so_detail):
         soi_doc = frappe.get_doc("Sales Order Item", so_detail)
-        forced_qty = soi_doc.qty - soi_doc.delivered_qty
+        qty_in_prd = frappe.db.sql("""SELECT SUM(quantity) FROM `tabProcess Sheet` WHERE docstatus=1 AND 
+        status NOT IN ("Stopped", "Short Closed") AND production_item = '%s' 
+        AND sales_order_item = '%s'""" % (soi_doc.item_code, so_detail), as_list=1)
+        if qty_in_prd:
+            qty_in_prd = flt(qty_in_prd[0][0])
+        else:
+            qty_in_prd = 0
+        qty_stopped = frappe.db.sql("""SELECT SUM(produced_qty) - SUM(short_closed_qty) 
+        FROM `tabProcess Sheet` WHERE docstatus=1 AND status IN ("Stopped", "Short Closed") 
+        AND production_item = '%s' AND sales_order_item = '%s'""" % (soi_doc.item_code, so_detail), as_list=1)
+        if qty_stopped:
+            qty_stopped = flt(qty_stopped[0][0])
+        else:
+            qty_stopped=0
+        forced_qty = soi_doc.qty - soi_doc.delivered_qty - qty_in_prd - qty_stopped
+        if forced_qty < 0:
+            forced_qty = 0
         return forced_qty
 
     def update_ps_status(self):

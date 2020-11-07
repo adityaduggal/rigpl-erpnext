@@ -98,6 +98,7 @@ def get_req_wip_sizes_from_template(bom_temp_name, fg_item, rm_item, table_name,
 
 def get_qty_to_manufacture(it_doc, so_item=None):
     qty = 0
+    dead = 0
     if it_doc.made_to_order != 1:
         rol = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty FROM `tabItem Reorder` 
         WHERE parent = '%s' AND parenttype = '%s' AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype),
@@ -111,18 +112,27 @@ def get_qty_to_manufacture(it_doc, so_item=None):
             wh.warehouse_type, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND 
             bn.item_code = '%s'"""
                                  % it_doc.name, as_dict=1)
+        calc_rol = 0
         fg = 0
         wipq = 0
         con = 0
         rm = 0
-        dead = 0
         rej = 0
         po = 0
         so = 0
         ind = 0
         plan = 0
         prd = 0
+        vr = flt(it_doc.valuation_rate)
         lead = flt(it_doc.lead_time_days)
+        if rol * vr <= 1000:
+            calc_rol = 5*rol
+        elif rol * vr <= 2000:
+            calc_rol = 2.5*rol
+        elif rol * vr <= 5000:
+            calc_rol = 1.5*rol
+        else:
+            calc_rol = rol
         if bin_dict:
             for d in bin_dict:
                 so += flt(d.reserved_qty)
@@ -148,20 +158,24 @@ def get_qty_to_manufacture(it_doc, so_item=None):
 
                 if lead == 0:
                     lead = 30
-            reqd_qty = (rol * lead / (30 * 2)) + so + prd - fg - wipq
+            reqd_qty = (calc_rol * lead / 30) + so + prd - fg - wipq
             if reqd_qty < 0:
                 reqd_qty = 0
-            elif 10 < reqd_qty < 50:
-                reqd_qty = round_up(reqd_qty, 5)
-            elif 50 < reqd_qty < 500:
-                reqd_qty = round_up(reqd_qty, 10)
-            elif 500 < reqd_qty < 1000:
-                reqd_qty = round_up(reqd_qty, 50)
-            elif reqd_qty > 1000:
-                reqd_qty = round_up(reqd_qty, 100)
-
+            if rol > 0:
+                if reqd_qty <= 10:
+                    reqd_qty = round_up(reqd_qty, 1)
+                elif reqd_qty < 50:
+                    reqd_qty = round_up(reqd_qty, 5)
+                elif reqd_qty < 500:
+                    reqd_qty = round_up(reqd_qty, 10)
+                elif reqd_qty < 1000:
+                    reqd_qty = round_up(reqd_qty, 50)
+                elif reqd_qty > 1000:
+                    reqd_qty = round_up(reqd_qty, 100)
+            else:
+                reqd_qty = round(reqd_qty)
             qty = reqd_qty
-    return qty
+    return qty, dead
 
 
 def update_item_table(item_dict, table_name, document):
