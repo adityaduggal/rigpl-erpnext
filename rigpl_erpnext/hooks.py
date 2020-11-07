@@ -215,11 +215,11 @@ scheduler_events = {
         ]
     },
     "all": [
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute"
     ],
     "daily": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.work_order_status.execute",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.indiamart.execute"
 
     ],
