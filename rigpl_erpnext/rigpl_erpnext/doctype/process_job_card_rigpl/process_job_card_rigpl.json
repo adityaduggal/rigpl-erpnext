@@ -239,6 +239,7 @@
   {
    "fieldname": "for_quantity",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "For Quantity",
    "read_only": 1,
    "reqd": 1
@@ -371,7 +372,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2020-11-07 11:54:58.104035",
+ "modified": "2020-11-07 13:36:00.556853",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
