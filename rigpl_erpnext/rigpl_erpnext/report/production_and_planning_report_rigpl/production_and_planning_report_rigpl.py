@@ -22,11 +22,11 @@ def get_columns(filters):
 		]
 	elif filters.get("production_planning") == 1:
 		return [
-			"JC#:Link/Process Job Card RIGPL:100", "Status::60", "Item:Link/Item:120",
+			"JC#:Link/Process Job Card RIGPL:100", "Status::60", "Item:Link/Item:120", "Priority:Int:50",
 			"BM::60", "TT::60", "SPL::60", "Series::60", "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50",
 			"L2:Float:50", "Description::400",
 			"Operation:Link/Operation:100", "Allocated Machine:Link/Workstation:150",
-			"Planned Qty:Float:80", "Priority:Int:80", "Qty Avail:Float:80",
+			"Planned Qty:Float:80", "Qty Avail:Float:80",
 			"ROL:Int:80", "SO:Int:80", "PO:Int:80", "Plan:Int:80", "Prod:Float:80", "Total Actual:Float:80"
 		]
 	elif filters.get("order_wise_summary") == 1:
@@ -50,11 +50,12 @@ def get_data(filters):
 		ORDER BY jc.workstation, jc.production_item""" % cond_jc
 		data = frappe.db.sql(query, as_list=1)
 	elif filters.get("production_planning") == 1:
-		query = """SELECT jc.name, jc.status, jc.production_item, bm.attribute_value, tt.attribute_value,
+		query = """SELECT jc.name, jc.status, jc.production_item, IF(jc.priority=0, NULL, jc.priority),
+		bm.attribute_value, tt.attribute_value,
 		spl.attribute_value, ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value,
 		d2.attribute_value, l2.attribute_value,
 		jc.description, jc.operation, jc.workstation, jc.for_quantity, 
-		IF(jc.priority=0, NULL, jc.priority), IF(jc.qty_available=0, NULL, jc.qty_available),
+		IF(jc.qty_available=0, NULL, jc.qty_available),
 		IF(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level) AS rol,
 		IF(bn.on_so=0, NULL ,bn.on_so) AS on_so,
 		IF(bn.on_po=0, NULL ,bn.on_so) AS on_po,
