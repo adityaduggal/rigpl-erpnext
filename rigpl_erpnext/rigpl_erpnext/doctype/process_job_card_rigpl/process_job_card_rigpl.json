@@ -53,14 +53,14 @@
  ],
  "fields": [
   {
+   "allow_on_submit": 1,
+   "columns": 1,
    "fieldname": "process_sheet",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Process Sheet",
-   "options": "Process Sheet",
-   "read_only": 1,
-   "reqd": 1
+   "options": "Process Sheet"
   },
   {
    "default": "Today",
@@ -182,6 +182,7 @@
    "label": "RM Consumed"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -370,7 +371,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2020-10-27 20:58:30.042282",
+ "modified": "2020-11-07 11:54:58.104035",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
@@ -424,6 +425,21 @@
    "share": 1,
    "submit": 1,
    "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "permlevel": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Inventory User",
+   "share": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "Manufacturing User"
   }
  ],
  "quick_entry": 1,
