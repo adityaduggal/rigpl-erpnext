@@ -3,6 +3,16 @@
 
 frappe.ui.form.on('Process Sheet', {
 	refresh: function(frm){
+	    if (frm.doc.show_unavailable_rm !== 1){
+	        var rm = frm.doc.rm_consumed
+	        var i = rm.length
+	        while (i--){
+	            if (rm[i].qty_available === 0){
+	                frm.get_field("rm_consumed").grid.grid_rows[i].remove();
+	            }
+	        }
+	        frm.refresh_fields();
+	    }
         if (frm.doc.status === "In Progress"){
             me.frm.add_custom_button(__("Stop"), function(){
                 frappe.call({
@@ -102,7 +112,6 @@ frappe.ui.form.on('Process Sheet', {
 	    frm.doc.operations = []
 	    frm.doc.rm_consumed = []
 	    frm.doc.item_manufactured = []
-	    frm.doc.manually_select_rm = 0
 	    frm.doc.allow_zero_rol_for_wip = 0
 	    frm.refresh_fields();
 	},
@@ -130,10 +139,6 @@ frappe.ui.form.on('Process Sheet', {
 	},
 	routing: function(frm){
 	    frm.doc.operations = []
-	    frm.refresh_fields();
-	},
-	manually_select_rm: function(frm){
-	    frm.doc.rm_consumed = []
 	    frm.refresh_fields();
 	},
 	allow_zero_rol_for_wip: function(frm){

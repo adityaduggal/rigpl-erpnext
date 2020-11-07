@@ -30,7 +30,6 @@
   "routing",
   "operations",
   "sb1",
-  "manually_select_rm",
   "rm_consumed",
   "consumeables_issued",
   "allow_zero_rol_for_wip",
@@ -188,12 +187,6 @@
    "label": "Allow Zero ROL for WIP"
   },
   {
-   "default": "0",
-   "fieldname": "manually_select_rm",
-   "fieldtype": "Check",
-   "label": "Manually Select RM"
-  },
-  {
    "fieldname": "sales_order",
    "fieldtype": "Link",
    "in_standard_filter": 1,
@@ -255,7 +248,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2020-11-06 17:15:50.385528",
+ "modified": "2020-11-07 08:27:47.681390",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",

@@ -121,11 +121,6 @@ class ProcessSheet(Document):
         self.validate_qty_to_manufacture(it_doc)
         if self.get("__islocal") != 1:
             self.get_rm_sizes(bt_doc)
-            if self.rm_consumed:
-                for rm in self.rm_consumed:
-                    if flt(rm.calculated_qty) > flt(rm.qty_available):
-                        frappe.msgprint("For RM: {} in Row# {} Qty Required = {} but Available Qty = {}". \
-                                        format(rm.item_code, rm.idx, rm.calculated_qty, rm.qty_available, self.name))
 
     def get_rm_sizes(self, bt_doc):
         get_rm = 0
@@ -136,24 +131,27 @@ class ProcessSheet(Document):
             return
 
         def_rm_warehouse = ""
-        for d in self.operations:
-            if d.allow_consumption_of_rm == 1:
-                def_rm_warehouse = d.rm_warehouse
+        if self.raw_material_source_warehouse:
+            def_rm_warehouse = self.raw_material_source_warehouse
+        else:
+            for d in self.operations:
+                if d.allow_consumption_of_rm == 1:
+                    def_rm_warehouse = d.rm_warehouse
         item_dict = frappe._dict({})
         item_dict["known_item"] = self.production_item
         item_dict["known_type"] = "fg"
         item_list = self.get_item_list(self.production_item, known_type="fg", unknown_type="rm")
-        if self.manually_select_rm != 1:
-            if not self.rm_consumed:
-                rm_item_dict = get_req_sizes_from_template(bom_temp_name=self.bom_template, item_type_list=item_list,
-                                                            table_name="rm_restrictions",
-                                                            allow_zero_rol=1, ps_name=self.name)
-            else:
-                rm_item_dict = self.make_rm_item_dict()
-            if not rm_item_dict:
-                frappe.throw("NO RM Found")
+        if not self.rm_consumed:
+            rm_item_dict = get_req_sizes_from_template(bom_temp_name=self.bom_template, item_type_list=item_list,
+                                                        table_name="rm_restrictions",
+                                                        allow_zero_rol=1, ps_name=self.name)
         else:
             rm_item_dict = self.make_rm_item_dict()
+        if not rm_item_dict:
+            frappe.throw("NO Raw Material Found. Possible Solutions /n"
+                         "1. Check Box for Show Unavailable Raw Material \n"
+                         "2. Change Raw Material Warehouse in the Process Sheet \n"
+                         "3. Change the BOM Template from {}".format(self.bom_template))
         rm_calc_qty_list = calculated_value_from_formula(rm_item_dict, self.production_item, fg_qty=self.quantity,
                                                          process_sheet_name=self.name,
                                                          bom_template_name=self.bom_template)
