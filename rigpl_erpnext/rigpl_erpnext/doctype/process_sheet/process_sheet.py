@@ -215,9 +215,10 @@ class ProcessSheet(Document):
                 row.planned_qty = self.quantity
 
     def validate_qty_to_manufacture(self, it_doc):
-        auto_qty, dead_qty = get_qty_to_manufacture(it_doc)
+        auto_qty = get_qty_to_manufacture(it_doc)
+        dead_qty = get_quantities_for_item(it_doc)["dead_qty"]
         if dead_qty > 0 and self.bypass_all_qty_checks != 1:
-            frappe.throw("There are {} Qty in Dead Stock for {}".format(dead_qty, self.production_item))
+            frappe.throw("There are {} Qty in Dead Stock for {}.\nHence Cannot Proceed".format(dead_qty, self.production_item))
         if self.bypass_all_qty_checks == 1:
             if auto_qty != self.quantity:
                 frappe.msgprint("Qty Calculated = {} But Entered Qty= {}".format(auto_qty, self.quantity))
