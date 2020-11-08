@@ -32,9 +32,9 @@ def get_columns(filters):
 	elif filters.get("order_wise_summary") == 1:
 		return [
 			"SO#:Link/Sales Order:150", "SO Date:Date:80", "Item:Link/Item:120", "Description::450",
-			"Pending:Float:60", "Ordered:Float:60", "JC#:Link/Process Job Card RIGPL:80", "Status::60",
-			"Operation:Link/Operation:100", "Priority:Int:50", "Planned Qty:Float:80", "Qty Avail:Float:80",
-			"Remarks::400"
+			"Pending:Float:60", "Ordered:Float:60", "JC#:Link/Process Job Card RIGPL:80", "PS#::150",
+			"Status::60", "Operation:Link/Operation:100", "Priority:Int:50", "Planned Qty:Float:80",
+			"Qty Avail:Float:80", "Remarks::400"
 		]
 	else:
 		frappe.throw("Select one of the 3 Check Boxes.")
@@ -111,6 +111,12 @@ def update_so_data_with_job_card(so_dict):
 	data = []
 	for so in so_dict:
 		line_data = []
+		ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` 
+			WHERE docstatus != 2 AND sales_order_item = '%s' ORDER BY creation""" % so.so_item, as_dict=1)
+		so["ps_name"] = ""
+		for ps in ps_dict:
+			ps_link = """<a href="#Form/Process Sheet/%s" target="_blank">%s</a>""" % (ps.name, ps.name)
+			so["ps_name"] += ps_link + "\n"
 		so_jc = get_last_jc_for_so(so.so_item)
 		if so_jc:
 			so["jc_name"] = so_jc.name
@@ -121,7 +127,7 @@ def update_so_data_with_job_card(so_dict):
 			so["qty_avail"] = so_jc.qty_available
 			so["remarks"] = so_jc.remarks
 		line_data = [so.name, so.transaction_date, so.item_code, so.description, so.pend_qty, so.qty, so.jc_name,
-					 so.jc_status, so.jc_operation, so.jc_priority, so.planned_qty, so.qty_avail, so.remarks]
+					 so.ps_name, so.jc_status, so.jc_operation, so.jc_priority, so.planned_qty, so.qty_avail, so.remarks]
 		data.append(line_data)
 	return data
 
