@@ -7,6 +7,41 @@ from frappe.utils import flt
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
+def get_total_sales_orders(customer, frm_date, to_date):
+    sales_orders = frappe.db.sql("""SELECT SUM(base_net_total) AS total_net_amt, COUNT(name) AS so
+    FROM `tabSales Order` WHERE docstatus = 1 AND base_net_total > 0 AND customer = '%s' AND transaction_date >= '%s' 
+    AND transaction_date <= '%s'""" % (customer, frm_date, to_date), as_dict=1)
+    return sales_orders
+
+def get_first_order(customer, amt=0):
+    first_order = frappe.db.sql("""SELECT transaction_date as date FROM `tabSales Order` WHERE docstatus = 1
+    AND customer = '%s' AND base_net_total > %s ORDER BY transaction_date LIMIT 1""" % (customer, amt), as_dict=1)
+    return first_order
+
+
+def get_customer_rating_factor(customer_dict):
+    # Define the customer rating factor value here main points to include are as follows:
+    # 1. No of Years the customer is with the company.
+    # 2. Total Sales Value in the last 5 years (from Sales Invoices)
+    # 3. Total Number of Sales Orders in the last 5 years (More SO is not Good since 1 SO of 500k is better than
+    # 10 SO of 50k
+    # 4. Payment Days for the invoices in the last 5 years
+    factor=0
+    base_years = 5
+    days_since = customer_dict["days_since"]
+    tot_sales = customer_dict["total_sales"]
+    period = customer_dict["period"]
+    no_of_orders = customer_dict["total_so"]
+    monthly_orders = int(no_of_orders * 365 / period / 12) # monthly orders divided by 2 or any other factor
+    if monthly_orders < 4:
+        monthly_orders = 4
+    if no_of_orders == 0:
+        return 0, monthly_orders
+    else:
+        factor = int(days_since * tot_sales / (base_years * period) / monthly_orders /1000)
+        return factor, monthly_orders
+
+
 def get_priority_for_so(it_name, prd_qty, short_qty, so_detail=None):
     so_date_value_dict = get_so_date_value(it_name=it_name, prd_qty=prd_qty, short_qty=short_qty, so_detail=so_detail)
     priority = prioritize_sales_order(so_date_value_dict)
