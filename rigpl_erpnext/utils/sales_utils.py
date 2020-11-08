@@ -2,9 +2,87 @@
 from __future__ import unicode_literals
 import re
 import frappe
+import datetime
 from frappe.utils import flt
 from rohit_common.utils.rohit_common_utils import replace_java_chars
-from ..utils.job_card_utils import get_completed_qty_of_jc_for_operation
+
+
+def get_priority_for_so(it_name, prd_qty, short_qty, so_detail=None):
+    so_date_value_dict = get_so_date_value(it_name=it_name, prd_qty=prd_qty, short_qty=short_qty, so_detail=so_detail)
+    priority = prioritize_sales_order(so_date_value_dict)
+    return priority
+
+
+def get_so_date_value(it_name, prd_qty, short_qty=0, so_detail=None):
+    if so_detail:
+        sod_cond = " AND sod.name = '%s'" % so_detail
+    else:
+        sod_cond = ""
+    query = """SELECT so.name, sod.item_code, so.transaction_date as so_date, sod.qty as order_qty, %s as prd_qty, 
+    %s as shortage, sod.base_rate * (sod.qty - sod.delivered_qty) as balance_amt
+    FROM `tabSales Order` so, `tabSales Order Item` sod WHERE so.docstatus=1 AND sod.parent = so.name
+    AND so.status != "Closed" AND sod.qty > sod.delivered_qty AND sod.item_code = '%s' %s
+    ORDER BY so.transaction_date DESC, so.name""" % (prd_qty, short_qty, it_name, sod_cond)
+    so_dict = frappe.db.sql(query, as_dict=1)
+
+    return so_dict
+
+
+def prioritize_sales_order(so_dict):
+    factor = 0
+    # Factors to prioritize are SO Date means older SO should hold Bigger Urgency
+    # Also the value of the SO Item should hold higher urgency.
+    # So we give a multiplier Value * Days difference for date
+    for d in so_dict:
+        prd_qty = d.prd_qty
+        shortage = d.shortage
+        days_diff = datetime.date.today() - d.so_date
+        days_diff = days_diff.days + 1 # For same date SO the factor would be 1
+        factor += days_diff * (d.balance_amt + 1) * (shortage/prd_qty)
+    # Factor would be 1,000,000 for order value 100,000 and 10 days old
+    # Factor would be 500,000 for order value 50,000 and 10 days old
+    # Factor would be 250,000 for order value 25,000 and 10 days old
+    # Factor would be 150,000 for order value 15,000 and 10 days old
+    # Factor would be 100,000 for order value 10,000 and 10 days old
+    # Factor would be 50,000 for order value 5,000 and 10 days old
+    # Factor would be 25,000 for order value 2,500 and 10 days old
+    # Factor would be 10,000 for order value 1,000 and 10 days old
+    # Factor would be 5,000 for order value 500 and 10 days old
+    # Factor would be 1,000 for order value 100 and 10 days old
+    if factor > 1000000:
+        # Value of Order is 10,000 * 100 days or 100,000 * 10 days
+        return 1
+    elif factor > 500000:
+        return 2
+    elif factor > 250000:
+        return 3
+    elif factor > 150000:
+        return 4
+    elif factor > 100000:
+        return 5
+    elif factor > 50000:
+        return 6
+    elif factor > 25000:
+        return 7
+    elif factor > 10000:
+        return 8
+    elif factor > 5000:
+        return 9
+    elif factor > 1000:
+        return 10
+    else:
+        return 11
+
+
+def get_completed_qty_of_jc_for_operation(item, operation, so_detail=None):
+    query = """SELECT SUM(total_completed_qty) FROM `tabProcess Job Card RIGPL` 
+    WHERE docstatus = 1 AND production_item = '%s' AND operation = '%s' 
+    AND sales_order_item = '%s'""" % (item, operation, so_detail)
+    completed_qty = frappe.db.sql(query, as_list=1)
+    if completed_qty[0][0]:
+        return flt(completed_qty[0][0])
+    else:
+        return 0
 
 
 def check_validated_gstin(add_name):

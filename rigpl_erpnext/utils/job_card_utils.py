@@ -8,7 +8,8 @@ from frappe import _
 import datetime
 from erpnext.stock.utils import get_bin
 from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt
-from .manufacturing_utils import get_items_from_process_sheet_for_job_card, convert_qty_per_uom, get_min_max_ps_qty
+from .manufacturing_utils import *
+from .sales_utils import get_priority_for_so
 from .stock_utils import cancel_delete_ste_from_name
 
 
@@ -84,6 +85,7 @@ def update_job_card_qty_available(jc_doc):
 
 def update_job_card_status(jc_doc):
     # Old Name = update_jc_status
+    update_job_card_process_no(jc_doc)
     if jc_doc.docstatus == 2:
         jc_doc.status = 'Cancelled'
     elif jc_doc.docstatus == 1:
@@ -97,6 +99,100 @@ def update_job_card_status(jc_doc):
                 jc_doc.status = "Open"
         else:
             jc_doc.status = "Work In Progress"
+
+
+def update_job_card_process_no(jc_doc):
+    operation_sno, final_operation = get_job_card_process_sno(jc_doc)
+    if jc_doc.operation_serial_no != operation_sno:
+        jc_doc.operation_serial_no = operation_sno
+    if jc_doc.final_operation != final_operation:
+        jc_doc.final_operation = final_operation
+
+
+def get_job_card_process_sno(jc_doc):
+    ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+    bt_doc = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template)
+    op_sno, final_op, found = [0,0,0]
+    for op in bt_doc.operations:
+        if op.operation == jc_doc.operation:
+            found = 1
+            op_sno = op.idx
+            if op.final_operation == 1:
+                final_op = 1
+    if found == 0:
+        op_sno = 0
+    return op_sno, final_op
+
+
+def update_job_card_priority(jc_doc):
+    old_priority = jc_doc.priority
+    new_priority = get_production_priority_for_item(jc_doc.production_item, jc_doc)
+    if jc_doc.priority != new_priority:
+        jc_doc.priority = new_priority
+
+
+def get_production_priority_for_item(item_name, jc_doc):
+    it_doc = frappe.get_doc("Item", item_name)
+    qty_dict = get_quantities_for_item(it_doc)
+    if it_doc.made_to_order == 1:
+        priority = get_priority_for_so(it_name=item_name, prd_qty=jc_doc.for_quantity, short_qty=jc_doc.for_quantity,
+                                so_detail=jc_doc.sales_order_item)
+        return priority
+    else:
+        # Check Process of JC Doc in Process Sheet and take decision based on Process Sheet and Operation Qty
+        if jc_doc.for_quantity > jc_doc.qty_available:
+            prd_qty = jc_doc.for_quantity
+        else:
+            prd_qty = jc_doc.qty_available
+        soqty, poqty, pqty= qty_dict["on_so"], qty_dict["on_po"], qty_dict["planned_qty"]
+        fqty, res_prd_qty, wipqty = qty_dict["finished_qty"], qty_dict["reserved_for_prd"], qty_dict["wip_qty"]
+        dead_qty = qty_dict["dead_qty"]
+        if soqty > 0:
+            if soqty > fqty + dead_qty:
+                # SO Qty is Greater than Finished Stock
+                shortage = soqty - fqty - dead_qty
+                if shortage > wipqty:
+                    # Shortage of Material is More than WIP Qty
+                    priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty, short_qty=shortage)
+                    return priority
+                else:
+                    # Shortage is Less than Items in Production
+                    jc_dict = get_open_job_cards_for_item(item_name)
+                    if jc_dict:
+                        for i in range(0, len(jc_dict)):
+                            if jc_dict[i].s_warehouse:
+                                if i>0:
+                                    if jc_dict[i-1].s_warehouse != jc_dict[i].s_warehouse:
+                                        if jc_dict[i].qty_available < shortage:
+                                            shortage -= jc_dict[i].qty_available
+                                            priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
+                                                                    short_qty=shortage)
+                                            return priority
+                                        else:
+                                            priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
+                                                                    short_qty=shortage)
+                                            return priority
+                                    else:
+                                        priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
+                                                                short_qty=shortage)
+                                        return priority
+                    return 0
+            else:
+                # Qty in Production is for Stock Only
+                priority = get_priority_for_stock_prd(it_name=item_name, qty_dict=qty_dict)
+                return priority
+        else:
+            # No Order for Item
+            # For Stock Production Priority
+            priority = get_priority_for_stock_prd(it_name=item_name, qty_dict=qty_dict)
+            return priority
+
+
+def get_open_job_cards_for_item(item_name):
+    jc_dict = frappe.db.sql("""SELECT name, production_item, for_quantity, qty_available, operation, 
+    operation_serial_no, s_warehouse FROM `tabProcess Job Card RIGPL` WHERE docstatus=0 
+    AND production_item = '%s' ORDER BY operation_serial_no DESC""" % item_name, as_dict=1)
+    return jc_dict
 
 
 def check_existing_job_card(item_name, operation, so_detail=None):
@@ -404,17 +500,6 @@ def get_made_to_stock_qty(jc_doc):
         frappe.throw("For {}, Operation {} is not mentioned in {}".
                      format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name), jc_doc.operation,
                             frappe.get_desk_link(ps_doc.doctype, ps_doc.name)))
-
-
-def get_completed_qty_of_jc_for_operation(item, operation, so_detail=None):
-    query = """SELECT SUM(total_completed_qty) FROM `tabProcess Job Card RIGPL` 
-    WHERE docstatus = 1 AND production_item = '%s' AND operation = '%s' 
-    AND sales_order_item = '%s'""" % (item, operation, so_detail)
-    completed_qty = frappe.db.sql(query, as_list=1)
-    if completed_qty[0][0]:
-        return flt(completed_qty[0][0])
-    else:
-        return 0
 
 
 def get_next_job_card(jc_no):

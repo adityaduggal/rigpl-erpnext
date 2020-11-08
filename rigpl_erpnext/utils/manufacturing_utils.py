@@ -8,6 +8,7 @@ import re
 import math
 from frappe import _
 from frappe.utils import flt
+from rigpl_erpnext.utils.other_utils import round_up
 from erpnext.stock.stock_balance import update_bin_qty
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
@@ -28,6 +29,161 @@ def get_items_from_process_sheet_for_job_card(document, table_name):
             "target_warehouse": d.target_warehouse,
             "uom": d.uom
         })
+
+
+def get_priority_for_stock_prd(it_name, qty_dict):
+    # This would give priority from 20 and above for a factor. Factor to be like for SO only
+    # factor = calc_rol * vr / qty
+    factor = 0
+    rol_vr_lead_factor = qty_dict["calculated_rol"] * (qty_dict["valuation_rate"] + 1 ) * qty_dict["lead_time"]
+    bal_fin = qty_dict["finished_qty"] - qty_dict["on_so"]
+    bal_aft_prd = bal_fin - qty_dict["reserved_for_prd"]
+    if bal_fin < 0:
+        bal_fin = 0
+    if bal_aft_prd < 0:
+        bal_aft_prd = 0
+    if bal_aft_prd == bal_fin:
+        factor = rol_vr_lead_factor/(bal_fin + 1)
+    else:
+        factor = rol_vr_lead_factor/(bal_aft_prd + 1)
+    if bal_aft_prd == bal_fin:
+        if factor > 1000000:
+            return 30
+        elif factor > 500000:
+            return 31
+        elif factor > 250000:
+            return 32
+        elif factor > 150000:
+            return 33
+        elif factor > 100000:
+            return 34
+        elif factor > 50000:
+            return 35
+        elif factor > 25000:
+            return 36
+        elif factor > 10000:
+            return 37
+        elif factor > 5000:
+            return 38
+        elif factor > 1000:
+            return 39
+        else:
+            return 40
+    else:
+        if factor > 1000000:
+            return 20
+        elif factor > 500000:
+            return 21
+        elif factor > 250000:
+            return 22
+        elif factor > 150000:
+            return 23
+        elif factor > 100000:
+            return 24
+        elif factor > 50000:
+            return 25
+        elif factor > 25000:
+            return 26
+        elif factor > 10000:
+            return 27
+        elif factor > 5000:
+            return 28
+        elif factor > 1000:
+            return 29
+        else:
+            return 30
+
+
+def get_quantities_for_item(it_doc):
+    qty_dict = frappe._dict()
+    qty_dict.update({"on_so":0, "on_po":0, "on_indent":0, "planned_qty":0, "reserved_for_prd":0, "finished_qty":0,
+                     "wip_qty":0, "consumeable_qty":0, "raw_material_qty":0, "dead_qty":0, "rejected_qty":0})
+    if it_doc.made_to_order != 1:
+        rol_dict = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty FROM `tabItem Reorder` 
+        WHERE parent = '%s' AND parenttype = '%s' AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype),
+                            as_dict=1)
+        if rol_dict:
+            qty_dict["re_order_level"] = flt(rol_dict[0].warehouse_reorder_level)
+            rol = qty_dict["re_order_level"]
+        else:
+            qty_dict["re_order_level"] = 0
+            rol = 0
+        bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty, bn.actual_qty, bn.ordered_qty,
+            bn.indented_qty, bn.planned_qty, bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract, 
+            wh.warehouse_type, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND 
+            bn.item_code = '%s'""" % it_doc.name, as_dict=1)
+        qty_dict["valuation_rate"] = flt(it_doc.valuation_rate)
+        qty_dict["lead_time"] = flt(it_doc.lead_time_days) if flt(it_doc.lead_time_days) > 0 else 30
+        calc_rol = get_calculated_rol(rol, flt(qty_dict["valuation_rate"]))
+
+        qty_dict["calculated_rol"] = calc_rol
+        if bin_dict:
+            for d in bin_dict:
+                qty_dict["on_so"] += flt(d.reserved_qty)
+                qty_dict["on_po"] += flt(d.ordered_qty)
+                qty_dict["on_indent"] += flt(d.indented_qty)
+                qty_dict["planned_qty"] += flt(d.planned_qty)
+                qty_dict["reserved_for_prd"] += flt(d.reserved_qty_for_production)
+
+                if d.warehouse_type == 'Finished Stock':
+                    qty_dict["finished_qty"] += flt(d.actual_qty)
+                elif d.warehouse_type == 'Work In Progress':
+                    qty_dict["wip_qty"] += flt(d.actual_qty)
+                elif d.warehouse_type == 'Consumable':
+                    qty_dict["consumeable_qty"] += flt(d.actual_qty)
+                elif d.warehouse_type == 'Raw Material':
+                    qty_dict["raw_material_qty"] += flt(d.actual_qty)
+                elif d.warehouse_type == 'Dead Stock':
+                    qty_dict["dead_qty"] += flt(d.actual_qty)
+                elif d.warehouse_type == 'Recoverable Stock':
+                    qty_dict["rejected_qty"] += flt(d.actual_qty)
+                elif d.warehouse_type == 'Subcontracting':
+                    qty_dict["on_po"] += flt(d.actual_qty)
+    return qty_dict
+
+
+def get_calculated_rol(rol, val_rate):
+    rol_val_rate_prod = rol * val_rate
+    if rol_val_rate_prod <= 1000:
+        calc_rol = 5 * rol
+    elif rol_val_rate_prod <= 2000:
+        calc_rol = 2.5 * rol
+    elif rol_val_rate_prod <= 5000:
+        calc_rol = 1.5 * rol
+    else:
+        calc_rol = rol
+    return calc_rol
+
+
+def get_qty_to_manufacture(it_doc):
+    qty_dict = get_quantities_for_item (it_doc)
+    calc_rol = qty_dict["calculated_rol"]
+    lead = qty_dict["lead_time"]
+    so = qty_dict["on_so"]
+    po = qty_dict["on_po"]
+    prd = qty_dict["reserved_for_prd"]
+    fg = qty_dict["finished_qty"]
+    wipq = qty_dict["wip_qty"]
+    plan = qty_dict["planned_qty"]
+    rol = qty_dict["re_order_level"]
+    reqd_qty = (calc_rol * lead / 30) + so + prd - fg - wipq - plan
+    if reqd_qty < 0:
+        reqd_qty = 0
+    if rol > 0:
+        if reqd_qty <= 10:
+            reqd_qty = round_up(reqd_qty, 1)
+        elif reqd_qty < 50:
+            reqd_qty = round_up(reqd_qty, 5)
+        elif reqd_qty < 500:
+            reqd_qty = round_up(reqd_qty, 10)
+        elif reqd_qty < 1000:
+            reqd_qty = round_up(reqd_qty, 50)
+        elif reqd_qty > 1000:
+            reqd_qty = round_up(reqd_qty, 100)
+    else:
+        reqd_qty = round(reqd_qty)
+    qty = reqd_qty
+    return qty
 
 
 def convert_qty_per_uom(qty, item_name):
