@@ -22,6 +22,8 @@
   "workstation",
   "t_warehouse",
   "uom",
+  "operation_serial_no",
+  "final_operation",
   "allow_production_of_wip_materials",
   "sb0",
   "remarks",
@@ -267,7 +269,8 @@
    "fieldname": "s_warehouse",
    "fieldtype": "Link",
    "label": "Source Warehouse",
-   "options": "Warehouse"
+   "options": "Warehouse",
+   "permlevel": 1
   },
   {
    "fieldname": "t_warehouse",
@@ -369,10 +372,25 @@
    "label": "UoM",
    "options": "UOM",
    "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "operation_serial_no",
+   "fieldtype": "Int",
+   "label": "Operation Serial No",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "0",
+   "fieldname": "final_operation",
+   "fieldtype": "Check",
+   "label": "Final Operation",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-11-07 13:36:00.556853",
+ "modified": "2020-11-08 07:39:13.670044",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
