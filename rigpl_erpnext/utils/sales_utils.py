@@ -38,7 +38,7 @@ def prioritize_sales_order(so_dict):
         shortage = d.shortage
         days_diff = datetime.date.today() - d.so_date
         days_diff = days_diff.days + 1 # For same date SO the factor would be 1
-        factor += days_diff * (d.balance_amt + 1) * (shortage/prd_qty)
+        factor += days_diff * (d.balance_amt + 1) * (shortage/(prd_qty + 1))
     # Factor would be 1,000,000 for order value 100,000 and 10 days old
     # Factor would be 500,000 for order value 50,000 and 10 days old
     # Factor would be 250,000 for order value 25,000 and 10 days old
