@@ -23,7 +23,7 @@ def get_columns(filters):
 	elif filters.get("production_planning") == 1:
 		return [
 			"JC#:Link/Process Job Card RIGPL:100", "Status::60", "SO#:Link/Sales Order:150",
-			"Item:Link/Item:120", "Priority:Int:50",
+			"Item:Link/Item:120", "Priority:Int:50", "Remarks::100",
 			"BM::60", "TT::60", "SPL::60", "Series::60", "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50",
 			"L2:Float:50", "Description::400",
 			"Operation:Link/Operation:100", "Allocated Machine:Link/Workstation:150",
@@ -52,7 +52,8 @@ def get_data(filters):
 		data = frappe.db.sql(query, as_list=1)
 	elif filters.get("production_planning") == 1:
 		query = """SELECT jc.name, jc.status, IF(jc.sales_order="", "X", IFNULL(jc.sales_order, "X")), 
-		jc.production_item, IF(jc.priority=0, NULL, jc.priority), bm.attribute_value, tt.attribute_value,
+		jc.production_item, IF(jc.priority=0, NULL, jc.priority), IFNULL(jc.remarks, "X"),
+		bm.attribute_value, tt.attribute_value,
 		spl.attribute_value, ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value,
 		d2.attribute_value, l2.attribute_value,
 		jc.description, jc.operation, jc.workstation, jc.for_quantity, 
