@@ -16,8 +16,10 @@
   "check_overlap_for_machines",
   "sb2",
   "years_to_consider",
+  "rating_divisor",
   "cb2",
-  "minimum_first_order"
+  "minimum_first_order",
+  "minimum_orders_per_month"
  ],
  "fields": [
   {
@@ -75,11 +77,13 @@
    "label": "Customer Rating Settings"
   },
   {
+   "default": "2",
    "fieldname": "years_to_consider",
    "fieldtype": "Int",
    "label": "Years to Consider"
   },
   {
+   "default": "10000",
    "fieldname": "minimum_first_order",
    "fieldtype": "Currency",
    "label": "Minimum First Order"
@@ -91,10 +95,22 @@
   {
    "fieldname": "cb2",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "rating_divisor",
+   "fieldtype": "Int",
+   "label": "Rating Divisor"
+  },
+  {
+   "default": "1",
+   "fieldname": "minimum_orders_per_month",
+   "fieldtype": "Int",
+   "label": "Minimum Orders Per Month"
   }
  ],
  "issingle": 1,
- "modified": "2020-11-09 10:09:35.031926",
+ "modified": "2020-11-09 13:25:14.303116",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

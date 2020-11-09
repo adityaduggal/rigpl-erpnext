@@ -27,6 +27,9 @@ def get_customer_rating_factor(customer_dict, base_years=5):
     # 10 SO of 50k
     # 4. Payment Days for the invoices in the last 5 years
     factor=0
+    min_monthly_orders = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "minimum_orders_per_month"))
+    if min_monthly_orders == 0:
+        min_monthly_orders = 1
     days_since = customer_dict["days_since"]
     tot_sales = customer_dict["total_sales"]
     period = customer_dict["period"]
@@ -35,8 +38,8 @@ def get_customer_rating_factor(customer_dict, base_years=5):
     if age_factor > base_years * 365:
         age_factor = base_years * 365
     monthly_orders = int(no_of_orders * 365 / period / 12) # monthly orders divided by 2 or any other factor
-    if monthly_orders < 4:
-        monthly_orders = 4
+    if monthly_orders < min_monthly_orders:
+        monthly_orders = min_monthly_orders
     if no_of_orders == 0:
         factor = 0
     else:
@@ -47,7 +50,10 @@ def get_customer_rating_factor(customer_dict, base_years=5):
 def get_customer_rating_from_pts(tot_rating_pts):
     # Currently the assumption is that the maximum points earned is 0-10k for every rating 100pts are there.
     # But since there is less people above 5k the ranges are defined differently.
-    return min(int(tot_rating_pts/ 50), 100)
+    divisor = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "rating_divisor"))
+    if divisor == 0:
+        divisor = 1
+    return min(int(tot_rating_pts/ divisor), 100)
 
 
 def get_priority_for_so(it_name, prd_qty, short_qty, so_detail=None):

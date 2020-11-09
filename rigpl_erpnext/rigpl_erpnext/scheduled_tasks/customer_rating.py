@@ -18,7 +18,7 @@ def execute():
     for cu in customers:
         customers_with_rating = build_customer_rating(cu)
         customers_rated_list.append(customers_with_rating.copy())
-    customers_rated_list = sorted(customers_rated_list, key=lambda i:(i["total_rating"]))
+    customers_rated_list = sorted(customers_rated_list, key=lambda i:(i["total_rating"]), reverse=True)
     for cu in customers_rated_list:
         cu_doc = frappe.get_doc("Customer", cu.name)
         if cu_doc.customer_rating != cu.customer_rating:
