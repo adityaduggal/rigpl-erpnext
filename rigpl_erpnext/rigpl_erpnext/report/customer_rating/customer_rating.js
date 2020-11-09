@@ -9,7 +9,7 @@ frappe.query_reports["Customer Rating"] = {
 			"label": "Years",
 			"fieldtype": "Int",
 			"reqd": 1,
-			"default": 5,
+			"default": 2,
 		},
 		{
 			"fieldname":"first_order",
@@ -17,13 +17,6 @@ frappe.query_reports["Customer Rating"] = {
 			"fieldtype": "Int",
 			"reqd": 1,
 			"default": 10000,
-		},
-		{
-			"fieldname":"from_date",
-			"label": "From Date",
-			"fieldtype": "Date",
-			"reqd": 1,
-			"default": frappe.datetime.add_months(frappe.datetime.get_today(), -60),
 		},
 		{
 			"fieldname":"to_date",

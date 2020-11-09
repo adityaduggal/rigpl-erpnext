@@ -3,7 +3,7 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import getdate
+from frappe.utils import getdate, add_days
 from ...scheduled_tasks.customer_rating import build_customer_rating
 
 def execute(filters=None):
@@ -14,15 +14,15 @@ def execute(filters=None):
 def get_columns(filters):
 	return [
 		"Customer:Link/Customer:200", "Territory:Link/Territory:150", "Group:Link/Customer Group:100",
-		"Avg Pmt Days:Int:50", "Pmt Factor:Int:50", "Period:Int:50", "Since:Int:50", "Total SO:Currency:100",
-		"# SO:Int:80", "Total Sales:Currency:100", "# SI:Int:50", "Factor:Int:100", "Total Rating:Int:100",
-		"# Monthly Orders:Int:50"
+		"Avg Pmt Days:Int:50", "Pmt Factor:Int:50", "Age Factor:Int:50", "Period:Int:50", "Since:Int:50",
+		"Total SO:Currency:100", "# SO:Int:80", "Total Sales:Currency:100", "# SI:Int:50",
+		"Factor:Int:100", "Total Rating:Int:100", "# Monthly Orders:Int:50"
 	]
 
 def get_data(filters):
-	from_date = getdate(filters.get("from_date"))
 	to_date = getdate(filters.get("to_date"))
 	years = filters.get("years")
+	from_date = add_days(to_date, years*(-365))
 	period = (to_date - from_date).days
 	fov = filters.get("first_order")
 	conditions = get_conditions(filters)
@@ -38,9 +38,9 @@ def get_data(filters):
 	customers_rated = sorted(customers_rated, key=lambda i: (i["total_rating"]))
 	data = []
 	for cu in customers_rated:
-		row = [cu.name, cu.territory, cu.customer_group, cu.avg_pmt_days, cu.pmt_factor, cu.period, cu.days_since,
-			   cu.total_orders, cu.total_so, cu.total_sales, cu.total_invoices, cu.factor, cu.total_rating,
-			   cu.avg_monthly_orders]
+		row = [cu.name, cu.territory, cu.customer_group, cu.avg_pmt_days, cu.pmt_factor, cu.age_factor,
+			   cu.period, cu.days_since, cu.total_orders, cu.total_so, cu.total_sales, cu.total_invoices,
+			   cu.factor, cu.total_rating, cu.avg_monthly_orders]
 		data.append(row)
 	# data = sorted(data, key=lambda i:(i["total_rating"]))
 	return data

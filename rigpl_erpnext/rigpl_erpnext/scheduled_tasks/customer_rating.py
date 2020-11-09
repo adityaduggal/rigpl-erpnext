@@ -19,17 +19,31 @@ def execute():
         customers_rated_list.append(customers_with_rating.copy())
     customers_rated_list = sorted(customers_rated_list, key=lambda i:(i["total_rating"]))
     for cu in customers_rated_list:
-        print(cu)
-    # print(customers)
+        cu_doc = frappe.get_doc("Customer", cu.name)
+        if cu_doc.customer_rating != cu.customer_rating:
+            cu_doc.customer_rating = cu.customer_rating
+            try:
+                cu_doc.save()
+            except:
+                print(f"Some Error with {cu.name}")
     end_time = time.time()
     tot_time = round(end_time - st_time)
     print(f"Total Time {tot_time} seconds")
 
-def build_customer_rating(cust_dict, from_date=None, to_date=None, fov=10000, days=5*365):
+def build_customer_rating(cust_dict, from_date=None, to_date=None, fov=None, days=None):
+    years = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "years_to_consider"))
+    if years == 0:
+        years = 5
+    if not fov:
+        fov = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "minimum_first_order"))
+    if fov == 0:
+        fov = 10000
+    if not days:
+        days = years * 365
     if not to_date:
         to_date = datetime.datetime.today().date()
     if not from_date:
-        from_date = from_date = add_days(to_date, days*(-1))
+        from_date = add_days(to_date, days*(-1))
     cust_dict["avg_pmt_days"] = get_average_payment_days(cust_dict.name, from_date, to_date)
     cust_dict["pmt_factor"] = get_customer_pmt_factor(cust_dict)
     first_order = get_first_order(cust_dict.name, fov)
@@ -55,8 +69,10 @@ def build_customer_rating(cust_dict, from_date=None, to_date=None, fov=10000, da
     else:
         cust_dict["total_sales"] = 0
         cust_dict["total_invoices"] = 0
-    factor, avg_monthly_orders = get_customer_rating_factor(cust_dict)
+    factor, avg_monthly_orders, age_factor = get_customer_rating_factor(cust_dict, years)
     cust_dict["factor"] = factor
     cust_dict["avg_monthly_orders"] = avg_monthly_orders
+    cust_dict["age_factor"] = age_factor
     cust_dict["total_rating"] = cust_dict["factor"] * cust_dict["pmt_factor"]
+    cust_dict["customer_rating"] = min(int(cust_dict["total_rating"] / 50), 100)
     return cust_dict
