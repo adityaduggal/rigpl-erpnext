@@ -58,6 +58,6 @@ def autoname(doc, method):
     if doc.date_of_joining:
         doj = str(doj.year) + str(doj.month).zfill(2)
         code = doj + series_id
-        check = fn_check_digit(doc, code)
+        check = fn_check_digit(code)
         code = code + str(check)
     doc.name = code

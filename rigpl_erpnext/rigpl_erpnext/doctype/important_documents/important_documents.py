@@ -20,7 +20,7 @@ class ImportantDocuments(Document):
         series = get_default_naming_series(self.doctype)
         digits = getseries(series, 3)
         pref += str(digits)
-        chk_digit = fn_check_digit(self, pref)
+        chk_digit = fn_check_digit(pref)
         name = pref + str(chk_digit)
         self.name = name
 
