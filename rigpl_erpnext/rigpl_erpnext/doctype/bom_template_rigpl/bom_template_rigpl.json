@@ -1,6 +1,7 @@
 {
  "allow_events_in_timeline": 1,
  "allow_import": 1,
+ "allow_rename": 1,
  "autoname": "BT.#######",
  "creation": "2020-07-08 17:23:53.767487",
  "doctype": "DocType",
@@ -121,7 +122,7 @@
    "label": "Disabled"
   }
  ],
- "modified": "2020-10-22 14:11:16.783998",
+ "modified": "2020-11-10 05:11:59.784262",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "BOM Template RIGPL",
