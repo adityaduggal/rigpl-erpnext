@@ -14,10 +14,10 @@ def execute(filters=None):
 def get_columns(filters):
 	return [
 		"Customer:Link/Customer:200", "Territory:Link/Territory:150", "Group:Link/Customer Group:100",
-		"Avg Pmt Days:Int:50", "Pmt Factor:Int:50", "Age Factor:Int:50", "Period:Int:50", "Since:Int:50",
-		"Total SO:Currency:100", "# SO:Int:80", "Total Sales:Currency:100", "# SI:Int:50",
-		"Factor:Int:100", "Total Rating:Int:100", "# Monthly Orders:Int:50", "Calculated Rating:Int:80",
-		"Actual Rating:Int:80", "Difference:Int:80"
+		"Avg Pmt Days:Int:50", "PF:Int:50", "AF:Int:50", "SF:Int:50", "Period:Int:50", "Since:Int:50",
+		"Total SO:Currency:100", "# SO:Int:80", "Total Sales:Currency:100",
+		"# SI:Int:50", "Total Rating:Int:100", "# Monthly Orders:Int:50",
+		"Calculated Rating:Int:80", "Actual Rating:Int:80", "Difference:Int:80"
 	]
 
 def get_data(filters):
@@ -40,10 +40,10 @@ def get_data(filters):
 	data = []
 	for cu in customers_rated:
 		cust_doc = frappe.get_doc("Customer", cu.name)
-		row = [cu.name, cu.territory, cu.customer_group, cu.avg_pmt_days, cu.pmt_factor, cu.age_factor,
-			   cu.period, cu.days_since, cu.total_orders, cu.total_so, cu.total_sales, cu.total_invoices,
-			   cu.factor, cu.total_rating, cu.avg_monthly_orders, cu.customer_rating, cust_doc.customer_rating,
-			   (cu.customer_rating - cust_doc.customer_rating)]
+		row = [cu.name, cu.territory, cu.customer_group, cu.avg_pmt_days, cu.pmt_factor, cu.age_factor, cu.sales_factor,
+			   cu.period, cu.days_since, cu.total_orders, cu.total_so, cu.total_sales,
+			   cu.total_invoices, cu.total_rating, cu.avg_monthly_orders, cu.customer_rating,
+			   cust_doc.customer_rating, (cu.customer_rating - cust_doc.customer_rating)]
 		data.append(row)
 	# data = sorted(data, key=lambda i:(i["total_rating"]))
 	return data

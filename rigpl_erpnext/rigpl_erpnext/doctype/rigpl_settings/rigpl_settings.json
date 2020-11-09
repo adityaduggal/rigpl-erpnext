@@ -16,10 +16,14 @@
   "check_overlap_for_machines",
   "sb2",
   "years_to_consider",
+  "minimum_first_order",
+  "minimum_orders_per_month",
   "rating_divisor",
   "cb2",
-  "minimum_first_order",
-  "minimum_orders_per_month"
+  "base_annual_sales",
+  "sales_weightage",
+  "payment_weightage",
+  "age_weightage"
  ],
  "fields": [
   {
@@ -107,10 +111,30 @@
    "fieldname": "minimum_orders_per_month",
    "fieldtype": "Int",
    "label": "Minimum Orders Per Month"
+  },
+  {
+   "fieldname": "sales_weightage",
+   "fieldtype": "Percent",
+   "label": "Sales Weightage"
+  },
+  {
+   "fieldname": "payment_weightage",
+   "fieldtype": "Percent",
+   "label": "Payment Weightage"
+  },
+  {
+   "fieldname": "age_weightage",
+   "fieldtype": "Percent",
+   "label": "Age Weightage"
+  },
+  {
+   "fieldname": "base_annual_sales",
+   "fieldtype": "Currency",
+   "label": "Base Annual Sales"
   }
  ],
  "issingle": 1,
- "modified": "2020-11-09 13:25:14.303116",
+ "modified": "2020-11-09 17:52:56.353975",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

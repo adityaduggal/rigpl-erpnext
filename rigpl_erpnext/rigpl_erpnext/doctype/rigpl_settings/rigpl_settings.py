@@ -7,4 +7,7 @@ import frappe
 from frappe.model.document import Document
 
 class RIGPLSettings(Document):
-	pass
+	def validate(self):
+		weightage = self.sales_weightage + self.payment_weightage + self.age_weightage
+		if weightage != 100:
+			frappe.throw("Total Weightage Should be 100")

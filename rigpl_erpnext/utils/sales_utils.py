@@ -20,31 +20,60 @@ def get_first_order(customer, amt=0):
 
 
 def get_customer_rating_factor(customer_dict, base_years=5):
-    # Define the customer rating factor value here main points to include are as follows:
-    # 1. No of Years the customer is with the company.
-    # 2. Total Sales Value in the last 5 years (from Sales Invoices)
-    # 3. Total Number of Sales Orders in the last 5 years (More SO is not Good since 1 SO of 500k is better than
-    # 10 SO of 50k
-    # 4. Payment Days for the invoices in the last 5 years
-    factor=0
-    min_monthly_orders = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "minimum_orders_per_month"))
-    if min_monthly_orders == 0:
-        min_monthly_orders = 1
+    # Calculate Age Factor
     days_since = customer_dict["days_since"]
-    tot_sales = customer_dict["total_sales"]
+    age_wt = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "age_weightage"))
+    age_factor = min((days_since / (base_years*365))*100, 100)
+    wt_age_factor = min(int(age_factor*(age_wt/100)), 100)
+    customer_dict["age_factor"] = age_factor
+
+    # Calculate Sales Factor
+    annual_base = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_annual_sales"))
+    if annual_base == 0:
+        annual_base = 100000
     period = customer_dict["period"]
+    sal_wt = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "sales_weightage"))
+    tot_sales = customer_dict["total_sales"]
+    tot_comp_sales = customer_dict["total_company_sales"]
+    sales_factor = min(int(tot_sales*365*100/annual_base/period), 100)
+    wt_sales_factor = int(sales_factor * (sal_wt/100))
+    customer_dict["sales_factor"] = sales_factor
+
+    # Calculate Payment Factor
+    pmt_wt = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "payment_weightage"))
+    pmt_factor = customer_dict["pmt_factor"] * 10
+    wt_pmt_factor = int(pmt_factor * (pmt_wt / 100))
+    customer_dict["pmt_factor"] = pmt_factor
+
+    # Calculate Average Orders Given in a Month
+    min_monthly_orders = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "minimum_orders_per_month"))
     no_of_orders = customer_dict["total_so"]
-    age_factor = days_since / base_years
-    if age_factor > base_years * 365:
-        age_factor = base_years * 365
-    monthly_orders = int(no_of_orders * 365 / period / 12) # monthly orders divided by 2 or any other factor
-    if monthly_orders < min_monthly_orders:
+    monthly_orders = int(no_of_orders * 365 / period / 12)
+    customer_dict["avg_monthly_orders"] = monthly_orders
+
+    if monthly_orders < min_monthly_orders and min_monthly_orders > 0:
         monthly_orders = min_monthly_orders
+
+    # Calculate Total Factor
     if no_of_orders == 0:
         factor = 0
     else:
-        factor = int(tot_sales * age_factor / period / monthly_orders /1000)
-    return factor, monthly_orders, age_factor
+        if min_monthly_orders > 0:
+            factor = wt_sales_factor + wt_age_factor + wt_pmt_factor - (min_monthly_orders/10)
+            # Old factor calculation Formula
+            # factor = int(tot_sales * age_factor / period / monthly_orders /1000)
+        else:
+            factor = wt_sales_factor + wt_age_factor + wt_pmt_factor
+            # Old Factor Calculation formula
+            # factor = int(tot_sales * age_factor / period /1000)
+    customer_dict["total_rating"] = factor
+
+
+def get_total_company_sales(frm_date, to_date):
+    tot_sales = frappe.db.sql("""SELECT SUM(base_grand_total) FROM `tabSales Invoice`
+        WHERE docstatus = 1 AND is_pos = 0 AND posting_date >= '%s' 
+        AND posting_date <= '%s'""" % (frm_date, to_date), as_list=1)
+    return tot_sales[0][0]
 
 
 def get_customer_rating_from_pts(tot_rating_pts):

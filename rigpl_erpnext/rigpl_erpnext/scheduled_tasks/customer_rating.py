@@ -8,7 +8,7 @@ from frappe.utils import add_days, flt
 from ...utils.accounts_receivable_utils import get_average_payment_days, get_total_invoices_and_amount, \
     get_customer_pmt_factor
 from ...utils.sales_utils import get_total_sales_orders, get_first_order, get_customer_rating_factor, \
-    get_customer_rating_from_pts
+    get_customer_rating_from_pts, get_total_company_sales
 
 
 def execute():
@@ -32,7 +32,10 @@ def execute():
     print(f"Total Time {tot_time} seconds")
 
 def build_customer_rating(cust_dict, from_date=None, to_date=None, fov=None, days=None):
-    years = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "years_to_consider"))
+    if not days:
+        years = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "years_to_consider"))
+    else:
+        years = days/365
     if years == 0:
         years = 5
     if not fov:
@@ -47,6 +50,7 @@ def build_customer_rating(cust_dict, from_date=None, to_date=None, fov=None, day
         from_date = add_days(to_date, days*(-1))
     cust_dict["avg_pmt_days"] = get_average_payment_days(cust_dict.name, from_date, to_date)
     cust_dict["pmt_factor"] = get_customer_pmt_factor(cust_dict)
+    cust_dict["total_company_sales"] = get_total_company_sales(from_date, to_date)
     first_order = get_first_order(cust_dict.name, fov)
     if first_order:
         fo_date = first_order[0].date
@@ -70,10 +74,6 @@ def build_customer_rating(cust_dict, from_date=None, to_date=None, fov=None, day
     else:
         cust_dict["total_sales"] = 0
         cust_dict["total_invoices"] = 0
-    factor, avg_monthly_orders, age_factor = get_customer_rating_factor(cust_dict, years)
-    cust_dict["factor"] = factor
-    cust_dict["avg_monthly_orders"] = avg_monthly_orders
-    cust_dict["age_factor"] = age_factor
-    cust_dict["total_rating"] = cust_dict["factor"] * cust_dict["pmt_factor"]
+    get_customer_rating_factor(cust_dict, years)
     cust_dict["customer_rating"] = get_customer_rating_from_pts(cust_dict["total_rating"])
     return cust_dict
