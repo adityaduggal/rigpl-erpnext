@@ -97,7 +97,8 @@ def get_priority_for_stock_prd(it_name, qty_dict):
 def get_quantities_for_item(it_doc):
     qty_dict = frappe._dict()
     qty_dict.update({"on_so":0, "on_po":0, "on_indent":0, "planned_qty":0, "reserved_for_prd":0, "finished_qty":0,
-                     "wip_qty":0, "consumeable_qty":0, "raw_material_qty":0, "dead_qty":0, "rejected_qty":0})
+                     "wip_qty":0, "consumeable_qty":0, "raw_material_qty":0, "dead_qty":0, "rejected_qty":0,
+                     "calculated_rol":0, "lead_time":0, "re_order_level":0})
     if it_doc.made_to_order != 1:
         rol_dict = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty FROM `tabItem Reorder` 
         WHERE parent = '%s' AND parenttype = '%s' AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype),
