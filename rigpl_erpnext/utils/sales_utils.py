@@ -44,13 +44,10 @@ def get_customer_rating_factor(customer_dict, base_years=5):
     return factor, monthly_orders, age_factor
 
 
-def get_customer_rating_from_pts(customer, tot_rating_pts):
+def get_customer_rating_from_pts(tot_rating_pts):
     # Currently the assumption is that the maximum points earned is 0-10k for every rating 100pts are there.
     # But since there is less people above 5k the ranges are defined differently.
-    if tot_rating_pts > 5000:
-        return 100
-    elif tot_rating_pts > 4000:
-        return int(tot_rating_pts/50)
+    return min(int(tot_rating_pts/ 50), 100)
 
 
 def get_priority_for_so(it_name, prd_qty, short_qty, so_detail=None):

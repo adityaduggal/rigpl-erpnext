@@ -7,7 +7,8 @@ import frappe, time, datetime
 from frappe.utils import add_days, flt
 from ...utils.accounts_receivable_utils import get_average_payment_days, get_total_invoices_and_amount, \
     get_customer_pmt_factor
-from ...utils.sales_utils import get_total_sales_orders, get_first_order, get_customer_rating_factor
+from ...utils.sales_utils import get_total_sales_orders, get_first_order, get_customer_rating_factor, \
+    get_customer_rating_from_pts
 
 
 def execute():
@@ -74,5 +75,5 @@ def build_customer_rating(cust_dict, from_date=None, to_date=None, fov=None, day
     cust_dict["avg_monthly_orders"] = avg_monthly_orders
     cust_dict["age_factor"] = age_factor
     cust_dict["total_rating"] = cust_dict["factor"] * cust_dict["pmt_factor"]
-    cust_dict["customer_rating"] = min(int(cust_dict["total_rating"] / 50), 100)
+    cust_dict["customer_rating"] = get_customer_rating_from_pts(cust_dict["total_rating"])
     return cust_dict
