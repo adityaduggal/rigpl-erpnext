@@ -472,7 +472,7 @@ def get_last_jc_for_so(so_item):
 def get_made_to_stock_qty(jc_doc):
     # First get the Process Number of the Job Cards if its first Process then qty available = 0 for Made to Order
     # But first process qty = qty of Sales Order if the Item is Sales Job Work Item since JW items are received at SO
-    # Else the qty available is equal to the qty completed in previous process which are submitted.
+    # Else the qty available in Source Warehouse is Equal to the qty available for completed job cards for target WH
     ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     it_doc = frappe.get_doc("Item", jc_doc.production_item)
     found = 0
@@ -485,17 +485,24 @@ def get_made_to_stock_qty(jc_doc):
                 else:
                     return 0
             else:
-                # Completed Qty is equal to Previous Process - Current Process JC Submitted
+                # Completed Qty is equal completed qty for Target WH - Completed Qty of Source WH
                 completed_qty = 0
-                prv_jc_list = get_job_card_from_process_sno((op.idx - 1), ps_doc, docstatus=1)
-                same_process_jc_list = get_job_card_from_process_sno(op.idx, ps_doc, docstatus=1)
-                if prv_jc_list:
-                    for jc in prv_jc_list:
-                        completed_qty += frappe.db.get_value("Process Job Card RIGPL", jc[0], "total_completed_qty")
-                if same_process_jc_list:
-                    for same_op_jc in same_process_jc_list:
-                        completed_qty -= frappe.db.get_value("Process Job Card RIGPL", same_op_jc[0],
-                                                             "total_completed_qty")
+                if jc_doc.s_warehouse:
+                    in_qty = frappe.db.sql("""SELECT SUM(total_completed_qty)  as in_qty FROM `tab%s`
+                    WHERE status = "Completed" AND t_warehouse = '%s' AND docstatus = 1 AND sales_order_item='%s'""" %
+                                           (jc_doc.doctype, jc_doc.s_warehouse, jc_doc.sales_order_item), as_dict=1)
+                    if in_qty:
+                        in_qty = in_qty[0].in_qty
+                    else:
+                        in_qty = 0
+                    out_qty = frappe.db.sql("""SELECT SUM(total_completed_qty)  as out_qty FROM `tab%s`
+                    WHERE status = "Completed" AND s_warehouse = '%s' AND docstatus = 1 AND sales_order_item='%s'""" %
+                                           (jc_doc.doctype, jc_doc.s_warehouse, jc_doc.sales_order_item), as_dict=1)
+                    if out_qty:
+                        out_qty = out_qty[0].out_qty
+                    else:
+                        out_qty = 0
+                    completed_qty = in_qty - out_qty
                 return completed_qty
     if found == 0:
         frappe.throw("For {}, Operation {} is not mentioned in {}".
