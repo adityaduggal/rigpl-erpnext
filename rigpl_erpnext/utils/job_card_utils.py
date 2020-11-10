@@ -488,26 +488,59 @@ def get_made_to_stock_qty(jc_doc):
                 # Completed Qty is equal completed qty for Target WH - Completed Qty of Source WH
                 completed_qty = 0
                 if jc_doc.s_warehouse:
+                    # If Source WH is there then check IN - OUT Qty, IN Qty is also from GRN for Sub-Contracting.
                     in_qty = frappe.db.sql("""SELECT SUM(total_completed_qty)  as in_qty FROM `tab%s`
                     WHERE status = "Completed" AND t_warehouse = '%s' AND docstatus = 1 AND sales_order_item='%s'""" %
                                            (jc_doc.doctype, jc_doc.s_warehouse, jc_doc.sales_order_item), as_dict=1)
+                    grn_in_qty = get_grn_qty(jc_doc)
                     if in_qty:
-                        in_qty = in_qty[0].in_qty
+                        in_qty = flt(in_qty[0].in_qty)
                     else:
                         in_qty = 0
                     out_qty = frappe.db.sql("""SELECT SUM(total_completed_qty)  as out_qty FROM `tab%s`
                     WHERE status = "Completed" AND s_warehouse = '%s' AND docstatus = 1 AND sales_order_item='%s'""" %
                                            (jc_doc.doctype, jc_doc.s_warehouse, jc_doc.sales_order_item), as_dict=1)
                     if out_qty:
-                        out_qty = out_qty[0].out_qty
+                        out_qty = flt(out_qty[0].out_qty)
                     else:
                         out_qty = 0
-                    completed_qty = in_qty - out_qty
+                    completed_qty = in_qty - out_qty + grn_in_qty
                 return completed_qty
     if found == 0:
         frappe.throw("For {}, Operation {} is not mentioned in {}".
                      format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name), jc_doc.operation,
                             frappe.get_desk_link(ps_doc.doctype, ps_doc.name)))
+
+
+def get_grn_qty(jc_doc):
+    prev_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE sales_order_item = '%s'
+    AND operation_serial_no = %s AND docstatus = 1""" % (jc_doc.sales_order_item, (jc_doc.operation_serial_no - 1)),
+                            as_dict=1)
+    if prev_jc:
+        prev_op = frappe.get_value(jc_doc.doctype, prev_jc[0].name, "operation")
+        prev_jc_op_doc = frappe.get_doc("Operation", prev_op)
+        if prev_jc_op_doc.is_subcontracting == 1:
+            po = frappe.db.sql("""SELECT po.name as po, poi.name FROM `tabPurchase Order` po, `tabPurchase Order Item` poi
+            WHERE poi.parent = po.name AND po.docstatus = 1 AND poi.reference_dn = '%s' 
+            AND poi.reference_dt = '%s'""" % (prev_jc[0].name, jc_doc.doctype), as_dict=1)
+            if po:
+                grn = frappe.db.sql("""SELECT pr.name as grn, pri.qty, pri.warehouse FROM `tabPurchase Receipt` pr,
+                `tabPurchase Receipt Item` pri WHERE pr.docstatus=1 AND pri.parent = pr.name 
+                AND pri.purchase_order_item = '%s'""" % po[0].name, as_dict=1)
+                qty = 0
+                if grn:
+                    for d in grn:
+                        if d.warehouse == jc_doc.s_warehouse:
+                            qty += d.qty
+                    return qty
+                else:
+                    return 0
+            else:
+                return 0
+        else:
+            return 0
+    else:
+        return 0
 
 
 def get_next_job_card(jc_no):
