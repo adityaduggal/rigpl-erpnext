@@ -16,22 +16,12 @@ def validate(doc, method):
     get_qty_for_purchase(doc, reject=0)
     check_validated_gstin(doc.shipping_address)
     check_validated_gstin(doc.supplier_address)
+    validate_job_card_linking(doc)
 
 
 def on_submit(doc, method):
     # Submit the Linked Job Card
-    for d in doc.items:
-        if d.reference_dt == 'Process Job Card RIGPL':
-            jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
-            if jc_doc.docstatus == 0:
-                it_doc = frappe.get_doc("Item", d.subcontracted_item)
-                jc_doc.posting_date = doc.transaction_date
-                jc_doc.posting_time = nowtime()
-                if d.conversion_factor != 1 or it_doc.stock_uom != d.uom:
-                    jc_doc.total_completed_qty = d.conversion_factor
-                else:
-                    jc_doc.total_completed_qty = d.qty
-                jc_doc.submit()
+    validate_job_card_linking(doc)
 
 
 def on_cancel(doc, method):
@@ -43,6 +33,40 @@ def on_cancel(doc, method):
 def on_update(doc, method):
     # Check what to be done on Update maybe update the JC Start Time
     pass
+
+
+def validate_job_card_linking(po_doc):
+    for d in po_doc.items:
+        if d.reference_dt == 'Process Job Card RIGPL':
+            jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
+            if jc_doc.docstatus == 0:
+                it_doc = frappe.get_doc("Item", d.subcontracted_item)
+                jc_doc.posting_date = po_doc.transaction_date
+                jc_doc.posting_time = nowtime()
+                if d.conversion_factor != 1 or it_doc.stock_uom != d.uom:
+                    jc_doc.total_completed_qty = d.conversion_factor
+                else:
+                    jc_doc.total_completed_qty = d.qty
+                jc_doc.submit()
+            elif jc_doc.docstatus == 1:
+                # Check if JC linked to any other PO if not then its same the qty has to be equal to the completed qty
+                oth_po = frappe.db.sql("""SELECT po.name FROM `tabPurchase Order` po, `tabPurchase Order Item` poi
+                WHERE poi.parent = po.name AND po.docstatus=1 AND poi.reference_dt = '%s' AND poi.reference_dn = '%s'
+                AND po.name != '%s'""" % (d.reference_dt, d.reference_dn, po_doc.name), as_dict=1)
+                if oth_po:
+                    frappe.throw(f"For Row #{d.idx}: {frappe.get_desk_link(d.reference_dt, d.reference_dn)} is "
+                                 f"{jc_doc.status} and is already linked to "
+                                 f"{frappe.get_desk_link(po_doc.doctype, oth_po[0].name)}")
+                else:
+                    if jc_doc.total_completed_qty != d.qty:
+                        d.qty = jc_doc.total_completed_qty
+            else:
+                # Cancelled Job Card linking
+                frappe.throw(f"{frappe.get_desk_link(d.reference_dt, d.reference_dn)} is {jc_doc.status} "
+                             f"for Row#{d.idx}")
+        else:
+            if po_doc.is_subcontracting == 1:
+                frappe.throw(f"Job Card is Mandatory for Sub Cotracting PO Check Row# {d.idx}")
 
 
 def get_qty_for_purchase(doc, reject=0):
