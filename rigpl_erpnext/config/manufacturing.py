@@ -66,6 +66,13 @@ def get_data():
                 {
                     "type": "report",
                     "is_query_report": True,
+                    "name": "MTO Stock Ledger",
+                    "label": "Made to Order Stock Ledger",
+                    "doctype": "Process Job Card RIGPL",
+                },
+                {
+                    "type": "report",
+                    "is_query_report": True,
                     "name": "Standards and Drawings RIGPL",
                     "label": "Standards and Drawings Report",
                     "doctype": "Important Documents",
