@@ -121,6 +121,7 @@ def get_job_card_process_sno(jc_doc):
                 final_op = 1
     if found == 0:
         op_sno = 0
+        final_op = 0
     return op_sno, final_op
 
 
