@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+from collections import defaultdict
 import frappe
 from ...utils.job_card_utils import get_job_card_process_sno
 
@@ -27,3 +28,19 @@ def execute():
             if ste_dict:
                 for ste in ste_dict:
                     frappe.set_value("Stock Entry", ste.name, "process_job_card", jc.name)
+
+
+def check_for_multiple_po_for_same_jc():
+    all_po_with_jc = frappe.db.sql("""SELECT po.name as po, poi.reference_dn as jc
+    FROM `tabPurchase Order` po, `tabPurchase Order Item` poi WHERE poi.parent = po.name AND po.docstatus = 1
+    AND poi.reference_dt = "Process Job Card RIGPL" AND poi.reference_dn IS NOT NULL
+    ORDER BY poi.reference_dn, po.name""", as_dict=1)
+    for jc in all_po_with_jc:
+        print(f"Checking for JC# {jc.jc}")
+        other_po = frappe.db.sql("""SELECT po.name FROM `tabPurchase Order` po, `tabPurchase Order Item` poi
+        WHERE poi.parent = po.name AND po.docstatus=1 AND poi.reference_dt = 'Process Job Card RIGPL' AND
+        poi.reference_dn = '%s' AND po.name != '%s' """ % (jc.jc, jc.po), as_dict=1)
+        if other_po:
+            print(f"OTHER PO# = {other_po} FOR JC# = {jc.name}")
+        else:
+            print(f"No Other PO found for JC# {jc.jc}")
