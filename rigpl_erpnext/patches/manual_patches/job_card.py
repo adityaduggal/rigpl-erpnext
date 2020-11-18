@@ -79,11 +79,15 @@ def update_source_warehouse():
     AND transfer_entry = 1 AND s_warehouse IS NULL""", as_dict=1)
     sno = 1
     for jc in wrong_jc:
+        jc_doc = frappe.get_doc("Process Job Card RIGPL", jc.name)
         if jc.docstatus == 1:
-            print(f"{sno}. No Source Warehouse mentioned in {jc.name}")
-            sno += 1
+            it_doc = frappe.get_doc("Item", jc_doc.production_item)
+            if it_doc.made_to_order == 1:
+                print(f"{sno}. No Source Warehouse mentioned in {jc.name} for Made to Order Item")
+            else:
+                print(f"{sno}. No Source Warehouse mentioned in {jc.name} for Item {it_doc.name}")
+                sno += 1
         else:
-            jc_doc = frappe.get_doc("Process Job Card RIGPL", jc.name)
             op_doc = frappe.get_doc("BOM Operation", jc_doc.operation_id)
             jc_doc.s_warehouse = op_doc.source_warehouse
             jc_doc.save()
