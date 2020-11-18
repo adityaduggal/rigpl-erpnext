@@ -13,10 +13,16 @@ def execute():
     for bt in all_bt:
         bt_doc = frappe.get_doc("BOM Template RIGPL", bt.name)
         for op in bt_doc.operations:
+            if op.allow_consumption_of_rm == 1:
+                op.source_warehouse = ""
             if op.source_warehouse and op.target_warehouse and op.transfer_entry != 1:
                 op.transfer_entry = 1
                 op.save()
                 print(f"{bt_doc.name} Updated for {op.operation} and Updated as Transfer Entry")
+            elif not op.source_warehouse and op.transfer_entry == 1:
+                op.transfer_entry = 0
+                op.save()
+                print(f"{bt_doc.name} Updated for {op.operation} and Updated as NON Transfer Entry")
     frappe.db.commit()
     bt_time = int(time.time() - st_time)
     print(f"Total Time for BOM Templates {bt_time} seconds")
@@ -25,15 +31,24 @@ def execute():
     for ps in all_ps:
         ps_doc = frappe.get_doc("Process Sheet", ps.name)
         for op in ps_doc.operations:
-            if op.source_warehouse and op.source_warehouse != "":
+            if op.allow_consumption_of_rm == 1:
+                if op.source_warehouse:
+                    op.source_warehouse = ""
+            if op.source_warehouse:
                 if op.target_warehouse:
                     if op.transfer_entry != 1:
                         op.transfer_entry = 1
                         op.save()
                         print(f"{ps_doc.name} Updated for {op.operation} and Updated as Transfer Entry")
+                else:
+                    if op.transfer_entry == 1:
+                        op.transfer_entry = 0
+                        op.save()
+                        print(f"{ps_doc.name} Updated for {op.operation} and Updated as NON Transfer Entry")
             else:
                 if op.transfer_entry == 1:
                     op.transfer_entry = 0
+                    op.save()
                     print(f"{ps_doc.name} Updated for {op.operation} and Removed as Transfer Entry")
     frappe.db.commit()
     ps_time = int(time.time() - ps_st_time)
