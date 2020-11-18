@@ -43,6 +43,7 @@ def execute():
     WHERE docstatus < 2 ORDER BY name DESC""", as_dict=1)
     jc_updated = 0
     for jc in all_jc:
+        print(f"Processing {jc.name}   ", end= "\r")
         # Update Job Card Operation Serial Number
         jc_doc = frappe.get_doc("Process Job Card RIGPL", jc.name)
         op_doc = frappe.get_doc("BOM Operation", jc_doc.operation_id)
