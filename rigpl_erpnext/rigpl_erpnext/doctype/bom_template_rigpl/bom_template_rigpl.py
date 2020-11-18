@@ -44,6 +44,8 @@ class BOMTemplateRIGPL(Document):
         else:
             frappe.throw('Routing is Mandatory for {}'.format(self.name))
         for d in self.operations:
+            if d.source_warehouse and d.target_warehouse:
+                d.transfer_entry = 1
             op_doc = frappe.get_doc("Operation", d.operation)
             if op_doc.is_subcontracting == 1:
                 d.target_warehouse = op_doc.sub_contracting_warehouse

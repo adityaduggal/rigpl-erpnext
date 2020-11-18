@@ -23,6 +23,7 @@
   "t_warehouse",
   "uom",
   "operation_serial_no",
+  "transfer_entry",
   "final_operation",
   "allow_production_of_wip_materials",
   "sb0",
@@ -387,10 +388,18 @@
    "fieldtype": "Check",
    "label": "Final Operation",
    "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "0",
+   "fieldname": "transfer_entry",
+   "fieldtype": "Check",
+   "label": "Transfer Entry",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-11-08 07:39:13.670044",
+ "modified": "2020-11-18 10:35:07.708523",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",

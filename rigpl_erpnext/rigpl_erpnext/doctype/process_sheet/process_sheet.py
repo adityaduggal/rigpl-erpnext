@@ -320,6 +320,7 @@ class ProcessSheet(Document):
                 "wip_material_warehouse": d.wip_material_warehouse,
                 "source_warehouse": d.source_warehouse,
                 "target_warehouse": d.target_warehouse,
+                "transfer_entry": d.transfer_entry,
                 "final_operation": d.final_operation,
                 "final_warehouse": d.final_warehouse,
                 "idx": d.idx
