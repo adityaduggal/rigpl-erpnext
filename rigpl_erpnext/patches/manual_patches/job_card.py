@@ -70,14 +70,24 @@ def execute():
                     frappe.set_value("Stock Entry", ste.name, "process_job_card", jc.name)
     jc_time = int(time.time() - jc_st_time)
     print(f"Total Time for Job Cards {jc_time} seconds")
-    wrong_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus < 2 AND transfer_entry = 1
-    AND s_warehouse IS NULL""", as_dict=1)
-    sno = 1
-    for jc in wrong_jc:
-        print(f"{sno}. No Source Warehouse mentioned in {jc.name}")
-        sno += 1
     tot_time = int(time.time() - st_time)
     print(f"Total Time for All Processes {tot_time} seconds")
+
+
+def update_source_warehouse():
+    wrong_jc = frappe.db.sql("""SELECT name, docstatus FROM `tabProcess Job Card RIGPL` WHERE docstatus < 2 
+    AND transfer_entry = 1 AND s_warehouse IS NULL""", as_dict=1)
+    sno = 1
+    for jc in wrong_jc:
+        if jc.docstatus == 1:
+            print(f"{sno}. No Source Warehouse mentioned in {jc.name}")
+            sno += 1
+        else:
+            jc_doc = frappe.get_doc("Process Job Card RIGPL", jc.name)
+            op_doc = frappe.get_doc("BOM Operation", jc_doc.operation_id)
+            jc_doc.s_warehouse = op_doc.source_warehouse
+            jc_doc.save()
+            print(f"{jc.name} is in Draft and Source Warehouse is Updated to {op_doc.source_warehouse}")
 
 
 def check_for_multiple_po_for_same_jc():
