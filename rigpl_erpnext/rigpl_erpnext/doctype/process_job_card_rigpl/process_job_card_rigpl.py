@@ -61,8 +61,12 @@ class ProcessJobCardRIGPL(Document):
                     get_items_from_process_sheet_for_job_card(self, "rm_consumed")
 
             if self.transfer_entry == 1 and not self.s_warehouse:
-                frappe.throw(f"{frappe.get_desk_link(self.doctype, self.name)} is for Transfer and hence "
-                             f"Source Warehouse is Mandatory")
+                op_doc = frappe.get_doc("BOM Operation", self.operation_id)
+                self.s_warehouse = op_doc.source_warehouse
+            else:
+                op_doc = frappe.get_doc("BOM Operation", self.operation_id)
+                if op_doc.transfer_entry != self.transfer_entry:
+                    self.transfer_entry = op_doc.transfer_entry
 
             if self.rm_consumed:
                 rm_item_dict = frappe.get_all("Process Sheet Items", fields=["item_code"],
