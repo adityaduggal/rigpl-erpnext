@@ -141,34 +141,49 @@ def get_quantities_for_item(it_doc):
 
 
 def get_calculated_rol(rol, val_rate):
+    rol_text = frappe.get_value("RIGPL Settings", "RIGPL Settings", "rol_multiplier")
+    rol_text = rol_text.split(",")
+    rol_multi = []
+    for d in rol_text:
+        multi_dict = {}
+        d=d.split(":")
+        multi_dict["multiplier"] = flt(d[0])
+        multi_dict["value"] = flt(d[1])
+        rol_multi.append(multi_dict.copy())
+    rol_multi = sorted(rol_multi, key=lambda i:i["value"])
     rol_val_rate_prod = rol * val_rate
-    if rol_val_rate_prod <= 1000:
-        calc_rol = 5 * rol
-    elif rol_val_rate_prod <= 2000:
-        calc_rol = 2.5 * rol
-    elif rol_val_rate_prod <= 5000:
-        calc_rol = 1.5 * rol
-    else:
+    multiplied = 0
+    for multi in rol_multi:
+        if rol_val_rate_prod <= multi.get("value"):
+            calc_rol = multi.get("multiplier") * rol
+            multiplied = 1
+    if multiplied == 0:
         calc_rol = rol
     return calc_rol
 
 
 def get_qty_to_manufacture(it_doc):
+    base_multiplier = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_rol_multiplier"))
+    if base_multiplier <= 0:
+        base_multiplier = 1
     qty_dict = get_quantities_for_item (it_doc)
+    # print(qty_dict)
     calc_rol = qty_dict["calculated_rol"]
     lead = qty_dict["lead_time"]
     so = qty_dict["on_so"]
     po = qty_dict["on_po"]
     prd = qty_dict["reserved_for_prd"]
-    fg = qty_dict["finished_qty"]
+    fg = qty_dict["finished_qty"] + qty_dict["dead_qty"]
     wipq = qty_dict["wip_qty"]
     plan = qty_dict["planned_qty"]
     rol = qty_dict["re_order_level"]
-    reqd_qty = (calc_rol * lead / 30) + so + prd - fg - wipq - plan
+    reqd_qty = base_multiplier * (calc_rol * lead / 30) + so + prd - fg - wipq - plan
     if reqd_qty < 0:
         reqd_qty = 0
     if rol > 0:
-        if reqd_qty <= 10:
+        if reqd_qty <= 0:
+            reqd_qty = 0
+        elif reqd_qty <= 10:
             reqd_qty = round_up(reqd_qty, 1)
         elif reqd_qty < 50:
             reqd_qty = round_up(reqd_qty, 5)
@@ -492,7 +507,6 @@ def change_att_if_needed(att_list, bom_template_doc, type_of_att):
 def calculate_formula_values(formula, formula_values_dict):
     original_keys = formula_values_dict.keys()
     try:
-        print(formula)
         if "compile" in formula:
             calc_value = (eval(formula))
             calc_value = eval(calc_value, formula_values_dict, formula_values_dict)

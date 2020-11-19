@@ -12,7 +12,10 @@
   "max_days",
   "sb1",
   "future_time_mins",
+  "rol_multiplier",
   "cb1",
+  "auto_process_sheet_value",
+  "base_rol_multiplier",
   "check_overlap_for_machines",
   "sb2",
   "years_to_consider",
@@ -131,10 +134,28 @@
    "fieldname": "base_annual_sales",
    "fieldtype": "Currency",
    "label": "Base Annual Sales"
+  },
+  {
+   "default": "10000",
+   "description": "Total Value of Manufactured Items for which Process Sheet would be Automatically Created\nValue = Qty * Valuation Rate",
+   "fieldname": "auto_process_sheet_value",
+   "fieldtype": "Currency",
+   "label": "Auto Process Sheet Value"
+  },
+  {
+   "description": "Enter ROL Multiplier text in the format multiplier:value\neg: 10:1500, 5:3000, 3:5000, 2:7500\nThis means ROL would be multiplied by 10 if value = ROL * Valuation Rate < 1000",
+   "fieldname": "rol_multiplier",
+   "fieldtype": "Text",
+   "label": "ROL Multiplier"
+  },
+  {
+   "fieldname": "base_rol_multiplier",
+   "fieldtype": "Float",
+   "label": "Base ROL Multiplier"
   }
  ],
  "issingle": 1,
- "modified": "2020-11-09 17:52:56.353975",
+ "modified": "2020-11-19 15:48:38.237224",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

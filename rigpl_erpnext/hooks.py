@@ -217,10 +217,13 @@ scheduler_events = {
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute"
             # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:30 AM
         ],
+        "*/15 * * * *": [
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute"
+            # Runs every 15th mins
+        ]
     },
     "all": [
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults"
     ],
     "daily": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
