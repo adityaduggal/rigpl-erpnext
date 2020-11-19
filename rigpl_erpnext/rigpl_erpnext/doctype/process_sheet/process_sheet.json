@@ -12,6 +12,7 @@
   "production_item",
   "description",
   "bom_template_description",
+  "priority",
   "sales_order",
   "sales_order_item",
   "sno",
@@ -22,10 +23,11 @@
   "bom_template",
   "total_applicable_bom_templates",
   "quantity",
-  "update_qty_manually",
-  "bypass_all_qty_checks",
+  "auto_qty",
   "produced_qty",
   "short_closed_qty",
+  "update_qty_manually",
+  "bypass_all_qty_checks",
   "sb0",
   "routing",
   "operations",
@@ -243,10 +245,23 @@
    "fieldname": "show_unavailable_rm",
    "fieldtype": "Check",
    "label": "Show Unavailable RM"
+  },
+  {
+   "fieldname": "auto_qty",
+   "fieldtype": "Float",
+   "label": "Auto Qty",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Priority",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-11-19 07:55:05.805172",
+ "modified": "2020-11-19 18:30:56.766719",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",

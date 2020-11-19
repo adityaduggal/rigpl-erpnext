@@ -7,7 +7,8 @@ from frappe.utils import nowdate
 from frappe.model.document import Document
 from rigpl_erpnext.utils.manufacturing_utils import *
 from rigpl_erpnext.utils.process_sheet_utils import *
-from ....utils.job_card_utils import create_job_card, check_existing_job_card, delete_job_card
+from ....utils.job_card_utils import delete_job_card
+from ....utils.sales_utils import get_priority_for_so
 
 
 class ProcessSheet(Document):
@@ -119,6 +120,7 @@ class ProcessSheet(Document):
         self.get_routing_from_template()
         self.update_ps_status()
         self.validate_qty_to_manufacture(it_doc)
+        update_priority(self, it_doc)
         if self.get("__islocal") != 1:
             self.get_rm_sizes(bt_doc)
 
@@ -216,6 +218,7 @@ class ProcessSheet(Document):
 
     def validate_qty_to_manufacture(self, it_doc):
         auto_qty = get_qty_to_manufacture(it_doc)
+        self.auto_qty = auto_qty
         dead_qty = get_quantities_for_item(it_doc)["dead_qty"]
         if dead_qty > 0 and self.bypass_all_qty_checks != 1:
             frappe.throw("There are {} Qty in Dead Stock for {}.\nHence Cannot Proceed".format(dead_qty, self.production_item))
@@ -349,7 +352,6 @@ class ProcessSheet(Document):
                     frappe.get_desk_link("BOM Template RIGPL", bt_doc.name), bt_doc.no_of_rm_items,
                     len(self.rm_consumed)), "Error: No of RM Selected is Wrong")
 
-
     def make_rm_item_dict(self):
         rm_item_dict = []
         for d in self.rm_consumed:
@@ -358,3 +360,32 @@ class ProcessSheet(Document):
             rm_dict["description"] = d.description
             rm_item_dict.append(rm_dict.copy())
         return rm_item_dict
+
+def update_priority(ps_doc, it_doc):
+    if it_doc.made_to_order == 1:
+        priority = get_priority_for_so(it_name=it_doc.name, prd_qty=ps_doc.quantity, short_qty=ps_doc.quantity,
+                                            so_detail=ps_doc.sales_order_item)
+    else:
+        qty_dict = get_quantities_for_item(it_doc)
+        prd_qty = ps_doc.quantity
+        soqty, poqty, pqty = qty_dict["on_so"], qty_dict["on_po"], qty_dict["planned_qty"]
+        fqty, res_prd_qty, wipqty = qty_dict["finished_qty"], qty_dict["reserved_for_prd"], qty_dict["wip_qty"]
+        dead_qty = qty_dict["dead_qty"]
+        if soqty > 0:
+            if soqty > fqty + dead_qty:
+                # SO Qty is Greater than Finished Stock
+                shortage = soqty - fqty - dead_qty
+                if shortage > wipqty:
+                    # Shortage of Material is More than WIP Qty
+                    priority = get_priority_for_so(it_name=it_doc.name, prd_qty=prd_qty, short_qty=shortage)
+                else:
+                    # Shortage is Less than Items in Production now get shortage for the Job Card First
+                    priority = get_priority_for_so(it_name=it_doc.name, prd_qty=prd_qty, short_qty=shortage)
+            else:
+                # Qty in Production is for Stock Only
+                priority = get_priority_for_stock_prd(it_name=it_doc.name, qty_dict=qty_dict)
+        else:
+            # No Order for Item, For Stock Production Priority
+            priority = get_priority_for_stock_prd(it_name=it_doc.name, qty_dict=qty_dict)
+    print(f"Updated Priority for {ps_doc.name} to {priority}")
+    frappe.db.set_value("Process Sheet", ps_doc.name, "priority", priority)

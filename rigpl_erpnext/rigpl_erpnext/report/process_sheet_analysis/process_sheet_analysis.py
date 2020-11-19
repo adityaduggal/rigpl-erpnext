@@ -13,7 +13,7 @@ def execute(filters=None):
 
 def get_columns(filters):
     columns = [
-        "Process Sheet:Link/Process Sheet:100", "Status::80", "Item:Link/Item:120",
+        "Process Sheet:Link/Process Sheet:100", "Status::80", "Priority:Int:50", "Item:Link/Item:120",
         "BM::60", "TT::60", "SPL::60", "Series::40",
         "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50", "L2:Float:50", "Qty:Int:50",
         "Comp Qty:Int:50", "SC Qty:Int:50", "BT:Link/BOM Template RIGPL:80",
@@ -25,7 +25,7 @@ def get_columns(filters):
 
 def get_data(filters):
     conditions_it, conditions_ps = get_conditions (filters)
-    query = """SELECT ps.name, ps.status, ps.production_item, bm.attribute_value, tt.attribute_value,
+    query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, bm.attribute_value, tt.attribute_value,
     spl.attribute_value, ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value,
     d2.attribute_value, l2.attribute_value, ps.quantity, IF(ps.produced_qty=0, NULL,ps.produced_qty), 
     IF(ps.short_closed_qty=0, NULL, ps.short_closed_qty), 
@@ -61,9 +61,9 @@ def get_data(filters):
     	AND d2.attribute = 'd2_mm'
     LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
     	AND l2.attribute = 'l2_mm'
-    WHERE ps.docstatus != 3 %s %s
-    ORDER BY bm.attribute_value, tt.attribute_value, spl.attribute_value, ser.attribute_value, d1.attribute_value,
-    w1.attribute_value, l1.attribute_value, d2.attribute_value, l2.attribute_value,
+    WHERE ps.docstatus < 3 %s %s
+    ORDER BY ps.priority, bm.attribute_value, tt.attribute_value, spl.attribute_value, ser.attribute_value,
+    d1.attribute_value, w1.attribute_value, l1.attribute_value, d2.attribute_value, l2.attribute_value,
     ps.production_item, ps.sales_order, ps.description""" % (conditions_ps, conditions_it)
     data = frappe.db.sql(query, as_list=1)
     return data
@@ -76,7 +76,8 @@ def get_conditions(filters):
     if filters.get("status"):
         conditions_ps += " AND ps.status = '%s'" % filters.get("status")
     else:
-        conditions_ps += " AND ps.docstatus = 1 AND ps.status != 'Stopped' AND ps.status != 'Completed'"
+        conditions_ps += " AND ps.docstatus < 2 AND ps.status != 'Stopped' AND ps.status != 'Completed' " \
+                         "AND status != 'Short Closed'"
 
     if filters.get("bm"):
         conditions_it += " AND bm.attribute_value = '%s'" % filters.get("bm")

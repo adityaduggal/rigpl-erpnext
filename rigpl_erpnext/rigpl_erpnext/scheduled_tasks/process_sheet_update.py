@@ -6,17 +6,35 @@ from __future__ import unicode_literals
 import time
 import frappe
 from frappe.utils import today, flt
+from ..doctype.process_sheet.process_sheet import update_priority
 from ...utils.process_sheet_utils import make_jc_for_process_sheet, update_process_sheet_quantities
 from ...utils.manufacturing_utils import get_qty_to_manufacture, get_quantities_for_item
 
 
 def execute():
     st_time = time.time()
+    update_process_sheet_priority()
+    frappe.db.commit()
     create_new_process_sheets()
     frappe.db.commit()
     update_process_sheet_status()
     total_time = int(time.time() - st_time)
     print(f"Total Time taken = {total_time} seconds")
+
+
+def update_process_sheet_priority():
+    st_time = time.time()
+    ps_list = frappe.db.sql("""SELECT name, docstatus FROM `tabProcess Sheet` WHERE docstatus < 2 AND status != 'Completed' 
+    AND status != 'Short Closed' AND status != 'Stopped'""", as_dict=1)
+    for ps in ps_list:
+        psd = frappe.get_doc("Process Sheet", ps.name)
+        itd = frappe.get_doc("Item", psd.production_item)
+        update_priority(psd, itd)
+        if psd.docstatus == 0 and psd.status != "Draft":
+            frappe.db.set_value("Process Sheet", psd.name, "status", "Draft")
+            print(f"Updated Status for {psd.name} to Draft")
+    end_time = int(time.time() - st_time)
+    print(f"Total Time for Updating Priority = {end_time} seconds")
 
 
 def create_new_process_sheets():
@@ -50,6 +68,7 @@ def create_new_process_sheets():
                 ps.production_item = it.name
                 ps.date = today()
                 ps.quantity = qty
+                ps.status = "Draft"
                 ps.insert()
                 print(f"Created {ps.name} for {it.name} for Qty= {qty}")
                 created += 1
@@ -61,11 +80,12 @@ def create_new_process_sheets():
 def update_process_sheet_status():
     st_time = time.time()
     ps_count = 0
-    ps_dict = frappe.db.sql("""SELECT name, status FROM `tabProcess Sheet` 
+    ps_dict = frappe.db.sql("""SELECT name, status, priority FROM `tabProcess Sheet` 
     WHERE docstatus = 1 AND status != 'Completed' AND status != 'Stopped' AND status != 'Short Closed' 
     ORDER BY name""", as_dict=1)
     for ps in ps_dict:
         ps_doc = frappe.get_doc("Process Sheet", ps.name)
+        it_doc = frappe.get_doc("Item", ps_doc.production_item)
         make_jc_for_process_sheet(ps_doc)
         update_process_sheet_quantities(ps_doc)
         if ps_doc.short_closed_qty > 0:

@@ -134,6 +134,7 @@ def create_ps_from_so_item(so_row):
     ps_doc.sales_order = so_row.parent
     ps_doc.sales_order_item = so_row.name
     ps_doc.sno = so_row.idx
+    ps_doc.status = "Draft"
     ps_doc.insert()
     frappe.msgprint("Created {} for Row# {}".format(frappe.get_desk_link("Process Sheet", ps_doc.name), so_row.idx))
 
