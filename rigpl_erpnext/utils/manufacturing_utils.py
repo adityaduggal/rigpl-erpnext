@@ -143,6 +143,9 @@ def get_quantities_for_item(it_doc):
 def get_calculated_rol(rol, val_rate):
     rol_text = frappe.get_value("RIGPL Settings", "RIGPL Settings", "rol_multiplier")
     rol_text = rol_text.split(",")
+    if not rol_text[0]:
+        # Default Multipliers
+        rol_text = ["5:1000", "2.5:2000", "2:2500"]
     rol_multi = []
     for d in rol_text:
         multi_dict = {}
