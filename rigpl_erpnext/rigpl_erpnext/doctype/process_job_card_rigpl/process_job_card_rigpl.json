@@ -49,8 +49,8 @@
   "sb6",
   "operation_id",
   "sales_order",
-  "cb2",
   "sales_order_item",
+  "cb2",
   "sno",
   "amended_from"
  ],
@@ -250,9 +250,9 @@
   {
    "fieldname": "operation_id",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Operation ID",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "operation",
@@ -399,7 +399,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2020-11-18 17:47:58.449494",
+ "modified": "2020-11-19 07:52:36.413864",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
