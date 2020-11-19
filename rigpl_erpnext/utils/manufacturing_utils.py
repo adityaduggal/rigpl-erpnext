@@ -180,7 +180,7 @@ def get_qty_to_manufacture(it_doc):
     wipq = qty_dict["wip_qty"]
     plan = qty_dict["planned_qty"]
     rol = qty_dict["re_order_level"]
-    reqd_qty = base_multiplier * (calc_rol * lead / 30) + so + prd - fg - wipq - plan
+    reqd_qty = (base_multiplier * calc_rol * lead / 30) + so + prd - fg - wipq - plan - po
     if reqd_qty < 0:
         reqd_qty = 0
     if rol > 0:
