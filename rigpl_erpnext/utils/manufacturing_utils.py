@@ -31,22 +31,23 @@ def get_items_from_process_sheet_for_job_card(document, table_name):
         })
 
 
-def get_priority_for_stock_prd(it_name, qty_dict):
+def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
     # This would give priority from 20 and above for a factor. Factor to be like for SO only
     # factor = calc_rol * vr / qty
     factor = 0
+    resd_prd = qty_dict["reserved_for_prd"]
     rol_vr_lead_factor = qty_dict["calculated_rol"] * (qty_dict["valuation_rate"] + 1 ) * qty_dict["lead_time"]
     bal_fin = qty_dict["finished_qty"] - qty_dict["on_so"]
-    bal_aft_prd = bal_fin - qty_dict["reserved_for_prd"]
+    bal_aft_prd = bal_fin - resd_prd + qty_before_process
     if bal_fin < 0:
         bal_fin = 0
     if bal_aft_prd < 0:
         bal_aft_prd = 0
-    if bal_aft_prd == bal_fin:
+    if resd_prd == 0:
         factor = rol_vr_lead_factor/(bal_fin + 1)
     else:
         factor = rol_vr_lead_factor/(bal_aft_prd + 1)
-    if bal_aft_prd == bal_fin:
+    if resd_prd == 0:
         if factor > 1000000:
             return 30
         elif factor > 500000:
@@ -65,10 +66,8 @@ def get_priority_for_stock_prd(it_name, qty_dict):
             return 37
         elif factor > 5000:
             return 38
-        elif factor > 1000:
-            return 39
         else:
-            return 40
+            return 39
     else:
         if factor > 1000000:
             return 20
@@ -88,10 +87,8 @@ def get_priority_for_stock_prd(it_name, qty_dict):
             return 27
         elif factor > 5000:
             return 28
-        elif factor > 1000:
-            return 29
         else:
-            return 30
+            return 29
 
 
 def get_quantities_for_item(it_doc):

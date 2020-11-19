@@ -137,6 +137,7 @@ def update_job_card_priority(jc_doc):
 def get_production_priority_for_item(item_name, jc_doc):
     it_doc = frappe.get_doc("Item", item_name)
     qty_dict = get_quantities_for_item(it_doc)
+    qty_before_process = 0
     if it_doc.made_to_order == 1:
         priority = get_priority_for_so(it_name=item_name, prd_qty=jc_doc.for_quantity, short_qty=jc_doc.for_quantity,
                                 so_detail=jc_doc.sales_order_item)
@@ -156,44 +157,64 @@ def get_production_priority_for_item(item_name, jc_doc):
                 shortage = soqty - fqty - dead_qty
                 if shortage > wipqty:
                     # Shortage of Material is More than WIP Qty
+                    # Also check process number since last process should be More Urgent than 1st Process to fasten Prod
                     priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty, short_qty=shortage)
                     return priority
                 else:
-                    # Shortage is Less than Items in Production
+                    # Shortage is Less than Items in Production now get shortage for the Job Card First
                     jc_dict = get_open_job_cards_for_item(item_name)
                     if jc_dict:
                         for i in range(0, len(jc_dict)):
-                            if jc_dict[i].s_warehouse:
-                                if i>0:
-                                    if jc_dict[i-1].s_warehouse != jc_dict[i].s_warehouse:
-                                        if jc_dict[i].qty_available < shortage:
-                                            shortage -= jc_dict[i].qty_available
-                                            priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
-                                                                    short_qty=shortage)
-                                            return priority
-                                        else:
-                                            priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
-                                                                    short_qty=shortage)
-                                            return priority
-                                    else:
-                                        priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
-                                                                short_qty=shortage)
-                                        return priority
-                    return 0
+                            # Check for all process after the JCard for available qty
+                            if jc_dict[i].name != jc_doc.name:
+                                if jc_dict[i].transfer_entry == 1:
+                                    shortage -= jc_dict[i].qty_available
+                                else:
+                                    shortage -= jc_dict[i].for_quantity
+                            else:
+                                # If same JC found then get out of loop since don't to consider later JC for process
+                                break
+                        if shortage > 0:
+                            return get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
+                                                       short_qty=shortage)
+                        else:
+                            qty_before_process += get_qty_before_process(it_name=item_name, jc_doc=jc_doc)
+                            return get_priority_for_stock_prd(it_name=item_name, qty_dict=qty_dict,
+                                                              qty_before_process=qty_before_process)
+                    else:
+                        return get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
+                                                       short_qty=shortage)
             else:
                 # Qty in Production is for Stock Only
-                priority = get_priority_for_stock_prd(it_name=item_name, qty_dict=qty_dict)
-                return priority
+                qty_before_process += get_qty_before_process(it_name=item_name, jc_doc=jc_doc)
+                return get_priority_for_stock_prd(it_name=item_name, qty_dict=qty_dict,
+                                                  qty_before_process=qty_before_process)
         else:
             # No Order for Item
             # For Stock Production Priority
-            priority = get_priority_for_stock_prd(it_name=item_name, qty_dict=qty_dict)
-            return priority
+            qty_before_process += get_qty_before_process(it_name=item_name, jc_doc=jc_doc)
+            return get_priority_for_stock_prd(it_name=item_name, qty_dict=qty_dict,
+                                              qty_before_process=qty_before_process)
+
+
+def get_qty_before_process(it_name, jc_doc):
+    qty_before_process = 0
+    all_jc = get_open_job_cards_for_item(it_name)
+    if all_jc:
+        for jc in all_jc:
+            if jc.name != jc_doc.name:
+                if jc.transfer_entry == 1:
+                    qty_before_process += jc.qty_available
+                else:
+                    qty_before_process += jc.for_quantity
+            else:
+                break
+    return qty_before_process
 
 
 def get_open_job_cards_for_item(item_name):
     jc_dict = frappe.db.sql("""SELECT name, production_item, for_quantity, qty_available, operation, 
-    operation_serial_no, s_warehouse FROM `tabProcess Job Card RIGPL` WHERE docstatus=0 
+    operation_serial_no, s_warehouse, transfer_entry FROM `tabProcess Job Card RIGPL` WHERE docstatus=0 
     AND production_item = '%s' ORDER BY operation_serial_no DESC""" % item_name, as_dict=1)
     return jc_dict
 

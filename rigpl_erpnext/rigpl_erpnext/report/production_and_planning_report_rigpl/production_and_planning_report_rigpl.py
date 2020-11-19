@@ -91,7 +91,7 @@ def get_data(filters):
 		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
 			AND l2.attribute = 'l2_mm'
 		WHERE jc.docstatus = 0 %s %s
-		ORDER BY jc.priority, jc.operation, bm.attribute_value, tt.attribute_value, spl.attribute_value,
+		ORDER BY jc.priority, jc.operation_serial_no, bm.attribute_value, tt.attribute_value, spl.attribute_value,
 		ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value""" % (cond_jc, cond_it)
 		data = frappe.db.sql(query, as_list=1)
 	elif filters.get("order_wise_summary") == 1:
