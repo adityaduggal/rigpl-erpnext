@@ -217,9 +217,9 @@ scheduler_events = {
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute"
             # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:30 AM
         ],
-        "*/15 * * * *": [
+        "*/30 * * * *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute"
-            # Runs every 15th mins
+            # Runs every 30th mins
         ]
     },
     "all": [
