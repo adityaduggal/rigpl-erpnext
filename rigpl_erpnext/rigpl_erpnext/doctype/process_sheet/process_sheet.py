@@ -361,7 +361,7 @@ class ProcessSheet(Document):
             rm_item_dict.append(rm_dict.copy())
         return rm_item_dict
 
-def update_priority(ps_doc, it_doc):
+def update_priority(ps_doc, it_doc, backend=0):
     if it_doc.made_to_order == 1:
         priority = get_priority_for_so(it_name=it_doc.name, prd_qty=ps_doc.quantity, short_qty=ps_doc.quantity,
                                             so_detail=ps_doc.sales_order_item)
@@ -387,5 +387,8 @@ def update_priority(ps_doc, it_doc):
         else:
             # No Order for Item, For Stock Production Priority
             priority = get_priority_for_stock_prd(it_name=it_doc.name, qty_dict=qty_dict)
-    print(f"Updated Priority for {ps_doc.name} to {priority}")
-    frappe.db.set_value("Process Sheet", ps_doc.name, "priority", priority)
+    if backend== 1:
+        print(f"Updated Priority for {ps_doc.name} to {priority}")
+        frappe.db.set_value("Process Sheet", ps_doc.name, "priority", priority)
+    else:
+        ps_doc.priority = priority

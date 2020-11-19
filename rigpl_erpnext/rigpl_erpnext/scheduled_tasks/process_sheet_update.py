@@ -13,9 +13,9 @@ from ...utils.manufacturing_utils import get_qty_to_manufacture, get_quantities_
 
 def execute():
     st_time = time.time()
-    update_process_sheet_priority()
-    frappe.db.commit()
     create_new_process_sheets()
+    frappe.db.commit()
+    update_process_sheet_priority()
     frappe.db.commit()
     update_process_sheet_status()
     total_time = int(time.time() - st_time)
@@ -29,7 +29,7 @@ def update_process_sheet_priority():
     for ps in ps_list:
         psd = frappe.get_doc("Process Sheet", ps.name)
         itd = frappe.get_doc("Item", psd.production_item)
-        update_priority(psd, itd)
+        update_priority(psd, itd, backend=1)
         if psd.docstatus == 0 and psd.status != "Draft":
             frappe.db.set_value("Process Sheet", psd.name, "status", "Draft")
             print(f"Updated Status for {psd.name} to Draft")
