@@ -22,7 +22,7 @@ def auto_compute_rol_for_item(item_doc):
         if d.get("months") == analyse_months[0]:
             # Only base on the latest data other data is just for reference and comparison
             # print(str(d) + '\n\n')
-            if d.get("ex_rol") > 100:
+            if d.get("ex_rol") > 1000:
                 # Difference cannot be more than 10%
                 if 1.1 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.9 * d.get("ex_rol"):
                     if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
@@ -47,7 +47,31 @@ def auto_compute_rol_for_item(item_doc):
                                       f"{auto_round_down(1.1 * d.get('ex_rol'))}")
                                 update_item_rol(item_doc, auto_round_down(1.1 * d.get('ex_rol')))
                             break
-
+            elif d.get("ex_rol") > 100:
+                # Above 100 can be changed between 25%
+                if 1.25 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.75 * d.get("ex_rol"):
+                    if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
+                        update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                    break
+                else:
+                    for oth in rol_period_list:
+                        found = 0
+                        if oth.get("months") != d.get("months"):
+                            if 1.25 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.75 * d.get("ex_rol"):
+                                found = 1
+                                if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
+                                    update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                                break
+                        if found == 0:
+                            if d.get("ex_rol") > d.get("calculated_rol"):
+                                print(f"Reducing ROL by 25% for {item_doc.name} to "
+                                      f"{auto_round_down(0.75 * d.get('ex_rol'))}")
+                                update_item_rol(item_doc, auto_round_down(0.75 * d.get('ex_rol')))
+                            else:
+                                print(f"Increasing ROL by 25% for {item_doc.name} to "
+                                      f"{auto_round_down(1.25 * d.get('ex_rol'))}")
+                                update_item_rol(item_doc, auto_round_down(1.25 * d.get('ex_rol')))
+                            break
             elif d.get("ex_rol") > 50:
                 # Difference cannot be more than 50%
                 if 1.5 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.5 * d.get("ex_rol"):
