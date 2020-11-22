@@ -92,3 +92,33 @@ def round_down(num, divisor):
 
 def round_up(num, divisor):
     return num - (num % divisor) + divisor
+
+
+def auto_round_down(num):
+    if num > 5000:
+        return round_down(num, 100)
+    elif num > 1000:
+        return round_down(num, 50)
+    elif num > 500:
+        return round_down(num, 25)
+    elif num > 100:
+        return round_down(num, 10)
+    elif num > 50:
+        return round_down(num, 5)
+    else:
+        return round_down(num, 1)
+
+
+def auto_round_up(num):
+    if num > 5000:
+        return round_up(num, 100)
+    elif num > 1000:
+        return round_up(num, 50)
+    elif num > 500:
+        return round_up(num, 25)
+    elif num > 100:
+        return round_up(num, 10)
+    elif num > 50:
+        return round_up(num, 5)
+    else:
+        return round_up(num, 1)
