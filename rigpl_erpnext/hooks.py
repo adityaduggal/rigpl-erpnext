@@ -213,9 +213,10 @@ scheduler_events = {
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all"
             # Runs everyday at 3:10 AM
         ],
-        "30 3 01 */3 *": [
+        "15 3 01 */3 *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute"
-            # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:30 AM
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.execute"
+            # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:15 AM
         ],
         "*/30 * * * *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute"

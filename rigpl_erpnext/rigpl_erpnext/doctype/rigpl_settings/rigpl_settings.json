@@ -15,6 +15,7 @@
   "rol_multiplier",
   "cb1",
   "auto_process_sheet_value",
+  "minimum_rol_value",
   "base_rol_multiplier",
   "check_overlap_for_machines",
   "sb2",
@@ -152,10 +153,16 @@
    "fieldname": "base_rol_multiplier",
    "fieldtype": "Float",
    "label": "Base ROL Multiplier"
+  },
+  {
+   "default": "10000",
+   "fieldname": "minimum_rol_value",
+   "fieldtype": "Currency",
+   "label": "Minimum ROL Value"
   }
  ],
  "issingle": 1,
- "modified": "2020-11-19 15:48:38.237224",
+ "modified": "2020-11-22 11:09:56.373120",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

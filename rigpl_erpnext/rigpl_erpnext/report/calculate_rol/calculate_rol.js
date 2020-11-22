@@ -1,11 +1,11 @@
 frappe.query_reports["Calculate ROL"] = {
 	"filters": [
 		{
-			"fieldname":"from_date",
-			"label": "From Date",
-			"fieldtype": "Date",
+			"fieldname":"months",
+			"label": "Period",
+			"fieldtype": "Data",
 			"reqd": 1,
-			"default": frappe.datetime.add_months(frappe.datetime.get_today(), -12),
+			"default": "3,6,12,24",
 		},
 		{
 			"fieldname":"to_date",
