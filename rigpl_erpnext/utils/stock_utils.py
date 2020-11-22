@@ -20,13 +20,15 @@ def auto_compute_rol_for_item(item_doc):
 
     for d in rol_period_list:
         if d.get("months") == analyse_months[0]:
+            new_rol = auto_round_down(d.get("calculated_rol"))
             # Only base on the latest data other data is just for reference and comparison
             # print(str(d) + '\n\n')
             if d.get("ex_rol") > 1000:
                 # Difference cannot be more than 10%
                 if 1.1 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.9 * d.get("ex_rol"):
                     if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
-                        update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                        print(f"Updating {item_doc.name} Setting New ROL to {new_rol} from {d.get('ex_rol')}")
+                        update_item_rol(item_doc, new_rol)
                     break
                 else:
                     for oth in rol_period_list:
@@ -35,7 +37,9 @@ def auto_compute_rol_for_item(item_doc):
                             if 1.1 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.9 * d.get("ex_rol"):
                                 found = 1
                                 if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
-                                    update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                                    print(f"Updating {item_doc.name} Setting New ROL to {new_rol} from "
+                                          f"{d.get('ex_rol')}")
+                                    update_item_rol(item_doc, new_rol)
                                 break
                         if found == 0:
                             if d.get("ex_rol") > d.get("calculated_rol"):
@@ -51,6 +55,7 @@ def auto_compute_rol_for_item(item_doc):
                 # Above 100 can be changed between 25%
                 if 1.25 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.75 * d.get("ex_rol"):
                     if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
+                        print(f"Updating {item_doc.name} Setting New ROL to {new_rol} from {d.get('ex_rol')}")
                         update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
                     break
                 else:
@@ -60,7 +65,9 @@ def auto_compute_rol_for_item(item_doc):
                             if 1.25 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.75 * d.get("ex_rol"):
                                 found = 1
                                 if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
-                                    update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                                    print(f"Updating {item_doc.name} Setting New ROL to {new_rol} from "
+                                          f"{d.get('ex_rol')}")
+                                    update_item_rol(item_doc, new_rol)
                                 break
                         if found == 0:
                             if d.get("ex_rol") > d.get("calculated_rol"):
@@ -76,7 +83,8 @@ def auto_compute_rol_for_item(item_doc):
                 # Difference cannot be more than 50%
                 if 1.5 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.5 * d.get("ex_rol"):
                     if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
-                        update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                        print(f"Updating {item_doc.name} Setting New ROL to {new_rol} from {d.get('ex_rol')}")
+                        update_item_rol(item_doc, new_rol)
                     break
                 else:
                     for oth in rol_period_list:
@@ -85,7 +93,9 @@ def auto_compute_rol_for_item(item_doc):
                             if 1.5 * d.get("ex_rol") >= d.get("calculated_rol") >= 0.5 * d.get("ex_rol"):
                                 found = 1
                                 if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
-                                    update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                                    print(f"Updating {item_doc.name} Setting New ROL to {new_rol} from "
+                                        f"{d.get('ex_rol')}")
+                                    update_item_rol(item_doc, new_rol)
                                 break
                         if found == 0:
                             if d.get("ex_rol") > d.get("calculated_rol"):
@@ -101,7 +111,8 @@ def auto_compute_rol_for_item(item_doc):
                 # Difference cannot be more than 100%
                 if 2 * d.get("ex_rol") >= d.get("calculated_rol"):
                     if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
-                        update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                        print(f"Updating {item_doc.name} Setting New ROL to {new_rol} from {d.get('ex_rol')}")
+                        update_item_rol(item_doc, new_rol)
                     break
                 else:
                     for oth in rol_period_list:
@@ -112,7 +123,9 @@ def auto_compute_rol_for_item(item_doc):
                                 print(f"Would automatically change the ROL to "
                                       f"{auto_round_down(d.get('calculated_rol'))}")
                                 if d.get("ex_rol") != auto_round_down(d.get('calculated_rol')):
-                                    update_item_rol(item_doc, auto_round_down(d.get("calculated_rol")))
+                                    print(f"Updating {item_doc.name} Setting New ROL to {new_rol} from "
+                                        f"{d.get('ex_rol')}")
+                                    update_item_rol(item_doc, new_rol)
                                 break
                         if found == 0:
                             if d.get("ex_rol") > d.get("calculated_rol"):
@@ -168,7 +181,10 @@ def get_roq_from_rol(item_doc, rol):
         else:
             roq = round_up(rol, 10)
     else:
-        roq = auto_round_up(min_rol_value/item_doc.valuation_rate)
+        if item_doc.valuation_rate == 0:
+            roq = 0
+        else:
+            roq = auto_round_up(min_rol_value/item_doc.valuation_rate)
     return roq
 
 
@@ -192,7 +208,7 @@ def get_rol_for_item(item_name, period=1, to_date=today()):
     else:
         rol_dict["ex_rol"] = 0
         rol_dict["ex_rqty"] = 0
-    print(f"Processing {item_name} with existing ROL= {rol_dict.ex_rol} and Valuation Rate = {rol_dict.v_rate}")
+    # print(f"Processing {item_name} with existing ROL= {rol_dict.ex_rol} and Valuation Rate = {rol_dict.v_rate}")
     sold = frappe.db.sql("""SELECT (SUM(sle.actual_qty)*-1) as sold FROM `tabStock Ledger Entry` sle 
     WHERE sle.voucher_type IN ('Delivery Note', 'Sales Invoice') AND sle.is_cancelled = "No" AND sle.item_code = '%s'
     AND posting_date >= '%s' AND posting_date < '%s'""" % (item_name, from_date, to_date), as_dict=1)
