@@ -277,9 +277,13 @@ def validate_variants(it_doc, comm_type=None):
 		ctx = {}
 		for d in it_doc.attributes:
 			is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
+			'''
+			# Below code was un-necessarily changing the Attribute Value basically not changing but showing 
+			# in Versioning
 			if is_numeric == 1:
 				d.attribute_value = flt(d.attribute_value)
-			ctx[d.attribute] = d.attribute_value
+			'''
+			ctx[d.attribute] = flt(d.attribute_value)
 
 		original_keys = ctx.keys()
 
@@ -379,9 +383,12 @@ def compare_item_defaults(template, variant, field_list, comm_type=None):
 		for v in variant.item_defaults:
 			for f in field_list:
 				if t.get(f) == v.get(f):
-					pass
-				else:
-					copy_item_defaults(template, variant, field_list, comm_type)
+					i += 1
+	if len(field_list) == i:
+		# All fields are same so return 1 meaning item defaults are Same
+		return 1
+	else:
+		return 0
 
 
 def copy_item_defaults(template, variant, field_list, comm_type=None):
