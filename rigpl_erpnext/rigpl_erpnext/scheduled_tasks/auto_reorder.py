@@ -23,7 +23,6 @@ def execute():
     WHERE it.has_variants = 0 AND it.disabled = 0 
     AND it.made_to_order = 0 AND it.variant_of IS NOT NULL
     ORDER BY rol.warehouse_reorder_level, it.name""", as_dict=1)
-    print(item_list)
     for it in item_list:
         itd = frappe.get_doc("Item", it.name)
         rol_list = frappe.db.sql("""SELECT warehouse_reorder_level as rol FROM `tabItem Reorder` WHERE parent = '%s' AND 
