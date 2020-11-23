@@ -129,7 +129,7 @@ def auto_compute_rol_for_item(item_doc):
                                 break
                         if found == 0:
                             if d.get("ex_rol") > d.get("calculated_rol"):
-                                print(f"Reducing ROL by 50% for {item_doc.name} to "
+                                print(f"Reducing ROL to 50% for {item_doc.name} to "
                                       f"{auto_round_down(0.5 * d.get('ex_rol'))}")
                                 update_item_rol(item_doc, auto_round_down(0.5 * d.get('ex_rol')))
                             else:

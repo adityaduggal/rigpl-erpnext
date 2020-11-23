@@ -55,6 +55,8 @@ def get_rol_data(filters):
 			AND qual.attribute = '%s Quality'
 		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
 			AND brand.attribute = 'Brand'
+		LEFT JOIN `tabItem Variant Attribute` series ON it.name = series.parent
+			AND series.attribute = 'Series'
 		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
 			AND tt.attribute = 'Tool Type'
 		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
@@ -117,8 +119,8 @@ def get_conditions(filters):
 	if filters.get("bm"):
 		conditions_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
 
-	if filters.get("brand"):
-		conditions_it += " AND brand.attribute_value = '%s'" % filters.get("brand")
+	if filters.get("series"):
+		conditions_it += " AND series.attribute_value = '%s'" % filters.get("series")
 
 	if filters.get("quality"):
 		conditions_it += " AND qual.attribute_value = '%s'" % filters.get("quality")
