@@ -11,9 +11,11 @@ from __future__ import unicode_literals
 import frappe
 from frappe.utils.global_search import rebuild_for_doctype, delete_global_search_records_for_doctype
 from rigpl_erpnext.utils.rigpl_perm import *
+from time import time
 
 
 def check_permission_exist():
+    st_time = time()
     # delete_extra_global_search()
     clean_dynamic_link_table()
     clean_sales_team_table()
@@ -176,6 +178,8 @@ def check_permission_exist():
     delete_docs = ['User Permission', 'Error Log', 'Email Group Member', 'Version']
     for d in delete_docs:
         delete_from_deleted_doc(d)
+    tot_time = int(time() - st_time)
+    print(f"Total Time Taken {tot_time} seconds")
 
 
 def delete_extra_global_search():

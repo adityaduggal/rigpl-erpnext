@@ -9,7 +9,12 @@ from frappe.utils import today, flt
 from ..doctype.process_sheet.process_sheet import update_priority
 from ...utils.process_sheet_utils import make_jc_for_process_sheet, update_process_sheet_quantities
 from ...utils.manufacturing_utils import get_qty_to_manufacture, get_quantities_for_item
+from frappe.utils.background_jobs import enqueue
 
+
+def enqueue_process_sheet_update():
+    enqueue("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute", queue="long",
+            timeout=1500)
 
 def execute():
     st_time = time.time()

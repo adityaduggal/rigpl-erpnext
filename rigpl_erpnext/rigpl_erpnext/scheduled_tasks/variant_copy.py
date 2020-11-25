@@ -5,13 +5,22 @@
 from __future__ import unicode_literals
 from rigpl_erpnext.utils.item_utils import *
 from operator import itemgetter
+from time import time
+from frappe.utils.background_jobs import enqueue
 
 
-# Run this script every hour but to ensure that there is no server overload run it only for 1 template at a time
+def enqueue_check_wrong_variants():
+	enqueue("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants", queue="background",
+			timeout=7200)
+
 
 def check_wrong_variants():
+	# Total time taken by this function is around 2300 seconds
+	st_time = time()
 	check_expired_items()
 	check_items_as_per_sorting_for_website()
+	tot_time = int(time() - st_time)
+	print(f"Total Time Taken = {tot_time} seconds")
 
 
 def check_expired_items():

@@ -206,20 +206,20 @@ doc_events = {
 scheduler_events = {
     "cron": {
         "10 2 * * *": [
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants"
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.enqueue_check_wrong_variants"
             # Runs everyday at 2:10 AM
         ],
         "10 3 * * *": [
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all"
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.enqueue_set_valuation_rate"
             # Runs everyday at 3:10 AM
         ],
         "15 3 01 */3 *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute"
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.execute"
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.enqueue_rol_job"
             # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:15 AM
         ],
         "*/30 * * * *": [
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute"
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update"
             # Runs every 30th mins
         ]
     },
@@ -235,7 +235,7 @@ scheduler_events = {
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.execute",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.execute"
     ]
     # 	"monthly": [

@@ -9,6 +9,7 @@ from ...utils.accounts_receivable_utils import get_average_payment_days, get_tot
     get_customer_pmt_factor
 from ...utils.sales_utils import get_total_sales_orders, get_first_order, get_customer_rating_factor, \
     get_customer_rating_from_pts, get_total_company_sales
+from frappe.utils.background_jobs import enqueue
 
 
 def execute():

@@ -6,7 +6,12 @@ from __future__ import unicode_literals
 import frappe
 import time
 from frappe.utils import flt
+from frappe.utils.background_jobs import enqueue
 from ...utils.stock_utils import auto_compute_rol_for_item
+
+
+def enqueue_rol_job():
+    enqueue("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.execute", queue="background", timeout=10800)
 
 
 def execute():
@@ -22,8 +27,10 @@ def execute():
         AND rol.parenttype = 'Item'
     WHERE it.has_variants = 0 AND it.disabled = 0 
     AND it.made_to_order = 0 AND it.variant_of IS NOT NULL
-    ORDER BY rol.warehouse_reorder_level, it.name""", as_dict=1)
+    ORDER BY rol.warehouse_reorder_level DESC, it.name""", as_dict=1)
+    sno = 0
     for it in item_list:
+        sno += 1
         itd = frappe.get_doc("Item", it.name)
         rol_list = frappe.db.sql("""SELECT warehouse_reorder_level as rol FROM `tabItem Reorder` WHERE parent = '%s' AND 
         parenttype = 'Item' AND parentfield = 'reorder_levels'""" % it.name, as_dict=1)
@@ -37,6 +44,11 @@ def execute():
             itd.save()
         except:
             error_items.append(itd.name)
+        # Commit changes to the Database after every 50 items
+        if sno % 50 == 0 and sno > 0:
+            frappe.db.commit()
+            print(f"Committing Changes to Database after {sno}")
+
     if error_items:
         print(f"Unable to save \n\n {error_items}")
 

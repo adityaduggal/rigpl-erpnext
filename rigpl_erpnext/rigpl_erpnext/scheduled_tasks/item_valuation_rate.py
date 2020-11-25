@@ -6,6 +6,8 @@ from __future__ import unicode_literals
 from datetime import datetime, date
 import frappe
 from rigpl_erpnext.utils.other_utils import round_down
+from time import time
+from frappe.utils.background_jobs import enqueue
 
 '''
 This file would run regularly to update the valuation rate of all the items.
@@ -33,13 +35,19 @@ like HSP, CSP, JCNO etc and set the valuation rate.
     - But History is already there in Stock Ledger Entry Table.
     - So Discard the VR Doctype and update it in Item Code only.
 '''
+def enqueue_set_valuation_rate():
+    enqueue("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all",
+            queue="long", timeout=1500)
 
 
 def set_valuation_rate_for_all():
+    st_time = time()
     temp_list = get_templates()
     for template in temp_list:
         temp_doc = frappe.get_doc("Item", template[0])
         set_valuation_rate_for_template(temp_doc)
+    tot_time = int(time() - st_time)
+    print(f"Total Time Taken = {tot_time} seconds")
 
 
 def set_valuation_rate_for_template(temp_doc):
