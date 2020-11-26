@@ -123,6 +123,7 @@ def create_new_carrier_track(doc, method):
                     exist_track.receiver_name = doc.customer
                     exist_track.document_name = doc.name
                     doc.transporters = exist_track.carrier_name
+                    exist_track.reference_document_name = ""
                     exist_track.flags.ignore_permissions = True
                     exist_track.save()
                     frappe.msgprint("Updated {0}".format(frappe.get_desk_link('Carrier Tracking', exist_track.name)))
@@ -163,7 +164,7 @@ def create_new_ship_track(si_doc):
 def check_existing_track(doctype, docname):
     query = """SELECT name FROM `tabCarrier Tracking` WHERE document = '%s' 
     AND (document_name = '%s' OR reference_document_name = '%s') AND docstatus != 2""" % (doctype, docname, docname)
-    exists = frappe.db.sql(query)
+    exists = frappe.db.sql(query, as_list=1)
     if exists:
         return exists
 
