@@ -10,8 +10,7 @@ from time import time
 
 
 def enqueue_docshare():
-	enqueue("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.execute", queue="long",
-			timeout=1500)
+	enqueue(execute, queue="long", timeout=1500)
 
 
 def execute():

@@ -11,7 +11,7 @@ from ...utils.stock_utils import auto_compute_rol_for_item
 
 
 def enqueue_rol_job():
-    enqueue("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.execute", queue="background", timeout=21600)
+    enqueue(execute, queue="long", timeout=21600)
 
 
 def execute():

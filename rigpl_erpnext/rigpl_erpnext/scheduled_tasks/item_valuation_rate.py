@@ -36,8 +36,7 @@ like HSP, CSP, JCNO etc and set the valuation rate.
     - So Discard the VR Doctype and update it in Item Code only.
 '''
 def enqueue_set_valuation_rate():
-    enqueue("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all",
-            queue="long", timeout=1500)
+    enqueue(set_valuation_rate_for_all, queue="long", timeout=1500)
 
 
 def set_valuation_rate_for_all():
