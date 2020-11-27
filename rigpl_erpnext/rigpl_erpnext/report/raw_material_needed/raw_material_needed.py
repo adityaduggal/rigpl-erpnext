@@ -128,6 +128,8 @@ def get_items(filters):
 			calc_rol = 2*rol
 		elif 20 <= rol < 50:
 			calc_rol = 1.5*rol
+		else:
+			calc_rol = rol
 
 		if total < so:
 			fut_stock = "Raise More PO and Indent"
