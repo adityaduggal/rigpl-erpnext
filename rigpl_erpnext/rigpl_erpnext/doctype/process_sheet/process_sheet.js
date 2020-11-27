@@ -100,10 +100,12 @@ frappe.ui.form.on('Process Sheet', {
 	},
 	raw_material_source_warehouse: function(frm){
 	    frm.doc.rm_consumed = []
+	    frm.doc.item_manufactured = []
 	    frm.refresh_fields();
 	},
 	show_unavailable_rm: function(frm){
 	    frm.doc.rm_consumed = []
+	    frm.doc.item_manufactured = []
 	    frm.refresh_fields();
 	},
 	bom_template: function(frm){
@@ -145,6 +147,13 @@ frappe.ui.form.on('Process Sheet', {
 	    frm.doc.item_manufactured = []
 	    frm.refresh_fields();
 	}
+});
+
+frappe.ui.form.on('Job Card Time Log', {
+    rm_consumed_remove: function(frm){
+        frm.doc.item_manufactured = [];
+        frm.refresh_fields();
+    }
 });
 
 frappe.ui.form.on('BOM Operation', {
