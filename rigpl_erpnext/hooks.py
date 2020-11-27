@@ -234,7 +234,7 @@ scheduler_events = {
     "hourly": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.enqueue_get_ship_data",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.execute"
     ]

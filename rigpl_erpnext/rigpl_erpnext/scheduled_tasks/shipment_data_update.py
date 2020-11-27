@@ -7,7 +7,8 @@ import re
 import json
 import frappe
 import requests
-from datetime import datetime, date
+from datetime import datetime
+from frappe.utils.background_jobs import enqueue
 from ..doctype.carrier_tracking.fedex_functions import get_tracking_from_fedex
 from ..doctype.carrier_tracking.dtdc_functions import get_tracking_from_dtdc
 
@@ -126,6 +127,10 @@ def send_bulk_tracks():
             else:
                 print('NOT POSTING ' + track_doc.name + " " + \
                       str(track_doc.creation) + ' Not Old Enough')
+
+
+def enqueue_get_ship_data():
+    enqueue(get_all_ship_data, queue="long", timeout=1500)
 
 
 def get_all_ship_data():
