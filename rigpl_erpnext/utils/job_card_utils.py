@@ -68,6 +68,17 @@ def check_produced_qty_jc(doc):
                                 (doc.total_completed_qty + doc.total_rejected_qty)))
 
 
+def update_job_card_source_warehouse(jc_doc):
+    if jc_doc.transfer_entry == 1:
+        if not jc_doc.s_warehouse:
+            ps_op = frappe.db.sql("""SELECT name FROM `tabBOM Operations` WHERE parent='%s' 
+            AND parenttype = 'Process Sheet' AND parentfield = 'operations' AND name = '%s'""" %
+                                  (jc_doc.process_sheet, jc_doc.operation_id), as_dict=1)
+            if ps_op:
+                psd = frappe.get_doc("BOM Operations", ps_op[0].name)
+                jc_doc.s_warehouse = psd.source_warehouse
+
+
 def update_job_card_qty_available(jc_doc):
     ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     if jc_doc.sales_order != ps_doc.sales_order:

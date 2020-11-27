@@ -5,7 +5,8 @@
 from __future__ import unicode_literals
 import time
 import frappe
-from ...utils.job_card_utils import update_job_card_qty_available, update_job_card_status, update_job_card_priority
+from ...utils.job_card_utils import update_job_card_qty_available, update_job_card_status, update_job_card_priority, \
+    update_job_card_source_warehouse
 
 
 def execute():
@@ -22,6 +23,7 @@ def execute():
         old_status = jc_doc.status
         update_job_card_qty_available(jc_doc)
         update_job_card_status(jc_doc)
+        update_job_card_source_warehouse(jc_doc)
         update_job_card_priority(jc_doc)
         new_qty_available = jc_doc.qty_available
         new_priority = jc_doc.priority
