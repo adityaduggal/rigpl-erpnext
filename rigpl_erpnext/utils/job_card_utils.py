@@ -71,11 +71,11 @@ def check_produced_qty_jc(doc):
 def update_job_card_source_warehouse(jc_doc):
     if jc_doc.transfer_entry == 1:
         if not jc_doc.s_warehouse:
-            ps_op = frappe.db.sql("""SELECT name FROM `tabBOM Operations` WHERE parent='%s' 
+            ps_op = frappe.db.sql("""SELECT name FROM `tabBOM Operation` WHERE parent='%s' 
             AND parenttype = 'Process Sheet' AND parentfield = 'operations' AND name = '%s'""" %
                                   (jc_doc.process_sheet, jc_doc.operation_id), as_dict=1)
             if ps_op:
-                psd = frappe.get_doc("BOM Operations", ps_op[0].name)
+                psd = frappe.get_doc("BOM Operation", ps_op[0].name)
                 jc_doc.s_warehouse = psd.source_warehouse
 
 
