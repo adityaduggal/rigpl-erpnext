@@ -15,6 +15,7 @@ from .stock_utils import cancel_delete_ste_from_name
 
 def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, auto_create=False):
     doc = frappe.new_doc("Process Job Card RIGPL")
+    doc.flags.ignore_permissions = True
     doc.update({
         'production_item': pro_sheet.production_item,
         'description': pro_sheet.description,
@@ -69,6 +70,7 @@ def check_produced_qty_jc(doc):
 
 
 def update_job_card_source_warehouse(jc_doc):
+    change_needed = 0
     if jc_doc.transfer_entry == 1:
         if not jc_doc.s_warehouse:
             ps_op = frappe.db.sql("""SELECT name FROM `tabBOM Operation` WHERE parent='%s' 
@@ -77,6 +79,8 @@ def update_job_card_source_warehouse(jc_doc):
             if ps_op:
                 psd = frappe.get_doc("BOM Operation", ps_op[0].name)
                 jc_doc.s_warehouse = psd.source_warehouse
+                change_needed = 1
+    return change_needed
 
 
 def update_job_card_qty_available(jc_doc):
