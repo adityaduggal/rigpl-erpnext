@@ -190,7 +190,11 @@ def dtdc_update_tracking(doc, json_data):
         else:
             pdt = ""
         if pdt != "":
-            pickup_date_time = datetime.strptime(pdt, "%d%m%Y %H:%M:%S")
+            for fmt in ("%d%m%Y %H:%M:%S", "%d%m%Y %H:%M"):
+                try:
+                    pickup_date_time = datetime.strptime(pdt, fmt)
+                except:
+                    print("Error in Format for Pickup Date")
         if header.get("strExpectedDeliveryDate") != "":
             exp_delivery_date = datetime.strptime(header.get("strExpectedDeliveryDate"), "%d%m%Y")
         doc.pickup_date = pickup_date_time
