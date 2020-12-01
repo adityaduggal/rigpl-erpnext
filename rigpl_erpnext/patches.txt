@@ -31,5 +31,5 @@ rigpl_erpnext.patches.20181222_update_gst_hsn_code_q_so_dn
 execute:frappe.delete_doc("DocType", "Valuation Rate")
 rigpl_erpnext.patches.20190924_daily_call_communication
 rigpl_erpnext.patches.item_master.20200716_update_numeric_field_in_variants
-execute:frappe.delete_doc("DocType", "Process Bulk Production Orders") #2020-10-29
+execute:frappe.delete_doc("DocType", "Create Bulk Production Orders") #2020-11-30
 rigpl_erpnext.patches.customer_rating_field
