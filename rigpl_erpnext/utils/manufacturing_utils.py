@@ -20,8 +20,8 @@ def get_planned_qty(item_name):
     WHERE docstatus = 1 AND status != 'Stopped' AND production_item = '%s'""" % item_name, as_list=1)
 
     psheet = frappe.db.sql("""SELECT production_item as item, SUM(quantity - produced_qty) as ps_plan 
-    FROM `tabProcess Sheet` WHERE docstatus = 1 AND status != 'Short Closed' AND status != 'Stopped' 
-    AND production_item = '%s'""" % item_name, as_dict=1)
+    FROM `tabProcess Sheet` WHERE docstatus = 1 AND status != 'Short Closed' AND status != 'Stopped'
+    AND status != 'Completed' AND production_item = '%s'""" % item_name, as_dict=1)
     if flt(work_orders[0][0]) > 0:
         planned += work_orders[0][0]
 
