@@ -13,6 +13,27 @@ from erpnext.stock.stock_balance import update_bin_qty
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
+def get_planned_qty(item_name):
+    planned = 0
+    planned_dict = frappe._dict({})
+    work_orders = frappe.db.sql("""SELECT SUM(qty - produced_qty) as wo_plan FROM `tabWork Order` 
+    WHERE docstatus = 1 AND status != 'Stopped' AND production_item = '%s'""" % item_name, as_list=1)
+
+    psheet = frappe.db.sql("""SELECT production_item as item, SUM(quantity - produced_qty) as ps_plan 
+    FROM `tabProcess Sheet` WHERE docstatus = 1 AND status != 'Short Closed' AND status != 'Stopped' 
+    AND production_item = '%s'""" % item_name, as_dict=1)
+    if flt(work_orders[0][0]) > 0:
+        planned += work_orders[0][0]
+
+    if psheet[0].item:
+        planned += psheet[0].ps_plan
+    planned_dict["item"] = item_name
+    planned_dict["planned"] = planned
+
+    return planned_dict
+
+
+
 def get_items_from_process_sheet_for_job_card(document, table_name):
     document.set(table_name, [])
     pro_sheet = frappe.get_doc("Process Sheet", document.process_sheet)

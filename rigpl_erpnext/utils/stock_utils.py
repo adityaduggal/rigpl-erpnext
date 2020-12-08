@@ -8,6 +8,14 @@ from frappe.utils import nowdate, nowtime, today, add_months, flt
 from .other_utils import auto_round_down,auto_round_up, round_up
 
 
+def get_consolidate_bin(item_name):
+    bin_dict = frappe.db.sql("""SELECT item_code, SUM(reserved_qty) as on_so, SUM(actual_qty) as actual, 
+    SUM(ordered_qty) as on_po, SUM(indented_qty) as on_indent, SUM(planned_qty) as planned, 
+    SUM(reserved_qty_for_production) as for_prd
+    FROM `tabBin` WHERE item_code = '%s' """ % item_name, as_dict=1)
+    return bin_dict
+
+
 def auto_compute_rol_for_item(item_doc):
     # Auto compute would check the first period calculated ROL if its within range then change
     # If the ROL is out of range then check for next period till it gets within range and if not then set to limit

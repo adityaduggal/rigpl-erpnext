@@ -7,6 +7,19 @@ from frappe.utils import flt
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
+def get_total_pending_so_item(item_name):
+    pending_so = frappe.db.sql("""SELECT sod.item_code, SUM(sod.qty - sod.delivered_qty) as pending_qty,
+    COUNT(so.name) as no_of_so 
+    FROM `tabSales Order` so, `tabSales Order Item` sod
+    WHERE so.name = sod.parent AND so.docstatus = 1 AND so.status != 'Closed' AND sod.item_code = '%s'
+    AND sod.qty > sod.delivered_qty""" % item_name, as_dict=1)
+
+    if flt(pending_so[0].pending_qty) > 0:
+        return pending_so
+    else:
+        return []
+
+
 def get_total_sales_orders(customer, frm_date, to_date):
     sales_orders = frappe.db.sql("""SELECT SUM(base_net_total) AS total_net_amt, COUNT(name) AS so
     FROM `tabSales Order` WHERE docstatus = 1 AND base_net_total > 0 AND customer = '%s' AND transaction_date >= '%s' 
