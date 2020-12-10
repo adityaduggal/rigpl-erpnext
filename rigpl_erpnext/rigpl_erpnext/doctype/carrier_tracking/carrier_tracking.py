@@ -17,6 +17,7 @@ from .fedex_functions import shipment_booking, start_delete_shipment, get_signat
     validate_address, get_rates_from_fedex, get_available_services
 from .dtdc_functions import dtdc_shipment_booking, dtdc_get_available_services, dtdc_get_pdf
 from ....utils.sales_utils import validate_address_google_update
+from rohit_common.utils.rohit_common_utils import get_email_id
 
 
 class CarrierTracking(WebsiteGenerator):
@@ -403,6 +404,8 @@ class CarrierTracking(WebsiteGenerator):
             frappe.throw("Only Booked Shipments Can be Deleted, {} is in {} Stage".format(self.name, self.status))
 
     def set_recipient_email(self, to_address_doc, contact_doc):
+        to_add_email = get_email_id(to_address_doc.email_id)
+        contact_email = get_email_id(contact_doc.email_id)
         if self.receiver_document == "Customer":
             cust_doc = frappe.get_doc(self.receiver_document, self.receiver_name)
             for sp in cust_doc.sales_team:
@@ -413,22 +416,25 @@ class CarrierTracking(WebsiteGenerator):
                     frappe.throw("No Employee Linked with Sales Person {} for Customer {} in Carrier "
                                  "Tracking {}".format(sp.sales_person, self.receiver_name, self.name))
                 if emp_doc.status != 'Left':
-                    sper_email = emp_doc.user_id
+                    sper_email = get_email_id(emp_doc.user_id)
                     if len(sper_email) < 140:
                         self.sales_person_email = sper_email
-        if to_address_doc.email_id != contact_doc.email_id:
-            if len(str(to_address_doc.email_id) + ", " + str(contact_doc.email_id)) < 140:
-                self.customer_emails = str(to_address_doc.email_id) + ", " + str(contact_doc.email_id)
+        if to_add_email and contact_email:
+            if len(str(to_add_email) + ", " + str(contact_email)) < 140:
+                self.customer_emails = to_add_email + ", " + contact_email
             else:
-                if len(str(contact_doc.email_id)) < 140:
-                    self.customer_emails = contact_doc.email_id
-                elif len(to_address_doc.email_id) < 140:
-                    self.customer_emails = to_address_doc.email_id
+                if len(str(contact_email)) < 140:
+                    self.customer_emails = contact_email
+                elif len(to_add_email) < 140:
+                    self.customer_emails = to_add_email
+        elif to_add_email and not contact_email:
+            if len(str(to_add_email)) < 140:
+                self.customer_emails = to_add_email
+        elif contact_email and not to_add_email:
+            if len(str(contact_email)) < 140:
+                self.customer_emails = contact_email
         else:
-            if len(str(contact_doc.email_id)) < 140:
-                self.customer_emails = contact_doc.email_id
-            elif len(to_address_doc.email_id) < 140:
-                self.customer_emails = to_address_doc.email_id
+            frappe.msgprint("No Email in Address or Contact for Customer")
 
     def location_service(self, credentials, from_address_doc, from_country_doc):
         from fedex.services.location_service import FedexSearchLocationRequest
