@@ -67,7 +67,8 @@ def get_templates():
 
 
 def selling_item_valuation_rate_template(template_doc):
-    variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'""" % (template_doc.name), as_list=1)
+    variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'
+    AND disabled = 0""" % (template_doc.name), as_list=1)
     for item in variants:
         print("Checking Item Code: " + item[0])
         item_doc = frappe.get_doc("Item", item[0])
@@ -86,7 +87,8 @@ def selling_item_valuation_rate_variant(item_doc, template_doc):
 
 
 def purchase_item_valuation_rate_template(temp_doc):
-    variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'""" % (temp_doc.name), as_list=1)
+    variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'
+    AND disabled = 0""" % (temp_doc.name), as_list=1)
     for item in variants:
         print("Checking Item Code: " + item[0])
         it_doc = frappe.get_doc("Item", item[0])
