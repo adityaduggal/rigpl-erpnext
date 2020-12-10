@@ -149,7 +149,7 @@ frappe.ui.form.on('Process Sheet', {
 	}
 });
 
-frappe.ui.form.on('Job Card Time Log', {
+frappe.ui.form.on('Process Sheet Items', {
     rm_consumed_remove: function(frm){
         frm.doc.item_manufactured = [];
         frm.refresh_fields();
