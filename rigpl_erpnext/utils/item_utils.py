@@ -124,35 +124,34 @@ def generate_description(it_doc):
 				# for non-numeric values
 				cond1 = d.attribute
 				cond2 = d.attribute_value
-				query = """SELECT iav.description, iav.long_description 
+				query = """SELECT iav.description AS descrip, iav.long_description AS lng_desc
 				FROM `tabItem Attribute Value` iav, `tabItem Attribute` ia 
 				WHERE iav.parent = '%s' AND iav.parent = ia.name 
 				AND iav.attribute_value = '%s'""" % (cond1, cond2)
-				vatt_lst = frappe.db.sql(query, as_list=1)
-				prefix = frappe.db.sql("""SELECT iva.prefix FROM `tabItem Variant Attribute` iva 
+				vatt_lst = frappe.db.sql(query, as_dict=1)
+				prefix = frappe.db.sql("""SELECT iva.prefix AS pref FROM `tabItem Variant Attribute` iva 
 				WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (it_doc.variant_of,
-																		d.attribute), as_list=1)
-
-				suffix = frappe.db.sql("""SELECT iva.suffix FROM `tabItem Variant Attribute` iva 
+																		d.attribute), as_dict=1)
+				suffix = frappe.db.sql("""SELECT iva.suffix AS suffix FROM `tabItem Variant Attribute` iva 
 				WHERE iva.parent = '%s' AND iva.attribute = '%s' """ % (it_doc.variant_of,
-																		d.attribute), as_list=1)
+																		d.attribute), as_dict=1)
 
 				concat = ""
 				concat2 = ""
-				if prefix[0][0] != '""':
-					if vatt_lst[0][0]:
-						concat1 = str(prefix[0][0][1:-1]) + str(vatt_lst[0][0][1:-1])
-					if vatt_lst[0][1]:
-						concat2 = str(prefix[0][0][1:-1]) + str(vatt_lst[0][1][1:-1])
+				if prefix[0].pref != '""':
+					if vatt_lst[0].descrip:
+						concat1 = str(prefix[0].pref[1:-1]) + str(vatt_lst[0].descrip[1:-1])
+					if vatt_lst[0].lng_desc:
+						concat2 = str(prefix[0].pref[1:-1]) + str(vatt_lst[0].lng_desc[1:-1])
 				else:
-					if vatt_lst[0][0] != '""':
-						concat1 = str(vatt_lst[0][0][1:-1])
-					if vatt_lst[0][1] != '""':
-						concat2 = str(vatt_lst[0][1][1:-1])
+					if vatt_lst and vatt_lst[0].descrip != '""':
+						concat1 = str(vatt_lst[0].descrip[1:-1])
+					if vatt_lst and vatt_lst[0].lng_desc != '""':
+						concat2 = str(vatt_lst[0].lng_desc[1:-1])
 
-				if suffix[0][0] != '""':
-					concat1 = concat1 + str(suffix[0][0][1:-1])
-					concat2 = concat2 + str(suffix[0][0][1:-1])
+				if suffix[0].suffix != '""':
+					concat1 = concat1 + str(suffix[0].suffix[1:-1])
+					concat2 = concat2 + str(suffix[0].suffix[1:-1])
 				desc.extend([[concat1, concat2, d.idx]])
 
 			elif is_numeric == 1 and use_in_description == 1:
