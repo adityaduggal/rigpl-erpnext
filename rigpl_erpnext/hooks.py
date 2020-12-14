@@ -217,10 +217,6 @@ scheduler_events = {
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute"
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.enqueue_rol_job"
             # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:15 AM
-        ],
-        "*/30 * * * *": [
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update"
-            # Runs every 30th mins
         ]
     },
     "all": [
@@ -237,7 +233,8 @@ scheduler_events = {
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.enqueue_get_ship_data",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.execute"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.execute",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update"
     ]
     # 	"monthly": [
     # 		"rigpl_erpnext.tasks.monthly"
