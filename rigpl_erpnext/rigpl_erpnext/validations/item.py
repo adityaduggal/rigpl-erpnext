@@ -106,25 +106,25 @@ def set_website_specs(doc,method):
 		web_spec = []
 		for temp_att in template.attributes:
 			temp = []
-			if temp_att.use_in_description == 1:				
+			if temp_att.use_in_description == 1:
 				attribute_doc = frappe.get_doc("Item Attribute", temp_att.attribute)
 				att_val = frappe.db.sql("""SELECT attribute_value 
 					FROM `tabItem Variant Attribute`
 					WHERE parent = '%s' AND attribute = '%s'"""% \
 					(doc.name, temp_att.attribute), as_list=1)
-
-				if attribute_doc.numeric_values == 1 and att_val[0][0] is not None:
-					temp.insert(0,temp_att.field_name)
-					temp.insert(1,str(att_val[0][0]))
-					web_spec.append(temp)
-				else:
-					desc = frappe.db.sql("""SELECT long_description FROM `tabItem Attribute Value`
-						WHERE parent = '%s' AND attribute_value = '%s' """ \
-						%(temp_att.attribute, att_val[0][0]), as_list=1)
-					if desc[0][0][1:-1] != "":
-						temp.insert(0,temp_att.field_name)
-						temp.insert(1,desc[0][0][1:-1])
-						web_spec.append(temp)	
+				for att in doc.attributes:
+					if att.attribute == attribute_doc.name:
+						if attribute_doc.numeric_values == 1:
+							temp.insert(0, temp_att.field_name)
+							temp.insert(1, str(att.attribute_value))
+						else:
+							lng_desc = frappe.db.sql("""SELECT long_description FROM `tabItem Attribute Value` 
+							WHERE parent = '%s' AND attribute_value = '%s'""" % (attribute_doc.name,
+																				 att.attribute_value), as_list=1)
+							temp.insert(0,temp_att.field_name)
+							temp.insert(1,lng_desc[0][0][1:-1])
+						web_spec.append(temp)
+						break
 		doc.set("website_specifications", [])
 		for label, desc in web_spec:
 			row = doc.append("website_specifications")
