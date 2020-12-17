@@ -14,12 +14,12 @@ from frappe.utils.background_jobs import enqueue
 
 
 def enqueue_process_sheet_update():
-    enqueue(execute, queue="long", timeout=1500)
+    enqueue(process_sheet_update, queue="long", timeout=1500)
 
-def execute():
+
+def process_sheet_update():
     st_time = time.time()
     create_new_process_sheets()
-    frappe.db.commit()
     update_process_sheet_priority()
     frappe.db.commit()
     update_process_sheet_status()
@@ -75,6 +75,7 @@ def create_new_process_sheets():
                 ps.quantity = qty
                 ps.status = "Draft"
                 ps.insert()
+                frappe.db.commit()
                 print(f"Created {ps.name} for {it.name} for Qty= {qty}")
                 created += 1
     it_time = int(time.time() - st_time)
