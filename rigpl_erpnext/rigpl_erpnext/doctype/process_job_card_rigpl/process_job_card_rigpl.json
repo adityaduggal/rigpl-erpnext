@@ -399,7 +399,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2020-11-19 07:52:36.413864",
+ "modified": "2020-12-17 15:22:39.465039",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
@@ -471,6 +471,7 @@
   }
  ],
  "quick_entry": 1,
+ "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "track_changes": 1
