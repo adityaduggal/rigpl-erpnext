@@ -174,6 +174,9 @@ doc_events = {
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_submit",
         "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_cancel"
     },
+    "Sales Person": {
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_person.validate"
+    },
     "Sales Order": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_submit",
