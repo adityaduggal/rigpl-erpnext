@@ -161,6 +161,8 @@ def prioritize_sales_order(so_dict):
         return 9
     elif factor > 1000:
         return 10
+    elif factor == 0:
+        return 999
     else:
         return 11
 
