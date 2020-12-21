@@ -22,13 +22,38 @@ frappe.query_reports["DCR Analysis RIGPL"] = {
 			"label": "Lead or Customer",
 			"fieldtype": "Link",
 			"options": "DocType",
-			"reqd" : 0
+			"get_query": function() {
+				return {
+					"filters": {
+						"name": ["in", "Customer, Lead"],
+					}
+				}
+			}
 		},
 		{
 			"fieldname":"docname",
 			"label": "Name of Lead or Customer",
 			"fieldtype": "Dynamic Link",
-			"options": "document",
+			"get_options": function() {
+				let document = frappe.query_report.get_filter_value('document');
+				if(!document) {
+					frappe.throw(__("Please Select Customer or Lead"));
+				}
+				return document;
+			}
+		},
+		{
+			"fieldname":"owner",
+			"label": "User ID of Owner",
+			"fieldtype": "Link",
+			"options": "User",
+			"reqd" : 0
+		},
+		{
+			"fieldname":"territory",
+			"label": "Territory",
+			"fieldtype": "Link",
+			"options": "Territory",
 			"reqd" : 0
 		},
 		{
@@ -38,19 +63,13 @@ frappe.query_reports["DCR Analysis RIGPL"] = {
 			"fieldname":"analysis_summary",
 			"label": "Analysis Summary",
 			"fieldtype": "Check",
-			"default": 0
-		},
-		{
-			"fieldname":"analysis_details",
-			"label": "Analysis Details",
-			"fieldtype": "Check",
-			"default": 0
+			"default": 1
 		},
 		{
 			"fieldname":"comm_summary",
 			"label": "Communication Summary",
 			"fieldtype": "Check",
-			"default": 1
+			"default": 0
 		},
 		{
 			"fieldname":"comm_details",

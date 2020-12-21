@@ -7,6 +7,89 @@ from frappe.utils import flt
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
+def get_email_from_contact(contact_name):
+    email_dict = frappe._dict({})
+    if contact_name:
+        email_query = """SELECT email_id FROM `tabContact Email` WHERE parent = '%s' 
+        AND parenttype = 'Contact'""" % contact_name
+        email_dict = frappe.db.sql(email_query, as_dict=1)
+    return email_dict
+
+
+def get_phone_from_contact(contact_name):
+    phone_dict = frappe._dict({})
+    if contact_name:
+        phone_query = """SELECT phone FROM `tabContact Phone` WHERE parent = '%s'
+        AND parenttype = 'Contact'""" % (contact_name)
+        phone_dict = frappe.db.sql(phone_query, as_dict=1)
+    return phone_dict
+
+
+def get_sales_comm_for_cust(cust_name, frm_date=None, to_date=None):
+    if frm_date:
+        frm_date_cond = " AND comm.communication_date >= '%s'" % frm_date
+    else:
+        frm_date_cond = ""
+    if to_date:
+        to_date_cond = " AND comm.communication_date <= '%s'" % to_date
+    else:
+        to_date_cond = ""
+    all_comm_dict = []
+    cont_list = []
+    cont_dict = frappe._dict({})
+    cont_dict["type"] = "Customer"
+    cont_dict["name"] = cust_name
+    cont_list.append(cont_dict.copy())
+    contacts = get_contacts(name=cust_name, type='Customer')
+    if contacts:
+        for con in contacts:
+            cont_dict["type"] = "Contact"
+            cont_dict["name"] = con.name
+            cont_list.append(cont_dict.copy())
+    for d in cont_list:
+        comm_query = """SELECT comm.name, comm.communication_date, comm.communication_medium,
+        comm.content, comm.next_action_date, comm.owner
+        FROM `tabCommunication` comm WHERE comm.reference_doctype = '%s' 
+        AND comm.communication_subtype = 'Sales Related'
+        AND comm.reference_name = '%s' %s %s
+        ORDER BY comm.communication_date DESC""" % (d.type, d.name, frm_date_cond, to_date_cond)
+        comm_dict = frappe.db.sql(comm_query, as_dict=1)
+        if comm_dict:
+            for comm in comm_dict:
+                all_comm_dict.append(comm.copy())
+    for comm in all_comm_dict:
+        comm["contacts"] = len(all_comm_dict)
+    return all_comm_dict
+
+
+def get_sales_comm_for_lead(lead_name, frm_date=None, to_date=None):
+    if frm_date:
+        frm_date_cond = " AND comm.communication_date >= '%s'" % frm_date
+    else:
+        frm_date_cond = ""
+    if to_date:
+        to_date_cond = " AND comm.communication_date <= '%s'" % to_date
+    else:
+        to_date_cond = ""
+
+    comm_query = """SELECT comm.name, comm.communication_date, (SELECT COUNT(name) FROM `tabCommunication`
+    WHERE reference_doctype = 'Lead' AND reference_name = '%s') as contacts, comm.owner, comm.communication_medium,
+    comm.content, comm.next_action_date
+    FROM `tabCommunication` comm WHERE comm.reference_doctype = 'Lead' 
+    AND comm.communication_subtype = 'Sales Related'
+    AND comm.reference_name = '%s' %s %s
+    ORDER BY comm.communication_date DESC""" % (lead_name, lead_name, frm_date_cond, to_date_cond)
+    comm_dict = frappe.db.sql(comm_query, as_dict=1)
+    return comm_dict
+
+
+def get_contacts(name, type):
+    contacts_dict = frappe.db.sql("""SELECT con.name FROM `tabContact` con, `tabDynamic Link` dl 
+    WHERE dl.parenttype = 'Contact' AND dl.parent = con.name AND dl.link_doctype = '%s' 
+    AND dl.link_name = '%s'""" % (type, name), as_dict=1)
+    return contacts_dict
+
+
 def get_total_pending_so_item(item_name):
     pending_so = frappe.db.sql("""SELECT sod.item_code, SUM(sod.qty - sod.delivered_qty) as pending_qty,
     COUNT(so.name) as no_of_so 
