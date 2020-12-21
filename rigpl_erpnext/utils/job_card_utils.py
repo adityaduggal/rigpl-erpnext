@@ -490,15 +490,30 @@ def get_last_jc_for_so(so_item):
     jc = {}
     if jc_list:
         for i in range(0, len(jc_list)):
+            jc = jc_list[i]
+            jc["remarks"] = ""
             if jc_list[i].docstatus == 1:
                 if i == len(jc_list) - 1:
-                    jc = jc_list[i]
-                    jc["remarks"] = ""
                     jc["remarks"] += " All Operations Completed {} Qty Ready for Dispatch".\
                         format(jc_list[i].total_completed_qty)
+                else:
+                    # Check if Operation is Job Work and if so then check if PO item is completed or Not
+                    # if PO is pending then remarks should show PO# and PO Date else show Process Completed
+                    op_doc = frappe.get_doc("Operation", jc_list[i].operation)
+                    if op_doc.is_subcontracting == 1:
+                        po_details = frappe.db.sql("""SELECT po.name, po.transaction_date, poi.stock_qty, 
+                        poi.received_qty FROM `tabPurchase Order` po, `tabPurchase Order Item` poi 
+                        WHERE po.docstatus = 1 AND poi.parent = po.name AND poi.reference_dt = 'Process Job Card RIGPL' 
+                        AND poi.reference_dn = '%s'""" % jc_list[i].name, as_dict=1)
+                        if po_details:
+                            for po in po_details:
+                                if po.stock_qty > po.received_qty:
+                                    po_link = """<a href="#Form/Purchase Order/%s" target="_blank">%s</a>""" % (po.name, po.name)
+                                    jc["remarks"] += f" PO# {po_link} Pending Qty= {po.stock_qty - po.received_qty} " \
+                                                     f"PO Date: {po.transaction_date}"
+                                    return jc
+                                    break
             else:
-                jc = jc_list[i]
-                jc["remarks"] = ""
                 if i == 0:
                     jc["remarks"] += "Taken into Production but First Process is Pending"
                 else:
