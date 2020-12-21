@@ -261,7 +261,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2020-11-19 18:30:56.766719",
+ "modified": "2020-12-17 15:22:02.067146",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",
@@ -308,6 +308,8 @@
   }
  ],
  "search_fields": "production_item, description, routing",
+ "show_name_in_global_search": 1,
  "sort_field": "modified",
- "sort_order": "DESC"
+ "sort_order": "DESC",
+ "track_changes": 1
 }
