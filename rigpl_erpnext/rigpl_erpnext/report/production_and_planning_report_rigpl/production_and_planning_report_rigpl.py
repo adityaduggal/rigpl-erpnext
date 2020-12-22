@@ -3,7 +3,9 @@
 
 from __future__ import unicode_literals
 import frappe
+from frappe.utils import flt
 from ....utils.job_card_utils import get_last_jc_for_so
+from ....utils.manufacturing_utils import get_quantities_for_item
 
 
 def execute(filters=None):
@@ -51,27 +53,16 @@ def get_data(filters):
 		ORDER BY jc.workstation, jc.production_item""" % cond_jc
 		data = frappe.db.sql(query, as_list=1)
 	elif filters.get("production_planning") == 1:
-		query = """SELECT jc.name, jc.status, IF(jc.sales_order="", "X", IFNULL(jc.sales_order, "X")), 
-		jc.production_item, IF(jc.priority=0, NULL, jc.priority), IFNULL(jc.remarks, "X"),
-		bm.attribute_value, tt.attribute_value,
-		spl.attribute_value, ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value,
-		d2.attribute_value, l2.attribute_value,
-		jc.description, jc.operation, jc.workstation, jc.for_quantity, 
-		IF(jc.qty_available=0, NULL, jc.qty_available),
-		IF(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level) AS rol,
-		IF(bn.on_so=0, NULL ,bn.on_so) AS on_so,
-		IF(bn.on_po=0, NULL ,bn.on_so) AS on_po,
-		IF(bn.plan=0, NULL ,bn.plan) AS plan,
-		IF(bn.prod=0, NULL ,bn.prod) AS prod,
-		IF(bn.act=0, NULL ,bn.act) AS act
+		query = """SELECT jc.name, jc.status, IF(jc.sales_order="", "X", IFNULL(jc.sales_order, "X")) as so_no, 
+		jc.production_item as item, IF(jc.priority=0, NULL, jc.priority) as priority, 
+		IFNULL(jc.remarks, "X") as remarks, bm.attribute_value as bm, tt.attribute_value as tt,
+		spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, w1.attribute_value as w1, 
+		l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, jc.description, jc.operation, 
+		jc.workstation, jc.for_quantity, IF(jc.qty_available=0, NULL, jc.qty_available) as qty_available,
+		jc.sales_order_item 
 		FROM `tabProcess Job Card RIGPL` jc 
 		LEFT JOIN `tabItem` it ON it.name = jc.production_item
 		LEFT JOIN `tabBOM Operation` bo ON jc.operation_id = bo.name
-		LEFT JOIN `tabItem Reorder` ro ON jc.production_item = ro.parent
-		LEFT JOIN (SELECT item_code, SUM(reserved_qty) as on_so, SUM(ordered_qty) as on_po, SUM(actual_qty) as act,
-			SUM(planned_qty) as plan, SUM(reserved_qty_for_production) as prod, SUM(indented_qty) as indent
-			FROM `tabBin` GROUP BY item_code) bn 
-			ON jc.production_item = bn.item_code
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
 			AND bm.attribute = 'Base Material'
 		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
@@ -93,7 +84,23 @@ def get_data(filters):
 		WHERE jc.docstatus = 0 %s %s
 		ORDER BY jc.priority, jc.operation_serial_no, bm.attribute_value, tt.attribute_value, spl.attribute_value,
 		ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value""" % (cond_jc, cond_it)
-		data = frappe.db.sql(query, as_list=1)
+		tmp_data = frappe.db.sql(query, as_dict=1)
+		data = []
+		for row in tmp_data:
+			it_doc = frappe.get_doc("Item", row.item)
+			qty_dict = get_quantities_for_item(it_doc, so_item=row.sales_order_item)
+			tot_qty = flt(qty_dict.finished_qty) + flt(qty_dict.wip_qty) + flt(qty_dict.dead_qty)
+			# frappe.msgprint(str(qty_dict))
+			tmp_row = [ row.name, row.status, 'X' if not row.so_no else row.so_no, row.item, row.priority,
+						'X' if not row.remarks else row.remarks, row.bm, row.tt, row.spl, row.series, row.d1, row.w1,
+						row.l1, row.d2, row.l2, row.description, row.operation, row.workstation, row.for_quantity,
+						row.qty_available, None if qty_dict.re_order_level == 0 else qty_dict.re_order_level,
+						None if qty_dict.on_so == 0 else qty_dict.on_so,
+						None if qty_dict.on_po == 0 else qty_dict.on_po,
+						None if qty_dict.planned_qty == 0 else qty_dict.planned_qty,
+						None if qty_dict.reserved_for_prd == 0 else qty_dict.reserved_for_prd,
+						None if tot_qty == 0 else tot_qty]
+			data.append(tmp_row)
 	elif filters.get("order_wise_summary") == 1:
 		query = """SELECT so.name, so.transaction_date, soi.item_code, soi.description, 
 		(soi.qty - ifnull(soi.delivered_qty, 0)) as pend_qty, soi.qty, "" as jc_name, "NO JC" as jc_status, 

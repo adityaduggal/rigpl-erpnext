@@ -112,7 +112,7 @@ def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
             return 29
 
 
-def get_quantities_for_item(it_doc):
+def get_quantities_for_item(it_doc, so_item=None):
     qty_dict = frappe._dict()
     qty_dict.update({"on_so":0, "on_po":0, "on_indent":0, "planned_qty":0, "reserved_for_prd":0, "finished_qty":0,
                      "wip_qty":0, "consumeable_qty":0, "raw_material_qty":0, "dead_qty":0, "rejected_qty":0,
@@ -158,6 +158,22 @@ def get_quantities_for_item(it_doc):
                     qty_dict["rejected_qty"] += flt(d.actual_qty)
                 elif d.warehouse_type == 'Subcontracting':
                     qty_dict["on_po"] += flt(d.actual_qty)
+    else:
+        if so_item:
+            on_so = frappe.db.sql("""SELECT (soi.qty - soi.delivered_qty) FROM `tabSales Order Item` soi, `tabSales Order` so
+            WHERE so.docstatus=1 AND so.status != 'Closed' AND soi.qty > soi.delivered_qty 
+            AND soi.name = '%s'""" % so_item, as_list=1)
+
+            on_po = frappe.db.sql("""SELECT (poi.qty - poi.received_qty) FROM `tabPurchase Order Item` poi, 
+            `tabPurchase Order` po
+            WHERE po.docstatus=1 AND po.status != 'Closed' AND poi.qty > poi.received_qty 
+            AND poi.so_detail = '%s'""" % so_item, as_list=1)
+            if on_so:
+                qty_dict["on_so"] += on_so[0][0]
+            if on_po:
+                qty_dict["on_po"] += on_po[0][0]
+            # frappe.msgprint(str(on_so))
+
     return qty_dict
 
 

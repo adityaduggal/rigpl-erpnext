@@ -8,7 +8,8 @@ frappe.query_reports["Process Sheet Analysis"] = {
 			"fieldname":"status",
 			"label": "Status",
 			"fieldtype": "Select",
-			"options": "\nCancelled\nCompleted\nDraft\nIn Progress\nShort Closed\nStopped\nSubmitted"
+			"options": "\nCancelled\nCompleted\nDraft\nIn Progress\nShort Closed\nStopped\nSubmitted",
+			"default": "Draft"
 		},
 		{
 			"fieldname":"bm",
