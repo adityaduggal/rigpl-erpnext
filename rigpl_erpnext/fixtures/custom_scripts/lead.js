@@ -8,3 +8,9 @@ frappe.ui.form.on("Lead", "refresh", function(frm) {
 			 
     },  __("Add Communication for"));
 });
+
+frappe.ui.form.on("Lead", "email_id", function(frm, cdt, cdn){
+	var d = locals[cdt][cdn]
+	frappe.model.set_value(cdt, cdn, "email_address_validated", 0);
+	cur_frm.refresh_fields();
+});

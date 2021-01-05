@@ -3,9 +3,13 @@ from __future__ import unicode_literals
 from frappe.share import add, remove
 import frappe.permissions
 from rigpl_erpnext.utils.rigpl_perm import *
+from rohit_common.utils.rohit_common_utils import validate_email_addresses
 
 
 def validate(doc, method):
+    if doc.email_address_validated != 1 and doc.email_id:
+        valid_email = validate_email_addresses(doc.email_id)
+        doc.email_address_validated = valid_email
     if doc.lead_owner:
         if doc.lead_owner != doc.contact_by:
             doc.contact_by = doc.lead_owner
