@@ -23,11 +23,14 @@ def dtdc_get_available_services(ctrack, cod=0):
     pincodes["desPincode"] = to_pincode
     reply = requests.post(url=url, json=pincodes)
     zip_resp = (reply.json()).get("ZIPCODE_RESP")[0]
-    pin_resp = (reply.json()).get("PIN_CITY")
     if zip_resp.get("SERVFLAG") == 'N':
         all_service = 0
     else:
-        all_service = 1
+        pin_resp = (reply.json()).get("PIN_CITY", "No Service")
+        if pin_resp != "No Service":
+            all_service = 1
+        else:
+            all_service = 0
 
     if zip_resp.get("SERV_COD") == 'N':
         cod_service = 0
@@ -42,7 +45,7 @@ def dtdc_get_available_services(ctrack, cod=0):
             message += "PIN Code: " + d.get("PIN") +  " Type of Services: " + d.get("PARTIALSERV_AREA_AND_CITY") + "\n"
         frappe.msgprint(message)
     else:
-        frappe.throw("NO Service Available at one of the PIN Codes {} or {}".format(frm_pincode, to_pincode))
+        frappe.throw("No Service Available between PIN Codes {} and {}".format(frm_pincode, to_pincode))
 
 
 def dtdc_shipment_booking(track_doc):
