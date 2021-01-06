@@ -4,11 +4,17 @@ from rigpl_erpnext.utils.rigpl_perm import *
 from frappe.utils import getdate
 from dateutil.relativedelta import relativedelta
 from rigpl_erpnext.utils.other_utils import validate_pan, validate_aadhaar
-from rohit_common.utils.rohit_common_utils import fn_check_digit
+from rohit_common.utils.rohit_common_utils import fn_check_digit, validate_email_addresses
 
 
 def validate(doc, method):
     # Validation for Age of Employee should be Greater than 18 years at the time of Joining.
+    if doc.company_email and doc.company_email_validated != 1:
+        valid_co_email = validate_email_addresses(doc.company_email)
+        doc.company_email_validated = valid_co_email
+    if doc.personal_email and doc.personal_email_validated != 1:
+        valid_per_email = validate_email_addresses(doc.personal_email)
+        doc.personal_email_validated = valid_per_email
     dob = getdate(doc.date_of_birth)
     doj = getdate(doc.date_of_joining)
     if relativedelta(doj, dob).years < 18:
