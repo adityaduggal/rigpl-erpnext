@@ -29,8 +29,7 @@ def get_columns(filters):
 			"BM::60", "TT::60", "SPL::60", "Series::60", "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50",
 			"L2:Float:50", "Description::400",
 			"Operation:Link/Operation:100", "Allocated Machine:Link/Workstation:150",
-			"Planned Qty:Float:80", "Qty Avail:Float:80",
-			"ROL:Int:80", "SO:Int:80", "PO:Int:80", "Plan:Int:80", "Prod:Float:80", "Total Actual:Float:80"
+			"Planned Qty:Float:80", "Qty Avail:Float:80"
 		]
 	elif filters.get("order_wise_summary") == 1:
 		return [
@@ -87,19 +86,20 @@ def get_data(filters):
 		tmp_data = frappe.db.sql(query, as_dict=1)
 		data = []
 		for row in tmp_data:
-			it_doc = frappe.get_doc("Item", row.item)
-			qty_dict = get_quantities_for_item(it_doc, so_item=row.sales_order_item)
-			tot_qty = flt(qty_dict.finished_qty) + flt(qty_dict.wip_qty) + flt(qty_dict.dead_qty)
+			# it_doc = frappe.get_doc("Item", row.item)
+			# qty_dict = get_quantities_for_item(it_doc, so_item=row.sales_order_item)
+			# tot_qty = flt(qty_dict.finished_qty) + flt(qty_dict.wip_qty) + flt(qty_dict.dead_qty)
 			# frappe.msgprint(str(qty_dict))
 			tmp_row = [ row.name, row.status, 'X' if not row.so_no else row.so_no, row.item, row.priority,
 						'X' if not row.remarks else row.remarks, row.bm, row.tt, row.spl, row.series, row.d1, row.w1,
 						row.l1, row.d2, row.l2, row.description, row.operation, row.workstation, row.for_quantity,
-						row.qty_available, None if qty_dict.re_order_level == 0 else qty_dict.re_order_level,
-						None if qty_dict.on_so == 0 else qty_dict.on_so,
-						None if qty_dict.on_po == 0 else qty_dict.on_po,
-						None if qty_dict.planned_qty == 0 else qty_dict.planned_qty,
-						None if qty_dict.reserved_for_prd == 0 else qty_dict.reserved_for_prd,
-						None if tot_qty == 0 else tot_qty]
+						row.qty_available]
+						#, None if qty_dict.re_order_level == 0 else qty_dict.re_order_level,
+						# None if qty_dict.on_so == 0 else qty_dict.on_so,
+						# None if qty_dict.on_po == 0 else qty_dict.on_po,
+						# None if qty_dict.planned_qty == 0 else qty_dict.planned_qty,
+						# None if qty_dict.reserved_for_prd == 0 else qty_dict.reserved_for_prd,
+						# None if tot_qty == 0 else tot_qty]
 			data.append(tmp_row)
 	elif filters.get("order_wise_summary") == 1:
 		query = """SELECT so.name, so.transaction_date, soi.item_code, soi.description, 

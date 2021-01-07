@@ -19,8 +19,8 @@ def get_columns(filters):
         "BM::60", "TT::60", "SPL::60", "Series::40",
         "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50", "L2:Float:50", "Qty:Int:50",
         "Comp Qty:Int:50", "SC Qty:Int:50", "BT:Link/BOM Template RIGPL:80",
-        "ROL:Int:50", "SO:Int:50", "PO:Int:50", "Plan:Int:50", "PRD:Int:50", "ACT:Int:50", "SO#:Link/Sales Order:200",
-        "Description::500", "Created On:Date:150"
+        # "ROL:Int:50", "SO:Int:50", "PO:Int:50", "Plan:Int:50", "PRD:Int:50", "ACT:Int:50",
+        "SO#:Link/Sales Order:200", "Description::500", "Created On:Date:150"
     ]
     return columns
 
@@ -59,18 +59,18 @@ def get_data(filters):
     temp_data = frappe.db.sql(query, as_dict=1)
     data = []
     for row in temp_data:
-        it_doc = frappe.get_doc("Item", row.production_item)
-        qty_dict = get_quantities_for_item(it_doc, so_item=row.sales_order_item)
+        # it_doc = frappe.get_doc("Item", row.production_item)
+        # qty_dict = get_quantities_for_item(it_doc, so_item=row.sales_order_item)
         # frappe.msgprint(str(qty_dict))
-        tot_qty = flt(qty_dict.finished_qty) + flt(qty_dict.wip_qty) + flt(qty_dict.dead_qty)
+        # tot_qty = flt(qty_dict.finished_qty) + flt(qty_dict.wip_qty) + flt(qty_dict.dead_qty)
         tmp_row = [row.name, row.status, row.priority, row.production_item, row.bm, row.tt, row.spl, row.series,
                    row.d1, row.w1, row.l1, row.d2, row.l2, row.quantity, row.prod_qty, row.sc_qty, row.bom_template,
-                   None if qty_dict.re_order_level == 0 else qty_dict.re_order_level,
-                   None if qty_dict.on_so == 0 else qty_dict.on_so,
-                   None if qty_dict.on_po == 0 else qty_dict.on_po,
-                   None if qty_dict.planned_qty == 0 else qty_dict.planned_qty,
-                   None if qty_dict.reserved_for_prd == 0 else qty_dict.reserved_for_prd,
-                   None if tot_qty == 0 else tot_qty,
+                   # None if qty_dict.re_order_level == 0 else qty_dict.re_order_level,
+                   # None if qty_dict.on_so == 0 else qty_dict.on_so,
+                   # None if qty_dict.on_po == 0 else qty_dict.on_po,
+                   # None if qty_dict.planned_qty == 0 else qty_dict.planned_qty,
+                   # None if qty_dict.reserved_for_prd == 0 else qty_dict.reserved_for_prd,
+                   # None if tot_qty == 0 else tot_qty,
                    row.sales_order, row.description, row.creation]
         data.append(tmp_row)
     return data
