@@ -94,7 +94,6 @@ def update_process_sheet_status():
     ORDER BY name""", as_dict=1)
     for ps in ps_dict:
         ps_doc = frappe.get_doc("Process Sheet", ps.name)
-        it_doc = frappe.get_doc("Item", ps_doc.production_item)
         make_jc_for_process_sheet(ps_doc)
         update_process_sheet_quantities(ps_doc)
         if ps_doc.short_closed_qty > 0:
