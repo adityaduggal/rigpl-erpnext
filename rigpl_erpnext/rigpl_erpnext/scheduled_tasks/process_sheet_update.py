@@ -69,15 +69,18 @@ def create_new_process_sheets():
                     except:
                         print(f"Error Encountered while Saving {ex_ps.name} for {it.name}")
             else:
-                ps = frappe.new_doc("Process Sheet")
-                ps.production_item = it.name
-                ps.date = today()
-                ps.quantity = qty
-                ps.status = "Draft"
-                ps.insert()
-                frappe.db.commit()
-                print(f"Created {ps.name} for {it.name} for Qty= {qty}")
-                created += 1
+                try:
+                    ps = frappe.new_doc("Process Sheet")
+                    ps.production_item = it.name
+                    ps.date = today()
+                    ps.quantity = qty
+                    ps.status = "Draft"
+                    ps.insert()
+                    frappe.db.commit()
+                    print(f"Created {ps.name} for {it.name} for Qty= {qty}")
+                    created += 1
+                except:
+                    print(f"Error Encountered while Creating Process Sheet for {it.name}")
     it_time = int(time.time() - st_time)
     print(f"Total Process Sheets Created = {created}")
     print(f"Total Time for Creation of Process Sheets = {it_time} seconds")
