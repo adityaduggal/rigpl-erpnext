@@ -26,11 +26,35 @@ def get_columns(filters):
 		return [
 			"Tracking No:Link/Carrier Tracking:100", "Transporter:Link/Transporters:100",
 			"AWB No::100", "Status::90", "Code::60",
-			"Receiver:Dynamic Link/Receiver Name:200", "Weight:Float:60", "Cost:Currency:80",
+			{
+				"label": "Receiver",
+				"fieldname": "receiver",
+				"fieldtype": "Dynamic Link",
+				"options": "receiver_name",
+				"width": 200
+			},
+			"Weight:Float:60", "Cost:Currency:80",
 			"City::100", "Country::90", "Pickup Date:Date:80", "From Address::150",
 			"Delivery Date:Date:120", "Duration:Float:80",
-			"Ref Doc:Dynamic Link/Document:100", "Integrity:Int:50", "Doc Status::50",
-			"Creation:Date:120", "Created By:Link/User:100", "Document::10", "Receiver Name::10"
+			{
+				"label": "Ref Doc",
+				"fieldname": "ref_doc",
+				"fieldtype": "Dynamic Link",
+				"options": "document",
+				"width": 100
+			},
+			"Integrity:Int:50", "Doc Status::50",
+			"Creation:Date:120", "Created By:Link/User:100",
+			{
+				"label": "Document",
+				"fieldname": "document",
+				"width": 10
+			},
+			{
+				"label": "Receiver Name",
+				"fieldname": "receiver_name",
+				"width": 10
+			}
 		]
 
 
