@@ -16,26 +16,82 @@ def get_columns(filters):
 		return [
 			"BRC:Link/BRC MEIS Tracking:80",
 			"SB No::70", "SB Date:Date:80",
-			"Bank IFSC::60", "Customer or Supplier:Dynamic Link/Cust or Supp:150",
-			"Ref Name:Dynamic Link/Ref Doctype:100", "Invoice Date:Date:80", "BRC Status::80",
+			"Bank IFSC::60",
+			{
+				"label": "Customer or Supplier",
+				"fieldname": "link_name",
+				"fieldtype": "Dynamic Link",
+				"options": "cust_supp",
+				"width": 150
+			},
+			{
+				"label": "Ref Name",
+				"fieldname": "ref_name",
+				"fieldtype": "Dynamic Link",
+				"options": "ref_dt",
+				"width": 100
+			},
+			"Invoice Date:Date:80", "BRC Status::80",
 			"BRC No::100", "BRC Date:Date:80", "BRC Days:Int:40",
 			"Invoice Net Total INR:Currency:80", "Invoice Grand Total:Currency:80",
 			"BRC Realised Value:Currency:80",
 			"Invoice Currency::80", "Bill ID::250", "Notes::200", "Type::80",
-			"Export Invoice No::100", "Ref Doctype::10", "Cust or Supp::10"
+			"Export Invoice No::100",
+			{
+				"label": "Reference Doctype",
+				"fieldname": "ref_dt",
+				"width": 10
+			},
+			{
+				"label": "Customer or Supplier",
+				"fieldname": "cust_supp",
+				"width": 10
+			}
 		]
 	else:
 		return [
 			"BRC:Link/BRC MEIS Tracking:80",
 			"SHB No::70", "SHB Date:Date:80",
-			"Customer or Supplier:Dynamic Link/Cust or Supp:150",
-			"Ref Name:Dynamic Link/Ref Doctype:100",
-			"MEIS Status::60", "MEIS No::80",
+			{
+				"label": "Customer or Supplier",
+				"fieldname": "link_name",
+				"fieldtype": "Dynamic Link",
+				"options": "cust_supp",
+				"width": 150
+			},
+			{
+				"label": "Reference Name",
+				"fieldname": "ref_name",
+				"fieldtype": "Dynamic Link",
+				"options": "ref_dt",
+				"width": 100
+			},
+			"MEIS Status::100", "MEIS No::120",
 			"MEIS Date:Date:80", "MEIS Days:Int:40",
-			"MEIS Total Amount:Currency:80", "Invoice Net Total INR:Currency:80",
-			"MEIS Ref No:Dynamic Link/MEIS Ref:100",
+			"MEIS Total Amount:Currency:120", "Invoice Net Total INR:Currency:120",
+			{
+				"label": "MEIS Ref No",
+				"fieldname": "meis_ref_no",
+				"fieldtype": "Dynamic Link",
+				"options": "meis_ref",
+				"width": 150
+			},
 			"Doc Status::50",
-			"Ref Doctype::10", "Cust or Supp::10", "MEIS Ref::10"
+			{
+				"label": "Reference Doctype",
+				"fieldname": "ref_dt",
+				"width": 10
+			},
+			{
+				"label": "Customer or Supplier",
+				"fieldname": "cust_supp",
+				"width": 10
+			},
+			{
+				"label": "MEIS Ref",
+				"fieldname": "meis_ref",
+				"width": 10
+			}
 		]
 
 

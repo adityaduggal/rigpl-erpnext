@@ -20,10 +20,21 @@ def get_columns():
 	return [
 		"Date:Date:80", "Time:Time:70" ,"Item:Link/Item:130", "Description::450",
 		"Qty:Float:60", "Source WH::120", "Target WH::120",
-		"Ref#:Dynamic Link/Ref Type:100", "PS#:Link/Process Sheet:100",
+		{
+			"label": "Ref#",
+			"fieldname": "ref_no",
+			"fieldtype": "Dynamic Link",
+			"options": "ref_type",
+			"width": 100
+		},
+		"PS#:Link/Process Sheet:100",
 		"BT:Link/BOM Template RIGPL:100", "STE:Link/Stock Entry:100", "Operation:Link/Operation:100",
 		"Workstation:Link/Workstation:100", "Operation#:Int:50", "SO SNo:Int:50", "SO#:Link/Sales Order:150",
-		"Ref Type::1"
+		{
+			"label": "Ref Type",
+			"fieldname": "ref_type",
+			"width": 1
+		}
 	]
 
 

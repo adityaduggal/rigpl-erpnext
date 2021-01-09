@@ -65,9 +65,20 @@ def execute(filters=None):
 def get_columns(filters):
 	if filters.get("details") == 1:
 		return [
-		"Posting Date:Date:80", "Employee:Link/Employee:100", "Employee Name::180", 
-		"Loan Given:Currency:100", "Loan Deducted:Currency:100", 
-		"Document::120", "Document Number:Dynamic Link/Document:150"
+			"Posting Date:Date:80", "Employee:Link/Employee:100", "Employee Name::180",
+			"Loan Given:Currency:100", "Loan Deducted:Currency:100",
+			{
+				"label": "Document",
+				"fieldname": "doc",
+				"width": 120
+			},
+			{
+				"label": "Document No",
+				"fieldname": "doc_no",
+				"fieldtype": "Dynamic Link",
+				"options": "doc",
+				"width": 150
+			}
 		]
 	else:
 		return [

@@ -16,8 +16,20 @@ def get_columns():
 	return [
 		"Date:Date:80", "Time:Time:70" ,"Item:Link/Item:130", "Description::250",
 		"Qty:Float:60", "Balance:Float:90", "Warehouse::120", "Rate:Currency:80",
-		"Value:Currency: 120", "Incoming Rate:Currency:80" ,
-		"Voucher No:Dynamic Link/Voucher Type:130","Voucher Type::140","Name::100"
+		"Value:Currency: 120", "Incoming Rate:Currency:80",
+		{
+			"label": "Voucher No",
+			"fieldname": "voucher_no",
+			"fieldtype": "Dynamic Link",
+			"options": "voucher_type",
+			"width": 130
+		},
+		{
+			"label": "Voucher Type",
+			"fieldname": "voucher_type",
+			"width": 140
+		},
+		"Name::100"
 	]
 
 def get_sl_entries(filters):
