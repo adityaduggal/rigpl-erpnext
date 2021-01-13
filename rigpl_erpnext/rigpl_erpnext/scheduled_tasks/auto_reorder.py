@@ -21,13 +21,14 @@ def execute():
     or non-existent ROL then new ROL the change shud nt b more than 10000 or auto_process_sheet_value in RIGPL settings
     """
     error_items = []
-    item_list = frappe.db.sql("""SELECT it.name, IFNULL(rol.warehouse_reorder_level, 0) as rol_qty
+    item_list = frappe.db.sql("""SELECT it.name, IFNULL(rol.warehouse_reorder_level, 0) as rol_qty, it.valuation_rate,
+    (IFNULL(rol.warehouse_reorder_level, 0) * it.valuation_rate) as rol_value
     FROM `tabItem` it
     LEFT JOIN `tabItem Reorder` rol ON it.name = rol.parent AND rol.parentfield = 'reorder_levels'
         AND rol.parenttype = 'Item'
     WHERE it.has_variants = 0 AND it.disabled = 0 
     AND it.made_to_order = 0 AND it.variant_of IS NOT NULL
-    ORDER BY rol.warehouse_reorder_level DESC, it.name""", as_dict=1)
+    ORDER BY rol_value DESC, it.valuation_rate DESC, rol.warehouse_reorder_level DESC, it.name""", as_dict=1)
     sno = 0
     for it in item_list:
         sno += 1
