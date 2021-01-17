@@ -27,7 +27,8 @@ class ProcessSheet(Document):
 
         if self.quantity == 0:
             frappe.throw("Not Allowed to Submit Quantity Equal to ZERO")
-        frappe.db.set_value('Process Sheet', self.name, "status", "Submitted")
+        self.status = "Submitted"
+        # frappe.db.set_value('Process Sheet', self.name, "status", "Submitted")
         update_planned_qty(self.production_item, self.fg_warehouse)
         for d in self.rm_consumed:
             update_qty_for_prod(d.item_code, d.source_warehouse, table_name="rm_consumed")
