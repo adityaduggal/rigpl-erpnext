@@ -61,6 +61,12 @@ frappe.query_reports["Process Sheet Analysis"] = {
 			"options": "Sales Order",
 			"reqd": 0,
 			"get_query": function(){ return {'filters': [['Sales Order', 'docstatus','=', 1]]}}
+		},
+		{
+			"fieldname":"process_wise",
+			"label": "Process Wise Details",
+			"fieldtype": "Check",
+			"reqd": 0
 		}
 	]
 };
