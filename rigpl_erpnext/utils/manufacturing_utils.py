@@ -385,8 +385,17 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
         total_score = len(bt_doc.fg_restrictions)
         match_score = 0
         exit_bt = 0
-        for bt_rule in bt_doc.fg_restrictions:
-            if exit_bt == 0:
+        # Before checking the formula always check if the attributes are there in the Item Attributes
+        for bt_row in bt_doc.fg_restrictions:
+            exists = 0
+            for att in att_dict:
+                if bt_row.attribute == att.attribute:
+                    exists = 1
+                    break
+            if exists == 0:
+                exit_bt = 1
+        if exit_bt == 0:
+            for bt_rule in bt_doc.fg_restrictions:
                 for att in att_dict:
                     if bt_rule.is_numeric == 1 and att.numeric_values == 1:
                         formula = replace_java_chars(bt_rule.rule)
