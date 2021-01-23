@@ -118,7 +118,8 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"
     },
     "Item Price": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_price.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_price.validate",
+        "on_update": "rigpl_erpnext.rigpl_erpnext.validations.item_price.on_update"
     },
     "Lead": {
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update",
