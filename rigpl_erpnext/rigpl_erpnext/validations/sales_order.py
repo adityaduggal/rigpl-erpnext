@@ -113,13 +113,13 @@ def on_cancel(so, method):
     AND sales_order='%s'"""% so.name, as_dict=1)
     if existing_ste:
         for ste in existing_ste:
-            cancel_delete_ste_from_name(ste.name, trash_can=0)
+            cancel_delete_ste_from_name(ste.name)
     if so.track_trial == 1:
         for sod in so.get("items"):
             query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name
             name = frappe.db.sql(query, as_list=1)
             if name:
-                frappe.delete_doc("Trial Tracking", name[0])
+                frappe.delete_doc("Trial Tracking", name[0], for_reload=True)
                 frappe.msgprint('{0}{1}'.format("Deleted Trial Tracking No: ", name[0][0]))
 
 
@@ -138,5 +138,5 @@ def delete_process_sheet(so):
             AND sales_order_item = '%s' AND sales_order = '%s'""" % (it.name, so.name), as_dict=1)
             if ps_list:
                 for ps in ps_list:
-                    frappe.delete_doc("Process Sheet", ps.name, for_reload=False)
+                    frappe.delete_doc("Process Sheet", ps.name, for_reload=True)
 
