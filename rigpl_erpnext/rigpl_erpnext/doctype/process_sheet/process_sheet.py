@@ -5,7 +5,6 @@
 from __future__ import unicode_literals
 from frappe.utils import nowdate
 from frappe.model.document import Document
-from rigpl_erpnext.utils.manufacturing_utils import *
 from rigpl_erpnext.utils.process_sheet_utils import *
 from ....utils.job_card_utils import delete_job_card
 from ....utils.sales_utils import get_priority_for_so
@@ -41,7 +40,13 @@ class ProcessSheet(Document):
         update_planned_qty(self.production_item, self.fg_warehouse)
         for d in self.rm_consumed:
             update_qty_for_prod(d.item_code, d.source_warehouse, table_name="rm_consumed")
-        delete_job_card(self, trash_can=0)
+        delete_job_card(self)
+
+    def on_update(self):
+        itd = frappe.get_doc("Item", self.production_item)
+        self.update_ps_status()
+        update_priority_psd(self, itd)
+        # Priority and Auto Quantity
 
     def validate(self):
         self.validate_other_psheet()
@@ -119,9 +124,7 @@ class ProcessSheet(Document):
         self.bom_template_description = "Title: " + bt_doc.title + remarks
         self.routing = bt_doc.routing
         self.get_routing_from_template()
-        self.update_ps_status()
         self.validate_qty_to_manufacture(it_doc)
-        update_priority(self, it_doc)
         if self.get("__islocal") != 1:
             self.get_rm_sizes(bt_doc)
 
@@ -271,7 +274,7 @@ class ProcessSheet(Document):
 
     def update_ps_status(self):
         if self.docstatus == 0:
-            self.status = ""
+            self.status = "Draft"
         elif self.docstatus == 1:
             self.status = "Submitted"
         elif self.docstatus == 2:
@@ -363,13 +366,13 @@ class ProcessSheet(Document):
         return rm_item_dict
 
 
-def update_priority(ps_doc, it_doc, backend=0):
-    if it_doc.made_to_order == 1:
-        priority = get_priority_for_so(it_name=it_doc.name, prd_qty=ps_doc.quantity, short_qty=ps_doc.quantity,
-                                            so_detail=ps_doc.sales_order_item)
+def return_priority_psd(psd, itd):
+    if itd.made_to_order == 1:
+        priority = get_priority_for_so(it_name=itd.name, prd_qty=psd.quantity, short_qty=psd.quantity,
+                                            so_detail=psd.sales_order_item)
     else:
-        qty_dict = get_quantities_for_item(it_doc)
-        prd_qty = ps_doc.quantity
+        qty_dict = get_quantities_for_item(itd)
+        prd_qty = psd.quantity
         soqty, poqty, pqty = qty_dict["on_so"], qty_dict["on_po"], qty_dict["planned_qty"]
         fqty, res_prd_qty, wipqty = qty_dict["finished_qty"], qty_dict["reserved_for_prd"], qty_dict["wip_qty"]
         dead_qty = qty_dict["dead_qty"]
@@ -379,19 +382,25 @@ def update_priority(ps_doc, it_doc, backend=0):
                 shortage = soqty - fqty - dead_qty
                 if shortage > wipqty:
                     # Shortage of Material is More than WIP Qty
-                    priority = get_priority_for_so(it_name=it_doc.name, prd_qty=prd_qty, short_qty=shortage)
+                    priority = get_priority_for_so(it_name=itd.name, prd_qty=prd_qty, short_qty=shortage)
                 else:
                     # Shortage is Less than Items in Production now get shortage for the Job Card First
-                    priority = get_priority_for_so(it_name=it_doc.name, prd_qty=prd_qty, short_qty=shortage)
+                    priority = get_priority_for_so(it_name=itd.name, prd_qty=prd_qty, short_qty=shortage)
             else:
                 # Qty in Production is for Stock Only
-                priority = get_priority_for_stock_prd(it_name=it_doc.name, qty_dict=qty_dict)
+                priority = get_priority_for_stock_prd(it_name=itd.name, qty_dict=qty_dict)
         else:
             # No Order for Item, For Stock Production Priority
-            priority = get_priority_for_stock_prd(it_name=it_doc.name, qty_dict=qty_dict)
-    if ps_doc.priority != priority:
+            priority = get_priority_for_stock_prd(it_name=itd.name, qty_dict=qty_dict)
+    return priority
+
+
+def update_priority_psd(psd, itd, backend=0):
+    priority = return_priority_psd(psd, itd)
+    old_priority = psd.priority
+    if old_priority != priority:
         if backend== 1:
-            print(f"Updated Priority for {ps_doc.name} to {priority}")
-            frappe.db.set_value("Process Sheet", ps_doc.name, "priority", priority)
+            print(f"Updated Priority for {psd.name} from {old_priority} to {priority}")
+            frappe.db.set_value("Process Sheet", psd.name, "priority", priority)
         else:
-            ps_doc.priority = priority
+            psd.priority = priority

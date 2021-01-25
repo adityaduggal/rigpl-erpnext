@@ -19,22 +19,50 @@ frappe.ui.form.on('Process Sheet', {
                     method: "rigpl_erpnext.utils.process_sheet_utils.stop_process_sheet",
                     args: {
                         "ps_name": frm.doc.name
+                    },
+                    callback: function(r){
+                        if(!r.exc){
+                            /*
+                            var op_tbl = frm.doc.operations
+                            for ( i = 0 ; i < op_tbl.length ; i++){
+                                if (op_tbl[i].status == "In Process" || op_tbl[i].status == "Pending"){
+                                    op_tbl[i].status = "Stopped"
+                                }
+                                frm.refresh_fields("operations");
+                            }
+                            */
+                        }
                     }
-                })
-            })
+                });
+            });
         }
         if (frm.doc.status === "Stopped"){
-            me.frm.add_custom_button(__("UnStop"), function(){
+            frm.add_custom_button(__("UnStop"), function(){
                 frappe.call({
                     method: "rigpl_erpnext.utils.process_sheet_utils.unstop_process_sheet",
                     args: {
                         "ps_name": frm.doc.name
+                    },
+                    callback: function(r){
+                        if(!r.exc){
+                            /*
+                            var op_tbl = frm.doc.operations
+                            for ( i = 0 ; i < op_tbl.length ; i++){
+                                if (op_tbl[i].completed_qty > 0){
+                                    op_tbl[i].status = "In Process"
+                                } else {
+                                    op_tbl[i].status = "Pending"
+                                }
+                                frm.refresh_fields("operations");
+                            }
+                            */
+                        }
                     }
-                })
-            })
+                });
+            });
         }
 	    if (frm.doc.docstatus === 0){
-            me.frm.add_custom_button(__('Select BOM Template Manually'),
+            frm.add_custom_button(__('Select BOM Template Manually'),
                 function(){
                     var dialog = new frappe.ui.Dialog({
                     title: "Select BOM Template Manually",
@@ -62,6 +90,7 @@ frappe.ui.form.on('Process Sheet', {
                             "fieldname": "select"
                         }
                     ],
+
                     });
                     dialog.show();
                     var fd = dialog.fields_dict;
@@ -159,7 +188,8 @@ frappe.ui.form.on('Process Sheet Items', {
 frappe.ui.form.on('BOM Operation', {
     create_new_job_card: function(frm, dt, dn) {
         var child = locals[dt][dn];
-        if (child.planned_qty > child.completed_qty) {
+        if (child.planned_qty > child.completed_qty && child.status !== "Short Closed" &&
+                child.status !== "Obsolete") {
             frappe.call({
                 method: "rigpl_erpnext.utils.job_card_utils.make_jc_from_pro_sheet_row",
                 args: {
@@ -172,12 +202,35 @@ frappe.ui.form.on('BOM Operation', {
                 },
                 callback: function(r){
                     if (!r.exc){
+                        if (child.completed_qty > 0){
+                            child.status = "In Progress"
+                        } else {
+                            child.status = "Pending"
+                        }
                         frm.refresh_fields();
                     }
                 }
             })
         } else if (child.planned_qty <= child.completed_qty){
-            frappe.msgprint("Completed All Pending Qty")
+            frappe.msgprint("For Row# " + child.idx + " No Pending Qty for Operation " + child.operation)
         }
-    }
+    },
+    stop_operation: function(frm, dt, dn){
+        var child = locals[dt][dn];
+        if (child.planned_qty > child.completed_qty && (child.status === "Pending" || child.status === "In Progress")){
+            frappe.call({
+                method: "rigpl_erpnext.utils.process_sheet_utils.stop_ps_operation",
+                args: {
+                    "op_id": child.name,
+                    "psd": frm.doc
+                },
+                callback: function(r){
+                    if (!r.exc){
+                        child.status = "Stopped"
+                        frm.refresh_fields();
+                    }
+                }
+            })
+        }
+    },
 });
