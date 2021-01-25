@@ -322,20 +322,15 @@ def make_stock_entry(so_no, item_table):
     frappe.msgprint("Submitted {}".format(frappe.get_desk_link(ste.doctype, ste.name)))
 
 
-def cancel_delete_ste_from_name(ste_name, trash_can=1):
-    if trash_can == 0:
-        ignore_on_trash = True
-    else:
-        ignore_on_trash = False
-
+def cancel_delete_ste_from_name(ste_name):
     ste_doc = frappe.get_doc("Stock Entry", ste_name)
     ste_doc.flags.ignore_permissions = True
     if ste_doc.docstatus == 1:
         ste_doc.cancel()
-    frappe.delete_doc('Stock Entry', ste_name, for_reload=ignore_on_trash)
+    frappe.delete_doc('Stock Entry', ste_name, for_reload=True)
     sle_dict = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE voucher_type = 'Stock Entry' AND 
         voucher_no = '%s'""" % ste_name, as_dict=1)
     for sle in sle_dict:
-        frappe.delete_doc('Stock Ledger Entry', sle.name, for_reload=ignore_on_trash)
+        frappe.delete_doc('Stock Ledger Entry', sle.name, for_reload=True)
 
 
