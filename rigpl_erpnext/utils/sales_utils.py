@@ -103,6 +103,16 @@ def get_total_pending_so_item(item_name):
         return []
 
 
+def get_pending_so_qty_from_soitem(so_item):
+    pending_so = frappe.db.sql("""SELECT SUM(sod.qty - sod.delivered_qty) AS pend_qty FROM `tabSales Order` so,
+    `tabSales Order Item` sod WHERE sod.parent = so.name AND sod.parenttype = 'Sales Order' AND so.docstatus = 1
+    AND so.status != 'Closed' AND sod.qty > sod.delivered_qty AND sod.name = '%s'""" % so_item, as_list=1)
+    if pending_so:
+        return flt(pending_so[0][0])
+    else:
+        return 0
+
+
 def get_total_sales_orders(customer, frm_date, to_date):
     sales_orders = frappe.db.sql("""SELECT SUM(base_net_total) AS total_net_amt, COUNT(name) AS so
     FROM `tabSales Order` WHERE docstatus = 1 AND base_net_total > 0 AND customer = '%s' AND transaction_date >= '%s' 
