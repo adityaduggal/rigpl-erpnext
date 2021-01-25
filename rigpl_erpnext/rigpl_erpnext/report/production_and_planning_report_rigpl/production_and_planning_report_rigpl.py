@@ -29,7 +29,7 @@ def get_columns(filters):
 			"BM::60", "TT::60", "SPL::60", "Series::60", "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50",
 			"L2:Float:50", "Description::400",
 			"Operation:Link/Operation:100", "Allocated Machine:Link/Workstation:150",
-			"Planned Qty:Float:80", "Qty Avail:Float:80"
+			"Total Planned:Float:80","Planned Qty:Float:80", "Qty Avail:Float:80"
 		]
 	elif filters.get("order_wise_summary") == 1:
 		return [
@@ -57,7 +57,7 @@ def get_data(filters):
 		IFNULL(jc.remarks, "X") as remarks, bm.attribute_value as bm, tt.attribute_value as tt,
 		spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, w1.attribute_value as w1, 
 		l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, jc.description, jc.operation, 
-		jc.workstation, jc.for_quantity, IF(jc.qty_available=0, NULL, jc.qty_available) as qty_available,
+		jc.workstation, jc.total_qty, jc.for_quantity, IF(jc.qty_available=0, NULL, jc.qty_available) as qty_available,
 		jc.sales_order_item 
 		FROM `tabProcess Job Card RIGPL` jc 
 		LEFT JOIN `tabItem` it ON it.name = jc.production_item
@@ -92,8 +92,8 @@ def get_data(filters):
 			# frappe.msgprint(str(qty_dict))
 			tmp_row = [ row.name, row.status, 'X' if not row.so_no else row.so_no, row.item, row.priority,
 						'X' if not row.remarks else row.remarks, row.bm, row.tt, row.spl, row.series, row.d1, row.w1,
-						row.l1, row.d2, row.l2, row.description, row.operation, row.workstation, row.for_quantity,
-						row.qty_available]
+						row.l1, row.d2, row.l2, row.description, row.operation, row.workstation, row.total_qty,
+						row.for_quantity, row.qty_available]
 						#, None if qty_dict.re_order_level == 0 else qty_dict.re_order_level,
 						# None if qty_dict.on_so == 0 else qty_dict.on_so,
 						# None if qty_dict.on_po == 0 else qty_dict.on_po,
