@@ -35,6 +35,8 @@ like HSP, CSP, JCNO etc and set the valuation rate.
     - But History is already there in Stock Ledger Entry Table.
     - So Discard the VR Doctype and update it in Item Code only.
 '''
+
+
 def enqueue_set_valuation_rate():
     enqueue(set_valuation_rate_for_all, queue="long", timeout=1500)
 
@@ -83,7 +85,7 @@ def selling_item_valuation_rate_variant(item_doc, template_doc):
             it_price, date_of_price = get_sp_rate(item_doc.name, def_pl)
             update_valuation_rate(item_doc, it_price, template_doc, date_of_price.date())
     else:
-        print("No Default PL found for item " + item[0])
+        print(f"No Default PL found for item {item_doc.name}")
 
 
 def purchase_item_valuation_rate_template(temp_doc):
@@ -246,6 +248,7 @@ def update_std_valuation_rate(it_doc):
 
 def get_default_price_list(template_doc):
     it_def = template_doc.item_defaults
+    def_pl = ""
     if len(template_doc.item_defaults) == 1:
         for item_def_table in template_doc.item_defaults:
             def_pl = item_def_table.default_price_list
@@ -266,6 +269,8 @@ def get_valuation_rate(t_doc, itpr):
         calc_rate = t_doc.valuation_as_percent_of_default_selling_price * itpr * 0.01
     elif t_doc.is_purchase_item == 1:
         calc_rate = itpr
+    else:
+        calc_rate = 0
 
     if calc_rate < 100:
         val_rate = round_down(calc_rate, 1)
