@@ -189,7 +189,7 @@ frappe.ui.form.on('BOM Operation', {
     create_new_job_card: function(frm, dt, dn) {
         var child = locals[dt][dn];
         if (child.planned_qty > child.completed_qty && child.status !== "Short Closed" &&
-                child.status !== "Obsolete") {
+                child.status !== "Obsolete" && child.status != "Stopped") {
             frappe.call({
                 method: "rigpl_erpnext.utils.job_card_utils.make_jc_from_pro_sheet_row",
                 args: {

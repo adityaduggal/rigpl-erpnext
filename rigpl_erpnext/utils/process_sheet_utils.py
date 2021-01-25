@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from datetime import date
 from frappe.utils import flt
 from .manufacturing_utils import *
+from .sales_utils import get_pending_so_qty_from_soitem
 from .job_card_utils import check_existing_job_card, create_job_card, update_job_card_total_qty
 
 
@@ -72,9 +73,14 @@ def update_process_sheet_operations(ps_name, op_name):
         if psd.status != "Stopped":
             if obsolete != 1:
                 if sclose >= 1:
-                    if opd.status != "Short Closed":
-                        opd.status = "Short Closed"
-                        changes_made = 1
+                    if opd.completed_qty < opd.planned_qty:
+                        if opd.status != "Short Closed":
+                            opd.status = "Short Closed"
+                            changes_made = 1
+                    else:
+                        if opd.status != "Completed":
+                            opd.status = "Completed"
+                            changes_made = 1
                 else:
                     if opd.status != "Pending":
                         opd.status = "Pending"
@@ -96,19 +102,25 @@ def update_process_sheet_quantities(ps_doc):
 
 
 def make_jc_for_process_sheet(ps_doc):
-    for row in ps_doc.operations:
-        if row.status == "Pending" or row.status == "In Progress":
-            existing_job_card = check_existing_job_card(item_name=ps_doc.production_item, operation=row.operation,
-                                                        so_detail=ps_doc.sales_order_item, ps_doc=ps_doc)
-            if not existing_job_card:
-                create_job_card(ps_doc, row, auto_create=True)
-                update_process_sheet_operations(ps_doc.name, row.name)
+    jcr_needed = check_jc_needed_for_ps(ps_doc)
+    if jcr_needed == 1:
+        for row in ps_doc.operations:
+            if row.status == "Pending" or row.status == "In Progress" or row.status is None:
+                existing_job_card = check_existing_job_card(item_name=ps_doc.production_item, operation=row.operation,
+                                                            so_detail=ps_doc.sales_order_item, ps_doc=ps_doc)
+                if not existing_job_card:
+                    create_job_card(ps_doc, row, auto_create=True)
+                    update_process_sheet_operations(ps_doc.name, row.name)
+                else:
+                    # Update the Total Quantity for All the Job Cards which are existing
+                    for jc in existing_job_card:
+                        jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
+                        update_job_card_total_qty(jcd)
+                        jcd.save()
             else:
-                # Update the Total Quantity for All the Job Cards which are existing
-                for jc in existing_job_card:
-                    jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
-                    update_job_card_total_qty(jcd)
-                    jcd.save()
+                frappe.msgprint(f"For Row# {row.idx} Status= {row.status} hence No Job Card Created")
+    else:
+        frappe.msgprint(f"No Job Card is Needed for {ps_doc.name}")
 
 
 def disallow_templates(doc, item_doc):

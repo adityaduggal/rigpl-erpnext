@@ -15,6 +15,7 @@ class ProcessSheet(Document):
         bt_doc = frappe.get_doc("BOM Template RIGPL", self.bom_template)
         allow_rm_consumption = 0
         for op in self.operations:
+            update_process_sheet_operations(self.name, op.name)
             if op.allow_consumption_of_rm == 1:
                 allow_rm_consumption = 1
 
@@ -26,29 +27,35 @@ class ProcessSheet(Document):
 
         if self.quantity == 0:
             frappe.throw("Not Allowed to Submit Quantity Equal to ZERO")
-        self.status = "Submitted"
-        # frappe.db.set_value('Process Sheet', self.name, "status", "Submitted")
         update_planned_qty(self.production_item, self.fg_warehouse)
         for d in self.rm_consumed:
             update_qty_for_prod(d.item_code, d.source_warehouse, table_name="rm_consumed")
-        update_psheet_operation_status(self, status="Pending", for_value="all")
         make_jc_for_process_sheet(self)
 
     def on_cancel(self):
         frappe.db.set_value("Process Sheet", self.name, "status", "Cancelled")
-        update_psheet_operation_status(self, for_value="all")
         update_planned_qty(self.production_item, self.fg_warehouse)
         for d in self.rm_consumed:
             update_qty_for_prod(d.item_code, d.source_warehouse, table_name="rm_consumed")
+        for row in self.operations:
+            existing_jc = check_existing_job_card(item_name=self.production_item, operation=row.operation,
+                                                  so_detail=self.sales_order_item, ps_doc=self)
+            if existing_jc:
+                # Update the Total Quantity for All the Job Cards which are existing
+                for jc in existing_jc:
+                    jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
+                    update_job_card_total_qty(jcd)
+                    if jcd.process_sheet != self.name:
+                        jcd.save()
         delete_job_card(self)
 
     def on_update(self):
         itd = frappe.get_doc("Item", self.production_item)
-        self.update_ps_status()
         update_priority_psd(self, itd)
         # Priority and Auto Quantity
 
     def validate(self):
+        self.update_ps_status()
         self.validate_other_psheet()
         if not self.flags.ignore_mandatory:
             it_doc = frappe.get_doc('Item', self.production_item)
