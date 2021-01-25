@@ -31,12 +31,13 @@
   "sb1",
   "production_item",
   "description",
+  "total_qty",
   "for_quantity",
-  "total_completed_qty",
   "short_close_operation",
   "cb1",
   "employee",
   "employee_name",
+  "total_completed_qty",
   "total_rejected_qty",
   "total_time_in_mins",
   "sb2",
@@ -151,7 +152,6 @@
    "fetch_from": "process_sheet.production_item",
    "fieldname": "production_item",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Production Item",
    "options": "Item",
@@ -217,6 +217,7 @@
   {
    "fieldname": "total_completed_qty",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Completed Qty",
    "read_only": 1
   },
@@ -235,7 +236,6 @@
    "fetch_if_empty": 1,
    "fieldname": "description",
    "fieldtype": "Text",
-   "in_list_view": 1,
    "label": "Description",
    "read_only": 1
   },
@@ -288,6 +288,7 @@
    "reqd": 1
   },
   {
+   "allow_on_submit": 1,
    "default": "0",
    "fieldname": "short_close_operation",
    "fieldtype": "Check",
@@ -323,6 +324,7 @@
    "depends_on": "eval:doc.docstatus !== 2",
    "fieldname": "priority",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "Priority"
   },
   {
@@ -396,10 +398,17 @@
    "fieldtype": "Check",
    "label": "Transfer Entry",
    "read_only": 1
+  },
+  {
+   "fieldname": "total_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Qty",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-12-17 15:22:39.465039",
+ "modified": "2021-01-24 14:53:14.191606",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
