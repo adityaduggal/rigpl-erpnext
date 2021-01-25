@@ -17,7 +17,7 @@ def execute():
             for oth_jc in existing_jc:
                 if oth_jc.name != jc.name:
                     delete_jc += 1
-                    frappe.delete_doc("Process Job Card RIGPL", oth_jc.name)
+                    frappe.delete_doc("Process Job Card RIGPL", oth_jc.name, for_reload=True)
                     print("Deleted Job Card = {}".format(oth_jc.name))
                     removed_jc = next(jc for jc in draft_jc if jc["name"] == oth_jc.name)
                     draft_jc.remove(removed_jc)
