@@ -11,6 +11,7 @@ from frappe.utils import flt
 from rigpl_erpnext.utils.other_utils import round_up
 from erpnext.stock.stock_balance import update_bin_qty
 from rohit_common.utils.rohit_common_utils import replace_java_chars
+from .sales_utils import get_pending_so_qty_from_soitem
 
 
 def get_planned_qty(item_name):
@@ -578,6 +579,17 @@ def get_workstation_hr_cost(workstation):
     return wk_doc.hour_rate
 
 
+def check_jc_needed_for_ps(psd):
+    if psd.sales_order_item:
+        pend_qty = get_pending_so_qty_from_soitem(psd.sales_order_item)
+        if pend_qty > 0:
+            return 1
+        else:
+            return 0
+    else:
+        return 1
+
+
 def update_produced_qty(jc_doc, status="Submit"):
     # This function would update the produced qty in Process Sheet from Process Job Card and Close if needed
     pro_sheet = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
@@ -667,15 +679,6 @@ def get_planned_qty_process(item_code, warehouse):
     ("Stopped", "Completed", "Short Closed") AND docstatus=1 AND quantity > produced_qty""", (item_code, warehouse))
 
     return flt(planned_qty[0][0]) if planned_qty else 0
-
-
-def update_psheet_operation_status(document, status=None, for_value=None):
-    if not status:
-        status = ""
-    if for_value == 'all':
-        for d in document.operations:
-            d.status = status
-            frappe.db.set_value("BOM Operation", d.name, "status", status)
 
 
 def check_warehouse_in_child_tables(document, table_name=None, type_of_table=None):
