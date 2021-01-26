@@ -6,18 +6,19 @@ from __future__ import unicode_literals
 import time
 import frappe
 from ...utils.job_card_utils import update_job_card_qty_available, update_job_card_status, update_job_card_priority, \
-    update_job_card_source_warehouse
+    update_job_card_source_warehouse, return_job_card_qty
 
 
 def execute():
-    open = "Open"
-    wip = "Work In Progress"
     start_time = time.time()
     jc_dict = frappe.db.sql("""SELECT name, status FROM `tabProcess Job Card RIGPL` 
-    WHERE docstatus = 0 ORDER BY name""", as_dict=1)
+    WHERE docstatus = 0 ORDER BY creation, name""", as_dict=1)
     updated_jc_nos = 0
     for jc in jc_dict:
         jc_doc = frappe.get_doc("Process Job Card RIGPL", jc.name)
+        old_tot_qty = jc_doc.total_qty
+        new_tot_qty = return_job_card_qty(jc_doc)
+        new_tot_qty = jc_doc.total_qty
         old_qty_available = jc_doc.qty_available
         old_priority = jc_doc.priority
         old_status = jc_doc.status
@@ -29,7 +30,7 @@ def execute():
         new_priority = jc_doc.priority
         new_status = jc_doc.status
         if old_qty_available != new_qty_available or old_status != new_status or old_priority != new_priority or \
-                s_wh_changed == 1:
+                s_wh_changed == 1 or old_tot_qty != new_tot_qty:
             updated_jc_nos += 1
             try:
                 jc_doc.save()

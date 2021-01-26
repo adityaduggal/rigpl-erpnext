@@ -13,7 +13,7 @@ from .sales_utils import get_priority_for_so
 from .stock_utils import cancel_delete_ste_from_name
 
 
-def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, auto_create=False):
+def create_job_card(pro_sheet, row, quantity=0, auto_create=False):
     doc = frappe.new_doc("Process Job Card RIGPL")
     doc.flags.ignore_permissions = True
     doc.update({
@@ -35,38 +35,37 @@ def create_job_card(pro_sheet, row, quantity=0, enable_capacity_planning=False, 
         'for_quantity': quantity or (pro_sheet.get('quantity', 0) - pro_sheet.get('produced_qty', 0)),
         'operation_id': row.get("name")
     })
-
-    if auto_create:
+    if auto_create == 1:
         doc.flags.ignore_mandatory = True
-        if enable_capacity_planning:
-            doc.schedule_time_logs(row)
         get_items_from_process_sheet_for_job_card(doc, "rm_consumed")
         get_items_from_process_sheet_for_job_card(doc, "item_manufactured")
+        doc.on_update()
         doc.insert()
-        frappe.msgprint(_("{} created").format(frappe.get_desk_link("Process Job Card RIGPL", doc.name)))
-
+        frappe.msgprint(_(f"{frappe.get_desk_link('Process Job Card RIGPL', doc.name)} created"))
+        print(_(f"{doc.name} created"))
     return doc
 
 
 def update_jc_posting_date_time(jc_doc):
     if jc_doc.manual_posting_date_and_time != 1:
-        jc_doc.posting_date = nowdate()
-        jc_doc.posting_time = nowtime()
+        if jc_doc.docstatus == 0:
+            jc_doc.posting_date = nowdate()
+            jc_doc.posting_time = nowtime()
 
 
 def check_produced_qty_jc(doc):
-    if not doc.s_warehouse:
-        min_qty, max_qty = get_min_max_ps_qty(doc.for_quantity)
-        if (min_qty > doc.total_completed_qty and doc.short_close_operation == 1) or doc.total_completed_qty > max_qty:
-            frappe.throw("For Job Card# {} allowed quantities to Manufacture is between {} and {}. So if you "
-                         "are producing lower quantities then you cannot short close the Operation".format(doc.name,
-                                                                                                    min_qty, max_qty))
-    else:
+    if doc.s_warehouse:
         if doc.qty_available < (doc.total_completed_qty + doc.total_rejected_qty):
             frappe.throw("For Job Card# {} Qty Available for Item Code: {} in Warehouse: {} is {} but you are trying "
                          "to process {} quantities. Please correct this error.".\
                          format(doc.name, doc.production_item, doc.s_warehouse, doc.qty_available,
                                 (doc.total_completed_qty + doc.total_rejected_qty)))
+    else:
+        min_qty, max_qty = get_min_max_ps_qty(doc.for_quantity)
+        if (min_qty > doc.total_completed_qty and doc.short_close_operation == 1) or doc.total_completed_qty > max_qty:
+            frappe.throw("For Job Card# {} allowed quantities to Manufacture is between {} and {}. So if you "
+                         "are producing lower quantities then you cannot short close the Operation".format(doc.name,
+                                                                                                    min_qty, max_qty))
 
 
 def update_job_card_source_warehouse(jc_doc):
@@ -91,13 +90,17 @@ def update_job_card_qty_available(jc_doc):
         jc_doc.sales_order_item = ps_doc.sales_order_item
     if jc_doc.sno != ps_doc.sno:
         jc_doc.sno = ps_doc.sno
+    jc_doc.qty_available = get_job_card_qty_available(jc_doc)
+
+
+def get_job_card_qty_available(jc_doc):
     if jc_doc.s_warehouse:
-        if not jc_doc.sales_order_item:
-            jc_doc.qty_available = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
+        if jc_doc.sales_order_item:
+            return get_made_to_stock_qty(jc_doc)
         else:
-            jc_doc.qty_available = get_made_to_stock_qty(jc_doc)
+            return get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
     else:
-        jc_doc.qty_available = 0
+        return 0
 
 
 def update_job_card_status(jc_doc):
@@ -140,6 +143,59 @@ def get_job_card_process_sno(jc_doc):
         op_sno = 0
         final_op = 0
     return op_sno, final_op
+
+
+def return_job_card_qty(jcd):
+    # Get Pending Process Sheets with Same Process and then check if RM Consumed in Process Sheet then RM should be same
+    # If only Transfer entry then there is no need for RM.
+    tot_qty = 0
+    trf_entry = 0
+    for_qty = 0
+    ps_sheet = frappe.db.sql("""SELECT ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
+    pso.allow_consumption_of_rm, pso.status, pso.transfer_entry, pso.name AS op_name
+    FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name 
+    AND pso.parenttype = 'Process Sheet' AND pso.completed_qty < pso.planned_qty AND pso.status != "Completed" 
+    AND pso.status != "Short Closed" AND pso.status != "Stopped" AND pso.status != "Obsolete"
+    AND ps.production_item = '%s' AND pso.operation = '%s' ORDER BY ps.creation""" %
+                             (jcd.production_item, jcd.operation), as_dict=1)
+    for ps in ps_sheet:
+        if ps.op_name == jcd.operation_id:
+            for_qty = ps.planned_qty - ps.completed_qty
+        if ps.allow_consumption_of_rm == 1 and jcd.allow_consumption_of_rm == 1:
+            # Now check if the Raw Material is Same in both the PS and JC then you can combine the quantities
+            psd = frappe.get_doc("Process Sheet", ps.name)
+
+            psd_rm = []
+            jcd_rm = []
+            same_rm = 0
+            for rm in jcd.rm_consumed:
+                jcd_rm.append(rm.item_code)
+            for rm in psd.rm_consumed:
+                psd_rm.append(rm.item_code)
+            if len(psd_rm) == len(jcd_rm):
+                for rm in psd_rm:
+                    if rm in jcd_rm:
+                        same_rm += 1
+                if same_rm == len(psd_rm):
+                    tot_qty += (ps.planned_qty - ps.completed_qty)
+        elif ps.transfer_entry == 1 and jcd.transfer_entry == 1:
+            # Transfer entry if the qty available is less than total qty then total qty else available qty in WH
+            trf_entry = 1
+            tot_qty += (ps.planned_qty - ps.completed_qty)
+        else:
+            tot_qty += jcd.for_quantity
+    if trf_entry == 1:
+        pen_qty_prv_proces = 1
+        qty_available = get_job_card_qty_available(jc_doc=jcd)
+        if tot_qty < qty_available:
+            tot_qty = qty_available
+    return tot_qty, for_qty
+
+
+def update_job_card_total_qty(jcd):
+    tot_qty, for_qty = return_job_card_qty(jcd)
+    jcd.total_qty = tot_qty
+    jcd.for_quantity = for_qty
 
 
 def update_job_card_priority(jc_doc):
@@ -234,7 +290,13 @@ def get_open_job_cards_for_item(item_name):
     return jc_dict
 
 
-def check_existing_job_card(item_name, operation, so_detail=None):
+def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
+    """
+    Existing Job Card is considered with the following Conditions:
+    1. Operation is Same and the Operation is Transfer Entry then the JC is existing
+    2. If the operation is same but there is consumption of RM then if the RM is same then existing JC else the JC is
+    not same
+    """
     it_doc = frappe.get_doc("Item", item_name)
     if it_doc.made_to_order == 1:
         exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
@@ -242,8 +304,43 @@ def check_existing_job_card(item_name, operation, so_detail=None):
                                  %(operation, so_detail, item_name), as_dict=1)
     else:
         exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
-        AND operation = '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)
-    return exist_jc
+            AND operation = '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)
+
+    new_exist_jc = []
+    new_jc_dict = frappe._dict({})
+    if ps_doc:
+        for op in ps_doc.operations:
+            if op.operation == operation:
+                if op.allow_consumption_of_rm == 1:
+                    for jc in exist_jc:
+                        jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
+                        if jcd.allow_consumption_of_rm == 1:
+                            # Now both Operation and JC have consumption of RM and now check if RM is same
+                            jc_rm = []
+                            ps_rm = []
+                            same_rm = 0
+                            for rm in jcd.rm_consumed:
+                                jc_rm.append(rm.item_code)
+                            for rm in ps_doc.rm_consumed:
+                                ps_rm.append(rm.item_code)
+                            if len(ps_rm) == len(jc_rm):
+                                for rm in jc_rm:
+                                    if rm in ps_rm:
+                                        same_rm += 1
+                                if same_rm == len(jc_rm):
+                                    # Return JC No
+                                    new_jc_dict["name"] = jc.name
+                                    new_exist_jc.append(new_jc_dict)
+                                else:
+                                    # JC is having different RM so no existing JC
+                                    pass
+                elif op.transfer_entry:
+                    for jc in exist_jc:
+                        jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
+                        if jcd.transfer_entry == 1:
+                            new_jc_dict["name"] = jc.name
+                            new_exist_jc.append(new_jc_dict)
+    return new_exist_jc
 
 
 def validate_qty_decimal(document, table_name):
@@ -362,6 +459,7 @@ def validate_job_card_quantities(jc_doc):
     if jc_doc.total_completed_qty != total_comp_qty:
         jc_doc.total_completed_qty = total_comp_qty
 
+
 def update_job_card_posting_date(jc_doc):
     if jc_doc.manual_posting_date_and_time != 1:
         jc_doc.posting_date = nowdate()
@@ -474,7 +572,7 @@ def check_po_submitted(jc_doc):
     po_list = frappe.db.sql("""SELECT name FROM `tabPurchase Order Item` 
     WHERE docstatus=1 AND reference_dt = '%s' AND reference_dn = '%s'"""%(jc_doc.doctype, jc_doc.name), as_dict=1)
     if po_list:
-        #Only allow Sub Contracting JC to be submitted after the  PO has been submitted
+        # Only allow Sub Contracting JC to be submitted after the  PO has been submitted
         pass
     else:
         frappe.throw("No Submitted PO for {}".format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name)))
@@ -598,16 +696,14 @@ def get_next_job_card(jc_no):
     found = 0
     for d in ps_doc.operations:
         if d.name == jc_doc.operation_id or d.operation == jc_doc.operation:
-            #Found the Job Card Operation in PSheet
+            # Found the Job Card Operation in PSheet
             if d.idx == len(ps_doc.operations):
                 pass
             else:
                 found = 1
                 jc_list = get_job_card_from_process_sno((d.idx+1), ps_doc)
-    if found == 0:
-        frappe.msgprint("For {} no operation found in Process Sheet".format(frappe.get_desk_link(jc_doc.doctype,
-                                                                                                 jc_doc.name)))
     return jc_list
+
 
 def get_job_card_from_process_sno(operation_sno, ps_doc, docstatus=0):
     for d in ps_doc.operations:
@@ -619,37 +715,44 @@ def get_job_card_from_process_sno(operation_sno, ps_doc, docstatus=0):
     return jc_list
 
 
-def cancel_delete_ste(jc_doc, trash_can=1):
+def cancel_delete_ste(jc_doc):
     if jc_doc.no_stock_entry != 1:
         ste_jc = frappe.db.sql("""SELECT name FROM `tabStock Entry` WHERE process_job_card = '%s'""" %
                                jc_doc.name, as_dict=1)
         if ste_jc:
-            cancel_delete_ste_from_name(ste_jc[0].name, trash_can=trash_can)
+            cancel_delete_ste_from_name(ste_jc[0].name)
     else:
         frappe.msgprint("No Stock Entry Cancelled")
 
 
-def delete_job_card(pro_sheet_doc, trash_can=1):
-    if trash_can == 0:
-        ignore_on_trash = True
-    else:
-        ignore_on_trash = False
+def delete_job_card(pro_sheet_doc):
     for row in pro_sheet_doc.operations:
         pro_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus < 1 AND operation_id 
         = '%s'""" % row.name, as_dict=1)
         if pro_jc:
-            frappe.delete_doc('Process Job Card RIGPL', pro_jc[0].name, for_reload=ignore_on_trash)
+            frappe.delete_doc('Process Job Card RIGPL', pro_jc[0].name, for_reload=True)
 
 
 @frappe.whitelist()
 def make_jc_from_pro_sheet_row(ps_name, production_item, operation, row_no, row_id, so_detail=None):
+    psd = frappe.get_doc("Process Sheet", ps_name)
+    opd = frappe.get_doc("BOM Operation", row_id)
     existing_pending_job_card = check_existing_job_card(item_name=production_item, operation=operation,
-                                                        so_detail=so_detail)
-    if existing_pending_job_card:
-        frappe.throw("{} is already pending for {} in Row# {} and Operation {}".
-                     format(frappe.get_desk_link("Process Job Card RIGPL", existing_pending_job_card[0].name),
-                                    production_item, row_no, operation))
+                                                        so_detail=so_detail, ps_doc=psd)
+    jcr_needed = check_jc_needed_for_ps(psd)
+    if jcr_needed == 1:
+        if existing_pending_job_card:
+            frappe.msgprint("{} is already pending for {} in Row# {} and Operation {}".
+                         format(frappe.get_desk_link("Process Job Card RIGPL", existing_pending_job_card[0].name),
+                                        production_item, row_no, operation))
+        else:
+            ps_doc = frappe.get_doc("Process Sheet", ps_name)
+            row = frappe.get_doc("BOM Operation", row_id)
+            create_job_card(ps_doc, row, quantity=(row.planned_qty - row.completed_qty), auto_create=True)
+        if opd.completed_qty > 0:
+            opd.status = "In Progress"
+        else:
+            opd.status = "Pending"
+        opd.save()
     else:
-        ps_doc = frappe.get_doc("Process Sheet", ps_name)
-        row = frappe.get_doc("BOM Operation", row_id)
-        create_job_card(ps_doc, row, quantity=(row.planned_qty - row.completed_qty), auto_create=True)
+        frappe.msgprint(f"No Job Card is Needed for {psd.name}")

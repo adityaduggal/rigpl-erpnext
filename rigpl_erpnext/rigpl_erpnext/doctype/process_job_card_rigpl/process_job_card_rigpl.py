@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from frappe.model.document import Document
 from rigpl_erpnext.utils.manufacturing_utils import *
 from ....utils.job_card_utils import *
+from ....utils.process_sheet_utils import update_process_sheet_operations
 
 
 class ProcessJobCardRIGPL(Document):
@@ -23,21 +24,26 @@ class ProcessJobCardRIGPL(Document):
 
     def on_update_after_submit(self):
         update_job_card_qty_available(self)
+        update_process_sheet_operations(ps_name=self.process_sheet, op_name=self.operation_id)
 
     def on_cancel(self):
         update_job_card_status(self)
-        cancel_delete_ste(self, trash_can=0)
+        cancel_delete_ste(self)
         update_produced_qty(self, status="Cancel")
         update_planned_qty(self.production_item, frappe.get_value("Process Sheet", self.process_sheet,
                                                                   "fg_warehouse"))
         update_pro_sheet_rm_from_jc(self, status="Cancel")
         self.update_next_jc_status()
+        update_process_sheet_operations(ps_name=self.process_sheet, op_name=self.operation_id)
 
-    def validate(self):
+    def on_update(self):
         update_jc_posting_date_time(self)
         update_job_card_qty_available(self)
-        update_job_card_status(self)
         update_job_card_priority(self)
+        update_job_card_total_qty(self)
+
+    def validate(self):
+        update_job_card_status(self)
         self.uom = frappe.get_value("Item", self.production_item, "stock_uom")
         if self.s_warehouse == self.t_warehouse:
             self.no_stock_entry = 1
@@ -142,7 +148,6 @@ class ProcessJobCardRIGPL(Document):
                 update_job_card_status(nxt_jc_doc)
                 nxt_jc_doc.save()
 
-
     def create_new_jc_if_needed(self):
         new_jc_qty = 0
         ps_doc = frappe.get_doc("Process Sheet", self.process_sheet)
@@ -161,6 +166,8 @@ class ProcessJobCardRIGPL(Document):
             frappe.msgprint("No New Job Card needed")
 
     def check_if_new_jc_needed(self):
+        if self.short_close_operation == 1:
+            return 0
         allowance = flt(frappe.get_value("Manufacturing Settings", "Manufacturing Settings",
                                      "overproduction_percentage_for_work_order"))
         per_diff = abs(self.for_quantity - self.total_completed_qty - self.total_rejected_qty)
