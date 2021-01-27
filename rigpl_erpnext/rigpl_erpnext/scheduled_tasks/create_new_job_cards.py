@@ -6,18 +6,19 @@ from __future__ import unicode_literals
 import time
 import frappe
 from ...utils.process_sheet_utils import update_process_sheet_operations
-from ...utils.job_card_utils import check_existing_job_card, create_job_card
+from ...utils.job_card_utils import check_existing_job_card, create_job_card, return_job_card_qty
 
 
 def execute():
     st_time = time.time()
     deleted_jcr = 0
+    changed_jcr = 0
+    sc_jcr = 0
     draft_jc = frappe.db.sql("""SELECT name, priority, sales_order_item, operation_id, process_sheet, for_quantity,
     total_qty 
     FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 AND (priority = 999 OR total_qty = 0 OR for_quantity = 0)
     ORDER BY creation, name""", as_dict=1)
     print(f"Total No of Job Cards with 999 Priority or ZERO Total Qty OR ZERO FOR QTY = {len(draft_jc)}")
-    time.sleep(2)
     for jc in draft_jc:
         # print(f"{sno}. Checking and trying to Close {jc.name} for PS# {jc.process_sheet}")
         jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
@@ -31,11 +32,20 @@ def execute():
                 jcd.short_close_operation = 1
                 try:
                     jcd.submit()
+                    sc_jcr += 1
                 except:
                     print(f"Some Error While Submitting {jcd.name}")
             else:
-                print(f"Pending SO exists for {jc.name} and Priority = {jc.priority}, Tot Qty = {jc.total_qy} and"
-                      f" For Qty = {jc.for_quantity}.You might wanna check why?")
+                tot_qty, for_qty = return_job_card_qty(jcd)
+                if tot_qty != jcd.total_qty or for_qty != jcd.for_quantity:
+                    jcd.total_qty = tot_qty
+                    jcd.for_quantity = for_qty
+                    try:
+                        jcd.save()
+                        changed_jcr += 1
+                    except:
+                        print(f"Pending SO exists for {jc.name} and Priority = {jc.priority}, Tot Qty = {jc.total_qy} "
+                              f"and  For Qty = {jc.for_quantity}.You might wanna check why?")
         else:
             save_failed = 0
             if jc.total_qty == 0 or jc.for_quantity == 0:
@@ -43,6 +53,7 @@ def execute():
                 jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
                 try:
                     jcd.save()
+                    changed_jcr += 1
                 except:
                     save_failed = 1
                     print(f"Unable to Save {jc.name} for Process Sheet {jcd.process_sheet}")
@@ -53,7 +64,10 @@ def execute():
     frappe.db.commit()
     jc_del_time = int(time.time() - st_time)
     print(f"Total No of Job Cards Deleted = {deleted_jcr}")
+    print(f"Total No of Job Cards Short Closed = {sc_jcr}")
+    print(f"Total No of Job Cards Updated = {changed_jcr}")
     print(f"Total Time Taken for Deleting Job Cards = {jc_del_time} seconds")
+    time.sleep(2)
 
     pending_psheets = frappe.db.sql("""SELECT ps.name, pso.name AS op_id, pso.operation, pso.planned_qty, 
     pso.completed_qty, pso.status AS op_status, ps.status, ps.production_item, pso.operation, ps.sales_order_item
