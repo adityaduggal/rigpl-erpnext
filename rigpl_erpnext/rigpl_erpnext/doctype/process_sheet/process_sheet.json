@@ -256,12 +256,13 @@
    "allow_on_submit": 1,
    "fieldname": "priority",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "Priority",
    "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2020-12-17 15:22:02.067146",
+ "modified": "2021-01-27 09:00:30.063776",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",
