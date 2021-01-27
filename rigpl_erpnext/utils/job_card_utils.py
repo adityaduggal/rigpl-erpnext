@@ -39,7 +39,6 @@ def create_job_card(pro_sheet, row, quantity=0, auto_create=False):
         doc.flags.ignore_mandatory = True
         get_items_from_process_sheet_for_job_card(doc, "rm_consumed")
         get_items_from_process_sheet_for_job_card(doc, "item_manufactured")
-        doc.on_update()
         doc.insert()
         frappe.msgprint(_(f"{frappe.get_desk_link('Process Job Card RIGPL', doc.name)} created"))
         print(_(f"{doc.name} created"))
