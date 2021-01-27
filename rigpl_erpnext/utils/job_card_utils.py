@@ -96,9 +96,15 @@ def update_job_card_qty_available(jc_doc):
 def get_job_card_qty_available(jc_doc):
     if jc_doc.s_warehouse:
         if jc_doc.sales_order_item:
-            return get_made_to_stock_qty(jc_doc)
+            qty = get_made_to_stock_qty(jc_doc)
+            if qty < 0:
+                qty = 0
+            return qty
         else:
-            return get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
+            qty = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
+            if qty < 0:
+                qty = 0
+            return qty
     else:
         return 0
 
@@ -151,13 +157,16 @@ def return_job_card_qty(jcd):
     tot_qty = 0
     trf_entry = 0
     for_qty = 0
+    extra_cond = ""
+    if jcd.sales_order_item:
+        extra_cond = " AND ps.sales_order_item = '%s'" % jcd.sales_order_item
     ps_sheet = frappe.db.sql("""SELECT ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
     pso.allow_consumption_of_rm, pso.status, pso.transfer_entry, pso.name AS op_name
     FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name 
     AND pso.parenttype = 'Process Sheet' AND pso.completed_qty < pso.planned_qty AND pso.status != "Completed" 
     AND pso.status != "Short Closed" AND pso.status != "Stopped" AND pso.status != "Obsolete"
-    AND ps.production_item = '%s' AND pso.operation = '%s' ORDER BY ps.creation""" %
-                             (jcd.production_item, jcd.operation), as_dict=1)
+    AND ps.production_item = '%s' AND pso.operation = '%s' %s ORDER BY ps.creation""" %
+                             (jcd.production_item, jcd.operation, extra_cond), as_dict=1)
     for ps in ps_sheet:
         if ps.op_name == jcd.operation_id:
             for_qty = ps.planned_qty - ps.completed_qty
@@ -194,8 +203,8 @@ def return_job_card_qty(jcd):
 
 def update_job_card_total_qty(jcd):
     tot_qty, for_qty = return_job_card_qty(jcd)
-    jcd.total_qty = tot_qty
-    jcd.for_quantity = for_qty
+    jcd.total_qty = flt(tot_qty)
+    jcd.for_quantity = flt(for_qty)
 
 
 def update_job_card_priority(jc_doc):

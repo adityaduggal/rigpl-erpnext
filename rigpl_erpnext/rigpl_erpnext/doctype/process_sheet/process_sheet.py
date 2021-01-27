@@ -49,12 +49,10 @@ class ProcessSheet(Document):
                         jcd.save()
         delete_job_card(self)
 
-    def on_update(self):
+    def validate(self):
         itd = frappe.get_doc("Item", self.production_item)
         update_priority_psd(self, itd)
         # Priority and Auto Quantity
-
-    def validate(self):
         self.update_ps_status()
         self.validate_other_psheet()
         if not self.flags.ignore_mandatory:
