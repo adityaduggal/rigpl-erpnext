@@ -380,7 +380,7 @@ def get_special_item_attribute_doc(item_name, so_detail, docstatus=1):
 
 def get_bom_temp_from_it_att(item_doc, att_dict):
     bt_list = []
-    all_bt = frappe.get_all("BOM Template RIGPL")
+    all_bt = frappe.get_all("BOM Template RIGPL", order_by="name")
     for bt in all_bt:
         bt_doc = frappe.get_doc("BOM Template RIGPL", bt.name)
         total_score = len(bt_doc.fg_restrictions)
@@ -397,8 +397,10 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
                 exit_bt = 1
         if exit_bt == 0:
             for bt_rule in bt_doc.fg_restrictions:
+                if exit_bt == 1:
+                    break
                 for att in att_dict:
-                    if bt_rule.is_numeric == 1 and att.numeric_values == 1:
+                    if bt_rule.is_numeric == 1 and att.numeric_values == 1 and exit_bt != 1:
                         formula = replace_java_chars(bt_rule.rule)
                         formula_values = get_formula_values(att_dict, formula, "fg")
                         dont_calculate_formula = 0
@@ -414,7 +416,7 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
                             match_score += 1
                             break
                     else:
-                        if att.attribute == bt_rule.attribute:
+                        if att.attribute == bt_rule.attribute and exit_bt != 1:
                             if att.attribute_value == bt_rule.allowed_values:
                                 match_score += 1
                                 break
