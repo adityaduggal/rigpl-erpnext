@@ -404,7 +404,7 @@ def update_priority_psd(psd, itd, backend=0):
     priority = return_priority_psd(psd, itd)
     old_priority = psd.priority
     if old_priority != priority:
-        if backend== 1:
+        if backend == 1:
             print(f"Updated Priority for {psd.name} from {old_priority} to {priority}")
             frappe.db.set_value("Process Sheet", psd.name, "priority", priority)
         else:
