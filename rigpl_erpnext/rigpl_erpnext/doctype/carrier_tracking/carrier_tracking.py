@@ -23,7 +23,6 @@ from rohit_common.utils.rohit_common_utils import get_email_id
 class CarrierTracking(WebsiteGenerator):
     allowed_docs_items = ['Sales Invoice', 'Purchase Order']
 
-
     def get_dtdc_pdf(self):
         dtdc_get_pdf(self.awb_number, self)
 
@@ -61,9 +60,8 @@ class CarrierTracking(WebsiteGenerator):
         else:
             api_booking = 0
         if self.reference_document_name:
-            if self.reference_document_name.split('-')[0] != self.document_name.split('-'):
-                frappe.throw('{} is already linked to {} # {}'.\
-                             format(self.name, self.document, self.reference_document_name))
+            if self.reference_document_name.split('-')[0] != self.document_name.split('-')[0]:
+                frappe.throw(f"{self.name} is Already Linked to {self.document}# {self.reference_document_name}")
         self.update_fields(trans_doc)
         if self.to_address:
             validate_address_google_update(self.to_address)
@@ -131,7 +129,6 @@ class CarrierTracking(WebsiteGenerator):
                 frappe.throw("From Address is Needed before Saving the Document")
             self.to_address = si_doc.shipping_address_name
             self.contact_person = si_doc.contact_person
-            #self.carrier_name = si_doc.transporters
             if tax_temp_doc.is_sample == 1:
                 self.purpose = 'SAMPLE'
                 if self.amount == 0:
@@ -190,12 +187,12 @@ class CarrierTracking(WebsiteGenerator):
                 linked_add = frappe.db.sql("""SELECT link_name FROM `tabDynamic Link` WHERE parent = '%s' AND 
                 link_doctype = '%s' AND link_name = '%s'""" % (self.to_address, self.document, self.document_name))
                 if not linked_add:
-                    frappe.throw("To Address: {} not from {}: {}". \
+                    frappe.throw("To Address: {} not from {}: {}".
                                  format(self.to_address, self.document, self.document_name))
                 linked_con = frappe.db.sql("""SELECT link_name FROM `tabDynamic Link` WHERE parent = '%s' AND 
                 link_doctype = '%s' AND link_name = '%s'""" % (self.to_address, self.document, self.document_name))
                 if not linked_con:
-                    frappe.throw("Contact: {} not from {}: {}". \
+                    frappe.throw("Contact: {} not from {}: {}".
                                  format(self.contact_person, self.document, self.document_name))
             if not self.amount:
                 self.amount = 1
@@ -211,10 +208,6 @@ class CarrierTracking(WebsiteGenerator):
                             si_doc.transporters != self.carrier_name:
                         create_new_carrier_track(si_doc, frappe)
                         self.submit()
-                        # self.save(ignore_permissions=True)
-                #else:
-                    #self.awb_number = si_doc.lr_no
-                    #self.carrier_name = si_doc.transporters
 
     def gen_add_validations(self, trans_doc, from_address_doc, to_address_doc):
         if self.status == "Delivered":
@@ -233,43 +226,43 @@ class CarrierTracking(WebsiteGenerator):
         if trans_doc.is_outward_only == 1:
             if self.is_inward != 1:
                 if from_address_doc.is_your_company_address != 1:
-                    frappe.throw(('Since {} is Outward Transporter, From Address Should be Owned Address').
+                    frappe.throw('Since {} is Outward Transporter, From Address Should be Owned Address'.
                                  format(self.carrier_name))
             else:
                 if from_address_doc.is_your_company_address == 1:
-                    frappe.throw(('Since {} is Marked For Inward Shipment, From Address Should Not be Owned Address').
+                    frappe.throw('Since {} is Marked For Inward Shipment, From Address Should Not be Owned Address'.
                                  format(self.carrier_name))
         else:
             if from_address_doc.is_your_company_address == 1:
-                frappe.throw(('Since {} is Inward Transporter, From Address Should be not be Owned Address').
+                frappe.throw('Since {} is Inward Transporter, From Address Should be not be Owned Address'.
                              format(self.carrier_name))
             if to_address_doc.is_your_company_address != 1:
-                frappe.throw(('Since {} is Inward Transporter, To Address Should be Owned Address').
+                frappe.throw('Since {} is Inward Transporter, To Address Should be Owned Address'.
                              format(self.carrier_name))
         if trans_doc.is_export_only == 1:
             if from_address_doc.country == to_address_doc.country:
-                frappe.throw(('Since {} is Export Transporter, To Address Should be not be in {}').
+                frappe.throw('Since {} is Export Transporter, To Address Should be not be in {}'.
                              format(self.carrier_name, from_address_doc.country))
         if trans_doc.is_imports_only == 1:
             if from_address_doc.is_your_company_address == 1:
-                frappe.throw(('Since {} is Import Transporter, From Address Should be not owned Address').
+                frappe.throw('Since {} is Import Transporter, From Address Should be not owned Address'.
                              format(self.carrier_name))
             if from_address_doc.country == to_address_doc.country:
-                frappe.throw(('Since {} is Import Transporter, From Address Country Should not be Same as To Address').
+                frappe.throw('Since {} is Import Transporter, From Address Country Should not be Same as To Address'.
                              format(self.carrier_name))
             if from_address_doc.is_your_company_address != 1:
-                frappe.throw(('Since {} is Import Transporter,To Address Should be Owned Address').
+                frappe.throw('Since {} is Import Transporter,To Address Should be Owned Address'.
                              format(self.carrier_name))
         if trans_doc.is_domestic_only == 1:
             if from_address_doc.country != to_address_doc.country:
-                frappe.throw(('Since {} is Domestic Transporter, From and To Address Should be in Same Country').
+                frappe.throw('Since {} is Domestic Transporter, From and To Address Should be in Same Country'.
                              format(self.carrier_name))
         if flt(trans_doc.minimum_weight) > 0 and self.get("__islocal") != 1:
             if flt(trans_doc.minimum_weight) > flt(self.total_weight):
-                frappe.throw(('Minimum Weight for {} is {} kgs').format(self.carrier_name, trans_doc.minimum_weight))
+                frappe.throw('Minimum Weight for {} is {} kgs'.format(self.carrier_name, trans_doc.minimum_weight))
         if trans_doc.maximum_amount > 0:
             if trans_doc.maximum_amount < self.amount:
-                frappe.throw(('Maximum Value for {} is {}').format(self.carrier_name, trans_doc.maximum_amount))
+                frappe.throw('Maximum Value for {} is {}'.format(self.carrier_name, trans_doc.maximum_amount))
         if self.amount < 1:
             frappe.throw("Amount Should be One or More than One")
 
@@ -307,7 +300,6 @@ class CarrierTracking(WebsiteGenerator):
             if self.awb_number:
                 if self.awb_number != si_doc.lr_no:
                     self.push_data_to_sales_invoice()
-                    #self.set_invoice_lr_no(self.document_name, self.document)
         else:
             if self.purpose == 'SOLD':
                 frappe.throw('Purpose SOLD only possible for Sales Invoices')
@@ -320,15 +312,12 @@ class CarrierTracking(WebsiteGenerator):
             if total_weight > 0:
                 if flt(self.total_weight) != flt(total_weight):
                     self.total_weight = total_weight
-        #else:
-            #frappe.throw("Shipment Package Details Manadatory for Fedex Booking for {}".format(self.name))
 
     def validate_empty_shipment(self):
         if self.shipment_package_details:
             pass
         else:
             frappe.throw("Shipment Package Details mandatory for Booking Shipment for {}".format(self.name))
-
 
     def available_services(self):
         trans_doc = frappe.get_doc("Transporters", self.carrier_name)
