@@ -23,7 +23,7 @@ def execute():
     create_new_process_sheets()
     update_process_sheet_priority()
     frappe.db.commit()
-    update_process_sheet_status()
+    # update_process_sheet_status()
     total_time = int(time.time() - st_time)
     print(f"Total Time taken = {total_time} seconds")
 
@@ -118,35 +118,46 @@ def update_process_sheet_status():
     AND pso.status != 'Obsolete' AND pso.parent = ps.name AND pso.parenttype = 'Process Sheet'
     ORDER BY name""", as_dict=1)
     print(f"Total No of Process Sheet Processes Being Considered = {len(ps_dict)}")
-    for ps in ps_dict:
-        ps_doc = frappe.get_doc("Process Sheet", ps.name)
-        make_jc_for_process_sheet(ps_doc)
-        update_process_sheet_quantities(ps_doc)
-        for op in ps_doc.operations:
-            update_process_sheet_operations(ps_doc.name, op.name)
-        if ps_doc.short_closed_qty > 0:
-            if ps_doc.produced_qty < ps_doc.quantity:
-                if ps_doc.status != "Short Closed":
-                    ps_doc.status = "Short Closed"
-                    print("Short Closed {}".format(ps_doc.name))
-            else:
-                if ps_doc.status != "Completed":
-                    ps_doc.status = "Completed"
-                    print("Completed {}".format(ps_doc.name))
-        elif ps_doc.quantity <= ps_doc.produced_qty:
-            if ps_doc.status != "Completed":
-                ps_count += 1
-                ps_doc.status = "Completed"
-                print("Completed {}".format(ps_doc.name))
+    for i in range(len(ps_dict)):
+        print(ps_count)
+        if i > 0:
+            if ps_dict[i].name != ps_dict[i-1].name:
+                ps_count = process_sheet_status(ps_dict[i].name, st_time, ps_count)
         else:
-            for op in ps_doc.operations:
-                if op.completed_qty > 0:
-                    if ps_doc.status != "In Progress" and ps_doc.status != "Stopped":
-                        ps_count += 1
-                        ps_doc.status = "In Progress"
-                        print("In Progress Status set for {}".format(ps_doc.name))
-        ps_doc.save()
+            ps_count = process_sheet_status(ps_dict[i].name, st_time, ps_count)
     end_time = time.time()
     tot_ps_time = round(end_time - st_time)
     print(f"Total Process Sheet Status Updated = {ps_count}")
     print(f"Total Time Taken for Process Sheets is {tot_ps_time} seconds")
+
+
+def process_sheet_status(ps_name, st_time, ps_count):
+    print(f"Processing {ps_name}. Time Elapsed = {int(time.time() - st_time)} seconds")
+    ps_doc = frappe.get_doc("Process Sheet", ps_name)
+    make_jc_for_process_sheet(ps_doc)
+    update_process_sheet_quantities(ps_doc)
+    for op in ps_doc.operations:
+        update_process_sheet_operations(ps_doc.name, op.name)
+    if ps_doc.short_closed_qty > 0:
+        if ps_doc.produced_qty < ps_doc.quantity:
+            if ps_doc.status != "Short Closed":
+                ps_doc.status = "Short Closed"
+                print("Short Closed {}".format(ps_doc.name))
+        else:
+            if ps_doc.status != "Completed":
+                ps_doc.status = "Completed"
+                print("Completed {}".format(ps_doc.name))
+    elif ps_doc.quantity <= ps_doc.produced_qty:
+        if ps_doc.status != "Completed":
+            ps_count += 1
+            ps_doc.status = "Completed"
+            print("Completed {}".format(ps_doc.name))
+    else:
+        for op in ps_doc.operations:
+            if op.completed_qty > 0:
+                if ps_doc.status != "In Progress" and ps_doc.status != "Stopped":
+                    ps_count += 1
+                    ps_doc.status = "In Progress"
+                    print("In Progress Status set for {}".format(ps_doc.name))
+    ps_doc.save()
+    return ps_count
