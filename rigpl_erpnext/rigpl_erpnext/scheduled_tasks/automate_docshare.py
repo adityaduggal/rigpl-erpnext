@@ -25,7 +25,6 @@ def execute():
 	commit_chk = 0
 	for lead in lead_list:
 		lead_doc = frappe.get_doc("Lead", lead[0])
-		print("Checking For Lead " + lead[0])
 		lead_docshare(lead_doc)
 		lead_quote_share(lead_doc)
 		lead_address_share(lead_doc)
