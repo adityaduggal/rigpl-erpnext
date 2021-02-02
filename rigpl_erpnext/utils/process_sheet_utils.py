@@ -4,9 +4,7 @@
 
 from __future__ import unicode_literals
 from datetime import date
-from frappe.utils import flt
 from .manufacturing_utils import *
-from .sales_utils import get_pending_so_qty_from_soitem
 from .job_card_utils import check_existing_job_card, create_job_card, update_job_card_total_qty
 
 
