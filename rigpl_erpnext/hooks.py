@@ -1,3 +1,6 @@
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
+
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from .templates.generators.item.item import get_item_meta, get_item_attribute_data
@@ -241,7 +244,7 @@ scheduler_events = {
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.enqueue_get_ship_data",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.execute",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute"
     ]
     # 	"monthly": [
     # 		"rigpl_erpnext.tasks.monthly"
