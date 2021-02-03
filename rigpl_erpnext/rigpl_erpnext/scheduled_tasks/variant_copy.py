@@ -46,7 +46,6 @@ def check_items_as_per_sorting_for_website():
 		sno = 0
 		for it in item_dict:
 			sno += 1
-			print(str(sno) + ". Checking Item = " + it.name)
 			it_doc = frappe.get_doc("Item", it.name)
 			temp_doc = frappe.get_doc("Item", temp[0])
 			validate_variants(it_doc, comm_type="backend")
