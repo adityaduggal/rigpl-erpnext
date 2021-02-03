@@ -70,9 +70,8 @@ def get_templates():
 
 def selling_item_valuation_rate_template(template_doc):
     variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'
-    AND disabled = 0""" % (template_doc.name), as_list=1)
+    AND disabled = 0""" % template_doc.name, as_list=1)
     for item in variants:
-        print("Checking Item Code: " + item[0])
         item_doc = frappe.get_doc("Item", item[0])
         selling_item_valuation_rate_variant(item_doc, template_doc)
 
@@ -92,7 +91,6 @@ def purchase_item_valuation_rate_template(temp_doc):
     variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'
     AND disabled = 0""" % (temp_doc.name), as_list=1)
     for item in variants:
-        print("Checking Item Code: " + item[0])
         it_doc = frappe.get_doc("Item", item[0])
         get_pp_rate(it_doc, temp_doc)
 
@@ -158,11 +156,11 @@ def get_sim_variants(it_doc):
                 val_rate_cut_pc = val_rate_cut_pc * factor
                 update_valuation_rate(it_doc, val_rate_cut_pc, template_doc, pur_date)
             else:
-                print("No Purchase Data for similar items even")
+                print(f"No Purchase Data Found for {it_doc.name} or for similar items even")
         else:
-            print("No Purchase Data for Items with Higher Length Found")
+            print(f"No Purchase Data for Items with Higher Length Found for Item Code: {it_doc.name}")
     else:
-        print("No Purchase Data for Item")
+        print(f"No Purchase Data found for Item {it_doc.name}")
 
 
 def get_cut_pcs_factor(base_len, higher_length):
