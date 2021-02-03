@@ -9,6 +9,10 @@ from rohit_common.utils.rohit_common_utils import fn_check_digit, validate_email
 
 def validate(doc, method):
     # Validation for Age of Employee should be Greater than 18 years at the time of Joining.
+    if doc.holiday_list:
+        is_base_list = frappe.get_value("Holiday List", doc.holiday_list, "is_base_list")
+        if is_base_list != 1:
+            frappe.throw(f"{doc.holiday_list} is not a Base List Select a Base List in {doc.name}")
     if doc.company_email and doc.company_email_validated != 1:
         valid_co_email = validate_email_addresses(doc.company_email)
         doc.company_email_validated = valid_co_email
