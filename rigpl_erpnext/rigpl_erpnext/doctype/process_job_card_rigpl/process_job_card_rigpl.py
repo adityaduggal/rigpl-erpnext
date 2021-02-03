@@ -107,13 +107,13 @@ class ProcessJobCardRIGPL(Document):
         it_doc = frappe.get_doc("Item", self.production_item)
         qd = get_quantities_for_item(it_doc)
         ready = qd.finished_qty + qd.dead_qty
+        qty_for_order = qd.on_so - ready
         min_needed = qd.reserved_for_prd + qd.on_so - qd.on_po - ready - qd.dead_qty + qd.calculated_rol
-        frappe.msgprint(str(qd))
         text = f"SO = {qd.on_so} \n PO = {qd.on_po} \n Needed for PRD = {qd.reserved_for_prd} \n " \
                f"Finished Stock = {qd.finished_qty} \n Dead Stock = {qd.dead_qty} \n " \
                f"Work In Progress = {qd.wip_qty} \n" \
                f"Real ROL = {qd.re_order_level} But Calculated ROL = {qd.calculated_rol} \n " \
-               f"Minimum Qty to be Produced = {min_needed}"
+               f"Minimum Qty to be Produced = {min_needed} AND Qty Needed for Order = {qty_for_order}"
         if self.quantity_details != text:
             self.quantity_details = text
 
