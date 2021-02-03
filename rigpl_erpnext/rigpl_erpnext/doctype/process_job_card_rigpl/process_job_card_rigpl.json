@@ -27,6 +27,7 @@
   "final_operation",
   "allow_production_of_wip_materials",
   "sb0",
+  "quantity_details",
   "remarks",
   "sb1",
   "production_item",
@@ -405,10 +406,16 @@
    "in_list_view": 1,
    "label": "Total Qty",
    "read_only": 1
+  },
+  {
+   "fieldname": "quantity_details",
+   "fieldtype": "Text",
+   "label": "Quantity Details",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2021-01-24 14:53:14.191606",
+ "modified": "2021-02-03 13:22:52.739368",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",

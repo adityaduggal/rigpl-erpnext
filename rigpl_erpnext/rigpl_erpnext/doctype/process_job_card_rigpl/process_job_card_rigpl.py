@@ -42,6 +42,7 @@ class ProcessJobCardRIGPL(Document):
         update_job_card_priority(self)
         update_job_card_total_qty(self)
         update_job_card_status(self)
+        self.update_job_card_qty_text()
         self.uom = frappe.get_value("Item", self.production_item, "stock_uom")
         if self.s_warehouse == self.t_warehouse:
             self.no_stock_entry = 1
@@ -101,6 +102,20 @@ class ProcessJobCardRIGPL(Document):
                             d.qty_available = wip.actual_qty
                             d.uom = wip.stock_uom
             check_produced_qty_jc(self)
+
+    def update_job_card_qty_text(self):
+        it_doc = frappe.get_doc("Item", self.production_item)
+        qd = get_quantities_for_item(it_doc)
+        ready = qd.finished_qty + qd.dead_qty
+        min_needed = qd.reserved_for_prd + qd.on_so - qd.on_po - ready - qd.dead_qty + qd.calculated_rol
+        frappe.msgprint(str(qd))
+        text = f"SO = {qd.on_so} \n PO = {qd.on_po} \n Needed for PRD = {qd.reserved_for_prd} \n " \
+               f"Finished Stock = {qd.finished_qty} \n Dead Stock = {qd.dead_qty} \n " \
+               f"Work In Progress = {qd.wip_qty} \n" \
+               f"Real ROL = {qd.re_order_level} But Calculated ROL = {qd.calculated_rol} \n " \
+               f"Minimum Qty to be Produced = {min_needed}"
+        if self.quantity_details != text:
+            self.quantity_details = text
 
     def update_calculated_qty(self, rm_item_dict):
         wip_rm_consume = 0
