@@ -14,7 +14,8 @@
   "calculated_qty",
   "qty",
   "qty_available",
-  "uom"
+  "uom",
+  "projected_qty"
  ],
  "fields": [
   {
@@ -30,7 +31,6 @@
    "columns": 1,
    "fieldname": "source_warehouse",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Source Warehouse",
    "options": "Warehouse"
   },
@@ -38,7 +38,6 @@
    "columns": 1,
    "fieldname": "target_warehouse",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Target Warehouse",
    "options": "Warehouse",
    "permlevel": 1
@@ -100,10 +99,17 @@
    "fieldtype": "Check",
    "label": "Donot Consider RM for Production",
    "permlevel": 1
+  },
+  {
+   "fieldname": "projected_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Projected Qty",
+   "read_only": 1
   }
  ],
  "istable": 1,
- "modified": "2020-11-11 12:56:45.108683",
+ "modified": "2021-02-03 12:33:17.283330",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet Items",
