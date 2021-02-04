@@ -5,40 +5,40 @@ from ....utils.stock_utils import get_rol_for_item
 
 
 def execute(filters=None):
-	if not filters: filters = {}
+    if not filters: filters = {}
 
-	columns = get_columns(filters)
-	data = get_rol_data(filters)
+    columns = get_columns(filters)
+    data = get_rol_data(filters)
 
-	return columns, data
+    return columns, data
 
 
 def get_columns(filters):
-	period = filters.get("months").split(",")
-	for p in period:
-		if flt(p) == 0:
-			frappe.throw("Only Numbers above ZERO are allowed in Period. Use Comma Separated Values Like 3,6,9")
-		if flt(p) > 99:
-			frappe.throw("Max period is 99 months")
-	main_it_cols = ["Item:Link/Item:130", "ROL:Int:50", "ROQ:Int:50",
-		"Is RM::60", "BM::60", "Brand::60", "Quality::60", "TT::130", "SPL::50",
-		"D1 MM:Float:50", "W1 MM:Float:50", "L1 MM:Float:60",
-		"D2 MM:Float:50", "L2 MM:Float:60"]
-	compare_cols = []
-	for d in period:
-		compare_cols += ["SI-" + d + ":Int:50", "#C-" + d + ":Int:50", "Con-" + d + ":Int:50", "STE-" + d + ":Int:50",
-						 "SR-" + d + ":Int:50", "PO-" + d + ":Int:50", "#PO-" + d + ":Int:50", "CROL-" + d + ":Int:60"]
-	desc_cols = ["Description::450", "Template:Link/Item:350"]
-	columns = main_it_cols + compare_cols + desc_cols
-	return  columns
+    period = filters.get("months").split(",")
+    for p in period:
+        if flt(p) == 0:
+            frappe.throw("Only Numbers above ZERO are allowed in Period. Use Comma Separated Values Like 3,6,9")
+        if flt(p) > 99:
+            frappe.throw("Max period is 99 months")
+    main_it_cols = ["Item:Link/Item:130", "ROL:Int:50", "ROQ:Int:50",
+                    "Is RM::60", "BM::60", "Brand::60", "Quality::60", "TT::130", "SPL::50",
+                    "D1 MM:Float:50", "W1 MM:Float:50", "L1 MM:Float:60",
+                    "D2 MM:Float:50", "L2 MM:Float:60"]
+    compare_cols = []
+    for d in period:
+        compare_cols += ["SI-" + d + ":Int:70", "#C-" + d + ":Int:70", "Con-" + d + ":Int:70", "STE-" + d + ":Int:70",
+                         "SR-" + d + ":Int:70", "PO-" + d + ":Int:70", "#PO-" + d + ":Int:70", "CROL-" + d + ":Int:80"]
+    desc_cols = ["Description::450", "Template:Link/Item:350"]
+    columns = main_it_cols + compare_cols + desc_cols
+    return columns
 
 
 def get_rol_data(filters):
-	period = filters.get("months").split(",")
-	to_date = filters.get("to_date")
-	conditions_it = get_conditions(filters)
-	bm = filters.get("bm")
-	query = """SELECT it.name, rol.warehouse_reorder_level as rol, rol.warehouse_reorder_qty as roq,
+    period = filters.get("months").split(",")
+    to_date = filters.get("to_date")
+    conditions_it = get_conditions(filters)
+    bm = filters.get("bm")
+    query = """SELECT it.name, rol.warehouse_reorder_level as rol, rol.warehouse_reorder_qty as roq,
 	IFNULL(rm.attribute_value, 'No') as rm, bm.attribute_value as bm,  
 	brand.attribute_value as brand, qual.attribute_value as qual, tt.attribute_value as tt,
 	spl.attribute_value as spl, IFNULL(d1.attribute_value, "") as d1, IFNULL(w1.attribute_value, "") as w1,
@@ -85,59 +85,59 @@ def get_rol_data(filters):
 			CAST(w1.attribute_value AS DECIMAL(8,3)), CAST(l1.attribute_value AS DECIMAL(8,3)),
 			CAST(d2.attribute_value AS DECIMAL(8,3)), CAST(l2.attribute_value AS DECIMAL(8,3)),
 			brand.attribute_value, spl.attribute_value""" % (bm, conditions_it)
-	data = []
-	items = frappe.db.sql(query, as_dict=1)
-	row = {}
-	for it in items:
-		row = []
-		row = [it.name, it.rol, it.roq, it.rm, it.bm, it.brand, it.qual, it.tt, it.spl, it.d1, it.w1, it.l1, it.d2,
-			   it.l2]
-		for d in period:
-			rol_data = get_rol_for_item(it.name, period=flt(d), to_date=to_date)
-			row += [
-				None if rol_data.sold == 0 else rol_data.sold, None if rol_data.customers == 0 else rol_data.customers,
-				None if rol_data.consumed == 0 else rol_data.consumed,
-				None if rol_data.no_of_ste == 0 else rol_data.no_of_ste, None if rol_data.sred == 0 else rol_data.sred,
-				None if rol_data.purchased == 0 else rol_data.purchased,
-				None if rol_data.no_of_po == 0 else rol_data.no_of_po,
-				None if rol_data.calculated_rol == 0 else rol_data.calculated_rol
-			]
-		row += [it.description, it.variant_of]
-		data.append(row)
-	return data
+    data = []
+    items = frappe.db.sql(query, as_dict=1)
+    row = {}
+    for it in items:
+        row = []
+        row = [it.name, it.rol, it.roq, it.rm, it.bm, it.brand, it.qual, it.tt, it.spl, it.d1, it.w1, it.l1, it.d2,
+               it.l2]
+        for d in period:
+            rol_data = get_rol_for_item(it.name, period=flt(d), to_date=to_date)
+            row += [
+                None if rol_data.sold == 0 else rol_data.sold, None if rol_data.customers == 0 else rol_data.customers,
+                None if rol_data.consumed == 0 else rol_data.consumed,
+                None if rol_data.no_of_ste == 0 else rol_data.no_of_ste, None if rol_data.sred == 0 else rol_data.sred,
+                None if rol_data.purchased == 0 else rol_data.purchased,
+                None if rol_data.no_of_po == 0 else rol_data.no_of_po,
+                None if rol_data.calculated_rol == 0 else rol_data.calculated_rol
+            ]
+        row += [it.description, it.variant_of]
+        data.append(row)
+    return data
 
 
 def get_conditions(filters):
-	conditions_it = ""
+    conditions_it = ""
 
-	if filters.get("item"):
-		conditions_it += " AND it.name = '%s'" % filters.get("item")
+    if filters.get("item"):
+        conditions_it += " AND it.name = '%s'" % filters.get("item")
 
-	if filters.get("rm"):
-		conditions_it += " AND rm.attribute_value = '%s'" % filters.get("rm")
+    if filters.get("rm"):
+        conditions_it += " AND rm.attribute_value = '%s'" % filters.get("rm")
 
-	if filters.get("bm"):
-		conditions_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
+    if filters.get("bm"):
+        conditions_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
 
-	if filters.get("series"):
-		conditions_it += " AND series.attribute_value = '%s'" % filters.get("series")
+    if filters.get("series"):
+        conditions_it += " AND series.attribute_value = '%s'" % filters.get("series")
 
-	if filters.get("quality"):
-		conditions_it += " AND qual.attribute_value = '%s'" % filters.get("quality")
+    if filters.get("quality"):
+        conditions_it += " AND qual.attribute_value = '%s'" % filters.get("quality")
 
-	if filters.get("spl"):
-		conditions_it += " AND spl.attribute_value = '%s'" % filters.get("spl")
+    if filters.get("spl"):
+        conditions_it += " AND spl.attribute_value = '%s'" % filters.get("spl")
 
-	if filters.get("purpose"):
-		conditions_it += " AND purpose.attribute_value = '%s'" % filters.get("purpose")
+    if filters.get("purpose"):
+        conditions_it += " AND purpose.attribute_value = '%s'" % filters.get("purpose")
 
-	if filters.get("type"):
-		conditions_it += " AND type.attribute_value = '%s'" % filters.get("type")
+    if filters.get("type"):
+        conditions_it += " AND type.attribute_value = '%s'" % filters.get("type")
 
-	if filters.get("mtm"):
-		conditions_it += " AND mtm.attribute_value = '%s'" % filters.get("mtm")
+    if filters.get("mtm"):
+        conditions_it += " AND mtm.attribute_value = '%s'" % filters.get("mtm")
 
-	if filters.get("tt"):
-		conditions_it += " AND tt.attribute_value = '%s'" % filters.get("tt")
+    if filters.get("tt"):
+        conditions_it += " AND tt.attribute_value = '%s'" % filters.get("tt")
 
-	return conditions_it
+    return conditions_it
