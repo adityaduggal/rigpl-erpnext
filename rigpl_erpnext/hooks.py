@@ -87,6 +87,10 @@ doc_events = {
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
         "update_after_submit": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update"
     },
+    "Bank Account": {
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.validate",
+        "autoname": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.autoname"
+    },
     "Communication": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.communication.validate"
     },
@@ -134,6 +138,9 @@ doc_events = {
     },
     "Opportunity": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
+    },
+    "Payment Entry": {
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.validate"
     },
     "Price List": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
