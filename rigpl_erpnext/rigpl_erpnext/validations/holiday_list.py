@@ -41,6 +41,8 @@ def pull_holidays(hd_name, frm_date, to_date):
             lnk_hdd = frappe.get_doc("Holiday List", linked_hld[0].name)
             base_hdd.from_date = lnk_hdd.from_date
             base_hdd.to_date = lnk_hdd.to_date
+            base_hdd.weekly_off = lnk_hdd.weekly_off
+            base_hdd.holidays = []
             new_hlds = frappe._dict({})
             for d in lnk_hdd.holidays:
                 new_hlds["idx"] = d.idx
