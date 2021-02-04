@@ -34,7 +34,6 @@ def get_planned_qty(item_name):
     return planned_dict
 
 
-
 def get_items_from_process_sheet_for_job_card(document, table_name):
     document.set(table_name, [])
     pro_sheet = frappe.get_doc("Process Sheet", document.process_sheet)
@@ -254,8 +253,15 @@ def find_item_quantities(item_dict):
     availability = []
     for d in item_dict:
         one_item_availability = frappe.db.sql("""SELECT name, warehouse, item_code, stock_uom, valuation_rate, 
-        actual_qty FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s'""" % (d.get("name") or d.get("item_code")),
-                                              as_dict=1)
+        actual_qty, 
+        (SELECT SUM(reserved_qty_for_production) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as prd_qty,
+        (SELECT SUM(reserved_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as on_so,
+        (SELECT SUM(ordered_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as on_po,
+        (SELECT SUM(planned_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as planned 
+        FROM `tabBin` WHERE docstatus = 0 
+        AND item_code = '%s'""" % ((d.get("name") or d.get("item_code")), (d.get("name") or d.get("item_code")),
+                                   (d.get("name") or d.get("item_code")), (d.get("name") or d.get("item_code")),
+                                   (d.get("name") or d.get("item_code"))), as_dict=1)
         if one_item_availability:
             for available in one_item_availability:
                 availability.append(available)
