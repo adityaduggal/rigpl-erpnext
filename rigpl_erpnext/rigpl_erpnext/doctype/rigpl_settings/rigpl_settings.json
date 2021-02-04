@@ -13,9 +13,12 @@
   "sb1",
   "future_time_mins",
   "rol_multiplier",
+  "rol_value_percentages",
+  "rol_qty_percentages",
   "cb1",
   "auto_process_sheet_value",
   "minimum_rol_value",
+  "max_rol_fluctuation",
   "base_rol_multiplier",
   "check_overlap_for_machines",
   "sb2",
@@ -146,7 +149,7 @@
   {
    "description": "Enter ROL Multiplier text in the format multiplier:value\neg: 10:1500, 5:3000, 3:5000, 2:7500\nThis means ROL would be multiplied by 10 if value = ROL * Valuation Rate < 1000",
    "fieldname": "rol_multiplier",
-   "fieldtype": "Text",
+   "fieldtype": "Data",
    "label": "ROL Multiplier"
   },
   {
@@ -159,10 +162,26 @@
    "fieldname": "minimum_rol_value",
    "fieldtype": "Currency",
    "label": "Minimum ROL Value"
+  },
+  {
+   "default": "100000",
+   "fieldname": "max_rol_fluctuation",
+   "fieldtype": "Currency",
+   "label": "Max ROL Fluctuation"
+  },
+  {
+   "fieldname": "rol_value_percentages",
+   "fieldtype": "Data",
+   "label": "ROL Value Percentages"
+  },
+  {
+   "fieldname": "rol_qty_percentages",
+   "fieldtype": "Data",
+   "label": "ROL Qty Percentages"
   }
  ],
  "issingle": 1,
- "modified": "2020-11-22 11:09:56.373120",
+ "modified": "2021-02-04 12:57:14.474685",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
