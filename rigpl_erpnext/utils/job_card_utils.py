@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 import datetime
-from erpnext.stock.utils import get_bin
 from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt
 from .manufacturing_utils import *
 from .sales_utils import get_priority_for_so
@@ -100,12 +99,20 @@ def get_job_card_qty_available(jc_doc):
                 qty = 0
             return qty
         else:
-            qty = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty")
+            qty = get_bin(jc_doc.production_item, jc_doc.s_warehouse).actual_qty
+            frappe.msgprint(str(qty))
             if qty < 0:
                 qty = 0
             return qty
     else:
         return 0
+
+
+def get_bin(item_code, warehouse):
+    return frappe.db.sql("""SELECT name, item_code, warehouse, reserved_qty, actual_qty, ordered_qty, indented_qty,
+        planned_qty, projected_qty, reserved_qty_for_production, reserved_qty_for_sub_contract, stock_uom, 
+        valuation_rate, stock_value FROM `tabBin` WHERE item_code = '%s' 
+        AND warehouse = '%s'""" % (item_code, warehouse), as_dict=1)[0]
 
 
 def update_job_card_status(jc_doc):
