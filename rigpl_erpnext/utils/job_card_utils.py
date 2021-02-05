@@ -100,7 +100,6 @@ def get_job_card_qty_available(jc_doc):
             return qty
         else:
             qty = get_bin(jc_doc.production_item, jc_doc.s_warehouse).actual_qty
-            frappe.msgprint(str(qty))
             if qty < 0:
                 qty = 0
             return qty
