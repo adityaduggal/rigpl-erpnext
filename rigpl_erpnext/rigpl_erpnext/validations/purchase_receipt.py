@@ -51,12 +51,6 @@ def on_cancel(doc, method):
             frappe.msgprint("No Stock Entry Found for this PO")
 
 
-def on_update(doc, method):
-    chk = check_subpo(doc, method)
-    if chk == 1:
-        create_ste(doc, method)
-
-
 def create_ste(doc, method):
     ste_items = get_ste_items(doc, method)
     chk_ste = get_existing_ste(doc, method)
@@ -97,7 +91,7 @@ def create_ste(doc, method):
 def get_ste_items(doc, method):
     ste_items = []
     source_warehouse = frappe.db.sql("""SELECT name FROM `tabWarehouse` 
-    WHERE is_subcontracting_warehouse =1""", as_list=1)
+    WHERE is_subcontracting_warehouse = 1""", as_list=1)
     source_warehouse = source_warehouse[0][0]
     for d in doc.items:
         ste_temp = {}
@@ -153,11 +147,15 @@ def update_job_card_status_from_grn(doc):
 
 
 def check_subpo(doc, method):
-    #Old Sub Contracting PO are based on Work Orders chk=1
-    #New Sub Contracting PO are based on Process Job Card RIGPL chk=2
+    # Old Sub Contracting PO are based on Work Orders chk=1
+    # New Sub Contracting PO are based on Process Job Card RIGPL chk=2
     chk = 0
     for d in doc.items:
-        po = frappe.get_doc("Purchase Order", d.purchase_order)
-        if po.is_subcontracting == 1:
+        is_subcon = frappe.get_value("Purchase Order", d.purchase_order, "is_subcontracting")
+        if is_subcon == 1:
             chk = 1
+        else:
+            if chk == 1:
+                frappe.throw(f"{d.purchase_order} is Not Sub Contracting but there are Items with Sub Contracting"
+                             f"Cannot Mix Sub Contracting PO with Non Sub Contracting PO.")
     return chk

@@ -719,12 +719,15 @@ def get_next_job_card(jc_no):
     return jc_list
 
 
-def get_job_card_from_process_sno(operation_sno, ps_doc, docstatus=0):
+def get_job_card_from_process_sno(operation_sno, ps_doc):
+    if ps_doc.sales_order_item:
+        cond = " AND sales_order_item = '%s'" % ps_doc.sales_order_item
+    else:
+        cond = ""
     for d in ps_doc.operations:
         if d.idx == operation_sno:
-            query ="""SELECT name FROM `tabProcess Job Card RIGPL` WHERE operation = '%s' AND docstatus = %s 
-            AND production_item ='%s' AND sales_order_item = '%s'""" % (d.operation, docstatus,
-                                                                        ps_doc.production_item, ps_doc.sales_order_item)
+            query = """SELECT name FROM `tabProcess Job Card RIGPL` WHERE operation = '%s' AND docstatus = 0
+            AND production_item ='%s' %s ORDER BY creation""" % (d.operation, ps_doc.production_item, cond)
             jc_list = frappe.db.sql(query, as_list=1)
     return jc_list
 

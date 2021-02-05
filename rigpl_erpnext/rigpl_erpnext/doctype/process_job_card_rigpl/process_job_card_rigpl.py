@@ -152,7 +152,6 @@ class ProcessJobCardRIGPL(Document):
             check_qty_job_card(row, row.calculated_qty, row.qty, row.uom, row.bypass_qty_check)
 
     def update_next_jc_status(self):
-        # pro_doc = frappe.get_doc("Process Sheet", self.process_sheet)
         nxt_jc_list = get_next_job_card(self.name)
         if nxt_jc_list:
             for jc in nxt_jc_list:
