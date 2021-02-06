@@ -99,7 +99,7 @@ def get_job_card_qty_available(jc_doc):
                 qty = 0
             return qty
         else:
-            qty = get_bin(jc_doc.production_item, jc_doc.s_warehouse).actual_qty
+            qty = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get("actual_qty", 0)
             if qty < 0:
                 qty = 0
             return qty
@@ -108,10 +108,14 @@ def get_job_card_qty_available(jc_doc):
 
 
 def get_bin(item_code, warehouse):
-    return frappe.db.sql("""SELECT name, item_code, warehouse, reserved_qty, actual_qty, ordered_qty, indented_qty,
+    bin_qty_dict = frappe.db.sql("""SELECT name, item_code, warehouse, reserved_qty, actual_qty, ordered_qty, indented_qty,
         planned_qty, projected_qty, reserved_qty_for_production, reserved_qty_for_sub_contract, stock_uom, 
         valuation_rate, stock_value FROM `tabBin` WHERE item_code = '%s' 
-        AND warehouse = '%s'""" % (item_code, warehouse), as_dict=1)[0]
+        AND warehouse = '%s'""" % (item_code, warehouse), as_dict=1)
+    if bin_qty_dict:
+        return bin_qty_dict[0]
+    else:
+        return {}
 
 
 def update_job_card_status(jc_doc):
