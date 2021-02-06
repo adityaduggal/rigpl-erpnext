@@ -31,7 +31,8 @@ def on_submit(doc, method):
                 frappe.msgprint('Submitted {}'.format(frappe.get_desk_link(ste_exist.doctype, ste_exist.name)))
                 update_job_card_status_from_grn(doc)
         else:
-            frappe.throw("No Stock Entry Found for this GRN")
+            create_ste(doc, method)
+
 
 
 def on_cancel(doc, method):
@@ -85,7 +86,8 @@ def create_ste(doc, method):
         })
         ste.flags.ignore_permissions = True
         ste.insert()
-        frappe.msgprint('Created {}'.format(frappe.get_desk_link(ste.doctype, ste.name)))
+        ste.submit()
+        frappe.msgprint('Created and Submitted {}'.format(frappe.get_desk_link(ste.doctype, ste.name)))
 
 
 def get_ste_items(doc, method):
