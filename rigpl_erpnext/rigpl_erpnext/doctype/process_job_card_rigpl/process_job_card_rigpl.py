@@ -84,6 +84,7 @@ class ProcessJobCardRIGPL(Document):
                     for d in self.rm_consumed:
                         if rm.item_code == d.item_code and rm.warehouse == d.source_warehouse:
                             d.qty_available = rm.actual_qty
+                            d.projected_qty = rm.actual_qty - rm.prd_qty - rm.on_so + rm.on_po + rm.planned
                             d.uom = rm.stock_uom
 
             if self.allow_production_of_wip_materials != 1:

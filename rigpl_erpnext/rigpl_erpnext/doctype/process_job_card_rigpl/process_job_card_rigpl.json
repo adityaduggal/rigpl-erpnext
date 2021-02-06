@@ -415,7 +415,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2021-02-03 13:22:52.739368",
+ "modified": "2021-02-06 04:30:00.753059",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
@@ -445,10 +445,8 @@
    "write": 1
   },
   {
-   "create": 1,
    "email": 1,
    "export": 1,
-   "import": 1,
    "print": 1,
    "read": 1,
    "report": 1,
@@ -458,10 +456,8 @@
    "write": 1
   },
   {
-   "create": 1,
    "email": 1,
    "export": 1,
-   "import": 1,
    "print": 1,
    "read": 1,
    "report": 1,
@@ -484,6 +480,11 @@
    "permlevel": 1,
    "read": 1,
    "role": "Manufacturing User"
+  },
+  {
+   "if_owner": 1,
+   "read": 1,
+   "role": "All"
   }
  ],
  "quick_entry": 1,
