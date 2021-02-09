@@ -140,7 +140,8 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
     },
     "Payment Entry": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.validate",
+        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.on_submit"
     },
     "Price List": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
