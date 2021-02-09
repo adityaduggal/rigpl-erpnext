@@ -54,6 +54,9 @@ def update_fields(doc):
     # This is how you add data in Child table.
     doc.sales_team = []
     steam_dict = {}
+    doc.sales_partner = cust_doc.default_sales_partner
+    doc.commission_rate = cust_doc.default_commission_rate
+    doc.total_commission = doc.commission_rate * doc.base_net_total / 100
     for d in cust_doc.sales_team:
         steam_dict["sales_person"] = d.sales_person
         steam_dict["allocated_percentage"] = d.allocated_percentage
