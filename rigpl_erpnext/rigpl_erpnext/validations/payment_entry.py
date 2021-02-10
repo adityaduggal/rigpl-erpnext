@@ -10,8 +10,8 @@ from ...utils.customer_utils import get_contact, return_email_verified_for_conta
 
 def validate(doc, method):
     update_contact(doc)
+    update_comp_bank_account(doc)
     if doc.payment_type == "Pay":
-        update_comp_bank_account(doc)
         update_party_bank_account(doc)
 
 
@@ -24,18 +24,19 @@ def on_submit(doc, method):
 
 
 def update_contact(doc):
-    cont_list = get_contact(link_type=doc.party_type, link_name=doc.party)
-    if not doc.contact_person:
-        if cont_list:
-            for con in cont_list:
-                valid_email = return_email_verified_for_contact(con.name)
-                con["email_validated"] = valid_email
-            cont_list = sorted(cont_list, key=lambda i: (-i["email_validated"], -i["accounts_related"],
-                                                         -i["is_primary_contact"], i["name"]))
-            doc.contact_person = cont_list[0].name
-            doc.email = ""
-        else:
-            frappe.throw(f"No Contact Found for {doc.party_type}:{doc.party}")
+    if doc.payment_type in ("Pay", "Receive"):
+        cont_list = get_contact(link_type=doc.party_type, link_name=doc.party)
+        if not doc.contact_person:
+            if cont_list:
+                for con in cont_list:
+                    valid_email = return_email_verified_for_contact(con.name)
+                    con["email_validated"] = valid_email
+                cont_list = sorted(cont_list, key=lambda i: (-i["email_validated"], -i["accounts_related"],
+                                                             -i["is_primary_contact"], i["name"]))
+                doc.contact_person = cont_list[0].name
+                doc.email = ""
+            else:
+                frappe.throw(f"No Contact Found for {doc.party_type}:{doc.party}")
 
 
 def update_party_bank_account(doc):
@@ -48,8 +49,13 @@ def update_party_bank_account(doc):
 
 
 def update_comp_bank_account(doc):
-    ba = frappe.db.sql("""SELECT name FROM `tabBank Account` WHERE verified = 1 AND is_company_account = 1 
-    AND account = '%s'""" % doc.paid_from, as_dict=1)
+    if doc.payment_type == "Pay":
+        account = doc.paid_from
+    else:
+        account = doc.paid_to
+    query = """SELECT name FROM `tabBank Account` WHERE verified = 1 AND is_company_account = 1 AND account = 
+    '%s'""" % account
+    ba = frappe.db.sql(query, as_dict=1)
     if ba:
         doc.bank_account = ba[0].name
     else:
