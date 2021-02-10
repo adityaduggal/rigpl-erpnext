@@ -1,8 +1,10 @@
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from frappe.utils import nowdate, nowtime
 from frappe.desk.reportview import get_match_cond
-from ...utils.sales_utils import check_validated_gstin
+from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
 from rigpl_erpnext.utils.manufacturing_utils import *
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
@@ -14,8 +16,9 @@ def validate(doc, method):
     check_taxes_integrity(doc, method)
     get_pricing_rule_based_on_attributes(doc)
     get_qty_for_purchase(doc, reject=0)
-    check_validated_gstin(doc.shipping_address)
-    check_validated_gstin(doc.supplier_address)
+    add_list = [doc.shipping_address, doc.supplier_address]
+    for add in add_list:
+        check_validated_gstin(add, doc)
 
 
 def on_submit(doc, method):

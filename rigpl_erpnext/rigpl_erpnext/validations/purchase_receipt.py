@@ -1,13 +1,16 @@
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
-from ...utils.sales_utils import check_validated_gstin
+from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
 from ...utils.job_card_utils import get_next_job_card, update_job_card_qty_available
 
 
 def validate(doc, method):
-    check_validated_gstin(doc.shipping_address)
-    check_validated_gstin(doc.supplier_address)
+    add_list = [doc.shipping_address, doc.supplier_address]
+    for add in add_list:
+        check_validated_gstin(add, doc)
     update_warehouses_for_job_card_items(doc)
 
     for d in doc.items:

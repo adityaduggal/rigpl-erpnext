@@ -1,6 +1,8 @@
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
 # -*- coding: utf-8 -*-
+
 from __future__ import unicode_literals
-import re
 from rigpl_erpnext.utils.sales_utils import *
 
 
