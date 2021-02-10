@@ -1,3 +1,5 @@
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import re
@@ -269,16 +271,6 @@ def get_completed_qty_of_jc_for_operation(item, operation, so_detail=None):
         return flt(completed_qty[0][0])
     else:
         return 0
-
-
-def check_validated_gstin(add_name):
-    add_doc = frappe.get_doc("Address", add_name)
-    if add_doc.gstin:
-        if add_doc.gstin != "NA":
-            if add_doc.validated_gstin != add_doc.gstin:
-                frappe.throw("GSTIN# {} for {} is NOT Validated from GST Website. Please update the "
-                             "Address from GST Website".
-                             format(add_doc.gstin, frappe.get_desk_link(add_doc.doctype, add_doc.name)))
 
 
 def dead_stock_order_booking(doc):
