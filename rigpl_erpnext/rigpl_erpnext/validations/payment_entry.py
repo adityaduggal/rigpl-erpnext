@@ -43,7 +43,15 @@ def update_party_bank_account(doc):
     ba = frappe.db.sql("""SELECT name, is_default FROM `tabBank Account` WHERE verified = 1 
     AND is_company_account = 0 AND party_type = '%s' AND party = '%s'""" % (doc.party_type, doc.party), as_dict=1)
     if ba:
-        doc.party_bank_account = ba[0].name
+        if not doc.party_bank_account:
+            doc.party_bank_account = ba[0].name
+        else:
+            found = 0
+            for d in ba:
+                if doc.party_bank_account == d.name:
+                    found = 1
+            if found != 1:
+                frappe.throw(f"{d.party_bank_account} Selected is Not a Verified Bank Account in {doc.name}")
     else:
         doc.party_bank_account = ""
 
