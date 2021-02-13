@@ -319,7 +319,7 @@ def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
     if it_doc.made_to_order == 1:
         exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
             AND operation = '%s' AND sales_order_item = '%s' AND production_item = '%s'"""
-                                 %(operation, so_detail, item_name), as_dict=1)
+                                 % (operation, so_detail, item_name), as_dict=1)
     else:
         exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
             AND operation = '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)

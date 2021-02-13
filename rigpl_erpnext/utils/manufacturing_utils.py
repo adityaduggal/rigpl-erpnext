@@ -600,6 +600,7 @@ def check_jc_needed_for_ps(psd):
 
 def update_produced_qty(jc_doc, status="Submit"):
     # This function would update the produced qty in Process Sheet from Process Job Card and Close if needed
+    # There are 2 places to update the Produced Qty one in the PSheet and Other in the Operation
     pro_sheet = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     min_qty, max_qty = get_min_max_ps_qty(pro_sheet.quantity)
     bal_qty = pro_sheet.produced_qty - pro_sheet.produced_qty
@@ -617,7 +618,7 @@ def update_produced_qty(jc_doc, status="Submit"):
     for ps_r in pro_sheet.operations:
         if ps_r.name == jc_doc.operation_id:
             if status == "Submit":
-                tc_comp_qty = jc_doc.total_completed_qty
+                tc_comp_qty = get_comp_qty_operation(ps_r.name)
                 frappe.db.set_value("BOM Operation", ps_r.name, "completed_qty", tc_comp_qty if tc_comp_qty > 0 else 0)
                 if pro_sheet.status == "Submitted":
                     frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
@@ -626,7 +627,7 @@ def update_produced_qty(jc_doc, status="Submit"):
                 else:
                     frappe.db.set_value("BOM Operation", ps_r.name, "status", "In Progress")
             else:
-                tc_comp_qty = jc_doc.total_completed_qty
+                tc_comp_qty = get_comp_qty_operation(ps_r.name)  # jc_doc.total_completed_qty
                 frappe.db.set_value("BOM Operation", ps_r.name, "completed_qty", tc_comp_qty if tc_comp_qty > 0 else 0)
                 if tc_comp_qty < ps_r.planned_qty or jc_doc.short_close_operation == 1:
                     frappe.db.set_value("BOM Operation", ps_r.name, "status", "In Progress")
@@ -658,6 +659,15 @@ def update_produced_qty(jc_doc, status="Submit"):
                     frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
                     else 0)
                     frappe.db.set_value("Process Sheet", pro_sheet.name, "short_closed_qty", 0)
+
+
+def get_comp_qty_operation(op_id):
+    qty_dict = frappe.db.sql("""SELECT SUM(total_completed_qty) as tot_qty FROM `tabProcess Job Card RIGPL` 
+    WHERE docstatus = 1 AND operation_id = '%s'""" % op_id, as_dict=1)
+    if qty_dict:
+        return flt(qty_dict[0].tot_qty)
+    else:
+        return 0
 
 
 def update_qty_for_prod(item_code, warehouse, table_name):

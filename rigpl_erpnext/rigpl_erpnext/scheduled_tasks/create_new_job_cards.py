@@ -74,6 +74,7 @@ def execute():
     FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name 
     AND pso.parenttype = 'Process Sheet' AND pso.status != 'Completed' AND pso.status != 'Short Closed' 
     AND pso.status != 'Stopped' AND pso.status != 'Obsolete' AND ps.status != 'Short Closed' AND ps.status != 'Stopped'
+    AND pso.planned_qty > pso.completed_qty
     ORDER BY ps.creation ASC, pso.idx ASC""", as_dict=1)
     print(f"Total Pending Process Sheets Operations to be Checked {len(pending_psheets)}")
     time.sleep(1)
