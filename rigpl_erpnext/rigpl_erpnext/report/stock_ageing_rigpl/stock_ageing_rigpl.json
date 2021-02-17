@@ -8,18 +8,30 @@
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": "OGL",
- "modified": "2019-03-22 16:09:50.430832",
+ "modified": "2021-02-17 19:12:37.038730",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Stock Ageing RIGPL",
  "owner": "Administrator",
  "prepared_report": 0,
- "ref_doctype": "Integration Request",
+ "ref_doctype": "Stock Ledger Entry",
  "report_name": "Stock Ageing RIGPL",
  "report_type": "Script Report",
  "roles": [
   {
    "role": "System Manager"
+  },
+  {
+   "role": "Stock Manager"
+  },
+  {
+   "role": "Stock User"
+  },
+  {
+   "role": "Accounts User"
+  },
+  {
+   "role": "Production Inventory User"
   }
  ]
 }

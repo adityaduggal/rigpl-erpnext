@@ -17,7 +17,7 @@ frappe.query_reports["Stock Ageing RIGPL"] = {
 			"label": "Base Material",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
-			"reqd": 0,
+			"reqd": 1,
 			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
 		},
@@ -52,13 +52,14 @@ frappe.query_reports["Stock Ageing RIGPL"] = {
 			"fieldname":"to_date",
 			"label": __("As On Date"),
 			"fieldtype": "Date",
-			//"default": frappe.datetime.get_today(),
+			"default": frappe.datetime.get_today(),
 			"reqd": 1
 		},
 		{
 			"fieldname":"warehouse",
 			"label": __("Warehouse"),
 			"fieldtype": "Link",
+			"reqd": 1,
 			"options": "Warehouse"
 		},
 		{
