@@ -159,6 +159,11 @@ def check_subcontracting(doc, method):
         if doc.is_subcontracting == 1:
             if d.reference_dt != "Process Job Card RIGPL":
                 frappe.throw(f"For Row# {d.idx} in PO# {doc.name} NO Job Card is Selected")
+            else:
+                for e in doc.items:
+                    if d.idx != e.idx:
+                        if d.reference_dn == e.reference_dn:
+                            frappe.throw(f"{d.reference_dn} is Selected in Row# {d.idx} and Row# {e.idx}")
             jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
             subcon_it = frappe.get_value("Operation", jc_doc.operation, "sub_contracting_item_code")
             sub_item = frappe.get_doc("Item", d.subcontracted_item)
