@@ -7,36 +7,63 @@ from frappe.utils import getdate
 
 
 def execute(filters=None):
-	columns = get_columns()
+	columns = get_columns(filters)
 	data = get_data(filters)
 	return columns, data
 
 
-def get_columns():
-	return [
-		"PE#:Link/Payment Entry:120",
-		{
-			"label": "Party Type",
-			"fieldname": "party_type",
-			"width": 100
-		},
-		{
-			"label": "Party",
-			"fieldname": "party",
-			"fieldtype": "Dynamic Link",
-			"options": "party_type",
-			"width": 150
-		}, "Party Name::200", "Company Bank::150", "Party Bank Account#::150", "Party IFSC::100", "Amount:Currency:100",
-		"Swift Number::100"
-	]
+def get_columns(filters):
+	entry_type = filters.get("entry_type")
+	if filters.get("entry_type") == "Payment Entry":
+		return [
+			"PE#:Link/Payment Entry:120",
+			{
+				"label": "Party Type",
+				"fieldname": "party_type",
+				"width": 100
+			},
+			{
+				"label": "Party",
+				"fieldname": "party",
+				"fieldtype": "Dynamic Link",
+				"options": "party_type",
+				"width": 150
+			}, "Party Name::200", "Company Bank::150", "Party Bank Account#::150", "Party IFSC::100", "Amount:Currency:100",
+			"Swift Number::100"
+		]
+	else:
+		return [
+			"Entry#:Link/" + entry_type + ":120",
+			{
+				"label": "Party Type",
+				"fieldname": "party_type",
+				"width": 100
+			},
+			{
+				"label": "Party",
+				"fieldname": "party",
+				"fieldtype": "Dynamic Link",
+				"options": "party_type",
+				"width": 150
+			}, "Party Name::200", "Company Bank::150", "Party Bank Account#::150", "Party IFSC::100", "Amount:Currency:100",
+			"Swift Number::100"
+		]
 
 
 def get_data(filters):
 	cond = get_conditions(filters)
-	query = """SELECT pe.name, pe.party_type, pe.party, ba.name_in_bank_records, pe.bank_account, ba.bank_account_no, 
-	ba.branch_code, pe.paid_amount, ba.swift_number FROM `tabPayment Entry` pe 
-		LEFT JOIN `tabBank Account` ba ON ba.name = pe.party_bank_account 
-	WHERE pe.docstatus < 3 %s ORDER BY pe.name""" % cond
+	if filters.get("entry_type") == "Payment Entry":
+		query = """SELECT pe.name, pe.party_type, pe.party, ba.name_in_bank_records, pe.bank_account, ba.bank_account_no, 
+		ba.branch_code, pe.paid_amount, ba.swift_number FROM `tabPayment Entry` pe 
+			LEFT JOIN `tabBank Account` ba ON ba.name = pe.party_bank_account 
+		WHERE pe.docstatus < 3 %s ORDER BY pe.name""" % cond
+	else:
+		query = """SELECT ea.name, "Employee", eld.employee, ba.name_in_bank_records, ea.credit_account, 
+		ba.bank_account_no, ba.branch_code, eld.loan_amount, ba.swift_number 
+		FROM `tabEmployee Advance` ea, `tabEmployee Loan Detail` eld, `tabBank Account` ba
+		WHERE eld.parent = ea.name AND eld.parenttype = "Employee Advance" AND 
+		ea.docstatus < 3 AND ba.party_type = "Employee" AND ba.party = eld.employee %s ORDER BY ea.name""" % cond
+		frappe.msgprint(query)
 	data = frappe.db.sql(query, as_list=1)
 
 	return data
@@ -51,16 +78,28 @@ def get_conditions(filters):
 	elif diff.days < 0:
 		frappe.throw("From Date should be before To Date")
 
-	if filters.get("payment_type"):
-		cond += " AND pe.payment_type = '%s'" % filters.get("payment_type")
-	if filters.get("from_date"):
-		cond += " AND pe.posting_date >= '%s'" % filters.get("from_date")
-	if filters.get("to_date"):
-		cond += " AND pe.posting_date <= '%s'" % filters.get("to_date")
-	if filters.get("status") == "Draft":
-		cond += " AND pe.docstatus = 0"
-	elif filters.get("status") == "Submitted":
-		cond += " AND pe.docstatus = 1"
-	elif filters.get("status") == "Cancelled":
-		cond += " AND pe.docstatus = 2"
+	if filters.get("entry_type") == "Payment Entry":
+		if filters.get("payment_type"):
+			cond += " AND pe.payment_type = '%s'" % filters.get("payment_type")
+		if filters.get("from_date"):
+			cond += " AND pe.posting_date >= '%s'" % filters.get("from_date")
+		if filters.get("to_date"):
+			cond += " AND pe.posting_date <= '%s'" % filters.get("to_date")
+		if filters.get("status") == "Draft":
+			cond += " AND pe.docstatus = 0"
+		elif filters.get("status") == "Submitted":
+			cond += " AND pe.docstatus = 1"
+		elif filters.get("status") == "Cancelled":
+			cond += " AND pe.docstatus = 2"
+	else:
+		if filters.get("from_date"):
+			cond += " AND ea.posting_date >= '%s'" % filters.get("from_date")
+		if filters.get("to_date"):
+			cond += " AND ea.posting_date <= '%s'" % filters.get("to_date")
+		if filters.get("status") == "Draft":
+			cond += " AND ea.docstatus = 0"
+		elif filters.get("status") == "Submitted":
+			cond += " AND ea.docstatus = 1"
+		elif filters.get("status") == "Cancelled":
+			cond += " AND ea.docstatus = 2"
 	return cond

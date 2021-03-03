@@ -5,6 +5,14 @@
 frappe.query_reports["Bank CMS Upload"] = {
 	"filters": [
 		{
+			"fieldname":"entry_type",
+			"label": "Entry Type",
+			"fieldtype": "Select",
+			"options": "\nEmployee Advance\nPayment Entry",
+			"default": "Payment Entry",
+			"reqd": 1,
+		},
+		{
 			"fieldname":"payment_type",
 			"label": "Payment Type",
 			"fieldtype": "Select",
@@ -16,7 +24,7 @@ frappe.query_reports["Bank CMS Upload"] = {
 			"fieldname":"from_date",
 			"label": "From Date",
 			"fieldtype": "Date",
-			"default": frappe.datetime.add_days(frappe.datetime.get_today(), -1),
+			"default": frappe.datetime.add_days(frappe.datetime.get_today(), -10),
 			"reqd": 1,
 		},
 		{
