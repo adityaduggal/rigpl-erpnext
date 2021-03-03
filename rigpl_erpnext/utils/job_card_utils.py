@@ -243,14 +243,17 @@ def get_production_priority_for_item(item_name, jc_doc):
             if soqty > fqty + dead_qty:
                 # SO Qty is Greater than Finished Stock
                 shortage = soqty - fqty - dead_qty
-                if shortage > wipqty:
+                if shortage > wipqty + poqty:
                     # Shortage of Material is More than WIP Qty
                     # Also check process number since last process should be More Urgent than 1st Process to fasten Prod
                     priority = get_priority_for_so(it_name=item_name, prd_qty=prd_qty, short_qty=shortage)
                     return priority
                 else:
+                    # Check if the PO QTY > 0 and if the operation is after PO then shortage includes PO Qty else
+                    # deduct the PO Qty from the Shortage
                     # Shortage is Less than Items in Production now get shortage for the Job Card First
                     jc_dict = get_open_job_cards_for_item(item_name)
+                    shortage -= poqty
                     if jc_dict:
                         for i in range(0, len(jc_dict)):
                             # Check for all process after the JCard for available qty
