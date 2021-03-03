@@ -60,10 +60,10 @@ def get_data(filters):
 	else:
 		query = """SELECT ea.name, "Employee", eld.employee, ba.name_in_bank_records, ea.credit_account, 
 		ba.bank_account_no, ba.branch_code, eld.loan_amount, ba.swift_number 
-		FROM `tabEmployee Advance` ea, `tabEmployee Loan Detail` eld, `tabBank Account` ba
-		WHERE eld.parent = ea.name AND eld.parenttype = "Employee Advance" AND 
-		ea.docstatus < 3 AND ba.party_type = "Employee" AND ba.party = eld.employee %s ORDER BY ea.name""" % cond
-		frappe.msgprint(query)
+		FROM `tabEmployee Advance` ea, `tabEmployee Loan Detail` eld 
+			LEFT JOIN `tabBank Account` ba ON ba.party_type = "Employee" AND ba.party = eld.employee AND ba.verified = 1
+		WHERE eld.parent = ea.name AND eld.parenttype = "Employee Advance" AND ea.docstatus < 3 %s 
+		ORDER BY ea.name""" % cond
 	data = frappe.db.sql(query, as_list=1)
 
 	return data
