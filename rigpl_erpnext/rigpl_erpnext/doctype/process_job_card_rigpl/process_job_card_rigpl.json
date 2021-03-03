@@ -11,6 +11,8 @@
   "posting_date",
   "posting_time",
   "process_sheet",
+  "rm_status",
+  "rm_shortage",
   "s_warehouse",
   "qty_available",
   "allow_consumption_of_rm",
@@ -412,10 +414,24 @@
    "fieldtype": "Text",
    "label": "Quantity Details",
    "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.allow_consumption_of_rm === 1",
+   "fieldname": "rm_status",
+   "fieldtype": "Percent",
+   "label": "RM Status",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.allow_consumption_of_rm === 1",
+   "fieldname": "rm_shortage",
+   "fieldtype": "Int",
+   "label": "RM Shortage",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2021-02-06 04:30:00.753059",
+ "modified": "2021-03-04 03:40:31.497733",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
