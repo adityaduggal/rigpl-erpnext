@@ -98,6 +98,8 @@ class BOMTemplateRIGPL(Document):
     def validate_restriction_rules(self, table_name):
         if self.get(table_name):
             for d in self.get(table_name):
+                if d.item_number == 0:
+                    d.item_number = 1
                 d.is_numeric = frappe.get_value("Item Attribute", d.attribute, "numeric_values")
                 if d.is_numeric == 1:
                     d.allowed_values = ""
