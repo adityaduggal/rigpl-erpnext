@@ -217,7 +217,6 @@ def update_job_card_total_qty(jcd):
 
 
 def update_job_card_priority(jc_doc):
-    old_priority = jc_doc.priority
     new_priority = get_production_priority_for_item(jc_doc.production_item, jc_doc)
     if jc_doc.priority != new_priority:
         jc_doc.priority = new_priority
@@ -517,12 +516,13 @@ def create_submit_ste_from_job_card(jc_doc):
         remarks = 'STE for Process Job Card # {}'.format(jc_doc.name)
         item_table = []
         it_dict = {}
-        it_dict.setdefault("item_code", jc_doc.production_item)
-        it_dict.setdefault("allow_zero_valuation_rate", 1)
-        it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
-        it_dict.setdefault("t_warehouse", jc_doc.t_warehouse)
-        it_dict.setdefault("qty", jc_doc.total_completed_qty)
-        item_table.append(it_dict.copy())
+        if jc_doc.total_completed_qty > 0:
+            it_dict.setdefault("item_code", jc_doc.production_item)
+            it_dict.setdefault("allow_zero_valuation_rate", 1)
+            it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
+            it_dict.setdefault("t_warehouse", jc_doc.t_warehouse)
+            it_dict.setdefault("qty", jc_doc.total_completed_qty)
+            item_table.append(it_dict.copy())
         for d in jc_doc.time_logs:
             if d.rejected_qty > 0 and jc_doc.s_warehouse:
                 it_dict = {}

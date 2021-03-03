@@ -22,7 +22,7 @@ frappe.ui.form.on('Process Job Card RIGPL', {
 	    frm.set_query("salvage_warehouse", "time_logs", function(doc){
 	        return {
 	            filters: {
-	                warehouse_type: "Rejected",
+	                warehouse_type: "Recoverable Stock",
 	                is_group: 0,
 	                disabled: 0
 	            }
