@@ -10,6 +10,7 @@ from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time
 from .manufacturing_utils import *
 from .sales_utils import get_priority_for_so
 from .stock_utils import cancel_delete_ste_from_name
+from .other_utils import auto_round_up, auto_round_down
 
 
 def create_job_card(pro_sheet, row, quantity=0, auto_create=False):
@@ -134,6 +135,38 @@ def update_job_card_status(jc_doc):
                 jc_doc.status = "Open"
         else:
             jc_doc.status = "Work In Progress"
+
+
+def update_jc_rm_status(jc_doc):
+    new_rm_status, new_rm_shortage = get_jc_rm_status(jc_doc)
+    if jc_doc.rm_status != new_rm_status:
+        jc_doc.rm_status = new_rm_status
+    if jc_doc.rm_shortage != new_rm_shortage:
+        jc_doc.rm_shortage = new_rm_shortage
+
+
+def get_jc_rm_status(jc_doc):
+    percent = -100
+    shortage = 0
+    if jc_doc.allow_consumption_of_rm == 1:
+        for d in jc_doc.rm_consumed:
+            calc_qty = d.calculated_qty + 1
+            if d.qty_available >= calc_qty:
+                row_percent = 100
+                if d.current_projected_qty >= 0:
+                    row_shortage = 0
+                else:
+                    row_shortage = d.current_projected_qty * -1
+            else:
+                row_percent = auto_round_down((d.qty_available / calc_qty) * 100)
+                row_shortage = d.current_projected_qty * -1
+            if row_percent <= percent:
+                percent = row_percent
+                shortage = row_shortage
+            elif percent == -100:
+                percent = row_percent
+                shortage = row_shortage
+    return percent, shortage
 
 
 def update_job_card_process_no(jc_doc):
@@ -368,30 +401,54 @@ def validate_qty_decimal(document, table_name):
         row.qty = convert_qty_per_uom(row.qty, row.item_code)
 
 
-def check_qty_job_card(row, calculated_qty, qty, uom, bypass=0):
+def check_qty_job_card(jc_doc, row, calculated_qty, qty, uom, bypass=0):
+    bt_name = frappe.get_value("Process Sheet", jc_doc.process_sheet, "bom_template")
+    bt_doc = frappe.get_doc("BOM Template RIGPL", bt_name)
     uom_doc = frappe.get_doc('UOM', uom)
     error_title = "Error for Raw Material Quantity Entered"
     warning_title = "Warning for Raw Material Quantity Entered"
-    if uom_doc.variance_allowed > 0:
-        variance = uom_doc.variance_allowed / 100
-        upper_limit = (1+variance)*flt(calculated_qty)
-        lower_limit = (1-variance)*flt(calculated_qty)
-        if flt(qty) > upper_limit or flt(qty) < lower_limit:
-            message = "Entered Quantity {} in Row# {} for {} is Not in Range and must be between {} and {}".\
-                format(row.qty, row.idx, row.parent, lower_limit, upper_limit)
+    if bt_doc.length_formula == 1:
+        fg_oal_field = get_oal_field(btd=bt_doc, table="fg_restrictions")
+        # Check total length of WIP + FG vs Total Length of RM
+        rm_oal, fg_oal, wastage = 0, 0, 0
+        fg_oal += get_oal_frm_item_code(item_code=jc_doc.production_item,
+                                        qty=(jc_doc.total_completed_qty + jc_doc.total_rejected_qty),
+                                        oal_field=fg_oal_field)
+        for d in jc_doc.rm_consumed:
+            rm_oal_field = get_oal_field(btd=bt_doc, table="rm_restrictions")
+            rm_oal += get_oal_frm_item_code(item_code=d.item_code, qty=d.qty, oal_field=rm_oal_field)
+        for d in jc_doc.item_manufactured:
+            wip_oal_field = get_oal_field(btd=bt_doc, table="wip_restrictions")
+            fg_oal += get_oal_frm_item_code(item_code=d.item_code, qty=d.qty, oal_field=wip_oal_field)
+        wastage = abs(int(((rm_oal - fg_oal) / rm_oal)*100))
+        if wastage > uom_doc.variance_allowed:
+            message_oal = f"RM OAL Consume = {rm_oal} whereas FG OAL Produced = {fg_oal} With Wastage = {wastage}% " \
+                      f"Which is Not Allowed. Ask Someone to Bypass Qty Check if this is Authorized Usage."
             if bypass == 0:
-                frappe.throw(message, title=error_title)
+                frappe.throw(message_oal, title=error_title)
             else:
-                frappe.msgprint(message, title=warning_title)
+                frappe.msgprint(message_oal, title=warning_title)
     else:
-        calculated_qty = convert_qty_per_uom(calculated_qty, row.item_code)
-        if flt(qty) != calculated_qty:
-            message = "Entered Quantity = {} is Not Equal to the Calculated Qty = {} for RM Size = {} in Row# {}".\
-                format(row.qty, row.calculated_qty, row.item_code, row.idx)
-            if bypass == 0:
-                frappe.throw(message, title=error_title)
-            else:
-                frappe.msgprint(message, title=warning_title)
+        if uom_doc.variance_allowed > 0:
+            variance = uom_doc.variance_allowed / 100
+            upper_limit = auto_round_up((1+variance)*flt(calculated_qty))
+            lower_limit = auto_round_down((1-variance)*flt(calculated_qty))
+            if flt(qty) > upper_limit or flt(qty) < lower_limit:
+                message = f"Entered Quantity {row.qty} in Row# {row.idx} for {row.parent} is Not in Range and " \
+                          f"must be between {lower_limit} and {upper_limit}"
+                if bypass == 0:
+                    frappe.throw(message, title=error_title)
+                else:
+                    frappe.msgprint(message, title=warning_title)
+        else:
+            calculated_qty = convert_qty_per_uom(calculated_qty, row.item_code)
+            if flt(qty) != calculated_qty:
+                message = f"Entered Quantity = {row.qty} is Not Equal to the Calculated Qty = {row.calculated_qty} " \
+                          f"for RM Size = {row.item_code} in Row# {row.idx}"
+                if bypass == 0:
+                    frappe.throw(message, title=error_title)
+                else:
+                    frappe.msgprint(message, title=warning_title)
 
 
 def validate_job_card_time_logs(jc_doc):
