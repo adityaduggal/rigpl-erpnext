@@ -199,6 +199,7 @@ class ProcessSheet(Document):
                             rm.uom = d.stock_uom
                             rm.qty = 0
                             rm.qty_available = d.actual_qty
+                            rm.current_projected_qty = d.actual_qty - d.prd_qty - d.on_so
                             rm.projected_qty = d.actual_qty - d.prd_qty - d.on_so + d.on_po + d.planned
                         for rm_calc in rm_calc_qty_list:
                             if rm.item_code == rm_calc.rm_item_code:

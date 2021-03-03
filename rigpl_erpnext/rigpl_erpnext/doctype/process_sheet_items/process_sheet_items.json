@@ -15,6 +15,7 @@
   "qty",
   "qty_available",
   "uom",
+  "current_projected_qty",
   "projected_qty"
  ],
  "fields": [
@@ -101,15 +102,24 @@
    "permlevel": 1
   },
   {
+   "columns": 1,
    "fieldname": "projected_qty",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Projected Qty",
+   "label": "Future Projected Qty",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "current_projected_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Current Projected Qty",
    "read_only": 1
   }
  ],
  "istable": 1,
- "modified": "2021-02-03 12:33:17.283330",
+ "modified": "2021-03-03 17:38:38.244262",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet Items",

@@ -84,7 +84,8 @@ class ProcessJobCardRIGPL(Document):
                     for d in self.rm_consumed:
                         if rm.item_code == d.item_code and rm.warehouse == d.source_warehouse:
                             d.qty_available = rm.actual_qty
-                            d.projected_qty = rm.actual_qty - rm.prd_qty - rm.on_so + rm.on_po + rm.planned
+                            d.current_projected_qty = rm.actual_qty - rm.prd_qty - rm.on_so
+                            d.projected_qty = d.current_projected_qty + rm.on_po + rm.planned
                             d.uom = rm.stock_uom
 
             if self.allow_production_of_wip_materials != 1:
@@ -101,6 +102,8 @@ class ProcessJobCardRIGPL(Document):
                     for d in self.item_manufactured:
                         if wip.item_code == d.item_code and wip.warehouse == d.target_warehouse:
                             d.qty_available = wip.actual_qty
+                            d.current_projected_qty = wip.actual_qty - wip.prd_qty - wip.on_so
+                            d.projected_qty = d.current_projected_qty + wip.on_po + wip.planned
                             d.uom = wip.stock_uom
             check_produced_qty_jc(self)
 
@@ -108,7 +111,7 @@ class ProcessJobCardRIGPL(Document):
         it_doc = frappe.get_doc("Item", self.production_item)
         qd = get_quantities_for_item(it_doc)
         ready = qd.finished_qty + qd.dead_qty
-        qty_for_order = qd.on_so - ready
+        qty_for_order = qd.on_so - ready - qd.on_po
         min_needed = qd.reserved_for_prd + qd.on_so - qd.on_po - ready - qd.dead_qty + qd.calculated_rol
         text = f"SO = {qd.on_so} \n PO = {qd.on_po} \n Needed for PRD = {qd.reserved_for_prd} \n " \
                f"Finished Stock = {qd.finished_qty} \n Dead Stock = {qd.dead_qty} \n " \
