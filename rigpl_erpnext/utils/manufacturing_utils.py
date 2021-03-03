@@ -249,6 +249,19 @@ def convert_qty_per_uom(qty, item_name):
     return qty
 
 
+def get_oal_field(btd, table):
+    for d in btd.get(table):
+        if d.renamed_field_name == "oal":
+            return d.attribute
+
+
+def get_oal_frm_item_code(item_code, qty, oal_field):
+    it_dict = get_attributes(item_code)
+    for d in it_dict:
+        if d.attribute == oal_field:
+            return qty * flt(d.attribute_value)
+
+
 def find_item_quantities(item_dict):
     availability = []
     for d in item_dict:
