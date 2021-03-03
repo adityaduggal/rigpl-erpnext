@@ -10,6 +10,7 @@ from frappe.model.document import Document
 
 class BOMTemplateRIGPL(Document):
     def validate(self):
+        self.validate_length_oal()
         if self.item_template:
             it_doc = frappe.get_doc("Item", self.item_template)
             if it_doc.has_variants != 1:
@@ -68,6 +69,31 @@ class BOMTemplateRIGPL(Document):
             if d.final_operation == 1 and not d.final_warehouse:
                 frappe.msgprint("Please set the Final Warehouse in Row# {} of Operations Table for "
                                 "Operation {}".format(d.idx, d.operation))
+
+    def validate_length_oal(self):
+        if self.length_formula == 1:
+            fg_oal, rm_oal, wip_oal = 0, 0, 0
+            for d in self.fg_restrictions:
+                if d.renamed_field_name == 'oal':
+                    fg_oal += 1
+            for d in self.rm_restrictions:
+                if d.renamed_field_name == 'oal':
+                    rm_oal += 1
+            for d in self.wip_restrictions:
+                if d.renamed_field_name == 'oal':
+                    wip_oal += 1
+            if self.fg_restrictions and fg_oal != 1:
+                frappe.throw(f"In Finished Restrictions Table 1 Field and Only 1 Field should have OAL as its renamed "
+                             f"Field since {self.name} has Length Formula Checked. "
+                             f"The Table has {fg_oal} fields marked with oal")
+            if self.rm_restrictions and rm_oal != 1:
+                frappe.throw(f"In RM Restrictions Table 1 Field and Only 1 Field should have OAL as its renamed "
+                             f"Field since {self.name} has Length Formula Checked. "
+                             f"The Table has {rm_oal} fields marked with oal")
+            if self.wip_restrictions and wip_oal != 1:
+                frappe.throw(f"In WIP Restrictions Table 1 Field and Only 1 Field should have OAL as its renamed "
+                             f"Field since {self.name} has Length Formula Checked. "
+                             f"The Table has {wip_oal} fields marked with oal")
 
     def validate_restriction_rules(self, table_name):
         if self.get(table_name):
