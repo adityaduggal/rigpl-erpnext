@@ -16,6 +16,7 @@
   "cb0",
   "formula",
   "no_of_rm_items",
+  "length_formula",
   "sb0",
   "item_template",
   "fg_restrictions",
@@ -120,9 +121,15 @@
    "fieldname": "disabled",
    "fieldtype": "Check",
    "label": "Disabled"
+  },
+  {
+   "default": "0",
+   "fieldname": "length_formula",
+   "fieldtype": "Check",
+   "label": "Length Formula"
   }
  ],
- "modified": "2020-11-10 05:11:59.784262",
+ "modified": "2021-03-03 18:09:13.597230",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "BOM Template RIGPL",
