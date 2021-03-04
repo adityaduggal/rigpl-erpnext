@@ -8,6 +8,7 @@ def validate(doc, method):
     # Check if the Item has a Stock Reconciliation after the date and time or NOT.
     # if there is a Stock Reconciliation then the Update would FAIL
     # Also check if the items are from Same Price List SO as is the PL mentioned in the DN
+    check_draft_dn(doc)
     check_strict_po_rules(doc)
     copy_address_and_check(doc)
     check_price_list(doc, method)
@@ -32,6 +33,15 @@ def validate(doc, method):
                                  format(dnd.item_code))
         else:
             frappe.throw("Delivery Note {} not against any Sales Order at Row {}".format(doc.name, dnd.idx))
+
+
+def check_draft_dn(dn_doc):
+    if dn_doc.is_new() == 1:
+        oth_dn = frappe.db.sql("""SELECT name FROM `tabDelivery Note` WHERE docstatus = 0 AND customer = '%s' 
+        AND name != '%s' """ % (dn_doc.customer, dn_doc.name), as_dict=1)
+        if oth_dn:
+            frappe.throw(f"{frappe.get_desk_link('Delivery Note', oth_dn[0].name)} Already In Draft for "
+                         f"{dn_doc.customer} Use that Delivery Note")
 
 
 def check_price_list(doc, method):
