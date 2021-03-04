@@ -255,8 +255,13 @@ def get_oal_field(btd, table):
             return d.attribute
 
 
-def get_oal_frm_item_code(item_code, qty, oal_field):
-    it_dict = get_attributes(item_code)
+def get_oal_frm_item_code(item_code, qty, oal_field, so_detail=None):
+    itd = frappe.get_doc("Item", item_code)
+    if itd.made_to_order == 1:
+        spl = get_special_item_attribute_doc(item_name=item_code, so_detail=so_detail)
+        it_dict = get_special_item_attributes(it_name=item_code, special_item_attribute=spl[0].name)
+    else:
+        it_dict = get_attributes(item_code)
     for d in it_dict:
         if d.attribute == oal_field:
             return qty * flt(d.attribute_value)

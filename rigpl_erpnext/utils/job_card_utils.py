@@ -413,14 +413,20 @@ def check_qty_job_card(jc_doc, row, calculated_qty, qty, uom, bypass=0):
         rm_oal, fg_oal, wastage = 0, 0, 0
         fg_oal += get_oal_frm_item_code(item_code=jc_doc.production_item,
                                         qty=(jc_doc.total_completed_qty + jc_doc.total_rejected_qty),
-                                        oal_field=fg_oal_field)
+                                        oal_field=fg_oal_field, so_detail=jc_doc.sales_order_item)
         for d in jc_doc.rm_consumed:
             rm_oal_field = get_oal_field(btd=bt_doc, table="rm_restrictions")
-            rm_oal += get_oal_frm_item_code(item_code=d.item_code, qty=d.qty, oal_field=rm_oal_field)
+            if d.qty > 0:
+                rm_oal += get_oal_frm_item_code(item_code=d.item_code, qty=d.qty, oal_field=rm_oal_field)
+            else:
+                rm_oal += 0
         for d in jc_doc.item_manufactured:
             wip_oal_field = get_oal_field(btd=bt_doc, table="wip_restrictions")
             fg_oal += get_oal_frm_item_code(item_code=d.item_code, qty=d.qty, oal_field=wip_oal_field)
-        wastage = abs(int(((rm_oal - fg_oal) / rm_oal)*100))
+        if rm_oal > 0:
+            wastage = abs(int(((rm_oal - fg_oal) / rm_oal)*100))
+        else:
+            wastage = abs(int(((rm_oal - fg_oal) / 1) * 100))
         if wastage > uom_doc.variance_allowed:
             message_oal = f"RM OAL Consume = {rm_oal} whereas FG OAL Produced = {fg_oal} With Wastage = {wastage}% " \
                       f"Which is Not Allowed. Ask Someone to Bypass Qty Check if this is Authorized Usage."
