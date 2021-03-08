@@ -136,7 +136,7 @@ class ProcessJobCardRIGPL(Document):
                 if d.item_code == wip_it.fg_item_code:
                     wip_rm_consume += wip_it.qty
                     if d.calculated_qty != wip_it.qty:
-                        d.calculated_qty = wip_it.qty
+                        d.calculated_qty = int(wip_it.qty)
         rm_calc_qty_dict = calculated_value_from_formula(rm_item_dict, self.production_item,
                                                          fg_qty=fg_rm_qty, bom_template_name=pro_sheet_doc.bom_template,
                                                          process_sheet_name=self.process_sheet)
@@ -144,7 +144,7 @@ class ProcessJobCardRIGPL(Document):
             for rm_it in rm_calc_qty_dict:
                 if rm.item_code == rm_it.rm_item_code:
                     wip_rm_consume += rm_it.qty
-                    rm.calculated_qty = wip_rm_consume
+                    rm.calculated_qty = int(wip_rm_consume)
 
     def get_items_from_process_sheet(self):
         get_items_from_process_sheet_for_job_card(self, "rm_consumed")
