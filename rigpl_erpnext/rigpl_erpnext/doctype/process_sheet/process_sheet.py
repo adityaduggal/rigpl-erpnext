@@ -228,14 +228,15 @@ class ProcessSheet(Document):
                 row.planned_qty = self.quantity
 
     def validate_qty_to_manufacture(self, it_doc):
-        auto_qty = get_qty_to_manufacture(it_doc)
+        auto_qty, max_auto_qty = get_qty_to_manufacture(it_doc)
         self.auto_qty = auto_qty
+        self.max_auto_qty = max_auto_qty
         dead_qty = get_quantities_for_item(it_doc)["dead_qty"]
         if dead_qty > 0 and self.bypass_all_qty_checks != 1:
-            frappe.throw("There are {} Qty in Dead Stock for {}.\nHence Cannot Proceed".format(dead_qty, self.production_item))
+            frappe.throw(f"There are {dead_qty} Qty in Dead Stock for {self.production_item}.\nHence Cannot Proceed")
         if self.bypass_all_qty_checks == 1:
             if auto_qty != self.quantity:
-                frappe.msgprint("Qty Calculated = {} But Entered Qty= {}".format(auto_qty, self.quantity))
+                frappe.msgprint(f"Qty Calculated = {auto_qty} But Entered Qty= {self.quantity}")
             return
         if auto_qty == self.quantity:
             self.update_qty_manually = 0
@@ -257,6 +258,15 @@ class ProcessSheet(Document):
                     frappe.msgprint("For {} Item in Row#{} Pending Qty= {} but Qty Planned= {}".
                                     format(frappe.get_desk_link("Sales Order", self.sales_order), self.sno,
                                            pend_qty, self.quantity))
+        if self.quantity > self.max_auto_qty and self.bypass_all_qty_checks != 1:
+            vrate = flt(frappe.get_value("Item", self.production_item, "valuation_rate"))
+            max_amt = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_value_over_max_qty_allowed"))
+            excess_amt = (self.quantity - self.max_auto_qty) * vrate
+            if excess_amt > max_amt and vrate > 1:
+                frappe.throw(f"Max Qty Allowed to Manufacture = {max_auto_qty}.<br>"
+                             f"Also Max Excess Amount allowed = {max_amt} & Valuation Rate of Item is {vrate}.<br>"
+                             f"But you are trying to Manufacture excess qty with amount of {excess_amt}.<br>"
+                             f"Either Bypass Qty Check or Change Qty to Manufacture")
 
     def get_balance_qty_from_so(self, so_detail):
         soi_doc = frappe.get_doc("Sales Order Item", so_detail)

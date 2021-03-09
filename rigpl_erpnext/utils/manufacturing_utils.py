@@ -12,6 +12,7 @@ from rigpl_erpnext.utils.other_utils import round_up
 from erpnext.stock.stock_balance import update_bin_qty
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 from .sales_utils import get_pending_so_qty_from_soitem
+from .other_utils import auto_round_down, auto_round_up
 
 
 def get_planned_qty(item_name):
@@ -204,12 +205,15 @@ def get_calculated_rol(rol, val_rate):
 
 def get_qty_to_manufacture(it_doc):
     base_multiplier = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_rol_multiplier"))
+    max_months = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_months_for_manufacturing_qty"))
+    if max_months <= 0:
+        max_months = 3
     if base_multiplier <= 0:
         base_multiplier = 1
-    qty_dict = get_quantities_for_item (it_doc)
+    qty_dict = get_quantities_for_item(it_doc)
     # print(qty_dict)
     calc_rol = qty_dict["calculated_rol"]
-    lead = qty_dict["lead_time"]
+    lead = qty_dict["lead_time"] if qty_dict["lead_time"] > 0 else 30
     so = qty_dict["on_so"]
     po = qty_dict["on_po"]
     prd = qty_dict["reserved_for_prd"]
@@ -217,26 +221,26 @@ def get_qty_to_manufacture(it_doc):
     wipq = qty_dict["wip_qty"]
     plan = qty_dict["planned_qty"]
     rol = qty_dict["re_order_level"]
-    reqd_qty = (base_multiplier * calc_rol * lead / 30) + so + prd - fg - wipq - plan - po
+    rol_multiplier = (base_multiplier * calc_rol * lead / 30)
+    qty_on_docs = so + prd - fg - wipq - plan - po
+    reqd_qty = rol_multiplier + qty_on_docs
+    max_reqd_qty = (max_months * rol_multiplier) + qty_on_docs
     if reqd_qty < 0:
         reqd_qty = 0
+    if max_reqd_qty < 0:
+        max_reqd_qty = 0
     if rol > 0:
         if reqd_qty <= 0:
             reqd_qty = 0
-        elif reqd_qty <= 10:
-            reqd_qty = round_up(reqd_qty, 1)
-        elif reqd_qty < 50:
-            reqd_qty = round_up(reqd_qty, 5)
-        elif reqd_qty < 500:
-            reqd_qty = round_up(reqd_qty, 10)
-        elif reqd_qty < 1000:
-            reqd_qty = round_up(reqd_qty, 50)
-        elif reqd_qty > 1000:
-            reqd_qty = round_up(reqd_qty, 100)
+        else:
+            reqd_qty = auto_round_down(reqd_qty)
+        if max_reqd_qty < 0:
+            max_reqd_qty = 0
+        else:
+            max_reqd_qty = auto_round_up(max_reqd_qty)
     else:
         reqd_qty = round(reqd_qty)
-    qty = reqd_qty
-    return qty
+    return reqd_qty, max_reqd_qty
 
 
 def convert_qty_per_uom(qty, item_name):

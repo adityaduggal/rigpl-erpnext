@@ -24,7 +24,15 @@ def get_columns(filters):
         ]
     elif filters.get("production_planning") == 1:
         return [
-            "JC#:Link/Process Job Card RIGPL:100", "Status::60", "RM Status:Percent:50", "RM Shortage:Int:80",
+            {
+                "label": "JC#",
+                "fieldname": "name",
+                "fieldtype": "Link",
+                "options": "Process Job Card RIGPL",
+                "hidden": 0,
+                "width": 100
+            },
+            "Status::60", "RM Status:Percent:50", "RM Shortage:Int:80",
             "SO#:Link/Sales Order:150", "Item:Link/Item:120", "Priority:Int:50", "Remarks::100",
             "BM::60", "TT::60", "SPL::60", "Series::60", "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50",
             "L2:Float:50", "Description::400",

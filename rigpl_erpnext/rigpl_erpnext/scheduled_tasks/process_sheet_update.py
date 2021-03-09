@@ -69,7 +69,7 @@ def create_new_process_sheets():
         vr_rol = flt(it.vrate) * flt(it.wh_rol)
         # print(f"Considering {it.name} ROL= {it.wh_rol} VRATE = {it.vrate} VR*ROL {it.vr_rol}")
         it_doc = frappe.get_doc("Item", it.name)
-        qty = get_qty_to_manufacture(it_doc)
+        qty, max_qty = get_qty_to_manufacture(it_doc)
         qty_dict = get_quantities_for_item(it_doc)
         value_for_manf = qty * qty_dict["valuation_rate"]
         if value_for_manf >= value:
