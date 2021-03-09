@@ -24,6 +24,7 @@
   "total_applicable_bom_templates",
   "quantity",
   "auto_qty",
+  "max_auto_qty",
   "produced_qty",
   "short_closed_qty",
   "update_qty_manually",
@@ -249,7 +250,7 @@
   {
    "fieldname": "auto_qty",
    "fieldtype": "Float",
-   "label": "Auto Qty",
+   "label": "Minimum Qty to Manufacture",
    "read_only": 1
   },
   {
@@ -259,10 +260,17 @@
    "in_list_view": 1,
    "label": "Priority",
    "read_only": 1
+  },
+  {
+   "description": "Stock of Upto 6 months",
+   "fieldname": "max_auto_qty",
+   "fieldtype": "Int",
+   "label": "Maximum Qty to Manufacture",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
- "modified": "2021-02-03 13:21:27.673050",
+ "modified": "2021-03-05 17:59:05.591062",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Sheet",
