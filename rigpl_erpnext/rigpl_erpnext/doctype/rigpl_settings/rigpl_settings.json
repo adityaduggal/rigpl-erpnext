@@ -12,6 +12,7 @@
   "max_days",
   "sb1",
   "future_time_mins",
+  "check_overlap_for_machines",
   "rol_multiplier",
   "rol_value_percentages",
   "rol_qty_percentages",
@@ -20,7 +21,8 @@
   "minimum_rol_value",
   "max_rol_fluctuation",
   "base_rol_multiplier",
-  "check_overlap_for_machines",
+  "max_months_for_manufacturing_qty",
+  "max_value_over_max_qty_allowed",
   "sb2",
   "years_to_consider",
   "minimum_first_order",
@@ -147,7 +149,6 @@
    "label": "Auto Process Sheet Value"
   },
   {
-   "description": "Enter ROL Multiplier text in the format multiplier:value\neg: 10:1500, 5:3000, 3:5000, 2:7500\nThis means ROL would be multiplied by 10 if value = ROL * Valuation Rate < 1000",
    "fieldname": "rol_multiplier",
    "fieldtype": "Data",
    "label": "ROL Multiplier"
@@ -178,10 +179,22 @@
    "fieldname": "rol_qty_percentages",
    "fieldtype": "Data",
    "label": "ROL Qty Percentages"
+  },
+  {
+   "default": "5",
+   "fieldname": "max_months_for_manufacturing_qty",
+   "fieldtype": "Int",
+   "label": "Max Months for Manufacturing Qty"
+  },
+  {
+   "default": "10000",
+   "fieldname": "max_value_over_max_qty_allowed",
+   "fieldtype": "Int",
+   "label": "Max Value Over Max Qty Allowed"
   }
  ],
  "issingle": 1,
- "modified": "2021-02-04 12:57:14.474685",
+ "modified": "2021-03-09 19:58:38.239391",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
