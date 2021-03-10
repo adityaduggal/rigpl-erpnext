@@ -52,7 +52,7 @@ def update_jc_posting_date_time(jc_doc):
             jc_doc.posting_time = nowtime()
 
 
-def check_produced_qty_jc(doc):
+def validate_produced_qty_jc(doc):
     if doc.s_warehouse:
         if doc.qty_available < (doc.total_completed_qty + doc.total_rejected_qty):
             frappe.throw("For Job Card# {} Qty Available for Item Code: {} in Warehouse: {} is {} but you are trying "

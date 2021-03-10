@@ -12,6 +12,7 @@ from ....utils.process_sheet_utils import update_process_sheet_operations
 class ProcessJobCardRIGPL(Document):
     def on_submit(self):
         validate_job_card_time_logs(self)
+        validate_produced_qty_jc(self)
         update_job_card_status(self)
         self.validate_rm_qty_consumed()
         update_produced_qty(self)
@@ -105,7 +106,6 @@ class ProcessJobCardRIGPL(Document):
                             d.current_projected_qty = wip.actual_qty - wip.prd_qty - wip.on_so
                             d.projected_qty = d.current_projected_qty + wip.on_po + wip.planned
                             d.uom = wip.stock_uom
-            check_produced_qty_jc(self)
             update_jc_rm_status(self)
 
     def update_job_card_qty_text(self):
