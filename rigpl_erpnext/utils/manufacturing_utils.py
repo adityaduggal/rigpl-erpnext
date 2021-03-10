@@ -721,7 +721,7 @@ def get_planned_qty_process(item_code, warehouse):
     return flt(planned_qty[0][0]) if planned_qty else 0
 
 
-def check_warehouse_in_child_tables(document, table_name=None, type_of_table=None):
+def check_warehouse_in_child_tables(document, table_name, type_of_table):
     for row in document.get(table_name):
         if type_of_table == 'Consume':
             row.target_warehouse = ""
