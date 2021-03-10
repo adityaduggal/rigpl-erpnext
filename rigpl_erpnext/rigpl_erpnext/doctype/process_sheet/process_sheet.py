@@ -213,11 +213,20 @@ class ProcessSheet(Document):
             else:
                 for wip in self.item_manufactured:
                     if wip_qty_dict:
+                        act_qty, so_qty, po_qty, prd_qty, plan_qty = 0, 0, 0, 0, 0
                         for d in wip_qty_dict:
-                            if d.item_code == wip.item_code and d.warehouse == wip.target_warehouse:
-                                wip.qty_available = d.actual_qty
+                            if d.item_code == wip.item_code:
                                 wip.uom = d.stock_uom
-                                wip.qty = 0
+                                act_qty += d.actual_qty
+                                so_qty += d.on_so
+                                po_qty += d.on_po
+                                prd_qty += d.prd_qty
+                                plan_qty += d.planned
+                        cur_proj = act_qty - so_qty - prd_qty
+                        wip.qty_available = act_qty
+                        wip.current_projected_qty = cur_proj
+                        wip.projected_qty = cur_proj + po_qty + plan_qty
+                        wip.qty = 0
             for op in self.operations:
                 if op.allow_production_of_wip_materials == 1:
                     for wip in self.item_manufactured:
