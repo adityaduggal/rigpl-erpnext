@@ -70,12 +70,10 @@ def execute():
                     print(f"{updated_jc_nos}. Updated Job Card # {jc_doc.name}")
                 except Exception as e:
                     print(f"Some Error for JC# {jc_doc.name} and the Exception Occurred is {e}")
-                    time.sleep(2)
                 if updated_jc_nos % 100 == 0 and updated_jc_nos > 0:
                     frappe.db.commit()
                     print(f"Committing Changes to DB after {updated_jc_nos} Changes Total "
                           f"Time Elapsed = {int(time.time() - start_time)} seconds")
-                    time.sleep(2)
     end_time = time.time()
     total_time = int(end_time - start_time)
     print("Total Number of Job Cards in Draft: " + str(len(jc_dict)))
