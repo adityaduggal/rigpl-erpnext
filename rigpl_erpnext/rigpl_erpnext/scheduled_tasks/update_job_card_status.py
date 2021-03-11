@@ -39,7 +39,7 @@ def update_jc_rm_status(jc_name):
     try:
         jcd.save()
     except Exception as e:
-        print(f"Some Error in JCR# {jc.name} and Error is {e}")
+        print(f"Some Error in JCR# {jcd.name} and Error is {e}")
 
 
 def execute():
