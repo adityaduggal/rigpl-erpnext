@@ -92,6 +92,12 @@ class BRCMEISTracking(Document):
 					frappe.throw("Invalid Shipping Bill Number")
 				if not self.shipping_bill_date:
 					frappe.throw('Shipping Bill Date is Mandatory for Shipping Bill')
+				si_shb = frappe.get_value("Sales Invoice", self.reference_name, "shipping_bill_number")
+				if si_shb != self.shipping_bill_number:
+					frappe.db.set_value("Sales Invoice", self.reference_name, "shipping_bill_number",
+										self.shipping_bill_number)
+					frappe.db.set_value("Sales Invoice", self.reference_name, "shipping_bill_date",
+										self.shipping_bill_date)
 
 			if self.shipping_bill_date:
 				self.submission_date_deadline = add_days(self.shipping_bill_date, 21)
