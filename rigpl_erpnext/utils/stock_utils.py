@@ -51,6 +51,10 @@ def auto_compute_rol_for_item(item_doc):
                                 else:
                                     n_rol = auto_round_down(e_rol * ((100 - percent) / 100))
                                 break
+                    if found == 0:
+                        # Difference in Valuation is Greater than MAX Allowed for All Periods hence make the
+                        # Changes as per the Max Allowed Value
+                        changes_made, n_rol, percent = return_rol_based_val(item_doc, e_rol, n_rol)
                 else:
                     # Found the correct New ROL and Hence Exit the Loop
                     break
@@ -257,7 +261,6 @@ def get_rol_for_item(item_name, period=1, to_date=today()):
     else:
         rol_dict["ex_rol"] = 0
         rol_dict["ex_rqty"] = 0
-    # print(f"Processing {item_name} with existing ROL= {rol_dict.ex_rol} and Valuation Rate = {rol_dict.v_rate}")
     sold = frappe.db.sql("""SELECT (SUM(sle.actual_qty)*-1) as sold FROM `tabStock Ledger Entry` sle 
     WHERE sle.voucher_type IN ('Delivery Note', 'Sales Invoice') AND sle.is_cancelled = "No" AND sle.item_code = '%s'
     AND posting_date >= '%s' AND posting_date < '%s'""" % (item_name, from_date, to_date), as_dict=1)
