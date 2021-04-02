@@ -46,11 +46,13 @@ def check_items_as_per_sorting_for_website():
 		sno = 0
 		for it in item_dict:
 			sno += 1
+			print(f"{sno}. Checking for Item Code {it.name}")
 			it_doc = frappe.get_doc("Item", it.name)
 			temp_doc = frappe.get_doc("Item", temp[0])
 			validate_variants(it_doc, comm_type="backend")
 			check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
-			if sno % 100 == 0:
+			if sno % 100 == 0 and sno > 0:
+				print(f"Committing Changes after making {sno} Changes")
 				frappe.db.commit()
 
 

@@ -3,9 +3,10 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe, re
-from frappe.utils import flt
+import re
+import frappe
 import datetime
+from frappe.utils import flt
 
 
 def check_and_copy_attributes_to_variant(template, variant, insert_type=None):
@@ -17,9 +18,7 @@ def check_and_copy_attributes_to_variant(template, variant, insert_type=None):
 	for fields in copy_field_list:
 		include_fields.append(fields[0])
 	for field in template.meta.fields:
-		# "Table" is part of `no_value_field` but we shouldn't ignore tables
-		if (field.fieldtype == 'Table' or field.fieldtype not in no_value_fields) \
-				and (not field.no_copy) and field.fieldname in include_fields:
+		if field.fieldtype not in no_value_fields and (not field.no_copy) and field.fieldname in include_fields:
 			if variant.get(field.fieldname) != template.get(field.fieldname):
 				if insert_type == "frontend":
 					variant.set(field.fieldname, template.get(field.fieldname))
