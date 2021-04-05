@@ -33,28 +33,29 @@ def on_update(doc, method):
 
 
 def lead_docshare(lead_doc):
-    check_sys = 0
-    emp_stat = frappe.get_value("User", lead_doc.lead_owner, "enabled")
-    if lead_doc.owner != lead_doc.lead_owner:
-        role_list = get_user_roles(lead_doc.lead_owner)
-        check_sys = check_system_manager(user=lead_doc.lead_owner)
-    else:
-        role_list = []
-    if check_sys != 1 and emp_stat == 1 and role_list:
-        role_in_settings, write_access, share_access, notify_by_email = \
-            check_role_usershare(role_list=role_list, doctype=lead_doc.doctype)
-        if role_in_settings:
-            shared_dict = get_shared(document_type=lead_doc.doctype, document_name=lead_doc.name)
-            user_in_shared_dict = 0
-            if shared_dict:
-                for shared_doc in shared_dict:
-                    if shared_doc.user != lead_doc.lead_owner:
-                        remove(lead_doc.doctype, lead_doc.name, shared_doc.user)
-                    else:
-                        user_in_shared_dict = 1
-            if user_in_shared_dict != 1:
-                add(lead_doc.doctype, lead_doc.name, user=lead_doc.lead_owner, write=write_access,
-                    share=share_access, notify=notify_by_email)
+    if not lead_doc.is_new():
+        check_sys = 0
+        emp_stat = frappe.get_value("User", lead_doc.lead_owner, "enabled")
+        if lead_doc.owner != lead_doc.lead_owner:
+            role_list = get_user_roles(lead_doc.lead_owner)
+            check_sys = check_system_manager(user=lead_doc.lead_owner)
+        else:
+            role_list = []
+        if check_sys != 1 and emp_stat == 1 and role_list:
+            role_in_settings, write_access, share_access, notify_by_email = \
+                check_role_usershare(role_list=role_list, doctype=lead_doc.doctype)
+            if role_in_settings:
+                shared_dict = get_shared(document_type=lead_doc.doctype, document_name=lead_doc.name)
+                user_in_shared_dict = 0
+                if shared_dict:
+                    for shared_doc in shared_dict:
+                        if shared_doc.user != lead_doc.lead_owner:
+                            remove(lead_doc.doctype, lead_doc.name, shared_doc.user)
+                        else:
+                            user_in_shared_dict = 1
+                if user_in_shared_dict != 1:
+                    add(lead_doc.doctype, lead_doc.name, user=lead_doc.lead_owner, write=write_access,
+                        share=share_access, notify=notify_by_email)
 
 
 def lead_quote_share(lead_doc):
