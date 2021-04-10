@@ -40,17 +40,17 @@ def validate_pan(pan):
     if pan:
         p = re.compile("[A-Z]{5}[0-9]{4}[A-Z]{1}")
         if not p.match(pan):
-            frappe.throw(_("Invalid PAN Number {}".format(pan)))
+            frappe.throw("Invalid PAN Number {}".format(pan))
 
 
 def validate_aadhaar(aadhaar):
     if aadhaar:
         p = re.compile("[0-9]{12}")
     if not p.match(aadhaar):
-        frappe.throw(_("Invalid Aadhaar Number"))
+        frappe.throw("Invalid Aadhaar Number")
     aadhaar_check_digit = calcsum(aadhaar[:-1])
     if aadhaar[-1:] != str(aadhaar_check_digit):
-        frappe.throw(_("Invalid Aadhaar Number"))
+        frappe.throw("Invalid Aadhaar Number")
 
 
 verhoeff_table_d = (
