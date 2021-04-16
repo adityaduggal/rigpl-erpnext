@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
+from frappe.utils import flt
 from erpnext.hr.doctype.payroll_entry.payroll_entry import get_start_end_dates
 
 
@@ -17,7 +18,7 @@ def validate(doc, method):
     else:
         doc.from_date = date_details.start_date
 
-    if doc.minimum_applicable > 0:
+    if flt(doc.minimum_applicable) > 0:
         if doc.basic_percent > 0:
-            if ((doc.base + doc.variable) * doc.basic_percent) / 100 < doc.minimum_applicable:
+            if ((doc.base + flt(doc.variable)) * flt(doc.basic_percent)) / 100 < flt(doc.minimum_applicable):
                 frappe.throw("Basic Salary Cannot be Less than Minimum Applicable")
