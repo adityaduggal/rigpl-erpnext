@@ -218,7 +218,7 @@ def get_tracking_from_fedex(track_doc):
                         event_full_desc = event_desc + (" Excep Code: " if excep_code is not None else "") + \
                                           (str(excep_code) if excep_code is not None else "") + \
                                           " " + (str(excep_desc) if excep_desc is not None else "")
-                        row_dict["status_detail"] = event_full_desc
+                        row_dict["status_detail"] = event_full_desc[0:135]
                         scans.append(row_dict)
                 else:
                     frappe.throw('NO SCANS Recevied')
