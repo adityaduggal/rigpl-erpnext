@@ -16,12 +16,24 @@ def execute(filters=None):
 
 
 def get_columns(filters):
+    conds = ""
+    join = ""
+    if filters.get("bm"):
+        conds += " AND bm.allowed_values = '%s'" % (filters.get("bm"))
+        join += " LEFT JOIN `tabItem Variant Restrictions` bm ON ivr.parent = bm.parent " \
+                "AND bm.attribute = 'Base Material'"
+    if filters.get("tt"):
+        conds += " AND tt.allowed_values = '%s'" % (filters.get("tt"))
+        join += " LEFT JOIN `tabItem Variant Restrictions` tt ON ivr.parent = tt.parent " \
+                "AND tt.attribute = 'Tool Type'"
     columns = [
         "BT Name:Link/BOM Template RIGPL:100"
     ]
-    restrictions = frappe.db.sql("""SELECT DISTINCT(ivr.attribute) AS attribute, ivr.is_numeric AS numeric_val
-    FROM `tabItem Variant Restrictions` ivr 
-    WHERE parenttype = 'BOM Template RIGPL' AND parentfield = 'fg_restrictions' AND ivr.is_numeric=0""", as_dict=1)
+    query = """SELECT DISTINCT(ivr.attribute) AS attribute, ivr.is_numeric AS numeric_val
+    FROM `tabItem Variant Restrictions` ivr %s
+    WHERE ivr.parenttype = 'BOM Template RIGPL' AND ivr.parentfield = 'fg_restrictions' 
+    AND ivr.is_numeric=0 %s""" % (join, conds)
+    restrictions = frappe.db.sql(query, as_dict=1)
     restrictions = sorted(restrictions, key=itemgetter("numeric_val", "attribute"))
     rest_details = []
     for rest in restrictions:
@@ -40,8 +52,8 @@ def get_columns(filters):
         columns.append(col_string)
     columns.append('# of Ops:In:50, ')
     columns.append('Routing:Link/Routing:150, ')
-    columns.append('Remarks::300, ')
-    columns.append('Formula::300')
+    columns.append('Remarks::400, ')
+    columns.append('Formula::400')
     return columns, rest_details, restrictions
 
 
