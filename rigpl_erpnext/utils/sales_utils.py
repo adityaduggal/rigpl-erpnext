@@ -102,7 +102,12 @@ def get_total_pending_so_item(item_name):
     if flt(pending_so[0].pending_qty) > 0:
         return pending_so
     else:
-        return []
+        pending_so = frappe._dict({})
+        pending_so["item_code"] = item_name
+        pending_so["pending_qty"] = 0
+        pending_so["no_of_so"] = 0
+        pending_so = [pending_so]
+        return pending_so
 
 
 def get_pending_so_qty_from_soitem(so_item):
