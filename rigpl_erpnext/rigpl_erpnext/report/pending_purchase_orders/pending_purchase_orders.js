@@ -10,6 +10,15 @@ frappe.query_reports["Pending Purchase Orders"] = {
 			"default": 1
 		},
 		{
+			"fieldname":"bm",
+			"label": "Base Material",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
+		},
+		{
 			"fieldname":"item",
 			"label": "Item Code",
 			"fieldtype": "Link",
