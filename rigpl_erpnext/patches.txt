@@ -34,3 +34,8 @@ rigpl_erpnext.patches.item_master.20200716_update_numeric_field_in_variants
 execute:frappe.delete_doc("DocType", "Create Bulk Production Orders") #2020-11-30
 rigpl_erpnext.patches.customer_rating_field
 rigpl_erpnext.patches.update_email_id_sales_team
+execute:frappe.delete_doc("Report", "Dynamic Items for Production")
+execute:frappe.delete_doc("DocType", "Homepage Settings")
+execute:frappe.delete_doc("DocType", "Homepage Section Content")
+execute:frappe.delete_doc("Module Def", "RIGPL Theme")
+execute:frappe.delete_doc("Report", "Pending So (Prd)")
