@@ -1,3 +1,6 @@
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
+
 from __future__ import unicode_literals
 import frappe
 from ....utils.job_card_utils import get_last_jc_for_so
@@ -10,6 +13,7 @@ def execute(filters=None):
 	data = get_so_entries(filters)
 
 	return columns, data
+
 
 def get_columns(filters):
 	if filters.get("stock_status") == 1:
@@ -36,6 +40,12 @@ def get_columns(filters):
 
 def get_so_entries(filters):
 	conditions = get_conditions(filters)
+	tbl_join = ""
+	if filters.get("bm"):
+		conditions += " AND bm.attribute_value = '%s'" % filters["bm"]
+		tbl_join += " LEFT JOIN `tabItem Variant Attribute` bm ON soi.item_code = bm.parent " \
+					"AND bm.attribute = 'Base Material'"
+
 	if filters.get("stock_status") == 1:
 		query = """SELECT so.name, so.transaction_date, soi.item_code, soi.description, 
 		(soi.qty - IFNULL(soi.delivered_qty, 0)), soi.warehouse, bn.actual_qty, bn.reserved_qty, so.customer
@@ -58,14 +68,15 @@ def get_so_entries(filters):
 		so_data = frappe.db.sql(query, as_dict=1)
 		so = update_so_data_with_job_card(so_data)
 	else:
-		query = """SELECT so.transaction_date, so.name, sod.delivery_date, so.customer, sod.item_code, sod.description, 
-		(IFNULL(sod.qty,0) - IFNULL(sod.delivered_qty,0)), sod.qty, sod.delivered_qty, sod.base_rate, 
-		((IFNULL(sod.qty,0) - IFNULL(sod.delivered_qty,0)) * sod.base_rate), so.po_no, sod.prd_notes, 
+		query = """SELECT so.transaction_date, so.name, soi.delivery_date, so.customer, soi.item_code, soi.description, 
+		(IFNULL(soi.qty,0) - IFNULL(soi.delivered_qty,0)), soi.qty, soi.delivered_qty, soi.base_rate, 
+		((IFNULL(soi.qty,0) - IFNULL(soi.delivered_qty,0)) * soi.base_rate), so.po_no, soi.prd_notes, 
 		if( so.transaction_date < date_sub(curdate(),interval 45 day),"DELAYED","OK"), 100-IFNULL(so.per_delivered,0), 
-		((IFNULL(sod.qty,0) - IFNULL(sod.delivered_qty,0))/IFNULL(sod.qty,0)*100)
-		FROM `tabSales Order` so, `tabSales Order Item` sod WHERE sod.parent = so.name AND so.docstatus = 1 
-		AND so.status != "Closed" AND IFNULL(sod.delivered_qty,0) < IFNULL(sod.qty,0) %s 
-		ORDER BY so.transaction_date DESC """ % conditions
+		((IFNULL(soi.qty,0) - IFNULL(soi.delivered_qty,0))/IFNULL(soi.qty,0)*100)
+		FROM `tabSales Order` so, `tabSales Order Item` soi %s 
+		WHERE soi.parent = so.name AND so.docstatus = 1
+		AND so.status != "Closed" AND IFNULL(soi.delivered_qty,0) < IFNULL(soi.qty,0) %s 
+		ORDER BY so.transaction_date DESC """ % (tbl_join, conditions)
 	if filters.get("made_to_order") != 1:
 		so = frappe.db.sql(query, as_list =1)
 	if filters.get("made_to_order") != 1 and filters.get("stock_status") != 1:
@@ -82,7 +93,7 @@ def get_conditions(filters):
 		conditions += " and so.customer = '%s'" % filters["customer"]
 
 	if filters.get("item"):
-		conditions += " and sod.item_code = '%s'" % filters["item"]
+		conditions += " and soi.item_code = '%s'" % filters["item"]
 	
 	if filters.get("date"):
 		conditions += " and so.transaction_date <= '%s'" % filters["date"]

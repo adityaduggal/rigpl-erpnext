@@ -11,6 +11,15 @@ frappe.query_reports["Pending Orders"] = {
 			"fieldtype": "Check"
 		},
 		{
+			"fieldname":"bm",
+			"label": "Base Material",
+			"fieldtype": "Link",
+			"options": "Item Attribute Value",
+			"reqd": 0,
+			"ignore_link_validation": true,
+			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
+		},
+		{
 			"fieldname":"customer",
 			"label": "Customer",
 			"fieldtype": "Link",
