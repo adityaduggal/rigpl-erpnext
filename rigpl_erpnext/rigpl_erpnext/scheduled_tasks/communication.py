@@ -23,6 +23,7 @@ def daily():
         '''Check if the communication is already in TODO for the user and Open.TODO Assigned by == Owner of the 
         Communication TODO Owner  == User of Communication. Also check if User is Disabled then Follow Up and TODO
         Should be Closed'''
+        # print(f"Checking for Communication {comm.name}")
         com_doc = frappe.get_doc("Communication", comm.name)
         disabled_user = 0
         user = frappe.db.sql("""SELECT name, enabled FROM `tabUser` WHERE name = '%s'""" % com_doc.user, as_dict=1)
@@ -30,7 +31,7 @@ def daily():
         todo = frappe.db.sql("""SELECT name FROM `tabToDo` WHERE reference_type = 'Communication' 
         AND reference_name = '%s' AND assigned_by = '%s' AND owner = '%s' """ % (com_doc.name, com_doc.owner,
                                                                                  com_doc.user),as_dict=1)
-
+        # print(f"{todo}")
         if user[0].enabled != 1:
             disabled_user += 1
             # Disable the Communication followup and corresponding ToD should be closed
@@ -51,14 +52,13 @@ def daily():
                     send_follow_up_email(com_doc.user, com_doc.modified_by, com_doc.subject, com_doc.content,
                                          com_doc.reference_doctype, com_doc.reference_name)
             else:
-                frappe.db.set_value("ToDo", todo[0][0], "status", "Open")
+                frappe.db.set_value("ToDo", todo[0].name, "status", "Open")
                 send_reminder = check_follow_up_time(com_doc.next_action_date, now)
                 if send_reminder == 1:
                     send_follow_up_email(com_doc.user, com_doc.modified_by, com_doc.subject, com_doc.content,
                                          com_doc.reference_doctype, com_doc.reference_name)
         else:
             if user[0].enabled == 1:
-                # Create TODO
                 todo = frappe.new_doc("ToDo")
                 todo.status = "Open"
                 todo.priority = "High"
@@ -85,5 +85,7 @@ def check_follow_up_time(date_time, now):
 
 
 def send_follow_up_email(user, sender, subject, content, ref_doc, ref_name):
+    # pass
+    # print(f"Would send Email to User:{user}")
     frappe.sendmail(recipients=user, sender=sender, subject="Follow Up for: " + subject,
-                    content=content + "\n" + ref_doc + " " + ref_name)
+                   content=content + "\n" + ref_doc + " " + ref_name)
