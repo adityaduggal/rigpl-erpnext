@@ -21,6 +21,14 @@ def get_columns(filters):
             "OP Status::100", "RM Consume:Int:50", "PS Pending:Int:50", "PS Date:Date:80",
             "BT:Link/BOM Template RIGPL:120", "Source::120", "Target::120"
         ]
+    elif filters.get("pending") == 1:
+        columns = [
+            "Process Sheet:Link/Process Sheet:100", "Status::80", "Priority:Int:50", "Item:Link/Item:120",
+            "BM::60", "TT::60", "SPL::60", "Series::40",
+            "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50", "L2:Float:50", "Qty:Int:50",
+            "Comp Qty:Int:50", "Pending Qty:Int:50", "BT:Link/BOM Template RIGPL:80",
+            "SO#:Link/Sales Order:200", "Description::500", "Created On:Date:150"
+        ]
     else:
         columns = [
             "Process Sheet:Link/Process Sheet:100", "Status::80", "Priority:Int:50", "Item:Link/Item:120",
@@ -33,8 +41,8 @@ def get_columns(filters):
 
 
 def get_data(filters):
+    conditions_it, conditions_ps = get_conditions(filters)
     if filters.get("process_wise") == 1:
-        conditions_it = get_conditions(filters)
         query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, pso.operation, pso.planned_qty,
         pso.completed_qty, IF (pso.planned_qty - pso.completed_qty > 0, pso.planned_qty - pso.completed_qty, 0) , 
         ps.description, pso.status, pso.allow_consumption_of_rm,
@@ -43,8 +51,39 @@ def get_data(filters):
         FROM `tabProcess Sheet` ps, `tabBOM Operation` pso 
         WHERE pso.parent = ps.name AND pso.parenttype = 'Process Sheet' 
         AND ps.docstatus != 2 %s ORDER BY ps.name, pso.idx""" % conditions_it
+    elif filters.get("pending") == 1:
+        query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, bm.attribute_value AS bm, 
+        tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, 
+        w1.attribute_value as w1, l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, 
+        ps.quantity, IF(ps.produced_qty=0, NULL,ps.produced_qty) as prod_qty,
+        (ps.quantity - ps.produced_qty) as pend_qty, ps.bom_template, ps.sales_order, ps.sales_order_item, 
+        ps.description, ps.creation
+        FROM `tabProcess Sheet` ps 
+        LEFT JOIN `tabItem` it ON it.name = ps.production_item
+        LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
+            AND bm.attribute = 'Base Material'
+        LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
+            AND tt.attribute = 'Tool Type'
+        LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
+            AND spl.attribute = 'Special Treatment'
+        LEFT JOIN `tabItem Variant Attribute` ser ON it.name = ser.parent
+            AND ser.attribute = 'Series'
+        LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
+            AND d1.attribute = 'd1_mm'
+        LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
+            AND w1.attribute = 'w1_mm'
+        LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
+            AND l1.attribute = 'l1_mm'
+        LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
+            AND d2.attribute = 'd2_mm'
+        LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
+            AND l2.attribute = 'l2_mm'
+        WHERE ps.docstatus = 1 AND ps.produced_qty < ps.quantity AND ps.status != 'Stopped' 
+        AND ps.status != 'Short Closed' %s
+        ORDER BY bm.attribute_value, tt.attribute_value, spl.attribute_value, ser.attribute_value,
+        d1.attribute_value, w1.attribute_value, l1.attribute_value, d2.attribute_value, l2.attribute_value,
+        ps.production_item, ps.sales_order, ps.description""" % conditions_it
     else:
-        conditions_it, conditions_ps = get_conditions(filters)
         query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, bm.attribute_value AS bm, 
         tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, 
         w1.attribute_value as w1, l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, 
@@ -75,6 +114,8 @@ def get_data(filters):
         d1.attribute_value, w1.attribute_value, l1.attribute_value, d2.attribute_value, l2.attribute_value,
         ps.production_item, ps.sales_order, ps.description""" % (conditions_ps, conditions_it)
     if filters.get("process_wise") == 1:
+        data = frappe.db.sql(query, as_list=1)
+    elif filters.get("pending") == 1:
         data = frappe.db.sql(query, as_list=1)
     else:
         temp_data = frappe.db.sql(query, as_dict=1)
