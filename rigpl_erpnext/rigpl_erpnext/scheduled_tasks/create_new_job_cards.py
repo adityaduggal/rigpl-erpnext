@@ -97,6 +97,10 @@ def execute():
                 jcr_created += 1
                 create_job_card(pro_sheet=psd, row=opd, quantity=qty, auto_create=True)
                 update_process_sheet_operations(ps_name=ps.name, op_name=ps.op_id)
+            if jcr_created > 0 and jcr_created % 50 == 0:
+                print(f"Committing Changes after making {jcr_created} Changes. Total Time Taken = "
+                      f"{int(time.time() - st_time) - jc_del_time}")
+                frappe.db.commit()
     print(f"{tot_ps_op}")
     tot_time = int(time.time() - st_time) - jc_del_time
     print(f"Total Job Cards Created = {jcr_created}")

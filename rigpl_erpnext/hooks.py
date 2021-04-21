@@ -221,7 +221,7 @@ scheduler_events = {
     "cron": {
         "*/15 * * * *": [
             # Runs Every 15 mins
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.enqueue_jc"
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute"
         ],
         "10 2 * * *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.enqueue_check_wrong_variants"
