@@ -56,8 +56,7 @@ def get_data(filters):
         tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, 
         w1.attribute_value as w1, l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, 
         ps.quantity, IF(ps.produced_qty=0, NULL,ps.produced_qty) as prod_qty,
-        (ps.quantity - ps.produced_qty) as pend_qty, ps.bom_template, ps.sales_order, ps.sales_order_item, 
-        ps.description, ps.creation
+        (ps.quantity - ps.produced_qty) as pend_qty, ps.bom_template, ps.sales_order, ps.description, ps.creation
         FROM `tabProcess Sheet` ps 
         LEFT JOIN `tabItem` it ON it.name = ps.production_item
         LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
