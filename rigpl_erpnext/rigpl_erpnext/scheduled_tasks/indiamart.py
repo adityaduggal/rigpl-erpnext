@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2019, Rohit Industries Ltd. and contributors
-# For license information, please see license.txt
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
 
 from __future__ import unicode_literals
 import frappe
@@ -18,7 +18,7 @@ def execute():
 def get_indiamart_leads():
     rebuild_for_doctype('Lead')
     days_to_add = flt(frappe.db.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add"))
-    from_date_dt, to_date_dt, max_days = get_date_range(days_to_add)
+    from_date_dt, to_date_dt, max_days = get_date_range()
     last_execution = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "last_execution")
     last_exec_diff = (datetime.now() - get_datetime(last_execution)).total_seconds()
     if not last_execution:
@@ -36,7 +36,7 @@ def get_indiamart_leads():
             exit()
         last_link = get_full_link(from_date=from_date_txt, to_date=to_date_txt)
         print(last_link)
-        parsed_response= get_im_reply(last_link)
+        parsed_response = get_im_reply(last_link)
         total_leads = parsed_response[0].get('TOTAL_COUNT')
         max_leads = flt(frappe.db.get_value("RIGPL Settings", "RIGPL Settings", "max_leads"))
         if flt(total_leads) > max_leads:
@@ -82,39 +82,31 @@ def get_indiamart_leads():
     print('Done')
 
 
-def get_date_range(days_to_add):
-    from_date = frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "to_date")
+def get_date_range():
+    from_date = get_datetime(frappe.get_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "to_date"))
     max_days = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_days"))
+    now_time = datetime.now()
     if from_date is None:
         from_date = '2010-01-01 00:00:00.000000'
     elif get_datetime(from_date) > datetime.now():
         from_date = add_to_date(datetime.today().date(), hours=-24)
         from_date = datetime.combine(from_date, datetime.min.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
-    from_date_dt = datetime.strptime(from_date, '%Y-%m-%d %H:%M:%S.%f')  # Date Time Date
-    if days_to_add < 0.01 or days_to_add > max_days:
+    days_to_add = (now_time - from_date)
+    # from_date_dt = datetime.strptime(from_date, '%Y-%m-%d %H:%M:%S.%f')  # Date Time Date
+    from_date_dt = from_date
+    if days_to_add.days > max_days:
         days_to_add = max_days
-
-    if days_to_add >= 1:
         to_date_dt = add_days(from_date_dt, days_to_add)
-    elif days_to_add >= 0.01:
-        hrs_to_add = int(flt(days_to_add * 100))
+    elif days_to_add.days < 1:
+        hrs_to_add = int(days_to_add.seconds / 3600)
+        days_to_add = hrs_to_add / 100
         to_date_dt = add_to_date(from_date_dt, hours=hrs_to_add)
-    else:
-        to_date_dt = add_days(from_date_dt, max_days)
-        frappe.set_value("IndiaMart Pull Leads", "IndiaMart Pull Leads", "days_to_add", max_days)
-    time_diff = (datetime.now() - to_date_dt).total_seconds()
-    time_diff_from_dt = (datetime.now() - from_date_dt).total_seconds()
-    if time_diff < 0:
-        if time_diff_from_dt > 24 * 3600:
-            days_to_add = int(time_diff_from_dt / 24 / 3600)
-            to_date_dt = add_days(from_date_dt, days_to_add)
-        elif time_diff_from_dt > 3600:
-            days_to_add = (int(time_diff_from_dt / 3600)) / 100
-            hrs_to_add = int(flt(days_to_add * 100))
-            to_date_dt = add_to_date(from_date_dt, hours=hrs_to_add)
-        else:
-            print("Less than 1 hour time difference")
+        if hrs_to_add < 1:
+            print(f"{from_date} is Less than 1 hours from Now Wait for Some time ")
             exit()
+    else:
+        days_to_add = days_to_add.days
+        to_date_dt = add_days(from_date_dt, days_to_add)
     return from_date_dt, to_date_dt, days_to_add
 
 
