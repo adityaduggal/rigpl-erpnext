@@ -180,7 +180,12 @@ class ProcessJobCardRIGPL(Document):
         jc_data["name"] = self.operation_id
         new_jc_qty = (self.for_quantity - self.total_completed_qty)
         if self.check_if_new_jc_needed() == 1:
-            create_job_card(pro_sheet=ps_doc, row=jc_data, quantity=new_jc_qty, auto_create=True)
+            existing_jcr = check_existing_job_card(item_name=self.production_item, operation=self.operation,
+                                                   so_detail=self.sales_order_item, ps_doc=ps_doc)
+            if not existing_jcr:
+                create_job_card(pro_sheet=ps_doc, row=jc_data, quantity=new_jc_qty, auto_create=True)
+            else:
+                frappe.msgprint(f"Already JCR there {existing_jcr}")
         else:
             frappe.msgprint("No New Job Card needed")
 
