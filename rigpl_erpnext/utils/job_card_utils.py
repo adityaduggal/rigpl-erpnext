@@ -80,7 +80,7 @@ def create_job_card(pro_sheet, row, quantity=0, auto_create=False):
     if quantity > 0:
         for_qty = quantity
     else:
-        for_qty = row.get("planned_qty", 0) - row.get("completed_qty", 0)
+        for_qty = flt(row.get("planned_qty", 0)) - flt(row.get("completed_qty", 0))
     doc.flags.ignore_permissions = True
     doc.update({
         'production_item': pro_sheet.production_item,
