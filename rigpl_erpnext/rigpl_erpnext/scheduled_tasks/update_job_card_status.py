@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2020, Rohit Industries Group Pvt Ltd. and contributors
-# For license information, please see license.txt
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
 
 from __future__ import unicode_literals
 import time
@@ -14,7 +14,7 @@ def update_rm_status_unmodified():
     st_time = time.time()
     jc_dict = frappe.db.sql("""SELECT name, creation, modified FROM `tabProcess Job Card RIGPL` 
     WHERE docstatus = 0 AND allow_consumption_of_rm = 1 ORDER BY creation DESC""", as_dict=1)
-    print(f"Total Number of Draft JC = {len(jc_dict)}")
+    print(f"Total Number of Draft JC for RM Consumption = {len(jc_dict)}")
     no_mod = 0
     stale_mod = 0
     for jc in jc_dict:
@@ -24,8 +24,25 @@ def update_rm_status_unmodified():
         elif (datetime.datetime.now() - jc.modified).seconds / 3600 > 6:
             stale_mod += 1
             update_jc_rm_status(jc.name)
+
+    no_rm_jc_nos = 0
+    no_rm_jc = frappe.db.sql("""SELECT name, creation, modified FROM `tabProcess Job Card RIGPL` 
+    WHERE docstatus = 0 AND allow_consumption_of_rm = 0 AND transfer_entry = 0 ORDER BY creation DESC""", as_dict=1)
+    print(f"Total No of JC without RM and without Transfer = {len(no_rm_jc)}")
+
+    for jc in no_rm_jc:
+        jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
+        jcd.time_logs = []
+        try:
+            jcd.save()
+            no_rm_jc_nos += 1
+
+        except Exception as e:
+            print(f"Some Error in JCR# {jcd.name} and Error is {e}")
+
     print(f"Total Not Modified JCR changed = {no_mod}")
     print(f"Total JCR Modified after 6 hours = {stale_mod}")
+    print(f"Total No of JC without RM and without Transfer Updated = {no_rm_jc_nos}")
     print(f"Total Time Taken = {int(time.time() - st_time)} seconds")
 
 
