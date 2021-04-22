@@ -130,6 +130,9 @@ class ProcessSheet(Document):
         self.routing = bt_doc.routing
         self.get_routing_from_template()
         self.validate_qty_to_manufacture(it_doc)
+        for row in self.operations:
+            if row.planned_qty != self.quantity:
+                row.planned_qty = self.quantity
         if self.get("__islocal") != 1:
             self.get_rm_sizes(bt_doc)
 
@@ -232,9 +235,6 @@ class ProcessSheet(Document):
                     for wip in self.item_manufactured:
                         wip.target_warehouse = op.wip_material_warehouse
                         wip.source_warehouse = ""
-        for row in self.operations:
-            if row.planned_qty != self.quantity:
-                row.planned_qty = self.quantity
 
     def validate_qty_to_manufacture(self, it_doc):
         auto_qty, max_auto_qty = get_qty_to_manufacture(it_doc)
