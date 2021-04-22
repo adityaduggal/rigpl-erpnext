@@ -136,7 +136,7 @@ def get_conditions(filters):
             frappe.throw("Item Code is Mandatory to Get Process Wise Details")
         else:
             conditions_it = " and ps.production_item = '%s'" % filters.get("item")
-            return conditions_it
+            return conditions_it, conditions_ps
 
     if filters.get("status"):
         conditions_ps += " AND ps.status = '%s'" % filters.get("status")
