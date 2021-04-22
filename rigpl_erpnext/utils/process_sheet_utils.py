@@ -5,7 +5,69 @@
 from __future__ import unicode_literals
 from datetime import date
 from .manufacturing_utils import *
-from .job_card_utils import check_existing_job_card, create_job_card, update_job_card_total_qty
+from .job_card_utils import check_existing_job_card, create_job_card, update_job_card_total_qty, get_bin
+
+
+def get_actual_qty_before_process_in_ps(psd, itd, operation):
+    qty_before_process, op_idx, add_po = 0, 0, 0
+    self_subcon_op = frappe.get_value("Operation", operation, "is_subcontracting")
+    qty_dict = get_quantities_for_item(it_doc=itd)
+    for d in psd.operations:
+        if d.operation == operation:
+            op_idx = d.idx
+    if op_idx > 0:
+        qty_before_process += qty_dict["planned_qty"]
+        if op_idx > 1:
+            # Sum of all quantities before the operation is actual qty for all process source warehouse
+            s_wh_list = []
+            for d in psd.operations:
+                if self_subcon_op == 1:
+                    add_po = 0
+                if d.idx <= op_idx:
+                    oth_subcon = frappe.get_value("Operation", d.operation, "is_subcontracting")
+                    if d.transfer_entry == 1:
+                        if d.source_warehouse not in s_wh_list:
+                            s_wh_list.append(d.source_warehouse)
+                    if oth_subcon == 1:
+                        # IF subcontracting is there then add on_po qty to the process
+                        add_po = 1
+            for w_house in s_wh_list:
+                qty_before_process += flt(get_bin(item_code=itd.name, warehouse=w_house).get("actual_qty"))
+            if add_po == 1:
+                qty_before_process += qty_dict["on_po"]
+    return qty_before_process
+
+
+def get_pend_psop(it_name=None, operation=None, tf_ent=None):
+    cond = ""
+    if it_name:
+        cond += " AND ps.production_item = '%s'" % it_name
+    if operation:
+        cond += " AND pso.operation = '%s'" % operation
+    if tf_ent == 1:
+        cond += " AND pso.transfer_entry = 1"
+    elif tf_ent == 0:
+        cond += " AND pso.transfer_entry = 0"
+
+    return frappe.db.sql("""SELECT ps.name as ps_name, pso.name AS name, pso.operation, pso.planned_qty, 
+        pso.completed_qty, pso.status AS op_status, ps.status, ps.production_item, pso.operation, ps.sales_order_item,
+        pso.allow_consumption_of_rm, pso.transfer_entry, pso.idx, (pso.planned_qty - pso.completed_qty) as op_pen_qty,
+        pso.workstation, pso.source_warehouse, pso.target_warehouse, pso.final_operation, 
+        pso.allow_production_of_wip_materials
+        FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name 
+        AND pso.parenttype = 'Process Sheet' AND pso.status NOT IN ('Completed', 'Short Closed', 'Stopped', 'Obsolete') 
+        AND pso.planned_qty > pso.completed_qty %s
+        ORDER BY ps.production_item, pso.operation, ps.creation""" % cond, as_dict=1)
+
+
+def get_psop_trans_pend_qty(it_name, operation):
+    qty_dict = frappe.db.sql("""SELECT SUM(psop.planned_qty - psop.completed_qty) as pend_qty, COUNT(psop.name) as no_of_ops
+    FROM `tabProcess Sheet` ps, `tabBOM Operation` psop
+    WHERE ps.docstatus = 1 AND psop.parent = ps.name AND psop.parenttype = 'Process Sheet' AND 
+    psop.transfer_entry = 1 AND psop.status NOT IN ('Completed', 'Short Closed', 'Stopped', 'Obsolete')
+    AND ps.status NOT IN ('Stopped', 'Short Closed') AND ps.production_item = '%s' 
+    AND psop.operation = '%s'""" % (it_name, operation), as_dict=1)
+    return qty_dict
 
 
 def update_process_sheet_op_planned_qty(ps_name, op_name):
@@ -251,7 +313,6 @@ def stop_ps_operation(op_id, psd):
         opd.save()
     else:
         frappe.throw(f"Don't Have Permission to Stop Process")
-
 
 
 @frappe.whitelist()
