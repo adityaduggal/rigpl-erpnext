@@ -34,6 +34,9 @@ def get_indiamart_leads():
         if last_exec_diff < 900:
             print("Indiamart Does not allow to pull data from their servers more than once in 15 minutes")
             exit()
+        elif last_exec_diff < 86400:
+            print("Pulling of Data would happen only once a Day to keep it Simple")
+            exit()
         last_link = get_full_link(from_date=from_date_txt, to_date=to_date_txt)
         print(last_link)
         parsed_response = get_im_reply(last_link)
@@ -152,12 +155,12 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
                 frappe.db.set_value("Lead", lead_name, "campaign_name", "India Mart")
                 recd_time = datetime.strptime(lead.get('DATE_TIME_RE'), '%d-%b-%Y %I:%M:%S %p')
                 frappe.db.set_value("Lead", lead_name, "creation", recd_time)
-                print("For Serial# {}, Updated Lead {}".format(str(lead.get('RN')), str(lead_name)))
+                print(f"{lead.get('RN')}. Updated Lead {lead_name}")
         else:
             if lead.get('MOB') is None and lead.get('SENDEREMAIL') is None:
                 print('For Serial# {}, No Lead Created for Query ID {}'.format(lead.get('RN'), lead.get('QUERY_ID')))
             else:
-                print("For Serial# {}, Creating New Lead".format(lead.get('RN')))
+                print(f"{lead.get('RN')}. Creating New Lead")
                 ld = frappe.new_doc("Lead")
                 ld.email_id = lead.get('SENDEREMAIL', 'IM-Email')
                 if lead.get('GLUSR_USR_COMPANYNAME') is None or (str(lead.get('GLUSR_USR_COMPANYNAME'))).replace(" ",
