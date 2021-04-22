@@ -423,6 +423,7 @@ class CarrierTracking(WebsiteGenerator):
             if len(str(contact_email)) < 140:
                 self.customer_emails = contact_email
         else:
+            self.customer_emails = ""
             frappe.msgprint("No Email in Address or Contact for Customer")
 
     def location_service(self, credentials, from_address_doc, from_country_doc):
