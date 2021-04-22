@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import time
 import frappe
 from frappe.utils.background_jobs import enqueue
-from ...utils.process_sheet_utils import update_process_sheet_operations
+from ...utils.process_sheet_utils import update_process_sheet_operations, get_pend_psop
 from ...utils.job_card_utils import check_existing_job_card, create_job_card, return_job_card_qty
 
 
@@ -74,13 +74,7 @@ def execute():
     print(f"Total Time Taken for Deleting Job Cards = {jc_del_time} seconds")
     time.sleep(2)
 
-    pending_psheets = frappe.db.sql("""SELECT ps.name, pso.name AS op_id, pso.operation, pso.planned_qty, 
-    pso.completed_qty, pso.status AS op_status, ps.status, ps.production_item, pso.operation, ps.sales_order_item
-    FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name 
-    AND pso.parenttype = 'Process Sheet' AND pso.status != 'Completed' AND pso.status != 'Short Closed' 
-    AND pso.status != 'Stopped' AND pso.status != 'Obsolete' AND ps.status != 'Short Closed' AND ps.status != 'Stopped'
-    AND pso.planned_qty > pso.completed_qty
-    ORDER BY ps.creation ASC, pso.idx ASC""", as_dict=1)
+    pending_psheets = get_pend_psop()
     print(f"Total Pending Process Sheets Operations to be Checked {len(pending_psheets)}")
     time.sleep(1)
     jcr_created = 0
@@ -88,15 +82,15 @@ def execute():
     if pending_psheets:
         for ps in pending_psheets:
             tot_ps_op += 1
-            psd = frappe.get_doc("Process Sheet", ps.name)
-            opd = frappe.get_doc("BOM Operation", ps.op_id)
+            psd = frappe.get_doc("Process Sheet", ps.ps_name)
+            opd = frappe.get_doc("BOM Operation", ps.name)
             qty = ps.planned_qty - ps.completed_qty
             exist_jc = check_existing_job_card(item_name=ps.production_item, operation=ps.operation,
                                                so_detail=ps.sales_order_item, ps_doc=psd)
             if not exist_jc:
                 jcr_created += 1
                 create_job_card(pro_sheet=psd, row=opd, quantity=qty, auto_create=True)
-                update_process_sheet_operations(ps_name=ps.name, op_name=ps.op_id)
+                update_process_sheet_operations(ps_name=ps.ps_name, op_name=ps.name)
             if jcr_created > 0 and jcr_created % 50 == 0:
                 print(f"Committing Changes after making {jcr_created} Changes. Total Time Taken = "
                       f"{int(time.time() - st_time) - jc_del_time}")
