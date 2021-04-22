@@ -44,7 +44,8 @@ def get_data(filters):
     conditions_it, conditions_ps = get_conditions(filters)
     if filters.get("process_wise") == 1:
         query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, pso.operation, pso.planned_qty,
-        pso.completed_qty, IF (pso.planned_qty - pso.completed_qty > 0, pso.planned_qty - pso.completed_qty, 0) , 
+        pso.completed_qty, IF ((pso.planned_qty - pso.completed_qty > 0) AND (pso.status NOT IN 
+        ('Short Closed', 'Stopped', 'Obsolete')), pso.planned_qty - pso.completed_qty, 0) , 
         ps.description, pso.status, pso.allow_consumption_of_rm,
         IF(ps.quantity - ps.produced_qty > 0, ps.quantity - ps.produced_qty, 0), ps.date, ps.bom_template,
         pso.source_warehouse, pso.target_warehouse
@@ -79,7 +80,7 @@ def get_data(filters):
             AND l2.attribute = 'l2_mm'
         WHERE ps.docstatus = 1 AND ps.produced_qty < ps.quantity AND ps.status != 'Stopped' 
         AND ps.status != 'Short Closed' %s
-        ORDER BY bm.attribute_value, tt.attribute_value, spl.attribute_value, ser.attribute_value,
+        ORDER BY ps.priority, bm.attribute_value, tt.attribute_value, spl.attribute_value, ser.attribute_value,
         d1.attribute_value, w1.attribute_value, l1.attribute_value, d2.attribute_value, l2.attribute_value,
         ps.production_item, ps.sales_order, ps.description""" % conditions_it
     else:
