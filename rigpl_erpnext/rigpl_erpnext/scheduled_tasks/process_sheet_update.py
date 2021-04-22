@@ -5,12 +5,13 @@
 from __future__ import unicode_literals
 import time
 import frappe
+from operator import itemgetter
 from frappe.utils import today, flt
 from ..doctype.process_sheet.process_sheet import update_priority_psd
-from ...utils.process_sheet_utils import make_jc_for_process_sheet, update_process_sheet_quantities, \
-    update_process_sheet_operations
+from ...utils.process_sheet_utils import update_process_sheet_quantities, update_process_sheet_operations, \
+    get_pend_psop, stop_ps_operation, get_actual_qty_before_process_in_ps
 from ...utils.manufacturing_utils import get_qty_to_manufacture, get_quantities_for_item
-
+from ...utils.job_card_utils import check_existing_job_card, create_job_card
 from frappe.utils.background_jobs import enqueue
 
 
@@ -21,11 +22,111 @@ def enqueue_process_sheet_update():
 def execute():
     st_time = time.time()
     create_new_process_sheets()
+    consolidate_transfer_operations()
     update_process_sheet_priority()
     frappe.db.commit()
     # update_process_sheet_status()
     total_time = int(time.time() - st_time)
     print(f"Total Time taken = {total_time} seconds")
+
+
+def consolidate_transfer_operations():
+    st_time = time.time()
+    pend_ps_ops = get_pend_psop(tf_ent=1)
+    done_ops = []
+    done_op_dict = frappe._dict({})
+    sno, stopped_ops, changed_ops, unchanged_ops, tot_changes, create_nos = 0, 0, 0, 0, 0, 0
+    tot_pen_ops = len(pend_ps_ops)
+    print(f"Total Pending Operations to be Analysed = {tot_pen_ops}")
+    if pend_ps_ops:
+        for op in pend_ps_ops:
+            sno += 1
+            # print(f"Processing Serial Number {sno}    ", end="\r")
+            itd = frappe.get_doc("Item", op.production_item)
+            if not any(d["production_item"] == op.production_item and d["operation"] == op.operation \
+                       for d in done_ops) and itd.made_to_order != 1:
+                done_op_dict["production_item"] = op.production_item
+                done_op_dict["operation"] = op.operation
+                done_ops.append(done_op_dict.copy())
+                # Pending PS Operation Qty should be Equal to Planned + Actual in WIP Warehouse + In Subcontract WH
+                all_ops = get_pend_psop(it_name=op.production_item, operation=op.operation, tf_ent=1)
+                stopped_ops, changed_ops, unchanged_ops, tot_changes, create_nos = \
+                    stop_or_change_ops(op_dict=all_ops, stop_nos=stopped_ops, change_nos=changed_ops,
+                                       un_nos=unchanged_ops, tot_changes=tot_changes, itd=itd, create_nos=create_nos)
+            if tot_changes > 0 and tot_changes % 100 == 0:
+                print(f"Committing Changes after {tot_changes} Changes and Time Taken = "
+                      f"{int(time.time() - st_time)} seconds")
+                frappe.db.commit()
+    print(f"Total Ops Stopped = {stopped_ops} and Operations Changed = {changed_ops} and Unchanged Operations = "
+          f"{unchanged_ops} and Created JCRs = {create_nos} and Total Time Taken = {int(time.time() - st_time)} seconds")
+
+
+def stop_or_change_ops(op_dict, stop_nos, change_nos, un_nos, tot_changes, itd, create_nos):
+    for i in range(0, len(op_dict)):
+        psd = frappe.get_doc("Process Sheet", op_dict[i].ps_name)
+        if i < len(op_dict) - 1:
+            tot_changes += 1
+            stop_nos += 1
+            print(f"Stopped Operation {op_dict[i].operation} for {itd.name} for "
+                  f"Process Sheet {op_dict[i].ps_name}")
+            stop_ps_operation(psd=psd, op_id=op_dict[i].name)
+        else:
+            # Create Job Card if Not There if qty diff then change in existing JCR or create new
+            # If qty is same then close old operations and create JCR from new ones.
+            exist_jcr = check_existing_job_card(item_name=itd.name, operation=op_dict[i].operation, ps_doc=psd)
+            op_qty = get_actual_qty_before_process_in_ps(psd=psd, itd=itd, operation=op_dict[i].operation)
+            new_op_planned_qty = op_qty + op_dict[i].completed_qty
+            if op_qty > 0:
+                if op_qty != op_dict[i].op_pen_qty:
+                    if op_qty > op_dict[i].op_pen_qty:
+                        type_of_change = "Increased"
+                    else:
+                        type_of_change = "Decreased"
+                    change_nos += 1
+                    tot_changes += 1
+                    frappe.db.set_value("BOM Operation", op_dict[i].name, "planned_qty", new_op_planned_qty)
+                    if exist_jcr:
+                        if len(exist_jcr) == 1:
+                            jcd = frappe.get_doc("Process Job Card RIGPL", exist_jcr[0].name)
+                            if jcd.operation_id == op_dict[i].name:
+                                jcd.for_quantity = op_qty
+                                jcd.time_logs = []
+                                jcd.save()
+                                print(f"{type_of_change} Qty for JCR# {jcd.name} for Operation {op_dict[i].operation} "
+                                      f"for Item:{op_dict[i].production_item} for Process Sheet {op_dict[i].ps_name} "
+                                      f"from Old Qty = {op_dict[i].op_pen_qty} to New Qty = {op_qty}")
+                            else:
+                                tot_changes += 1
+                                print(f"Deleted JCR# {jcd.name} for Operation {op_dict[i].operation} for "
+                                      f"Item:{op_dict[i].production_item} for Process Sheet {op_dict[i].ps_name}")
+                                frappe.delete_doc('Process Job Card RIGPL', jcd.name, for_reload=True)
+                        else:
+                            print(f"For Item: {itd.name} and Operation: {op_dict[i].operation} there are "
+                                  f"{len(exist_jcr)} Job Cards. Kindly remove this to proceed.")
+                            exit()
+                    else:
+                        tot_changes += 1
+                        create_nos += 1
+                        print(f"Created JCR for Operation {op_dict[i].operation} for {op_dict[i].production_item} "
+                              f"for Process Sheet {op_dict[i].ps_name} for Quantity = {op_qty}")
+                        create_job_card(pro_sheet=psd, row=op_dict[i], quantity=op_qty, auto_create=1)
+                else:
+                    # Create Job Card if Not There
+                    if not exist_jcr:
+                        tot_changes += 1
+                        un_nos += 1
+                        create_nos += 1
+                        print(f"Created JCR for Operation {op_dict[i].operation} for {op_dict[i].production_item} "
+                              f"for Process Sheet {op_dict[i].ps_name} for Quantity = {op_qty}")
+                        create_job_card(pro_sheet=psd, row=op_dict[i], quantity=op_qty, auto_create=1)
+            else:
+                # Since no Qty in For Operation hence stop all the Operations
+                tot_changes += 1
+                stop_nos += 1
+                print(f"Stopped Operation {op_dict[i].operation} for {op_dict[i].production_item} for "
+                      f"Process Sheet {op_dict[i].ps_name} as No Qty in Manufacturing before this Operation")
+                stop_ps_operation(psd=psd, op_id=op_dict[i].name)
+    return stop_nos, change_nos, un_nos, tot_changes, create_nos
 
 
 def update_process_sheet_priority():
@@ -112,19 +213,18 @@ def create_new_process_sheets():
 def update_process_sheet_status():
     st_time = time.time()
     ps_count = 0
-    ps_dict = frappe.db.sql("""SELECT ps.name, ps.status, ps.priority, pso.idx, pso.name AS op_id, 
-    pso.status AS op_status FROM `tabProcess Sheet` ps, `tabBOM Operation` pso
-    WHERE ps.docstatus = 1 AND pso.status != 'Completed' AND pso.status != 'Stopped' AND pso.status != 'Short Closed'
-    AND pso.status != 'Obsolete' AND pso.parent = ps.name AND pso.parenttype = 'Process Sheet'
-    ORDER BY name""", as_dict=1)
+    ps_dict = get_pend_psop()
+    ps_dict = sorted(ps_dict, key=itemgetter("ps_name", "idx"))
     print(f"Total No of Process Sheet Processes Being Considered = {len(ps_dict)}")
+    for ps in ps_dict:
+        print(f"{ps} \n")
+    exit()
     for i in range(len(ps_dict)):
-        print(ps_count)
         if i > 0:
-            if ps_dict[i].name != ps_dict[i-1].name:
-                ps_count = process_sheet_status(ps_dict[i].name, st_time, ps_count)
+            if ps_dict[i].ps_name != ps_dict[i-1].ps_name:
+                ps_count = process_sheet_status(ps_dict[i].ps_name, st_time, ps_count)
         else:
-            ps_count = process_sheet_status(ps_dict[i].name, st_time, ps_count)
+            ps_count = process_sheet_status(ps_dict[i].ps_name, st_time, ps_count)
     end_time = time.time()
     tot_ps_time = round(end_time - st_time)
     print(f"Total Process Sheet Status Updated = {ps_count}")
@@ -132,9 +232,8 @@ def update_process_sheet_status():
 
 
 def process_sheet_status(ps_name, st_time, ps_count):
-    print(f"Processing {ps_name}. Time Elapsed = {int(time.time() - st_time)} seconds")
+    # print(f"Processing {ps_name}. Time Elapsed = {int(time.time() - st_time)} seconds")
     ps_doc = frappe.get_doc("Process Sheet", ps_name)
-    make_jc_for_process_sheet(ps_doc)
     update_process_sheet_quantities(ps_doc)
     for op in ps_doc.operations:
         update_process_sheet_operations(ps_doc.name, op.name)
