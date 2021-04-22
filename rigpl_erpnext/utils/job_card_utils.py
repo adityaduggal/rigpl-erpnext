@@ -3,6 +3,7 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+import time
 import frappe
 from frappe import _
 import datetime
@@ -13,8 +14,73 @@ from .stock_utils import cancel_delete_ste_from_name
 from .other_utils import auto_round_up, auto_round_down
 
 
+def get_repeat_jcr():
+    st_time = time.time()
+    repeat_jc = frappe.db.sql("""SELECT jc.name, jc.operation, jc.sales_order_item, jc.production_item, jc.creation,
+    jc.allow_consumption_of_rm, jc.transfer_entry, jc.process_sheet 
+    FROM `tabProcess Job Card RIGPL` jc WHERE jc.docstatus = 0
+    ORDER BY jc.production_item, jc.operation, jc.creation""", as_dict=1)
+    print(f"Total JCRS to Check = {len(repeat_jc)}")
+    repeat_jcr_list = []
+    repeat_tf_jcr_list = []
+    repeat_rm_jcr_list = []
+    rm_repeat = 0
+    sno = 0
+    for jc in repeat_jc:
+        sno += 1
+        psd = frappe.get_doc("Process Sheet", jc.process_sheet)
+        if not any(d["name"] == jc.name for d in repeat_jcr_list):
+            print(f"Checking Serial Number {sno}     ", end="\r")
+            existing_jcr = check_existing_job_card(item_name=jc.production_item, operation=jc.operation,
+                                                   so_detail=jc.sales_order_item, ps_doc=psd)
+
+            if existing_jcr and len(existing_jcr) > 1:
+                for a in existing_jcr:
+                    if a.name != jc.name:
+                        rep_jc = [x for x in repeat_jc if a.name == x.name]
+                        repeat_jcr_list.append(rep_jc[0].copy())
+                        if jc.transfer_entry == 1:
+                            repeat_tf_jcr_list.append(rep_jc[0].copy())
+                        else:
+                            repeat_rm_jcr_list.append(rep_jc[0].copy())
+                            rm_repeat += 1
+    if repeat_tf_jcr_list:
+        repeat_tf_jcr_list.sort(key=lambda x: x["creation"])
+
+    if repeat_rm_jcr_list:
+        repeat_rm_jcr_list.sort(key=lambda x: x["creation"])
+
+    print(f"Total no of JCR = {len(repeat_jc)} which were checked out of which total = {len(repeat_jcr_list)} "
+          f"are Repeated and Needs to be deleted and RM JCR which are repeating = {rm_repeat} and "
+          f"Total Time Taken = {int(time.time() - st_time)} seconds for getting list of Repeating JCRs")
+    return repeat_tf_jcr_list, repeat_rm_jcr_list
+
+
+def delete_repeating_jcr():
+    st_time = time.time()
+    del_count = 0
+    tf_jcr, rm_jcr = get_repeat_jcr()
+    input("WARNING!!! \n\n\nDeletion Process would continue after this \n\nPress Any Key to continue or Ctrl+C "
+          "to Exit if you don't want to continue with Deletion Process")
+    if tf_jcr:
+        for jcr in tf_jcr:
+            del_count += 1
+            frappe.delete_doc('Process Job Card RIGPL', jcr.name, for_reload=True)
+            print(f"Deleted {jcr.name} for Item Code: {jcr.production_item} and Operation: {jcr.operation} "
+                  f"for Process Sheet {jcr.process_sheet}")
+    if rm_jcr:
+        print(f"There are {len(rm_jcr)} Repeating RM JCR and its List is Shown Below and Needs to be Deleted Manually "
+              f"after Due Dilligence \n\n\n {rm_jcr}")
+    print(f"Total Time taken for Deleting JCRs = {int(time.time() - st_time)} seconds and Deleted {del_count} "
+          f"Nos of Transfer JCRs")
+
+
 def create_job_card(pro_sheet, row, quantity=0, auto_create=False):
     doc = frappe.new_doc("Process Job Card RIGPL")
+    if quantity > 0:
+        for_qty = quantity
+    else:
+        for_qty = row.get("planned_qty", 0) - row.get("completed_qty", 0)
     doc.flags.ignore_permissions = True
     doc.update({
         'production_item': pro_sheet.production_item,
@@ -32,7 +98,7 @@ def create_job_card(pro_sheet, row, quantity=0, auto_create=False):
         "final_operation": row.get("final_operation"),
         'allow_consumption_of_rm': row.get("allow_consumption_of_rm"),
         'allow_production_of_wip_materials': row.get("allow_production_of_wip_materials"),
-        'for_quantity': quantity or (pro_sheet.get('quantity', 0) - pro_sheet.get('produced_qty', 0)),
+        'for_quantity': for_qty,
         'operation_id': row.get("name")
     })
     if auto_create == 1:
@@ -193,6 +259,17 @@ def get_job_card_process_sno(jc_doc):
     return op_sno, final_op
 
 
+def get_bal_qty_for_jcr(jcd):
+    pend_qty = 0
+    if jcd.allow_consumption_of_rm == 1:
+        pend_qty = jcd.for_quantity - jcd.total_completed_qty - jcd.total_rejected_qty
+    else:
+        # If transfer entry then the pend qty = Pending on total JCR or Available Stock which ever is higher
+        pend_qty = 0
+
+    return pend_qty
+
+
 def return_job_card_qty(jcd):
     # Get Pending Process Sheets with Same Process and then check if RM Consumed in Process Sheet then RM should be same
     # If only Transfer entry then there is no need for RM.
@@ -202,13 +279,13 @@ def return_job_card_qty(jcd):
     extra_cond = ""
     if jcd.sales_order_item:
         extra_cond = " AND ps.sales_order_item = '%s'" % jcd.sales_order_item
-    ps_sheet = frappe.db.sql("""SELECT ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
+    query = """SELECT ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
     pso.allow_consumption_of_rm, pso.status, pso.transfer_entry, pso.name AS op_name
     FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name 
     AND pso.parenttype = 'Process Sheet' AND pso.completed_qty < pso.planned_qty AND pso.status != "Completed" 
-    AND pso.status != "Short Closed" AND pso.status != "Stopped" AND pso.status != "Obsolete"
-    AND ps.production_item = '%s' AND pso.operation = '%s' %s ORDER BY ps.creation""" %
-                             (jcd.production_item, jcd.operation, extra_cond), as_dict=1)
+    AND pso.status NOT IN ("Short Closed", "Stopped", "Obsolete") AND ps.production_item = '%s' 
+    AND pso.operation = '%s' %s ORDER BY ps.creation""" % (jcd.production_item, jcd.operation, extra_cond)
+    ps_sheet = frappe.db.sql(query, as_dict=1)
     for ps in ps_sheet:
         if ps.op_name == jcd.operation_id:
             for_qty = ps.planned_qty - ps.completed_qty
@@ -349,6 +426,8 @@ def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
     1. Operation is Same and the Operation is Transfer Entry then the JC is existing
     2. If the operation is same but there is consumption of RM then if the RM is same then existing JC else the JC is
     not same
+    3. Also there is a Case when the operation is same but One is Transfer and another is Non Transfer then its
+    not repeat
     """
     it_doc = frappe.get_doc("Item", item_name)
     if it_doc.made_to_order == 1:
@@ -356,8 +435,9 @@ def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
             AND operation = '%s' AND sales_order_item = '%s' AND production_item = '%s'"""
                                  % (operation, so_detail, item_name), as_dict=1)
     else:
-        exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
-            AND operation = '%s' AND production_item = '%s' """ % (operation, item_name), as_dict=1)
+        query = """SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
+            AND operation = '%s' AND production_item = '%s' """ % (operation, item_name)
+        exist_jc = frappe.db.sql(query, as_dict=1)
 
     new_exist_jc = []
     new_jc_dict = frappe._dict({})
@@ -383,16 +463,16 @@ def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
                                 if same_rm == len(jc_rm):
                                     # Return JC No
                                     new_jc_dict["name"] = jc.name
-                                    new_exist_jc.append(new_jc_dict)
+                                    new_exist_jc.append(new_jc_dict.copy())
                                 else:
                                     # JC is having different RM so no existing JC
                                     pass
-                elif op.transfer_entry:
+                else:
                     for jc in exist_jc:
                         jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
                         if jcd.transfer_entry == 1:
                             new_jc_dict["name"] = jc.name
-                            new_exist_jc.append(new_jc_dict)
+                            new_exist_jc.append(new_jc_dict.copy())
     return new_exist_jc
 
 
