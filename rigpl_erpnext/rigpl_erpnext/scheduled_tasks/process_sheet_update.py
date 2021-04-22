@@ -53,10 +53,10 @@ def consolidate_transfer_operations():
                 stopped_ops, changed_ops, unchanged_ops, tot_changes, create_nos = \
                     stop_or_change_ops(op_dict=all_ops, stop_nos=stopped_ops, change_nos=changed_ops,
                                        un_nos=unchanged_ops, tot_changes=tot_changes, itd=itd, create_nos=create_nos)
-            if tot_changes > 0 and tot_changes % 100 == 0:
-                print(f"Committing Changes after {tot_changes} Changes and Time Taken = "
-                      f"{int(time.time() - st_time)} seconds")
-                frappe.db.commit()
+                if tot_changes > 0 and tot_changes % 100 == 0:
+                    print(f"Committing Changes after {tot_changes} Changes and Time Taken = "
+                          f"{int(time.time() - st_time)} seconds")
+                    frappe.db.commit()
     print(f"Total Ops Stopped = {stopped_ops} and Operations Changed = {changed_ops} and Unchanged Operations = "
           f"{unchanged_ops} and Created JCRs = {create_nos} and Total Time Taken = {int(time.time() - st_time)} seconds")
 
