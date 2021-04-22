@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2020, Rohit Industries Group Pvt Ltd. and contributors
-# For license information, please see license.txt
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
 
 from __future__ import unicode_literals
 import time
@@ -72,11 +72,11 @@ def execute():
     print(f"Total No of Job Cards Short Closed = {sc_jcr}")
     print(f"Total No of Job Cards Updated = {changed_jcr}")
     print(f"Total Time Taken for Deleting Job Cards = {jc_del_time} seconds")
-    time.sleep(2)
 
-    pending_psheets = get_pend_psop()
+    # Would only create the Job Cards for Entries where transfer entries = 0 that means only for PS where RM is consumed
+
+    pending_psheets = get_pend_psop(tf_ent=0)
     print(f"Total Pending Process Sheets Operations to be Checked {len(pending_psheets)}")
-    time.sleep(1)
     jcr_created = 0
     tot_ps_op = 0
     if pending_psheets:

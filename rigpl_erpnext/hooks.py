@@ -219,10 +219,6 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-        "*/15 * * * *": [
-            # Runs Every 15 mins
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute"
-        ],
         "10 2 * * *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.enqueue_check_wrong_variants"
             # Runs everyday at 2:10 AM
@@ -239,7 +235,8 @@ scheduler_events = {
     },
     "all": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.update_rm_status_unmodified"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.update_rm_status_unmodified",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute"
     ],
     "daily": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
