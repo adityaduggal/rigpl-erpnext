@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2020, Rohit Industries Group Pvt. Ltd. and contributors
-# For license information, please see license.txt
+#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  For license information, please see license.txt
 
 from __future__ import unicode_literals
+import frappe
 from datetime import date
-from .manufacturing_utils import *
+from frappe.utils import flt
+from .manufacturing_utils import get_quantities_for_item, update_planned_qty, update_qty_for_prod, \
+    check_jc_needed_for_ps, convert_rule_to_mysql_statement, convert_wip_rule_to_mysql_statement, \
+    get_bom_template_from_item
 from .job_card_utils import check_existing_job_card, create_job_card, update_job_card_total_qty, get_bin
 
 
@@ -61,25 +65,13 @@ def get_pend_psop(it_name=None, operation=None, tf_ent=None):
 
 
 def get_psop_trans_pend_qty(it_name, operation):
-    qty_dict = frappe.db.sql("""SELECT SUM(psop.planned_qty - psop.completed_qty) as pend_qty, COUNT(psop.name) as no_of_ops
-    FROM `tabProcess Sheet` ps, `tabBOM Operation` psop
+    qty_dict = frappe.db.sql("""SELECT SUM(psop.planned_qty - psop.completed_qty) as pend_qty, 
+    COUNT(psop.name) as no_of_ops FROM `tabProcess Sheet` ps, `tabBOM Operation` psop
     WHERE ps.docstatus = 1 AND psop.parent = ps.name AND psop.parenttype = 'Process Sheet' AND 
     psop.transfer_entry = 1 AND psop.status NOT IN ('Completed', 'Short Closed', 'Stopped', 'Obsolete')
     AND ps.status NOT IN ('Stopped', 'Short Closed') AND ps.production_item = '%s' 
     AND psop.operation = '%s'""" % (it_name, operation), as_dict=1)
     return qty_dict
-
-
-def update_process_sheet_op_planned_qty(ps_name, op_name):
-    # This is needed because the stock might decrease from the one in FG like Round Tool Bits etc
-    ch_made = 0
-    opd = frappe.get_doc("BOM Operation", op_name)
-    psd = frappe.get_doc("Process Sheet", ps_name)
-    if opd.transfer_entry == 1:
-        # Check the Job Cards for this Operation in Draft and other PS op with same Operation and Transfer Entry
-        # Total pending in All Job Cards should be equal to the qty available + prior incoming if any.
-        # Total Pending = Qty Availlable + Pending in Production Job Cards
-        pass
 
 
 def update_process_sheet_operations(ps_name, op_name):
@@ -100,7 +92,7 @@ def update_process_sheet_operations(ps_name, op_name):
     jc_comp = frappe.db.sql("""SELECT SUM(total_completed_qty) AS comp_qty, SUM(short_close_operation) AS sc_op,
     SUM(transfer_entry) AS transfer, SUM(qty_available) AS avail_qty
     FROM `tabProcess Job Card RIGPL` WHERE docstatus = 1 AND operation_id = '%s' 
-    AND process_sheet = '%s'""" %(op_name, ps_name), as_dict=1)
+    AND process_sheet = '%s'""" % (op_name, ps_name), as_dict=1)
     jc = jc_comp[0]
     comp_qty = flt(jc.comp_qty)
     sclose = flt(jc.sc_op)
@@ -239,8 +231,9 @@ def get_req_wip_sizes_from_template(bom_temp_name, fg_item, rm_item, table_name,
                                 (att_table, att_table, att_table, att_table, d.attribute)
             else:
                 att_cond += convert_wip_rule_to_mysql_statement(d.rule, fg_item, rm_item, process_sheet_name)
-                att_join += " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent AND %s.parenttype = 'Item' " \
-                            "AND %s.attribute = '%s'" % (att_table, att_table, att_table, att_table, d.attribute)
+                att_join += " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent " \
+                            "AND %s.parenttype = 'Item' AND %s.attribute = '%s'" % \
+                            (att_table, att_table, att_table, att_table, d.attribute)
 
         query = """SELECT it.name, it.description FROM `tabItem` it LEFT JOIN `tabItem Reorder` rol ON 
         rol.parenttype = 'Item' AND rol.parent = it.name %s WHERE it.disabled = 0 AND it.end_of_life >= CURDATE() %s %s
@@ -260,6 +253,7 @@ def update_item_table(item_dict, table_name, document):
 
 
 def get_produced_qty(item_code, so_item=None):
+    prod_qty = 0
     it_doc = frappe.get_doc("Item", item_code)
     if it_doc.include_item_in_manufacturing == 1:
         if it_doc.made_to_order == 1:
@@ -333,7 +327,6 @@ def stop_process_sheet(ps_name):
                     frappe.delete_doc("Process Job Card RIGPL", jc.name, for_reload=True)
         ps_doc.save()
         for d in ps_doc.operations:
-            opd = frappe.get_doc("BOM Operation", d.name)
             if d.status == "In Progress" or d.status == "Pending":
                 d.status = "Stopped"
         update_process_sheet_quantities(ps_doc)
@@ -363,7 +356,7 @@ def unstop_process_sheet(ps_name):
                 else:
                     op.status = "Pending"
                 existing_job_card = check_existing_job_card(item_name=ps_doc.production_item, operation=op.operation,
-                                                        so_detail=ps_doc.sales_order_item, ps_doc=ps_doc)
+                                                            so_detail=ps_doc.sales_order_item, ps_doc=ps_doc)
                 if not existing_job_card:
                     create_job_card(ps_doc, op, auto_create=True)
         ps_doc.save()
