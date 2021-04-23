@@ -10,7 +10,7 @@ from frappe.utils import today, flt
 from ..doctype.process_sheet.process_sheet import update_priority_psd
 from ...utils.process_sheet_utils import update_process_sheet_quantities, update_process_sheet_operations, \
     get_pend_psop, stop_ps_operation, get_actual_qty_before_process_in_ps
-from ...utils.manufacturing_utils import get_qty_to_manufacture, get_quantities_for_item
+from ...utils.manufacturing_utils import get_qty_to_manufacture
 from ...utils.job_card_utils import check_existing_job_card, create_job_card
 from frappe.utils.background_jobs import enqueue
 
@@ -160,7 +160,8 @@ def create_new_process_sheets():
     # Check items in Warehouses in Production without Job Cards
     it_dict = frappe.db.sql("""SELECT it.name, it.valuation_rate AS vrate, it_rol.warehouse_reorder_level AS wh_rol,
     (it.valuation_rate * it_rol.warehouse_reorder_level) AS vr_rol
-    FROM `tabItem` it LEFT JOIN `tabItem Reorder` it_rol ON it_rol.parent = it.name AND it_rol.parenttype = 'Item' 
+    FROM `tabItem` it 
+        LEFT JOIN `tabItem Reorder` it_rol ON it_rol.parent = it.name AND it_rol.parenttype = 'Item' 
     WHERE it.disabled = 0 AND it.include_item_in_manufacturing = 1 AND it.has_variants = 0 AND it.variant_of IS NOT NULL 
     ORDER BY vr_rol DESC, vrate DESC, wh_rol DESC, name ASC""", as_dict=1)
     print(f"Total Items Being Considered for Auto Process Sheet = {len(it_dict)}")
@@ -168,16 +169,15 @@ def create_new_process_sheets():
     err_it = []
     for it in it_dict:
         vr_rol = flt(it.vrate) * flt(it.wh_rol)
-        # print(f"Considering {it.name} ROL= {it.wh_rol} VRATE = {it.vrate} VR*ROL {it.vr_rol}")
+        # print(f"Considering {it.name} ROL= {it.wh_rol} with Value = {it.vrate} AND VR*ROL = {vr_rol}")
         it_doc = frappe.get_doc("Item", it.name)
         qty, max_qty = get_qty_to_manufacture(it_doc)
-        qty_dict = get_quantities_for_item(it_doc)
-        value_for_manf = qty * qty_dict["valuation_rate"]
+        value_for_manf = qty * it.vrate
         if value_for_manf >= value:
-            exiting_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus=0 
+            existing_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus=0 
             AND production_item= '%s'""" % it.name, as_dict=1)
-            if exiting_ps:
-                ex_ps = frappe.get_doc("Process Sheet", exiting_ps[0].name)
+            if existing_ps:
+                ex_ps = frappe.get_doc("Process Sheet", existing_ps[0].name)
                 if ex_ps.quantity != qty:
                     old_qty = ex_ps.quantity
                     ex_ps.quantity = qty
