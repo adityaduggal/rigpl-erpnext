@@ -16,7 +16,7 @@ from frappe.utils.background_jobs import enqueue
 
 
 def enqueue_process_sheet_update():
-    enqueue(execute, queue="long", timeout=1500)
+    enqueue(execute, queue="long", timeout=1500, is_async=False)
 
 
 def execute():
