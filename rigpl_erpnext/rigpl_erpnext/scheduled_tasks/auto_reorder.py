@@ -11,7 +11,7 @@ from ...utils.stock_utils import auto_compute_rol_for_item
 
 
 def enqueue_rol_job():
-    enqueue(execute, queue="long", timeout=21600)
+    enqueue(execute, queue="long", timeout=21600, is_async=False)
 
 
 def execute():
