@@ -4,8 +4,9 @@
 
 from __future__ import unicode_literals
 from frappe.model.document import Document
-from rigpl_erpnext.utils.manufacturing_utils import *
 from ....utils.job_card_utils import *
+from ....utils.manufacturing_utils import update_produced_qty, update_planned_qty, update_pro_sheet_rm_from_jc, \
+    check_warehouse_in_child_tables, find_item_quantities, calculated_value_from_formula
 from ....utils.process_sheet_utils import update_process_sheet_operations
 
 
@@ -168,7 +169,6 @@ class ProcessJobCardRIGPL(Document):
                 nxt_jc_doc.save()
 
     def create_new_jc_if_needed(self):
-        new_jc_qty = 0
         ps_doc = frappe.get_doc("Process Sheet", self.process_sheet)
         jc_data = {}
         jc_data["operation"] = self.operation
