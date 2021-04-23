@@ -2,10 +2,13 @@
 #  For license information, please see license.txt
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import frappe
 from frappe.utils import nowdate, nowtime
 from frappe.desk.reportview import get_match_cond
+from rigpl_erpnext.utils.manufacturing_utils import get_special_item_attribute_doc, get_special_item_attributes, \
+    get_attributes, get_formula_values, calculate_formula_values
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
-from rigpl_erpnext.utils.manufacturing_utils import *
+
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
@@ -70,10 +73,11 @@ def validate_job_card_linking(po_doc, submit=0):
                              f"for Row#{d.idx}")
         else:
             if po_doc.is_subcontracting == 1:
-                frappe.throw(f"Job Card is Mandatory for Sub Cotracting PO Check Row# {d.idx}")
+                frappe.throw(f"Job Card is Mandatory for Sub Contracting PO Check Row# {d.idx}")
 
 
 def get_qty_for_purchase(doc, reject=0):
+    # ToDo Don't allow purchase of Items above certain limit
     if doc.is_subcontracting != 1:
         for it in doc.items:
             it_doc = frappe.get_doc("Item", it.item_code)
@@ -205,23 +209,24 @@ def get_pending_jc(doctype, txt, searchfield, start, page_len, filters):
 
 @frappe.whitelist()
 def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql("""SELECT DISTINCT(wo.name), wo.sales_order, wo.production_order_date,
-	wo.item_description FROM `tabWork Order` wo, `tabSales Order` so, `tabSales Order Item` soi 
+    return frappe.db.sql("""SELECT DISTINCT(wo.name), wo.sales_order, wo.production_order_date, 
+    wo.item_description FROM `tabWork Order` wo, `tabSales Order` so, `tabSales Order Item` soi 
 	WHERE wo.docstatus = 1 AND so.docstatus = 1 AND soi.parent = so.name AND so.status != "Closed" 
 	AND soi.qty > soi.delivered_qty AND wo.sales_order = so.name AND (wo.name LIKE %(txt)s OR 
 	wo.sales_order LIKE %(txt)s) {mcond} ORDER BY IF(locate(%(_txt)s, wo.name), locate(%(_txt)s, wo.name), 1)
 	LIMIT %(start)s, %(page_len)s""".format(**{
-		'key': searchfield,
-		'mcond': get_match_cond(doctype)
-	}), {
-		'txt': "%%%s%%" % txt,
-		'_txt': txt.replace("%", ""),
-		'start': start,
-		'page_len': page_len,
-	})
+        'key': searchfield,
+        'mcond': get_match_cond(doctype)
+    }), {
+                             'txt': "%%%s%%" % txt,
+                             '_txt': txt.replace("%", ""),
+                             'start': start,
+                             'page_len': page_len,
+                         })
 
 
 def get_pricing_rule_based_on_attributes(doc):
+    item_att_dict = []
     if not doc.supplier:
         frappe.throw("Please Select Supplier First in {}".format(doc.name))
     supp_prule_dict = get_supplier_pricing_rule(doc.supplier)
@@ -230,9 +235,10 @@ def get_pricing_rule_based_on_attributes(doc):
             if d.so_detail:
                 if d.reference_dt == "Process Job Card RIGPL":
                     ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` 
-                        WHERE sales_order_item = '%s'"""% d.so_detail, as_dict=1)
+                        WHERE sales_order_item = '%s'""" % d.so_detail, as_dict=1)
                     ps_doc = frappe.get_doc("Process Sheet", ps_dict[0].name)
-                    special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item, ps_doc.sales_order_item,
+                    special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item,
+                                                                           ps_doc.sales_order_item,
                                                                            docstatus=1)
                     item_att_dict = get_special_item_attributes(d.subcontracted_item, special_item_attr_doc[0].name)
             else:
@@ -248,7 +254,6 @@ def get_pricing_rule_based_on_attributes(doc):
 
 
 def check_prule_for_it_att(prule_doc, it_att_dict):
-    found = 0
     total_score = len(prule_doc.attributes)
     match_score = 0
     exit_prule = 0
@@ -268,7 +273,6 @@ def check_prule_for_it_att(prule_doc, it_att_dict):
                 dont_calculate_formula = 0
                 for key in list(formula_values):
                     if key not in formula:
-                        dont_calculate_formula = 1
                         break
                     if dont_calculate_formula == 0:
                         calculated_value = calculate_formula_values(formula, formula_values)
