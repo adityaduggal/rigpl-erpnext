@@ -5,10 +5,11 @@
 from __future__ import unicode_literals
 import time
 import frappe
-from frappe import _
 import datetime
 from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt
-from .manufacturing_utils import *
+from .manufacturing_utils import get_items_from_process_sheet_for_job_card, get_min_max_ps_qty, \
+    get_quantities_for_item, get_priority_for_stock_prd, convert_qty_per_uom, get_oal_field, get_oal_frm_item_code, \
+    check_jc_needed_for_ps
 from .sales_utils import get_priority_for_so
 from .stock_utils import cancel_delete_ste_from_name
 from .other_utils import auto_round_up, auto_round_down
@@ -106,8 +107,8 @@ def create_job_card(pro_sheet, row, quantity=0, auto_create=False):
         get_items_from_process_sheet_for_job_card(doc, "rm_consumed")
         get_items_from_process_sheet_for_job_card(doc, "item_manufactured")
         doc.insert()
-        frappe.msgprint(_(f"{frappe.get_desk_link('Process Job Card RIGPL', doc.name)} created"))
-        print(_(f"{doc.name} created"))
+        frappe.msgprint(f"{frappe.get_desk_link('Process Job Card RIGPL', doc.name)} created")
+        print(f"{doc.name} created")
     return doc
 
 
@@ -121,16 +122,15 @@ def update_jc_posting_date_time(jc_doc):
 def validate_produced_qty_jc(doc):
     if doc.s_warehouse:
         if doc.qty_available < (doc.total_completed_qty + doc.total_rejected_qty):
-            frappe.throw("For Job Card# {} Qty Available for Item Code: {} in Warehouse: {} is {} but you are trying "
-                         "to process {} quantities. Please correct this error.".\
-                         format(doc.name, doc.production_item, doc.s_warehouse, doc.qty_available,
-                                (doc.total_completed_qty + doc.total_rejected_qty)))
+            frappe.throw(f"For Job Card# {doc.name} Qty Available for Item Code: {doc.production_item} in "
+                         f"Warehouse: {doc.s_warehouse} is {doc.qty_available} but you are trying "
+                         "to process {(doc.total_completed_qty + doc.total_rejected_qty)} quantities. \n"
+                         "Please correct this error.")
     else:
         min_qty, max_qty = get_min_max_ps_qty(doc.for_quantity)
         if (min_qty > doc.total_completed_qty and doc.short_close_operation == 1) or doc.total_completed_qty > max_qty:
-            frappe.throw("For Job Card# {} allowed quantities to Manufacture is between {} and {}. So if you "
-                         "are producing lower quantities then you cannot short close the Operation".format(doc.name,
-                                                                                                    min_qty, max_qty))
+            frappe.throw(f"For Job Card# {doc.name} allowed quantities to Manufacture is between {min_qty} and "
+                         f"{max_qty}. So if you are producing lower quantities then you can't Short Close")
 
 
 def update_job_card_source_warehouse(jc_doc):
@@ -175,10 +175,10 @@ def get_job_card_qty_available(jc_doc):
 
 
 def get_bin(item_code, warehouse):
-    bin_qty_dict = frappe.db.sql("""SELECT name, item_code, warehouse, reserved_qty, actual_qty, ordered_qty, indented_qty,
-        planned_qty, projected_qty, reserved_qty_for_production, reserved_qty_for_sub_contract, stock_uom, 
-        valuation_rate, stock_value FROM `tabBin` WHERE item_code = '%s' 
-        AND warehouse = '%s'""" % (item_code, warehouse), as_dict=1)
+    bin_qty_dict = frappe.db.sql("""SELECT name, item_code, warehouse, reserved_qty, actual_qty, ordered_qty, 
+    indented_qty, planned_qty, projected_qty, reserved_qty_for_production, reserved_qty_for_sub_contract, stock_uom, 
+    valuation_rate, stock_value FROM `tabBin` WHERE item_code = '%s' 
+    AND warehouse = '%s'""" % (item_code, warehouse), as_dict=1)
     if bin_qty_dict:
         return bin_qty_dict[0]
     else:
@@ -246,7 +246,7 @@ def update_job_card_process_no(jc_doc):
 def get_job_card_process_sno(jc_doc):
     ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     bt_doc = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template)
-    op_sno, final_op, found = [0,0,0]
+    op_sno, final_op, found = [0, 0, 0]
     for op in bt_doc.operations:
         if op.operation == jc_doc.operation:
             found = 1
@@ -260,7 +260,6 @@ def get_job_card_process_sno(jc_doc):
 
 
 def get_bal_qty_for_jcr(jcd):
-    pend_qty = 0
     if jcd.allow_consumption_of_rm == 1:
         pend_qty = jcd.for_quantity - jcd.total_completed_qty - jcd.total_rejected_qty
     else:
@@ -313,7 +312,6 @@ def return_job_card_qty(jcd):
         else:
             tot_qty += jcd.for_quantity
     if trf_entry == 1:
-        pen_qty_prv_proces = 1
         qty_available = get_job_card_qty_available(jc_doc=jcd)
         if tot_qty < qty_available:
             tot_qty = qty_available
@@ -338,7 +336,7 @@ def get_production_priority_for_item(item_name, jc_doc):
     qty_before_process = 0
     if it_doc.made_to_order == 1:
         priority = get_priority_for_so(it_name=item_name, prd_qty=jc_doc.for_quantity, short_qty=jc_doc.for_quantity,
-                                so_detail=jc_doc.sales_order_item)
+                                       so_detail=jc_doc.sales_order_item)
         return priority
     else:
         # Check Process of JC Doc in Process Sheet and take decision based on Process Sheet and Operation Qty
@@ -346,7 +344,7 @@ def get_production_priority_for_item(item_name, jc_doc):
             prd_qty = jc_doc.for_quantity
         else:
             prd_qty = jc_doc.qty_available
-        soqty, poqty, pqty= qty_dict["on_so"], qty_dict["on_po"], qty_dict["planned_qty"]
+        soqty, poqty, pqty = qty_dict["on_so"], qty_dict["on_po"], qty_dict["planned_qty"]
         fqty, res_prd_qty, wipqty = qty_dict["finished_qty"], qty_dict["reserved_for_prd"], qty_dict["wip_qty"]
         dead_qty = qty_dict["dead_qty"]
         if soqty > 0:
@@ -383,8 +381,7 @@ def get_production_priority_for_item(item_name, jc_doc):
                             return get_priority_for_stock_prd(it_name=item_name, qty_dict=qty_dict,
                                                               qty_before_process=qty_before_process)
                     else:
-                        return get_priority_for_so(it_name=item_name, prd_qty=prd_qty,
-                                                       short_qty=shortage)
+                        return get_priority_for_so(it_name=item_name, prd_qty=prd_qty, short_qty=shortage)
             else:
                 # Qty in Production is for Stock Only
                 qty_before_process += get_qty_before_process(it_name=item_name, jc_doc=jc_doc)
@@ -542,7 +539,7 @@ def validate_job_card_time_logs(jc_doc):
     check_overlap = frappe.get_value("RIGPL Settings", "RIGPL Settings", "check_overlap_for_machines")
     update_job_card_posting_date(jc_doc)
     if operation_doc.is_subcontracting == 1:
-        validate_sub_contracting_job_cards(jc_doc, operation_doc)
+        validate_sub_contracting_job_cards(jc_doc)
         return
     validate_job_card_quantities(jc_doc)
     if check_overlap == 1:
@@ -551,7 +548,6 @@ def validate_job_card_time_logs(jc_doc):
         total_mins = 0
         posting_date = getdate('1900-01-01')
         posting_time = get_time('00:00:00')
-        now_time = get_datetime(nowtime())
         if not jc_doc.employee:
             frappe.throw("Employee is Needed in {}".format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name)))
         if not jc_doc.workstation:
@@ -568,11 +564,11 @@ def validate_job_card_time_logs(jc_doc):
                 if tl_tbl[i].completed_qty == 0:
                     frappe.throw("Zero Quantity Not Allowed for Row# {}".format(tl_tbl[i].idx))
                 if get_datetime(tl_tbl[i].from_time) > get_datetime(tl_tbl[i].to_time):
-                    frappe.throw(_("Row {0}: From time must be less than to time").format(tl_tbl[i].idx))
+                    frappe.throw(f"Row {tl_tbl[i].idx}: From time must be less than to time")
                 data = get_overlap_for(jc_doc, tl_tbl[i])
                 if data:
-                    frappe.throw(_("Row {}: From Time and To Time of {} is overlapping with {}").format(tl_tbl[i].idx,
-                            jc_doc.name, frappe.get_desk_link("Process Job Card RIGPL", data.name)))
+                    frappe.throw(f"Row {tl_tbl[i].idx}: From Time and To Time of {jc_doc.name} is overlapping "
+                                 f"with {frappe.get_desk_link('Process Job Card RIGPL', data.name)}")
                 if tl_tbl[i].from_time and tl_tbl[i].to_time:
                     if getdate(tl_tbl[i].to_time) > posting_date:
                         posting_date = getdate(tl_tbl[i].to_time)
@@ -642,15 +638,16 @@ def get_overlap_for(document, row, check_next_available_slot=False):
     if check_next_available_slot:
         extra_cond = " or (%(from_time)s <= jctl.from_time and %(to_time)s <= jctl.to_time)"
 
-    existing = frappe.db.sql("""SELECT jc.name AS name, jctl.to_time FROM `tabJob Card Time Log` jctl, 
+    existing = frappe.db.sql(f"""SELECT jc.name AS name, jctl.to_time FROM `tabJob Card Time Log` jctl, 
     `tabProcess Job Card RIGPL` jc 
     WHERE jctl.parent = jc.name AND jctl.parenttype = 'Process Job Card RIGPL' AND ((%(from_time)s > 
     jctl.from_time and %(from_time)s < jctl.to_time) OR (%(to_time)s > jctl.from_time and %(to_time)s < 
-    jctl.to_time) OR (%(from_time)s <= jctl.from_time AND %(to_time)s >= jctl.to_time) {}) AND jctl.name != %(name)s 
-    AND jc.name != %(parent)s and jc.docstatus < 2 {} 
-    ORDER BY jctl.to_time desc limit 1""".format(extra_cond, validate_overlap_for), {"from_time": row.from_time,
-        "to_time": row.to_time, "name": row.name or "No Name", "parent": row.parent or "No Name",
-        "employee": document.employee, "workstation": document.workstation}, as_dict=True)
+    jctl.to_time) OR (%(from_time)s <= jctl.from_time AND %(to_time)s >= jctl.to_time) {extra_cond}) 
+    AND jctl.name != %(name)s AND jc.name != %(parent)s and jc.docstatus < 2 {validate_overlap_for} 
+    ORDER BY jctl.to_time desc limit 1""", {"from_time": row.from_time, "to_time": row.to_time,
+                                            "name": row.name or "No Name", "parent": row.parent or "No Name",
+                                            "employee": document.employee, "workstation": document.workstation},
+                             as_dict=True)
     if existing and production_capacity > len(existing):
         return
 
@@ -722,19 +719,19 @@ def create_submit_ste_from_job_card(jc_doc):
         })
         ste.save()
         ste.submit()
-        frappe.msgprint(_("{} Submitted").format(frappe.get_desk_link("Stock Entry", ste.name)))
+        frappe.msgprint(f"{frappe.get_desk_link('Stock Entry', ste.name)} Submitted")
     else:
         frappe.msgprint("No Stock Entry Created")
 
 
-def validate_sub_contracting_job_cards(jc_doc, op_doc):
+def validate_sub_contracting_job_cards(jc_doc):
     if jc_doc.no_stock_entry != 1:
         check_po_submitted(jc_doc)
 
 
 def check_po_submitted(jc_doc):
     po_list = frappe.db.sql("""SELECT name FROM `tabPurchase Order Item` 
-    WHERE docstatus=1 AND reference_dt = '%s' AND reference_dn = '%s'"""%(jc_doc.doctype, jc_doc.name), as_dict=1)
+    WHERE docstatus=1 AND reference_dt = '%s' AND reference_dn = '%s'""" % (jc_doc.doctype, jc_doc.name), as_dict=1)
     if po_list:
         # Only allow Sub Contracting JC to be submitted after the  PO has been submitted
         pass
@@ -748,7 +745,7 @@ def get_last_jc_for_so(so_item):
     FROM `tabProcess Job Card RIGPL` jc, `tabBOM Operation` bmop 
     WHERE jc.docstatus < 2 AND bmop.parent = jc.process_sheet AND bmop.operation = jc.operation
     AND jc.sales_order_item = '%s'""" % so_item, as_dict=1)
-    jc_list =  sorted(jc_list, key = lambda i: i['idx'])
+    jc_list = sorted(jc_list, key=lambda i: i['idx'])
     jc = {}
     if jc_list:
         for i in range(0, len(jc_list)):
@@ -770,11 +767,11 @@ def get_last_jc_for_so(so_item):
                         if po_details:
                             for po in po_details:
                                 if po.stock_qty > po.received_qty:
-                                    po_link = """<a href="#Form/Purchase Order/%s" target="_blank">%s</a>""" % (po.name, po.name)
+                                    po_link = """<a href="#Form/Purchase Order/%s" target="_blank">%s</a>""" % \
+                                              (po.name, po.name)
                                     jc["remarks"] += f" PO# {po_link} Pending Qty= {po.stock_qty - po.received_qty} " \
                                                      f"PO Date: {po.transaction_date}"
                                     return jc
-                                    break
             else:
                 if i == 0:
                     jc["remarks"] += "Taken into Production but First Process is Pending"
@@ -815,17 +812,16 @@ def get_made_to_stock_qty(jc_doc):
                         in_qty = 0
                     out_qty = frappe.db.sql("""SELECT SUM(total_completed_qty)  as out_qty FROM `tab%s`
                     WHERE status = "Completed" AND s_warehouse = '%s' AND docstatus = 1 AND sales_order_item='%s'""" %
-                                           (jc_doc.doctype, jc_doc.s_warehouse, jc_doc.sales_order_item), as_dict=1)
+                                            (jc_doc.doctype, jc_doc.s_warehouse, jc_doc.sales_order_item), as_dict=1)
                     if out_qty:
                         out_qty = flt(out_qty[0].out_qty)
                     else:
                         out_qty = 0
                     completed_qty = in_qty - out_qty + grn_in_qty
                 return completed_qty
-    if found == 0:
-        frappe.throw("For {}, Operation {} is not mentioned in {}".
-                     format(frappe.get_desk_link(jc_doc.doctype, jc_doc.name), jc_doc.operation,
-                            frappe.get_desk_link(ps_doc.doctype, ps_doc.name)))
+    if found != 1:
+        frappe.throw("For {frappe.get_desk_link(jc_doc.doctype, jc_doc.name)}, Operation {jc_doc.operation} "
+                     "is not mentioned in {frappe.get_desk_link(ps_doc.doctype, ps_doc.name)}")
 
 
 def get_grn_qty(jc_doc):
@@ -857,19 +853,18 @@ def get_next_job_card(jc_no):
     jc_doc = frappe.get_doc("Process Job Card RIGPL", jc_no)
     ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     jc_list = []
-    found = 0
     for d in ps_doc.operations:
         if d.name == jc_doc.operation_id or d.operation == jc_doc.operation:
             # Found the Job Card Operation in PSheet
             if d.idx == len(ps_doc.operations):
                 pass
             else:
-                found = 1
                 jc_list = get_job_card_from_process_sno((d.idx+1), ps_doc)
     return jc_list
 
 
 def get_job_card_from_process_sno(operation_sno, ps_doc):
+    jc_list = []
     if ps_doc.sales_order_item:
         cond = " AND sales_order_item = '%s'" % ps_doc.sales_order_item
     else:
@@ -909,9 +904,8 @@ def make_jc_from_pro_sheet_row(ps_name, production_item, operation, row_no, row_
     jcr_needed = check_jc_needed_for_ps(psd)
     if jcr_needed == 1:
         if existing_pending_job_card:
-            frappe.msgprint("{} is already pending for {} in Row# {} and Operation {}".
-                         format(frappe.get_desk_link("Process Job Card RIGPL", existing_pending_job_card[0].name),
-                                        production_item, row_no, operation))
+            frappe.msgprint(f"{frappe.get_desk_link('Process Job Card RIGPL', existing_pending_job_card[0].name)} is "
+                            f"already pending for {production_item} in Row# {row_no} and Operation {operation}")
         else:
             ps_doc = frappe.get_doc("Process Sheet", ps_name)
             row = frappe.get_doc("BOM Operation", row_id)
