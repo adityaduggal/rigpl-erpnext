@@ -3,7 +3,6 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import time
 import frappe
 from frappe.utils import nowdate, nowtime, today, add_months, flt
 from .other_utils import auto_round_down, auto_round_up, round_up
