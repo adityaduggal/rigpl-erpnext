@@ -228,9 +228,9 @@ scheduler_events = {
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.check_update_bin_values.enqueue_ex"
             # Runs everyday at 2:10 AM
         ],
-        "10 3 * * *": [
+        "10 3 * * 0": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.enqueue_set_valuation_rate"
-            # Runs everyday at 3:10 AM
+            # Runs weekly at 3:10 AM on Sunday
         ],
         "15 3 01 */3 *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute"
