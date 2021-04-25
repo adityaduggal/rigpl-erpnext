@@ -408,12 +408,13 @@ def return_priority_psd(psd, itd):
             if soqty > fqty + dead_qty:
                 # SO Qty is Greater than Finished Stock
                 shortage = soqty - fqty - dead_qty
-                if shortage > wipqty:
+                if shortage > wipqty + poqty:
                     # Shortage of Material is More than WIP Qty
+                    shortage -= (wipqty + poqty)
                     priority = get_priority_for_so(it_name=itd.name, prd_qty=prd_qty, short_qty=shortage)
                 else:
                     # Shortage is Less than Items in Production now get shortage for the Job Card First
-                    priority = get_priority_for_so(it_name=itd.name, prd_qty=prd_qty, short_qty=shortage)
+                    priority = get_priority_for_stock_prd(it_name=itd.name, qty_dict=qty_dict)
             else:
                 # Qty in Production is for Stock Only
                 priority = get_priority_for_stock_prd(it_name=itd.name, qty_dict=qty_dict)
