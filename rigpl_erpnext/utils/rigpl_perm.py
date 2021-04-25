@@ -149,26 +149,6 @@ def get_dl_parent(dt, linked_dt, linked_dn):
     return dl_parent_list
 
 
-def delete_version(document, creator=None, creation=None):
-    commit_chk = 0
-    conditions = ''
-    if creator:
-        conditions += " AND owner = '%s'" % (creator)
-
-    if creation:
-        conditions += " AND creation <= DATE_SUB(NOW(), INTERVAL %s DAY)" % (creation)
-
-    version_list = frappe.db.sql("""SELECT name FROM `tabVersion` 
-        WHERE ref_doctype = '%s' %s""" % (document, conditions), as_list=1)
-    if version_list:
-        for version in version_list:
-            frappe.db.sql("""DELETE FROM `tabVersion` WHERE name = '%s'""" % (version[0]))
-            commit_chk += 1
-            if commit_chk % 1000 == 0:
-                frappe.db.commit()
-            print(str(commit_chk) + ". Deleted Version: " + version[0])
-
-
 def delete_from_deleted_doc(document):
     commit_chk = 0
     del_doc_list = frappe.db.sql("""SELECT name FROM `tabDeleted Document` 

@@ -168,13 +168,6 @@ def check_permission_exist():
         print("Completed Adding Permissions for User: " + user[0])
     # '''
     delete_extra_perms()
-    version_delete = [['Bin', '', ''], \
-                      ['Carrier Tracking', 'Administrator', '0'], \
-                      ['Item', 'Administrator', '0'], \
-                      ['Stock Ledger Entry', '', ''], \
-                      ['GL Entry', '', '']]
-    for version in version_delete:
-        delete_version(version[0], version[1], version[2])
     delete_docs = ['User Permission', 'Error Log', 'Email Group Member', 'Version']
     for d in delete_docs:
         delete_from_deleted_doc(d)
