@@ -3,6 +3,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
+
 from frappe.utils import nowdate
 from rigpl_erpnext.utils.sales_utils import *
 from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
@@ -44,11 +45,8 @@ def validate(doc, method):
 
 def check_price_list(doc):
     for it in doc.items:
-        if it.price_list:
-            check_get_pl_rate(doc, it)
-        else:
+        if not it.price_list:
             it.price_list = doc.selling_price_list
-            check_get_pl_rate(doc, it)
 
 
 def update_fields(doc):
