@@ -253,7 +253,7 @@ scheduler_events = {
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.execute",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.execute",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.check_update_bin_values.execute"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.check_update_bin_values.enqueue_ex"
     ]
     # 	"monthly": [
     # 		"rigpl_erpnext.tasks.monthly"

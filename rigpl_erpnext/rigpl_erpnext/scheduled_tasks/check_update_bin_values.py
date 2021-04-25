@@ -9,6 +9,11 @@ from ...utils.sales_utils import get_total_pending_so_item
 from ...utils.stock_utils import get_consolidate_bin
 from ...utils.manufacturing_utils import get_planned_qty
 from frappe.utils import flt
+from frappe.utils.background_jobs import enqueue
+
+
+def enqueue_ex():
+    enqueue(execute, queue="long", timeout=1500, is_async=False)
 
 
 def execute():
