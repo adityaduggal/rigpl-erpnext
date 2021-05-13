@@ -10,7 +10,7 @@ from frappe.utils import today, flt
 from ..doctype.process_sheet.process_sheet import update_priority_psd
 from ...utils.process_sheet_utils import update_process_sheet_quantities, update_process_sheet_operations, \
     get_pend_psop, stop_ps_operation, get_actual_qty_before_process_in_ps
-from ...utils.manufacturing_utils import get_qty_to_manufacture
+from ...utils.manufacturing_utils import get_qty_to_manufacture, get_quantities_for_item
 from ...utils.job_card_utils import check_existing_job_card, create_job_card
 from frappe.utils.background_jobs import enqueue
 
@@ -174,40 +174,45 @@ def create_new_process_sheets():
         qty, max_qty = get_qty_to_manufacture(it_doc)
         value_for_manf = qty * it.vrate
         if value_for_manf >= value:
-            existing_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus=0 
-            AND production_item= '%s'""" % it.name, as_dict=1)
-            if existing_ps:
-                ex_ps = frappe.get_doc("Process Sheet", existing_ps[0].name)
-                if ex_ps.quantity != qty:
-                    old_qty = ex_ps.quantity
-                    ex_ps.quantity = qty
-                    print(f"Updated {ex_ps.name} Changed Quantity from {old_qty} to {qty} for {it.name} "
-                          f"VR*ROL = {vr_rol}")
-                    try:
-                        ex_ps.save()
-                    except:
-                        frappe.db.set_value("Process Sheet", ex_ps.name, "quantity", qty)
-                        print(f"Updated {ex_ps.name} Changed Quantity from {old_qty} to {qty} for {it.name} "
-                              f"VR*ROL = {vr_rol}")
-            else:
-                try:
-                    ps = frappe.new_doc("Process Sheet")
-                    ps.production_item = it.name
-                    ps.date = today()
-                    ps.quantity = qty
-                    ps.status = "Draft"
-                    ps.insert()
-                    frappe.db.commit()
-                    print(f"Created {ps.name} for {it.name} for Qty= {qty} VR*ROL = {vr_rol}")
-                    created += 1
-                except:
-                    err_it.append(it.name)
-                    print(f"Error Encountered while Creating Process Sheet for {it.name} Qty = {qty} "
-                          f"VR*ROL = {vr_rol}")
+            # Check if existing or create new
+            created = check_exist_ps(it_name=it.name, for_qty=qty, vr_rol=vr_rol, err_it=err_it, created=created)
+        else:
+            if qty > 0:
+                qty_dict = get_quantities_for_item(it_doc)
+                if qty_dict.on_so > 0:
+                    # Create PS only if SO qty is MORE than qty in Stock or WIP or PO
+                    if qty_dict.on_so > (qty_dict.on_po + qty_dict.planned_qty + qty_dict.finished_qty +
+                                         qty_dict.wip_qty + qty_dict.dead_qty + qty_dict.planned_qty) - \
+                            qty_dict.reserved_for_prd:
+                        created = check_exist_ps(it_name=it.name, for_qty=qty, vr_rol=vr_rol, err_it=err_it,
+                                                 created=created)
     print(f"List of Items where New Process Sheet cannot be Made \n {err_it}")
     it_time = int(time.time() - st_time)
     print(f"Total Process Sheets Created = {created}")
     print(f"Total Time for Creation of Process Sheets = {it_time} seconds")
+
+
+def check_exist_ps(it_name, for_qty, vr_rol, err_it, created):
+    # Check if existing or create new
+    existing_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus=0 
+    AND production_item= '%s'""" % it_name, as_dict=1)
+    if existing_ps:
+        ex_ps = frappe.get_doc("Process Sheet", existing_ps[0].name)
+        if ex_ps.quantity != for_qty:
+            old_qty = ex_ps.quantity
+            ex_ps.quantity = for_qty
+            print(f"Updated {ex_ps.name} Changed Quantity from {old_qty} to {for_qty} for {it_name} "
+                  f"VR*ROL = {vr_rol}")
+            try:
+                ex_ps.save()
+            except:
+                frappe.db.set_value("Process Sheet", ex_ps.name, "quantity", for_qty)
+                print(f"Updated {ex_ps.name} Changed Quantity from {old_qty} to {for_qty} for {it_name} "
+                      f"VR*ROL = {vr_rol}")
+    else:
+        created = create_new_ps_from_item(it_name=it_name, for_qty=for_qty, err_it=err_it, vr_rol=vr_rol,
+                                          created=created)
+    return created
 
 
 def update_process_sheet_status():
@@ -229,6 +234,24 @@ def update_process_sheet_status():
     tot_ps_time = round(end_time - st_time)
     print(f"Total Process Sheet Status Updated = {ps_count}")
     print(f"Total Time Taken for Process Sheets is {tot_ps_time} seconds")
+
+
+def create_new_ps_from_item(it_name, for_qty, vr_rol, err_it, created):
+    try:
+        ps = frappe.new_doc("Process Sheet")
+        ps.production_item = it_name
+        ps.date = today()
+        ps.quantity = for_qty
+        ps.status = "Draft"
+        ps.insert()
+        frappe.db.commit()
+        print(f"Created {ps.name} for {it_name} for Qty= {for_qty} VR*ROL = {vr_rol}")
+        created += 1
+    except Exception as e:
+        err_it.append(it_name)
+        print(f"Error Encountered while Creating Process Sheet for {it_name} Qty = {for_qty} "
+              f"VR*ROL = {vr_rol} and Error = {e}")
+    return created
 
 
 def process_sheet_status(ps_name, st_time, ps_count):
