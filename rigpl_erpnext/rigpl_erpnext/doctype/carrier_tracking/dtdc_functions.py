@@ -149,6 +149,7 @@ def get_dtdc_packages(track_doc):
         pkg_dict["description"] = "Cutting Tools"
         pkg_dict["declared_value"] = track_doc.amount
         pkg_dict["weight"] = pkg.package_weight
+        pkg_dict["weight_unit"] = "kg"
         pkg_dict["height"] = pkg_doc.height
         pkg_dict["length"] = pkg_doc.length
         pkg_dict["width"] = pkg_doc.width
