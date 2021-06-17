@@ -18,7 +18,10 @@ def exceil(x,s):
 	
 def get_columns(filters):
 	if filters.get("summary"):
-		return ["Customer:Link/Customer:200","Net Total:Currency:120", "TOD Applicable::60"]
+		if filters.get("separated_tod"):
+			return ["Customer:Link/Customer:200","Net Total:Currency:120", "TOD Applicable::60"]
+		else:
+			return ["Customer:Link/Customer:200","Net Total:Currency:120"]
 	else:
 		return ["Invoice#:Link/Sales Invoice:120", "Date:Date:80", "Customer:Link/Customer:200",
 		"Item Code:Link/Item:150", "Description::200", "Qty:Float:80", 
@@ -29,11 +32,18 @@ def get_si_entries(filters):
 	conditions = get_conditions(filters)
 	
 	if filters.get("summary"):
-		query = """select si.customer, sum(sid.base_net_amount), it.stock_maintained
-			FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
-			WHERE sid.parent = si.name AND sid.item_code = it.name AND
-			si.docstatus = 1 %s 
-			GROUP BY si.customer, it.stock_maintained""" % conditions
+		if filters.get("separated_tod"):
+			query = """select si.customer, sum(sid.base_net_amount), it.stock_maintained
+				FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
+				WHERE sid.parent = si.name AND sid.item_code = it.name AND
+				si.docstatus = 1 %s 
+				GROUP BY si.customer, it.stock_maintained""" % conditions
+		else:
+			query = """select si.customer, sum(sid.base_net_amount), it.stock_maintained
+				FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
+				WHERE sid.parent = si.name AND sid.item_code = it.name AND
+				si.docstatus = 1 %s 
+				GROUP BY si.customer""" % conditions
 	
 	else:
 		query = """select si.name, si.posting_date, si.customer, sid.item_code,

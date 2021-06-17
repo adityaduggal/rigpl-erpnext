@@ -30,5 +30,11 @@ frappe.query_reports["TOD Sales Invoice"] = {
 			"fieldtype": "Check",
 			"default": 1
 		},
+		{
+			"fieldname":"separated_tod",
+			"label": "TOD Yes No",
+			"fieldtype": "Check",
+			"default": 1
+		},
 	]
 }
