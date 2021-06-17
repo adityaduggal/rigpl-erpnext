@@ -16,8 +16,8 @@ def get_columns(filters):
 	if filters.get("summary") != 1:
 		return [
 			"DN_No:Link/Delivery Note:120", "Customer:Link/Customer:200", "Date:Date:100",
-			"Item_Code:Link/Item:130", "Description::350", "DN_Qty:Float:70",
-			"DN_Price:Currency:70", "DN Amount:Currency:80", "SO_No:Link/Sales Order:140",
+			"Item_Code:Link/Item:130", "Description::350", "DN_Qty:Float:90",
+			"DN_Price:Currency:100", "DN Amount:Currency:120", "SO_No:Link/Sales Order:140",
 			"SO_Date:Date:80", "Trial::60"
 		]
 	else:
@@ -33,26 +33,18 @@ def get_dn_entries(filters):
 		conditions, si_cond, conditions_cu = get_conditions(filters)
 
 		query = """SELECT dn.name as dn, dn.customer as cust,
-		dn.posting_date as dn_posting, 
-		dni.item_code as dn_itemcode, dni.description as dn_desc, dni.qty as dn_qty, 
-		dni.base_rate, dni.base_amount, dni.against_sales_order, so.transaction_date,
-		
+		dn.posting_date as dn_posting, dni.item_code as dn_itemcode,
+		dni.description as dn_desc, dni.qty as dn_qty, dni.base_rate,
+		dni.base_amount, dni.against_sales_order, so.transaction_date,
 		IF(so.track_trial = 1, "Yes", "No")
-		 
-		
-		FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order` so,
-		 `tabCustomer` cu
+		FROM `tabDelivery Note` dn LEFT JOIN `tabCustomer` cu ON cu.name = dn.customer,
+		`tabDelivery Note Item` dni LEFT JOIN `tabSales Order` so ON so.name = dni.against_sales_order
 
-		WHERE dn.docstatus = 1 AND so.docstatus = 1 AND dn.customer = cu.name %s
-			AND so.name = dni.against_sales_order
-			AND dn.name = dni.parent
-			AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, 
-				`tabSales Invoice` si
-				WHERE sid.delivery_note = dn.name
-					AND sid.parent = si.name
-					AND sid.qty > 0
-					AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
-		
+		WHERE dn.docstatus = 1 AND dn.customer = cu.name %s AND dn.status != 'Completed'
+			AND dn.name = dni.parent AND (dni.qty - ifnull((select sum(sid.qty)
+			FROM `tabSales Invoice Item` sid, `tabSales Invoice` si
+			WHERE sid.delivery_note = dn.name AND sid.parent = si.name AND sid.qty > 0
+			AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
 		ORDER BY dn.posting_date asc """ % (conditions_cu, si_cond, conditions)
 
 		dn = frappe.db.sql(query, as_list=1)
@@ -60,19 +52,14 @@ def get_dn_entries(filters):
 		query = """SELECT dn.customer, cu.payment_terms, cu.customer_rating,
 			COUNT(DISTINCT(dn.name)), COUNT(dni.item_code), MIN(dn.posting_date) as pdate,
 			SUM(dni.qty), SUM(dni.base_amount)
-			FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni,
-				`tabCustomer` cu
-			WHERE dn.docstatus = 1 AND dni.parent = dn.name 
-				AND cu.name = dn.customer 
-				AND (dni.qty - ifnull((select sum(sid.qty) FROM `tabSales Invoice Item` sid, 
-				`tabSales Invoice` si
-				WHERE sid.delivery_note = dn.name
-					AND sid.parent = si.name
-					AND sid.qty > 0
-					AND sid.dn_detail = dni.name AND si.docstatus = 1), 0)>=0.01)
+			FROM `tabDelivery Note` dn LEFT JOIN `tabCustomer` cu ON cu.name = dn.customer,
+				`tabDelivery Note Item` dni
+			WHERE dn.docstatus = 1 AND dni.parent = dn.name AND dn.status != 'Completed'
+				AND (dni.qty - ifnull((SELECT SUM(sid.qty) FROM `tabSales Invoice Item` sid,
+				`tabSales Invoice` si WHERE sid.delivery_note = dn.name AND sid.parent = si.name
+				AND sid.qty > 0 AND sid.dn_detail = dni.name AND si.docstatus = 1), 0)>=0.01)
 			GROUP BY dn.customer ORDER BY pdate"""
 		dn = frappe.db.sql(query, as_list=1)
-
 	return dn
 
 
@@ -99,7 +86,7 @@ def get_conditions(filters):
 	if filters.get("territory"):
 		territory = frappe.get_doc("Territory", filters["territory"])
 		if territory.is_group == 1:
-			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
+			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory`
 				WHERE lft >= %s AND rgt <= %s""" % (territory.lft, territory.rgt), as_list=1)
 			for i in child_territories:
 				if child_territories[0] == i:
