@@ -376,3 +376,13 @@ def cancel_delete_ste_from_name(ste_name):
         voucher_no = '%s'""" % ste_name, as_dict=1)
     for sle in sle_dict:
         frappe.delete_doc('Stock Ledger Entry', sle.name, for_reload=True)
+
+
+def get_wh_wise_qty(item_name):
+    query = """SELECT bn.item_code, bn.reserved_qty as on_so, bn.actual_qty as actual, bn.warehouse,
+        bn.ordered_qty as on_po, bn.planned_qty as plan, bn.projected_qty as proj, bn.reserved_qty_for_production as prd,
+        wh.is_subcontracting_warehouse as subcon, wh.short_code as scode
+        FROM `tabBin` bn, `tabWarehouse` wh
+        WHERE wh.name = bn.warehouse AND bn.item_code = '%s'""" % item_name
+    qty_dict = frappe.db.sql(query, as_dict=1)
+    return qty_dict
