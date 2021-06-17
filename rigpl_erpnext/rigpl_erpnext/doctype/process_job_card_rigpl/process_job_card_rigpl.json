@@ -159,7 +159,8 @@
    "label": "Production Item",
    "options": "Item",
    "read_only": 1,
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "cb0",
@@ -195,7 +196,8 @@
    "in_standard_filter": 1,
    "label": "Status",
    "options": "Open\nWork In Progress\nCancelled\nCompleted",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "collapsible": 1,
@@ -431,7 +433,7 @@
   }
  ],
  "is_submittable": 1,
- "modified": "2021-03-09 14:51:06.722374",
+ "modified": "2021-06-17 19:05:01.107103",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Process Job Card RIGPL",
