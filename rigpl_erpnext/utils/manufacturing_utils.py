@@ -284,7 +284,16 @@ def find_item_quantities(item_dict):
         AND item_code = '%s'""" % ((d.get("name") or d.get("item_code")), (d.get("name") or d.get("item_code")),
                                    (d.get("name") or d.get("item_code")), (d.get("name") or d.get("item_code")),
                                    (d.get("name") or d.get("item_code"))), as_dict=1)
+        # If Item is for Job Work then need to get the PO Items for that as well since on_po is wrong in that case
+        # In that case get the quantity of the Material in Sub-Contracting Warehouse
+        subcon = frappe.db.sql("""SELECT bn.item_code, bn.actual_qty, wh.name FROM `tabBin` bn, `tabWarehouse` wh
+        WHERE wh.name = bn.warehouse AND wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0 
+        AND bn.item_code = '%s'""" % d.get("item_code"), as_dict=1)
+
         if one_item_availability:
+            if subcon:
+                for available in one_item_availability:
+                    available.on_po += subcon[0].actual_qty
             for available in one_item_availability:
                 availability.append(available)
     return availability
