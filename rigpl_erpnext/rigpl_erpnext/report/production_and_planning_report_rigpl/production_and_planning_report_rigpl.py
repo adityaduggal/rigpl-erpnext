@@ -68,9 +68,7 @@ def get_data(filters):
 		l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, jc.description, jc.operation, 
 		jc.workstation, jc.total_qty, jc.for_quantity, IF(jc.qty_available=0, NULL, jc.qty_available) as qty_available,
 		jc.sales_order_item 
-		FROM `tabProcess Job Card RIGPL` jc 
-		LEFT JOIN `tabItem` it ON it.name = jc.production_item
-		LEFT JOIN `tabBOM Operation` bo ON jc.operation_id = bo.name
+		FROM `tabProcess Job Card RIGPL` jc, `tabItem` it
 		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
 			AND bm.attribute = 'Base Material'
 		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
@@ -89,7 +87,8 @@ def get_data(filters):
 			AND d2.attribute = 'd2_mm'
 		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
 			AND l2.attribute = 'l2_mm'
-		WHERE jc.docstatus = 0 %s %s
+		WHERE jc.docstatus = 0 AND it.name = jc.production_item AND jc.status != 'Completed'
+            AND jc.status != 'Cancelled' %s %s
 		ORDER BY jc.priority, jc.operation_serial_no, bm.attribute_value, tt.attribute_value, spl.attribute_value,
 		ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value""" % (cond_jc, cond_it)
         tmp_data = frappe.db.sql(query, as_dict=1)
