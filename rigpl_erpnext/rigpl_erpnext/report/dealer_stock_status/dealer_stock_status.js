@@ -54,30 +54,6 @@ frappe.query_reports["Dealer Stock Status"] = {
 			"fieldtype": "Link",
 			"options": "Item",
 			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
-		},
-		{
-			"fieldtype": "Break",
-		},
-		{
-			"fieldname":"rol_sort",
-			"label": "Sort By ROL",
-			"fieldtype": "Check",
-		},
-		{
-			"fieldname":"dead_stock",
-			"label": "Dead Stock",
-			"fieldtype": "Check",
-		},
-		{
-			"fieldname":"min_rol",
-			"label": "Minimum ROL",
-			"fieldtype": "Int",
-			"default": 10,
-		},
-		{
-			"fieldname":"max_rol",
-			"label": "Maximum ROL",
-			"fieldtype": "Int",
 		}
 	]
 }
