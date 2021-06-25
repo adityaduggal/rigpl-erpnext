@@ -123,16 +123,16 @@ def check_gst_rules(doc, method):
 
 def update_fields(doc, method):
     doc.title = doc.supplier
-    if getdate(doc.schedule_date) < nowdate():
-        doc.schedule_date = nowdate()
+    if getdate(doc.schedule_date) < getdate(nowdate()):
+        doc.schedule_date = getdate(nowdate())
         for d in doc.items:
-            if d.schedule_date < nowdate():
-                d.schedule_date = nowdate()
-            if d.expected_delivery_date and d.expected_delivery_date < nowdate():
-                d.expected_delivery_date = nowdate()
+            if getdate(d.schedule_date) < getdate(nowdate()):
+                d.schedule_date = getdate(nowdate())
+            if d.expected_delivery_date and getdate(d.expected_delivery_date) < getdate(nowdate()):
+                d.expected_delivery_date = getdate(nowdate())
 
-    if getdate(doc.transaction_date) < nowdate():
-        doc.transaction_date = nowdate()
+    if getdate(doc.transaction_date) < getdate(nowdate()):
+        doc.transaction_date = getdate(nowdate())
 
     letter_head_tax = frappe.db.get_value("Purchase Taxes and Charges Template", doc.taxes_and_charges, "letter_head")
     doc.letter_head = letter_head_tax
