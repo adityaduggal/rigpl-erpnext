@@ -3,7 +3,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import nowdate, nowtime
+from frappe.utils import nowdate, nowtime, getdate
 from frappe.desk.reportview import get_match_cond
 from rigpl_erpnext.utils.manufacturing_utils import get_special_item_attribute_doc, get_special_item_attributes, \
     get_attributes, get_formula_values, calculate_formula_values
@@ -123,7 +123,7 @@ def check_gst_rules(doc, method):
 
 def update_fields(doc, method):
     doc.title = doc.supplier
-    if doc.schedule_date < nowdate():
+    if getdate(doc.schedule_date) < nowdate():
         doc.schedule_date = nowdate()
         for d in doc.items:
             if d.schedule_date < nowdate():
@@ -131,7 +131,7 @@ def update_fields(doc, method):
             if d.expected_delivery_date and d.expected_delivery_date < nowdate():
                 d.expected_delivery_date = nowdate()
 
-    if doc.transaction_date < nowdate():
+    if getdate(doc.transaction_date) < nowdate():
         doc.transaction_date = nowdate()
 
     letter_head_tax = frappe.db.get_value("Purchase Taxes and Charges Template", doc.taxes_and_charges, "letter_head")
@@ -196,23 +196,23 @@ def check_subcontracting(doc, method):
 
 @frappe.whitelist()
 def get_pending_jc(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql(f"""SELECT DISTINCT(jc.name), ps.sales_order, jc.posting_date,jc.description, 
+    return frappe.db.sql(f"""SELECT DISTINCT(jc.name), ps.sales_order, jc.posting_date,jc.description,
     it.stock_uom as uom, jc.sales_order_item, jc.s_warehouse, jc.qty_available
     FROM `tabProcess Job Card RIGPL` jc, `tabProcess Sheet` ps, `tabItem` it, `tabOperation` op
     WHERE jc.docstatus = 0 AND jc.status = 'Work In Progress' AND it.name = jc.production_item
     AND jc.operation = op.name AND op.is_subcontracting = 1
-    AND jc.process_sheet = ps.name AND (jc.name LIKE %(txt)s or ps.sales_order LIKE %(txt)s) 
-    {get_match_cond(doctype)} ORDER BY IF(locate(%(_txt)s, jc.name), 
+    AND jc.process_sheet = ps.name AND (jc.name LIKE %(txt)s or ps.sales_order LIKE %(txt)s)
+    {get_match_cond(doctype)} ORDER BY IF(locate(%(_txt)s, jc.name),
     locate(%(_txt)s, jc.name), 1) LIMIT %(start)s, %(page_len)s""",
                          {'txt': "%%%s%%" % txt, '_txt': txt.replace("%", ""), 'start': start, 'page_len': page_len, })
 
 
 @frappe.whitelist()
 def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql("""SELECT DISTINCT(wo.name), wo.sales_order, wo.production_order_date, 
-    wo.item_description FROM `tabWork Order` wo, `tabSales Order` so, `tabSales Order Item` soi 
-	WHERE wo.docstatus = 1 AND so.docstatus = 1 AND soi.parent = so.name AND so.status != "Closed" 
-	AND soi.qty > soi.delivered_qty AND wo.sales_order = so.name AND (wo.name LIKE %(txt)s OR 
+    return frappe.db.sql("""SELECT DISTINCT(wo.name), wo.sales_order, wo.production_order_date,
+    wo.item_description FROM `tabWork Order` wo, `tabSales Order` so, `tabSales Order Item` soi
+	WHERE wo.docstatus = 1 AND so.docstatus = 1 AND soi.parent = so.name AND so.status != "Closed"
+	AND soi.qty > soi.delivered_qty AND wo.sales_order = so.name AND (wo.name LIKE %(txt)s OR
 	wo.sales_order LIKE %(txt)s) {mcond} ORDER BY IF(locate(%(_txt)s, wo.name), locate(%(_txt)s, wo.name), 1)
 	LIMIT %(start)s, %(page_len)s""".format(**{
         'key': searchfield,
@@ -234,7 +234,7 @@ def get_pricing_rule_based_on_attributes(doc):
         for d in doc.items:
             if d.so_detail:
                 if d.reference_dt == "Process Job Card RIGPL":
-                    ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` 
+                    ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet`
                         WHERE sales_order_item = '%s'""" % d.so_detail, as_dict=1)
                     ps_doc = frappe.get_doc("Process Sheet", ps_dict[0].name)
                     special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item,
@@ -287,6 +287,6 @@ def check_prule_for_it_att(prule_doc, it_att_dict):
 
 
 def get_supplier_pricing_rule(supplier):
-    prule_dict = frappe.db.sql("""SELECT name FROM `tabPricing Rule` WHERE apply_on = 'Attributes' AND buying = 1 
+    prule_dict = frappe.db.sql("""SELECT name FROM `tabPricing Rule` WHERE apply_on = 'Attributes' AND buying = 1
     AND applicable_for = 'Supplier' AND supplier = '%s'""" % supplier, as_dict=1)
     return prule_dict
