@@ -40,12 +40,16 @@ def on_submit(doc, method):
 def correct_to_date_for_ssa(emp_id, frm_date=None):
     ssa = frappe.db.sql("""SELECT name, employee, from_date, to_date FROM `tabSalary Structure Assignment`
         WHERE docstatus=1 AND employee= '%s' ORDER BY from_date ASC""" % emp_id, as_dict=1)
-    if len(ssa) > 1:
+    if len(ssa) >= 1:
         for i in range(len(ssa)):
             if i < len(ssa) - 1:
                 actual_to_date = add_days(ssa[i+1].from_date, -1)
                 if ssa[i].to_date != actual_to_date:
                     frappe.db.set_value("Salary Structure Assignment", ssa[i].name, "to_date", actual_to_date)
                     print(f"For {ssa[i].name} Changed To Date from Current Date: {ssa[i].to_date} To: {actual_to_date}")
+            else:
+                if ssa[i].to_date:
+                    frappe.db.set_value("Salary Structure Assignment", ssa[i].name, "to_date", None)
+                    print(f"For {ssa[i].name} Removed To Date as its the Latest Salary Structure")
     else:
-        print(f"{emp_id} has One or No Salary Structure Assignments")
+        print(f"{emp_id} has No Salary Structure Assignments")
