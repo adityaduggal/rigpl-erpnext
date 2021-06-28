@@ -178,7 +178,8 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
     },
     "Salary Structure Assignment": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure_assignment.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure_assignment.validate",
+        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure_assignment.on_submit"
     },
     "Sales Invoice": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate",
