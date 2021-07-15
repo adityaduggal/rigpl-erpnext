@@ -4,13 +4,16 @@
 
 from __future__ import unicode_literals
 import frappe
+from datetime import date
 from frappe.utils import nowdate, nowtime, today, add_months, flt
+from .sales_utils import get_so_for_item, get_avg_days_for_so
+from .purchase_utils import get_po_for_item, get_avg_days_for_po
 from .other_utils import auto_round_down, auto_round_up, round_up
 
 
 def get_consolidate_bin(item_name):
-    bin_dict = frappe.db.sql("""SELECT item_code, SUM(reserved_qty) as on_so, SUM(actual_qty) as actual, 
-    SUM(ordered_qty) as on_po, SUM(indented_qty) as on_indent, SUM(planned_qty) as planned, 
+    bin_dict = frappe.db.sql("""SELECT item_code, SUM(reserved_qty) as on_so, SUM(actual_qty) as actual,
+    SUM(ordered_qty) as on_po, SUM(indented_qty) as on_indent, SUM(planned_qty) as planned,
     SUM(reserved_qty_for_production) as for_prd
     FROM `tabBin` WHERE item_code = '%s' """ % item_name, as_dict=1)
     return bin_dict
@@ -163,16 +166,16 @@ def return_rol_based_qty(e_rol, n_rol):
                 changes_made = 1
                 break
             else:
-                if n_rol > e_rol:
+                if int(n_rol) > int(e_rol):
                     n_rol = auto_round_down(e_rol * ((100 + d.percent) / 100))
                 else:
                     n_rol = auto_round_down(e_rol * ((100 - d.percent) / 100))
                 break
         elif e_rol == 0:
             max_qty = max_val_for_zero_rol
-            if n_rol > e_rol:
+            if int(n_rol) > e_rol:
                 changes_made = 1
-                if n_rol > max_qty:
+                if int(n_rol) > max_qty:
                     n_rol = max_qty
                 else:
                     n_rol = auto_round_down(n_rol)
@@ -240,7 +243,7 @@ def get_roq_from_rol(item_doc, rol):
     return roq
 
 
-def get_rol_for_item(item_name, period=1, to_date=today()):
+def get_rol_for_item(item_name, period=1, to_date=date.today()):
     # Period is in months
     itd = frappe.get_doc("Item", item_name)
     from_date = add_months(to_date, period * (-1))
@@ -250,9 +253,9 @@ def get_rol_for_item(item_name, period=1, to_date=today()):
     rol_dict["v_rate"] = itd.valuation_rate
     rol_dict["is_sale"] = itd.is_sales_item
     rol_dict["is_purchase"] = itd.is_purchase_item
-    existing_rol = frappe.db.sql("""SELECT it.name, ir.warehouse_reorder_level as rol, 
-    ir.warehouse_reorder_qty as rqty FROM `tabItem` it, `tabItem Reorder` ir WHERE ir.parent = it.name 
-    AND ir.parenttype = 'Item' AND ir.parentfield = 'reorder_levels' AND disabled = 0 
+    existing_rol = frappe.db.sql("""SELECT it.name, ir.warehouse_reorder_level as rol,
+    ir.warehouse_reorder_qty as rqty FROM `tabItem` it, `tabItem Reorder` ir WHERE ir.parent = it.name
+    AND ir.parenttype = 'Item' AND ir.parentfield = 'reorder_levels' AND disabled = 0
     AND it.name = '%s'""" % item_name, as_dict=1)
     if existing_rol:
         rol_dict["ex_rol"] = existing_rol[0].rol
@@ -260,16 +263,16 @@ def get_rol_for_item(item_name, period=1, to_date=today()):
     else:
         rol_dict["ex_rol"] = 0
         rol_dict["ex_rqty"] = 0
-    sold = frappe.db.sql("""SELECT (SUM(sle.actual_qty)*-1) as sold FROM `tabStock Ledger Entry` sle 
+    sold = frappe.db.sql("""SELECT (SUM(sle.actual_qty)*-1) as sold FROM `tabStock Ledger Entry` sle
     WHERE sle.voucher_type IN ('Delivery Note', 'Sales Invoice') AND sle.is_cancelled = "No" AND sle.item_code = '%s'
     AND posting_date >= '%s' AND posting_date < '%s'""" % (item_name, from_date, to_date), as_dict=1)
     rol_dict["sold"] = flt(sold[0].sold)
     rol_dict["sold_avg"] = flt(sold[0].sold)/ period
     rol_dict["avg_sold_value"] = rol_dict["sold_avg"] * rol_dict["v_rate"]
 
-    so_data = frappe.db.sql("""SELECT COUNT(DISTINCT(so.customer)) as no_of_customers , 
-    COUNT(DISTINCT(so.name)) as no_of_so FROM `tabSales Order` so, `tabSales Order Item` sod 
-    WHERE sod.parent = so.name AND so.docstatus = 1 AND sod.item_code = '%s' AND so.transaction_date >= '%s' 
+    so_data = frappe.db.sql("""SELECT COUNT(DISTINCT(so.customer)) as no_of_customers ,
+    COUNT(DISTINCT(so.name)) as no_of_so FROM `tabSales Order` so, `tabSales Order Item` sod
+    WHERE sod.parent = so.name AND so.docstatus = 1 AND sod.item_code = '%s' AND so.transaction_date >= '%s'
     AND so.transaction_date < '%s' GROUP BY sod.item_code""" % (item_name, from_date, to_date), as_dict=1)
     if so_data:
         rol_dict["customers"] = so_data[0].no_of_customers
@@ -278,10 +281,10 @@ def get_rol_for_item(item_name, period=1, to_date=today()):
         rol_dict["customers"] = 0
         rol_dict["no_of_so"] = 0
 
-    consumed = frappe.db.sql("""SELECT SUM(sted.qty) as qty, COUNT(ste.name) as no_of_ste 
-    FROM `tabStock Entry Detail` sted, `tabStock Entry` ste 
-    WHERE sted.parent = ste.name AND ste.docstatus = 1 AND sted.s_warehouse IS NOT NULL 
-    AND (sted.t_warehouse IS NULL OR sted.t_warehouse = "") AND sted.item_code = '%s' AND posting_date >= '%s' 
+    consumed = frappe.db.sql("""SELECT SUM(sted.qty) as qty, COUNT(ste.name) as no_of_ste
+    FROM `tabStock Entry Detail` sted, `tabStock Entry` ste
+    WHERE sted.parent = ste.name AND ste.docstatus = 1 AND sted.s_warehouse IS NOT NULL
+    AND (sted.t_warehouse IS NULL OR sted.t_warehouse = "") AND sted.item_code = '%s' AND posting_date >= '%s'
     AND posting_date < '%s'""" % (item_name, from_date, to_date), as_dict=1)
     rol_dict["consumed"] = flt(consumed[0].qty)
     rol_dict["no_of_ste"] = flt(consumed[0].no_of_ste)
@@ -291,16 +294,16 @@ def get_rol_for_item(item_name, period=1, to_date=today()):
         rol_dict["con_avg"] = flt(consumed[0].qty)/period/2
     rol_dict["avg_con_value"] = rol_dict["con_avg"] * rol_dict["v_rate"]
 
-    sr = frappe.db.sql("""SELECT SUM(srd.current_qty - srd.qty) as sred FROM `tabStock Reconciliation` sr, 
-    `tabStock Reconciliation Item` srd WHERE srd.parent = sr.name AND sr.docstatus = 1 AND srd.qty != srd.current_qty 
+    sr = frappe.db.sql("""SELECT SUM(srd.current_qty - srd.qty) as sred FROM `tabStock Reconciliation` sr,
+    `tabStock Reconciliation Item` srd WHERE srd.parent = sr.name AND sr.docstatus = 1 AND srd.qty != srd.current_qty
     AND srd.item_code = '%s' AND sr.posting_date >= '%s' AND sr.posting_date < '%s'""" %
                        (item_name, from_date, to_date), as_dict=1)
     rol_dict["sred"] = flt(sr[0].sred)
     rol_dict["sr_avg"] = flt(sr[0].sred)/period
     rol_dict["avg_sr_value"] = rol_dict["sr_avg"] * rol_dict["v_rate"]
 
-    po_data = frappe.db.sql("""SELECT SUM(sle.actual_qty) as purchased, COUNT(DISTINCT(sle.voucher_no)) as transactions 
-    FROM `tabStock Ledger Entry` sle WHERE sle.voucher_type IN ('Purchase Receipt', 'Purchase Invoice') 
+    po_data = frappe.db.sql("""SELECT SUM(sle.actual_qty) as purchased, COUNT(DISTINCT(sle.voucher_no)) as transactions
+    FROM `tabStock Ledger Entry` sle WHERE sle.voucher_type IN ('Purchase Receipt', 'Purchase Invoice')
     AND sle.is_cancelled = "No" AND sle.item_code = '%s' AND posting_date >= '%s' AND posting_date < '%s'""" %
                             (item_name, from_date, to_date), as_dict=1)
     rol_dict["purchased"] = flt(po_data[0].purchased)
@@ -372,7 +375,7 @@ def cancel_delete_ste_from_name(ste_name):
     if ste_doc.docstatus == 1:
         ste_doc.cancel()
     frappe.delete_doc('Stock Entry', ste_name, for_reload=True)
-    sle_dict = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE voucher_type = 'Stock Entry' AND 
+    sle_dict = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE voucher_type = 'Stock Entry' AND
         voucher_no = '%s'""" % ste_name, as_dict=1)
     for sle in sle_dict:
         frappe.delete_doc('Stock Ledger Entry', sle.name, for_reload=True)
@@ -386,3 +389,54 @@ def get_wh_wise_qty(item_name):
         WHERE wh.name = bn.warehouse AND bn.item_code = '%s'""" % item_name
     qty_dict = frappe.db.sql(query, as_dict=1)
     return qty_dict
+
+
+def get_item_lead_time(item_name, frm_dt=None, to_dt=None):
+    calc_dict = frappe._dict({})
+    calc_dict["item_name"] = item_name
+    calc_dict["max_days"] = 0
+    calc_dict["min_days"] = 0
+    changes_to_be_made = 0
+    analyse_months = [3, 6, 12, 18, 24]
+    avg_days, avg_days_wt, tot_qty = 0, 0, 0
+    day_wise = []
+    itd = frappe.get_doc("Item", item_name)
+    if itd.is_sales_item == 1:
+        # Items which are in Sales should be taken from the DN status
+        so_dict = get_so_for_item(item_name, frm_dt=frm_dt, to_dt=to_dt)
+        calc_dict["no_of_so"] = len(so_dict)
+        for so in so_dict:
+            avg_days = get_avg_days_for_so(so)
+            if calc_dict["min_days"] == 0:
+                calc_dict["min_days"] = avg_days.avg_days
+            else:
+                if calc_dict["min_days"] < avg_days.avg_days:
+                    frappe.throw(str(avg_days))
+            day_wise.append(get_avg_days_for_so(so).copy())
+        frappe.throw(str(day_wise))
+    elif itd.is_purchase_item == 1:
+        # Check the days between the PO and GRN if ZERO days then dont consider that set for calculations
+        po_dict = get_po_for_item(item_name)
+        for po in po_dict:
+            day_wise.append(get_avg_days_for_po(po).copy())
+    else:
+        # Check which items are there and device a formula for that as well.
+        print("WIP Item not Sales and Not Purchase")
+
+    if day_wise:
+        for pd in day_wise:
+            avg_days_wt += pd.avg_days * pd.avg_days
+            tot_qty += pd.avg_days
+        if tot_qty > 0:
+            avg_days = auto_round_up(avg_days_wt / tot_qty)
+        else:
+            avg_days = 0
+    else:
+        avg_days = 0
+    if avg_days > 0:
+        if itd.lead_time_days != avg_days:
+            changes_to_be_made = 1
+    calc_dict["avg_days"] = avg_days
+    calc_dict["changes_made"] = changes_to_be_made
+    frappe.throw(str(calc_dict))
+    return avg_days, changes_to_be_made
