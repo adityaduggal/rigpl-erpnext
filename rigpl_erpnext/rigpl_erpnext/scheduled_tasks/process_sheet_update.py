@@ -16,7 +16,7 @@ from frappe.utils.background_jobs import enqueue
 
 
 def enqueue_process_sheet_update():
-    enqueue(execute, queue="long", timeout=1500, is_async=False)
+    enqueue(execute, queue="long", timeout=1500)
 
 
 def execute():
@@ -43,7 +43,7 @@ def consolidate_transfer_operations():
             sno += 1
             # print(f"Processing Serial Number {sno}    ", end="\r")
             itd = frappe.get_doc("Item", op.production_item)
-            if not any(d["production_item"] == op.production_item and d["operation"] == op.operation \
+            if not any(d["production_item"] == op.production_item and d["operation"] == op.operation
                        for d in done_ops) and itd.made_to_order != 1:
                 done_op_dict["production_item"] = op.production_item
                 done_op_dict["operation"] = op.operation
@@ -132,7 +132,7 @@ def stop_or_change_ops(op_dict, stop_nos, change_nos, un_nos, tot_changes, itd, 
 def update_process_sheet_priority():
     st_time = time.time()
     count = 0
-    ps_list = frappe.db.sql("""SELECT name, docstatus FROM `tabProcess Sheet` WHERE docstatus < 2 AND status != 'Completed' 
+    ps_list = frappe.db.sql("""SELECT name, docstatus FROM `tabProcess Sheet` WHERE docstatus < 2 AND status != 'Completed'
     AND status != 'Short Closed' AND status != 'Stopped' ORDER BY creation ASC""", as_dict=1)
     for ps in ps_list:
         psd = frappe.get_doc("Process Sheet", ps.name)
@@ -160,9 +160,9 @@ def create_new_process_sheets():
     # Check items in Warehouses in Production without Job Cards
     it_dict = frappe.db.sql("""SELECT it.name, it.valuation_rate AS vrate, it_rol.warehouse_reorder_level AS wh_rol,
     (it.valuation_rate * it_rol.warehouse_reorder_level) AS vr_rol
-    FROM `tabItem` it 
-        LEFT JOIN `tabItem Reorder` it_rol ON it_rol.parent = it.name AND it_rol.parenttype = 'Item' 
-    WHERE it.disabled = 0 AND it.include_item_in_manufacturing = 1 AND it.has_variants = 0 AND it.variant_of IS NOT NULL 
+    FROM `tabItem` it
+        LEFT JOIN `tabItem Reorder` it_rol ON it_rol.parent = it.name AND it_rol.parenttype = 'Item'
+    WHERE it.disabled = 0 AND it.include_item_in_manufacturing = 1 AND it.has_variants = 0 AND it.variant_of IS NOT NULL
     ORDER BY vr_rol DESC, vrate DESC, wh_rol DESC, name ASC""", as_dict=1)
     print(f"Total Items Being Considered for Auto Process Sheet = {len(it_dict)}")
     created = 0
@@ -194,7 +194,7 @@ def create_new_process_sheets():
 
 def check_exist_ps(it_name, for_qty, vr_rol, err_it, created):
     # Check if existing or create new
-    existing_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus=0 
+    existing_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus=0
     AND production_item= '%s'""" % it_name, as_dict=1)
     if existing_ps:
         ex_ps = frappe.get_doc("Process Sheet", existing_ps[0].name)

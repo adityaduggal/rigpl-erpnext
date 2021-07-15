@@ -11,7 +11,7 @@ from ...utils.stock_utils import auto_compute_rol_for_item
 
 
 def enqueue_rol_job():
-    enqueue(execute, queue="long", timeout=21600, is_async=False)
+    enqueue(execute, queue="long", timeout=21600)
 
 
 def execute():
@@ -22,11 +22,11 @@ def execute():
     item_list = frappe.db.sql("""SELECT it.name, IFNULL(rol.warehouse_reorder_level, 0) as rol_qty, it.valuation_rate,
     (IFNULL(rol.warehouse_reorder_level, 0) * it.valuation_rate) as rol_value
     FROM `tabItem` it
-    LEFT JOIN `tabItem Reorder` rol ON it.name = rol.parent AND rol.parentfield = 'reorder_levels' 
+    LEFT JOIN `tabItem Reorder` rol ON it.name = rol.parent AND rol.parentfield = 'reorder_levels'
         AND rol.parenttype = 'Item'
-    WHERE it.has_variants = 0 AND it.disabled = 0 AND it.made_to_order = 0 AND it.variant_of IS NOT NULL 
+    WHERE it.has_variants = 0 AND it.disabled = 0 AND it.made_to_order = 0 AND it.variant_of IS NOT NULL
     AND (IFNULL(rol.warehouse_reorder_level, 0) * it.valuation_rate) >= %s
-    ORDER BY rol_value DESC, it.valuation_rate DESC, rol.warehouse_reorder_level DESC, 
+    ORDER BY rol_value DESC, it.valuation_rate DESC, rol.warehouse_reorder_level DESC,
     it.name""" % min_value, as_dict=1)
     sno = 0
     changes = 0
