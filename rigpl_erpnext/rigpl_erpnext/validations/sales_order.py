@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 
 from frappe.utils import nowdate
+from ...utils.other_utils import remove_html
 from rigpl_erpnext.utils.sales_utils import *
 from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
@@ -45,6 +46,7 @@ def validate(doc, method):
 
 def check_price_list(doc):
     for it in doc.items:
+        it.description = remove_html(it.description)
         if not it.price_list:
             it.price_list = doc.selling_price_list
 
@@ -115,7 +117,7 @@ def on_submit(so, method):
 
 def on_cancel(so, method):
     delete_process_sheet(so)
-    existing_ste = frappe.db.sql("""SELECT name FROM `tabStock Entry` WHERE docstatus=1 
+    existing_ste = frappe.db.sql("""SELECT name FROM `tabStock Entry` WHERE docstatus=1
     AND sales_order='%s'"""% so.name, as_dict=1)
     if existing_ste:
         for ste in existing_ste:
@@ -140,7 +142,7 @@ def delete_process_sheet(so):
     for it in so.items:
         it_doc = frappe.get_doc("Item", it.item_code)
         if it_doc.made_to_order == 1:
-            ps_list = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 
+            ps_list = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0
             AND sales_order_item = '%s' AND sales_order = '%s'""" % (it.name, so.name), as_dict=1)
             if ps_list:
                 for ps in ps_list:

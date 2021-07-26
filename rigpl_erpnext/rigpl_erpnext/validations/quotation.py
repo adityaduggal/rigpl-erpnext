@@ -4,6 +4,7 @@
 
 from __future__ import unicode_literals
 import frappe
+from ...utils.other_utils import remove_html
 from ...utils.sales_utils import check_get_pl_rate, get_hsn_code, validate_address_google_update
 from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
@@ -36,6 +37,7 @@ def validate(doc, method):
 
     check_sales_taxes_integrity(doc)
     for rows in doc.items:
+        rows.description = remove_html(rows.description)
         if not rows.price_list:
             rows.price_list = doc.selling_price_list
         get_hsn_code(rows)
@@ -43,7 +45,7 @@ def validate(doc, method):
     # Check if Lead is Converted or Not, if the lead is converted
     # then don't allow it to be selected without linked customer
     if doc.quotation_to == "Lead":
-        link = frappe.db.sql("""SELECT name FROM `tabCustomer` 
+        link = frappe.db.sql("""SELECT name FROM `tabCustomer`
             WHERE lead_name = '%s'""" % doc.party_name, as_list=1)
         if link:
             frappe.throw(("Lead {0} is Linked to Customer {1} so kindly make quotation for \

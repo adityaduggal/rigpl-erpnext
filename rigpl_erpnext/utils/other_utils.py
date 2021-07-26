@@ -3,9 +3,14 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-
 import frappe
 import re
+
+
+def remove_html(html_text):
+    cleanr = re.compile(r'<(?!br).*?>')
+    cleantext = cleanr.sub('', html_text)
+    return cleantext
 
 
 def validate_ifsc_code(ifsc_code):
@@ -87,7 +92,7 @@ def calcsum(number):
 
 
 def round_down(num, divisor):
-    return num - (num%divisor)
+    return num - (num %divisor)
 
 
 def round_up(num, divisor):
@@ -122,3 +127,11 @@ def auto_round_up(num):
         return round_up(num, 5)
     else:
         return round_up(num, 1)
+
+
+def get_base_doc(doctype, docname):
+    dt = frappe.get_doc(doctype, docname)
+    if dt.amended_from:
+        return get_base_doc(doctype, dt.amended_from)
+    else:
+        return docname
