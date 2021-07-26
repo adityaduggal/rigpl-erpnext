@@ -5,14 +5,54 @@ from __future__ import unicode_literals
 import re
 import frappe
 import datetime
+from .other_utils import get_base_doc, auto_round_up
 from frappe.utils import flt
 from rohit_common.utils.rohit_common_utils import replace_java_chars
+
+
+def get_so_for_item(it_name, frm_dt=None, to_dt=None):
+    cond = ""
+    if frm_dt:
+        cond += " AND so.transaction_date >= '%s'" % frm_dt
+    if to_dt:
+        cond += " AND so.transaction_date <= '%s'" % to_dt
+
+    so_dict = frappe.db.sql("""SELECT so.name as so_no, sod.name, so.transaction_date, sod.qty, sod.idx
+        FROM `tabSales Order` so, `tabSales Order Item` sod
+        WHERE so.docstatus = 1 AND sod.parent = so.name AND sod.item_code = '%s' AND sod.delivered_qty > 0 %s
+        ORDER BY so.transaction_date DESC, sod.name""" % (it_name, cond), as_dict=1)
+    return so_dict
+
+
+def get_avg_days_for_so(so_dict):
+    avg_days_dict = frappe._dict({})
+    avg_days, days_wt, tot_qty = 0, 0, 0
+    query = """SELECT dn.name as dn, dni.name, dn.posting_date, dni.qty
+        FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni
+        WHERE dn.name = dni.parent AND dni.so_detail = '%s'
+        ORDER BY dn.posting_date DESC""" % so_dict.name
+    dn_dict = frappe.db.sql(query, as_dict=1)
+    for dn in dn_dict:
+        base_dn = get_base_doc("Delivery Note", dn.dn)
+        dnd = frappe.get_doc("Delivery Note", base_dn)
+        dn["posting_date"] = dnd.posting_date
+        days = (dn.posting_date - so_dict.transaction_date).days
+        if days > 0:
+            tot_qty += dn.qty
+            days_wt += days * dn.qty
+    if tot_qty > 0:
+        avg_days = auto_round_up(days_wt / tot_qty)
+    else:
+        avg_days = 0
+    avg_days_dict["tot_qty"] = tot_qty
+    avg_days_dict["avg_days"] = avg_days
+    return avg_days_dict
 
 
 def get_email_from_contact(contact_name):
     email_dict = frappe._dict({})
     if contact_name:
-        email_query = """SELECT email_id FROM `tabContact Email` WHERE parent = '%s' 
+        email_query = """SELECT email_id FROM `tabContact Email` WHERE parent = '%s'
         AND parenttype = 'Contact'""" % contact_name
         email_dict = frappe.db.sql(email_query, as_dict=1)
     return email_dict
@@ -51,7 +91,7 @@ def get_sales_comm_for_cust(cust_name, frm_date=None, to_date=None):
     for d in cont_list:
         comm_query = """SELECT comm.name, comm.communication_date, comm.communication_medium,
         comm.content, comm.next_action_date, comm.owner
-        FROM `tabCommunication` comm WHERE comm.reference_doctype = '%s' 
+        FROM `tabCommunication` comm WHERE comm.reference_doctype = '%s'
         AND comm.communication_subtype = 'Sales Related'
         AND comm.reference_name = '%s' %s %s
         ORDER BY comm.communication_date DESC""" % (d.type, d.name, frm_date_cond, to_date_cond)
@@ -77,7 +117,7 @@ def get_sales_comm_for_lead(lead_name, frm_date=None, to_date=None):
     comm_query = """SELECT comm.name, comm.communication_date, (SELECT COUNT(name) FROM `tabCommunication`
     WHERE reference_doctype = 'Lead' AND reference_name = '%s') as contacts, comm.owner, comm.communication_medium,
     comm.content, comm.next_action_date
-    FROM `tabCommunication` comm WHERE comm.reference_doctype = 'Lead' 
+    FROM `tabCommunication` comm WHERE comm.reference_doctype = 'Lead'
     AND comm.communication_subtype = 'Sales Related'
     AND comm.reference_name = '%s' %s %s
     ORDER BY comm.communication_date DESC""" % (lead_name, lead_name, frm_date_cond, to_date_cond)
@@ -86,15 +126,15 @@ def get_sales_comm_for_lead(lead_name, frm_date=None, to_date=None):
 
 
 def get_contacts(name, type):
-    contacts_dict = frappe.db.sql("""SELECT con.name FROM `tabContact` con, `tabDynamic Link` dl 
-    WHERE dl.parenttype = 'Contact' AND dl.parent = con.name AND dl.link_doctype = '%s' 
+    contacts_dict = frappe.db.sql("""SELECT con.name FROM `tabContact` con, `tabDynamic Link` dl
+    WHERE dl.parenttype = 'Contact' AND dl.parent = con.name AND dl.link_doctype = '%s'
     AND dl.link_name = '%s'""" % (type, name), as_dict=1)
     return contacts_dict
 
 
 def get_total_pending_so_item(item_name):
     pending_so = frappe.db.sql("""SELECT sod.item_code, SUM(sod.qty - sod.delivered_qty) as pending_qty,
-    COUNT(so.name) as no_of_so 
+    COUNT(so.name) as no_of_so
     FROM `tabSales Order` so, `tabSales Order Item` sod
     WHERE so.name = sod.parent AND so.docstatus = 1 AND so.status != 'Closed' AND sod.item_code = '%s'
     AND sod.qty > sod.delivered_qty""" % item_name, as_dict=1)
@@ -122,7 +162,7 @@ def get_pending_so_qty_from_soitem(so_item):
 
 def get_total_sales_orders(customer, frm_date, to_date):
     sales_orders = frappe.db.sql("""SELECT SUM(base_net_total) AS total_net_amt, COUNT(name) AS so
-    FROM `tabSales Order` WHERE docstatus = 1 AND base_net_total > 0 AND customer = '%s' AND transaction_date >= '%s' 
+    FROM `tabSales Order` WHERE docstatus = 1 AND base_net_total > 0 AND customer = '%s' AND transaction_date >= '%s'
     AND transaction_date <= '%s'""" % (customer, frm_date, to_date), as_dict=1)
     return sales_orders
 
@@ -184,7 +224,7 @@ def get_customer_rating_factor(customer_dict, base_years=5):
 
 def get_total_company_sales(frm_date, to_date):
     tot_sales = frappe.db.sql("""SELECT SUM(base_grand_total) FROM `tabSales Invoice`
-        WHERE docstatus = 1 AND is_pos = 0 AND posting_date >= '%s' 
+        WHERE docstatus = 1 AND is_pos = 0 AND posting_date >= '%s'
         AND posting_date <= '%s'""" % (frm_date, to_date), as_list=1)
     return tot_sales[0][0]
 
@@ -209,7 +249,7 @@ def get_so_date_value(it_name, prd_qty, short_qty=0, so_detail=None):
         sod_cond = " AND sod.name = '%s'" % so_detail
     else:
         sod_cond = ""
-    query = """SELECT so.name, sod.item_code, so.transaction_date as so_date, sod.qty as order_qty, %s as prd_qty, 
+    query = """SELECT so.name, sod.item_code, so.transaction_date as so_date, sod.qty as order_qty, %s as prd_qty,
     %s as shortage, sod.base_rate * (sod.qty - sod.delivered_qty) as balance_amt
     FROM `tabSales Order` so, `tabSales Order Item` sod WHERE so.docstatus=1 AND sod.parent = so.name
     AND so.status != "Closed" AND sod.qty > sod.delivered_qty AND sod.item_code = '%s' %s
@@ -268,8 +308,8 @@ def prioritize_sales_order(so_dict):
 
 
 def get_completed_qty_of_jc_for_operation(item, operation, so_detail=None):
-    query = """SELECT SUM(total_completed_qty) FROM `tabProcess Job Card RIGPL` 
-    WHERE docstatus = 1 AND production_item = '%s' AND operation = '%s' 
+    query = """SELECT SUM(total_completed_qty) FROM `tabProcess Job Card RIGPL`
+    WHERE docstatus = 1 AND production_item = '%s' AND operation = '%s'
     AND sales_order_item = '%s'""" % (item, operation, so_detail)
     completed_qty = frappe.db.sql(query, as_list=1)
     if completed_qty[0][0]:
@@ -320,7 +360,7 @@ def validate_made_to_order_items(doc):
 
 
 def validate_special_items(doc, row):
-    pro_sheet = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE production_item = '%s' 
+    pro_sheet = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE production_item = '%s'
         AND sales_order_item = '%s' AND docstatus = 1""" %(row.item_code, row.so_detail), as_list=1)
     if not pro_sheet:
         frappe.throw("There is No Processing Done for {} in Row# {} for {}".
@@ -425,7 +465,7 @@ def check_get_pl_rate(document, row_dict):
     if pl_doc.disable_so == 1:
         frappe.throw("Sales Order Booking Disabled for {} at Row# {}".format(row_dict.price_list, row_dict.idx))
     item_pl_rate = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
-            WHERE price_list = '%s' AND item_code = '%s' 
+            WHERE price_list = '%s' AND item_code = '%s'
             AND selling = 1""" % (row_dict.price_list, row_dict.item_code), as_dict=1)
 
     if item_pl_rate:
@@ -488,9 +528,9 @@ def check_gst_rules(doc, bill_add_name, taxes_name):
 @frappe.whitelist()
 def get_pending_so_with_items(doctype, txt, searchfield, start, page_len, filters):
     return frappe.db.sql("""SELECT so.name, so.customer, soi.item_code, soi.description, soi.qty,
-        soi.delivered_qty, soi.name FROM `tabSales Order` so, `tabSales Order Item` soi WHERE so.docstatus = 1 AND 
-        soi.parent = so.name AND so.status != "Closed" AND soi.qty > soi.delivered_qty AND (so.name like %(txt)s or 
-        so.customer like %(txt)s) {get_match_cond(doctype)} ORDER BY  if(locate(%(_txt)s, so.name), 
+        soi.delivered_qty, soi.name FROM `tabSales Order` so, `tabSales Order Item` soi WHERE so.docstatus = 1 AND
+        soi.parent = so.name AND so.status != "Closed" AND soi.qty > soi.delivered_qty AND (so.name like %(txt)s or
+        so.customer like %(txt)s) {get_match_cond(doctype)} ORDER BY  if(locate(%(_txt)s, so.name),
         locate(%(_txt)s, so.name), 1) LIMIT %(start)s, %(page_len)s""", {'txt': "%%%s%%" % txt,
                                                                          '_txt': txt.replace("%", ""),
                                                                          'start': start,
