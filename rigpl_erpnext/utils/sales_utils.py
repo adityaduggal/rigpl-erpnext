@@ -450,10 +450,10 @@ def check_strict_po_rules(document):
 def get_hsn_code(row_dict):
     custom_tariff = frappe.db.get_value("Item", row_dict.item_code, "customs_tariff_number")
     if custom_tariff:
-        if len(custom_tariff) == 8:
+        if len(custom_tariff) >= 6:
             row_dict.gst_hsn_code = custom_tariff
         else:
-            frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which not  8 digit, please get the "
+            frappe.throw(("Item Code {0} in line# {1} has a Custom Tariff {2} which is Less than 6 digit, please get the "
                           "Custom Tariff corrected").format(row_dict.item_code, row_dict.idx, custom_tariff))
     else:
         frappe.throw("Item Code {0} in line# {1} does not have linked Customs Tariff in Item Master".format(
