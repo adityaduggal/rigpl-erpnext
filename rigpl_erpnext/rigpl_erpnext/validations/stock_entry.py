@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
+import datetime as dt
+from frappe.utils import getdate, get_time
 from ...utils.manufacturing_utils import get_bom_template_from_item
 
 
 def validate(doc, method):
     # If STE linked to PO then status of Stock Entry cannot be different from PO
-    # along with posting date and time  
+    # along with posting date and time
+    def_stk_adj_acc = frappe.get_value("Company", doc.company, "stock_adjustment_account")
     if doc.purchase_order:
         po = frappe.get_doc("Purchase Order", doc.purchase_order)
         doc.posting_date = po.transaction_date
@@ -22,42 +25,42 @@ def validate(doc, method):
 
     # Check if the Item has a Stock Reconciliation after the date and time or NOT.
     # if there is a Stock Reconciliation then the Update would FAIL
+    sr_list = []
+    sr_row = frappe._dict({})
     for d in doc.items:
-        # Get the Adjustment Account (this account is static to Stock Adjustment - RIGPL)
-        d.expense_account = 'Stock Adjustment - RIGPL'
-        sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE item_code = '%s' AND warehouse = '%s' 
-        AND voucher_type = 'Stock Reconciliation' AND posting_date > '%s'""" % (d.item_code, d.s_warehouse,
-                                                                                doc.posting_date), as_list=1)
+        # Get the Adjustment Account (this account is static to Default Account in Company Settings)
+        d.expense_account = def_stk_adj_acc
+        ste_dt_time = dt.datetime.combine(getdate(doc.posting_date), get_time(doc.posting_time))
+        query = """SELECT name, voucher_no, CONCAT(posting_date, ' ', posting_time) as ptime
+        FROM `tabStock Ledger Entry` WHERE item_code = '%s' AND warehouse = '%s'
+        AND voucher_type = 'Stock Reconciliation'
+        AND CONCAT(posting_date, ' ', posting_time) >= '%s' LIMIT 1""" % (d.item_code, d.s_warehouse, ste_dt_time)
+        sr = frappe.db.sql(query, as_dict=1)
         if sr:
-            frappe.throw(("There is a Reconciliation for Item Code: {0} after the posting date in "
-                          "source warehouse {1}").format(d.item_code, d.s_warehouse))
-        else:
-            sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE item_code = '%s' AND warehouse = '%s' 
-            AND voucher_type = 'Stock Reconciliation' AND posting_date = '%s' AND posting_time >= '%s'"""
-                               % (d.item_code, d.s_warehouse, doc.posting_date, doc.posting_time), as_list=1)
-
-            if sr:
-                frappe.throw(("There is a Reconciliation for Item Code: {0} after the posting time in source "
-                              "warehouse {1}").format(d.item_code, d.s_warehouse))
-            else:
-                pass
+            sr_row["idx"] = d.idx
+            sr_row["ic"] = d.item_code
+            sr_row["wh"] = d.s_warehouse
+            sr_row["srn"] = sr[0].voucher_no
+            sr_row["ptime"] = sr[0].ptime
+            sr_list.append(sr_row.copy())
         # Check the Stock Reconciliation for Target Warehouse as well
-        sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE item_code = '%s' AND warehouse = '%s' 
-        AND voucher_type = 'Stock Reconciliation' AND posting_date > '%s'""" % (d.item_code, d.t_warehouse,
-                                                                                doc.posting_date), as_list=1)
+        query = """SELECT name, voucher_no, CONCAT(posting_date, ' ', posting_time) as ptime
+        FROM `tabStock Ledger Entry` WHERE item_code = '%s' AND warehouse = '%s'
+        AND voucher_type = 'Stock Reconciliation'
+        AND CONCAT(posting_date, ' ', posting_time) >= '%s' LIMIT 1""" % (d.item_code, d.t_warehouse, ste_dt_time)
+        sr = frappe.db.sql(query, as_dict=1)
         if sr:
-            frappe.throw(("There is a Reconciliation for Item Code: {0} after the posting date in target "
-                          "warehouse {1}").format(d.item_code, d.t_warehouse))
-        else:
-            sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE item_code = '%s' AND warehouse = '%s' 
-            AND voucher_type = 'Stock Reconciliation' AND posting_date = '%s' AND posting_time >= '%s'""" % (
-                d.item_code, d.t_warehouse, doc.posting_date, doc.posting_time), as_list=1)
-            if sr:
-                frappe.msgprint(sr)
-                frappe.throw(("There is a Reconciliation for Item Code: {0} after the posting time in target "
-                              "warehouse {1}").format(d.item_code, d.t_warehouse))
-            else:
-                pass
+            sr_row["idx"] = d.idx
+            sr_row["ic"] = d.item_code
+            sr_row["wh"] = d.s_warehouse
+            sr_row["srn"] = sr[0].voucher_no
+            sr_row["ptime"] = sr[0].ptime
+            sr_list.append(sr_row.copy())
+    if sr_list:
+        for d in sr_list:
+            frappe.msgprint(f"In Row# {d.idx} and Item: {d.ic} for {d.wh} there is Stock Reconciliation \
+                {d.srn} at {d.ptime}")
+        frappe.throw(f"Cannot Proceed")
 
         # Get Stock Valuation from Item Table
         query = """SELECT valuation_rate FROM `tabItem` WHERE name = '%s' """ % d.item_code
