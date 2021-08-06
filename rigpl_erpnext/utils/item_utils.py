@@ -9,6 +9,36 @@ import datetime
 from frappe.utils import flt
 
 
+def get_pricing_rule_for_item(it_name, frm_dt=None, to_dt=None):
+    cond = f" AND pri.item_code = '{it_name}'"
+    if frm_dt:
+        cond += f" AND pr.valid_from <= '{frm_dt}'"
+    if to_dt:
+        cond += f" AND pr.valid_upto >= '{to_dt}'"
+    query = f"""SELECT pr.name, pr.min_qty, pr.min_amt, pr.max_qty, pr.max_amt, pr.currency,
+    pr.rate, pr.valid_from, pr.valid_upto
+    FROM `tabPricing Rule` pr, `tabPricing Rule Item Code` pri
+    WHERE pri.parent = pr.name AND pr.apply_on = 'Item Code' AND (pr.applicable_for IS NULL
+    OR pr.applicable_for = '') {cond} ORDER BY pr.valid_upto, pr.min_qty"""
+    pr_dict = frappe.db.sql(query, as_dict=1)
+    if pr_dict:
+        return pr_dict
+    else:
+        return []
+
+
+def get_distinct_attributes(item_dict, field_name):
+    att_dict = frappe.db.sql("""SELECT DISTINCT(iva.attribute) as att_name,
+        ia.short_name as att_sn
+        FROM `tabItem Variant Attribute` iva, `tabItem Attribute` ia
+        WHERE ia.name = iva.attribute AND iva.parent in (%s)
+        ORDER BY iva.idx""" % (', '.join(['%s']*len(item_dict))),
+        tuple([d.get(field_name) for d in item_dict]), as_dict=1)
+    return att_dict
+
+
+
+
 def check_and_copy_attributes_to_variant(template, variant, insert_type=None):
     from frappe.model import no_value_fields
     check = 0
