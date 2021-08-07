@@ -44,25 +44,37 @@ def get_columns(filters, templates):
         ]
     elif filters.get("price_list_type") == "Pricing Rule":
         columns = [
-                _("PR ID") + ":Link/Pricing Rule:80", _("Valid Upto") + ":Date:80",
+                {
+                    "label": _("PR ID"),
+                    "fieldname": "pr_id",
+                    "fieldtype": "Link",
+                    "options": "Pricing Rule",
+                    "width": 80,
+                    "ignore_permissions": True
+                },
                 {
                     "label": _("Valid Upto"),
                     "fieldname": "valid_upto",
-                    "fieldtype": "Link",
-                    "options": "Price List",
-                    "width": 50
+                    "fieldtype": "Date",
+                    "width": 80
                 },
                 {
                     "label": _("MoQ"),
                     "fieldname": "moq",
                     "fieldtype": "Int",
-                    "width": 80
+                    "width": 50
                 },
                 {
                     "label": _("Price"),
                     "fieldname": "price",
                     "fieldtype": "Currency",
                     "width": 70
+                },
+                {
+                    "label": _("Currency"),
+                    "fieldname": "currency",
+                    "fieldtype": "",
+                    "width": 50
                 },
                 {
                     "label": _("Item"),
@@ -267,6 +279,13 @@ def get_conditions(bm, filters):
     conditions_it = ""
     conditions_pl = ""
     cond_pr = ""
+    user_roles = frappe.get_roles(frappe.session.user)
+
+    # Only allow Enabled Prices for Non-System Managers
+    pld = frappe.get_doc("Price List", filters.get("pl"))
+    if pld.enabled == 0 or pld.selling == 0 or pld.disable_so == 1:
+        if "System Manager" and "Administrator" not in user_roles:
+            frappe.throw(f"Price List Selected is Not Allowed for Reporting")
 
     if filters.get("price_list_type") == "Price List":
         if filters.get("pl"):
@@ -293,6 +312,9 @@ def get_conditions(bm, filters):
 
     if filters.get("tt"):
         conditions_it += " AND ToolType.attribute_value = '%s'" % filters.get("tt")
+    else:
+        if "System Manager" and "Administrator" not in user_roles:
+            frappe.throw(f"Please select Tool Type to Proceed")
 
     if filters.get("item"):
         conditions_it += " and it.name = '%s'" % filters.get("item")

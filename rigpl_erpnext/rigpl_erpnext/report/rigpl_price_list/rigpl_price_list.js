@@ -14,6 +14,11 @@ frappe.query_reports["RIGPL Price List"] = {
             "fieldtype": "Link",
             "options": "Price List",
             "default": frappe.defaults.get_default("selling_price_list"),
+            "get_query": function(){ return {'filters': [
+                ['Price List', 'selling','=', 1],
+                ['Price List', 'enabled','=', 1],
+                ['Price List', 'disable_so','=', 0],
+            ]}},
             "reqd": 1
         },
         {
