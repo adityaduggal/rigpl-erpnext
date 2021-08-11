@@ -1,0 +1,29 @@
+{
+ "creation": "2021-08-12 03:17:19.803115",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "allowed_operation"
+ ],
+ "fields": [
+  {
+   "fieldname": "allowed_operation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Allowed Operation",
+   "options": "Operation",
+   "reqd": 1
+  }
+ ],
+ "istable": 1,
+ "modified": "2021-08-12 03:17:19.803115",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Workstation Operation",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

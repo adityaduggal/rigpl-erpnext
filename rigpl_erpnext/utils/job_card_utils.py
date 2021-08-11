@@ -18,7 +18,7 @@ from .other_utils import auto_round_up, auto_round_down
 def get_repeat_jcr():
     st_time = time.time()
     repeat_jc = frappe.db.sql("""SELECT jc.name, jc.operation, jc.sales_order_item, jc.production_item, jc.creation,
-    jc.allow_consumption_of_rm, jc.transfer_entry, jc.process_sheet 
+    jc.allow_consumption_of_rm, jc.transfer_entry, jc.process_sheet
     FROM `tabProcess Job Card RIGPL` jc WHERE jc.docstatus = 0
     ORDER BY jc.production_item, jc.operation, jc.creation""", as_dict=1)
     print(f"Total JCRS to Check = {len(repeat_jc)}")
@@ -137,7 +137,7 @@ def update_job_card_source_warehouse(jc_doc):
     change_needed = 0
     if jc_doc.transfer_entry == 1:
         if not jc_doc.s_warehouse:
-            ps_op = frappe.db.sql("""SELECT name FROM `tabBOM Operation` WHERE parent='%s' 
+            ps_op = frappe.db.sql("""SELECT name FROM `tabBOM Operation` WHERE parent='%s'
             AND parenttype = 'Process Sheet' AND parentfield = 'operations' AND name = '%s'""" %
                                   (jc_doc.process_sheet, jc_doc.operation_id), as_dict=1)
             if ps_op:
@@ -175,9 +175,9 @@ def get_job_card_qty_available(jc_doc):
 
 
 def get_bin(item_code, warehouse):
-    bin_qty_dict = frappe.db.sql("""SELECT name, item_code, warehouse, reserved_qty, actual_qty, ordered_qty, 
-    indented_qty, planned_qty, projected_qty, reserved_qty_for_production, reserved_qty_for_sub_contract, stock_uom, 
-    valuation_rate, stock_value FROM `tabBin` WHERE item_code = '%s' 
+    bin_qty_dict = frappe.db.sql("""SELECT name, item_code, warehouse, reserved_qty, actual_qty, ordered_qty,
+    indented_qty, planned_qty, projected_qty, reserved_qty_for_production, reserved_qty_for_sub_contract, stock_uom,
+    valuation_rate, stock_value FROM `tabBin` WHERE item_code = '%s'
     AND warehouse = '%s'""" % (item_code, warehouse), as_dict=1)
     if bin_qty_dict:
         return bin_qty_dict[0]
@@ -280,9 +280,9 @@ def return_job_card_qty(jcd):
         extra_cond = " AND ps.sales_order_item = '%s'" % jcd.sales_order_item
     query = """SELECT ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
     pso.allow_consumption_of_rm, pso.status, pso.transfer_entry, pso.name AS op_name
-    FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name 
-    AND pso.parenttype = 'Process Sheet' AND pso.completed_qty < pso.planned_qty AND pso.status != "Completed" 
-    AND pso.status NOT IN ("Short Closed", "Stopped", "Obsolete") AND ps.production_item = '%s' 
+    FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name
+    AND pso.parenttype = 'Process Sheet' AND pso.completed_qty < pso.planned_qty AND pso.status != "Completed"
+    AND pso.status NOT IN ("Short Closed", "Stopped", "Obsolete") AND ps.production_item = '%s'
     AND pso.operation = '%s' %s ORDER BY ps.creation""" % (jcd.production_item, jcd.operation, extra_cond)
     ps_sheet = frappe.db.sql(query, as_dict=1)
     for ps in ps_sheet:
@@ -411,8 +411,8 @@ def get_qty_before_process(it_name, jc_doc):
 
 
 def get_open_job_cards_for_item(item_name):
-    jc_dict = frappe.db.sql("""SELECT name, production_item, for_quantity, qty_available, operation, 
-    operation_serial_no, s_warehouse, transfer_entry FROM `tabProcess Job Card RIGPL` WHERE docstatus=0 
+    jc_dict = frappe.db.sql("""SELECT name, production_item, for_quantity, qty_available, operation,
+    operation_serial_no, s_warehouse, transfer_entry FROM `tabProcess Job Card RIGPL` WHERE docstatus=0
     AND production_item = '%s' ORDER BY operation_serial_no DESC""" % item_name, as_dict=1)
     return jc_dict
 
@@ -428,11 +428,11 @@ def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
     """
     it_doc = frappe.get_doc("Item", item_name)
     if it_doc.made_to_order == 1:
-        exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
+        exist_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0
             AND operation = '%s' AND sales_order_item = '%s' AND production_item = '%s'"""
                                  % (operation, so_detail, item_name), as_dict=1)
     else:
-        query = """SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0 
+        query = """SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0
             AND operation = '%s' AND production_item = '%s' """ % (operation, item_name)
         exist_jc = frappe.db.sql(query, as_dict=1)
 
@@ -536,7 +536,12 @@ def check_qty_job_card(jc_doc, row, calculated_qty, qty, uom, bypass=0):
 
 def validate_job_card_time_logs(jc_doc):
     operation_doc = frappe.get_doc("Operation", jc_doc.operation)
-    check_overlap = frappe.get_value("RIGPL Settings", "RIGPL Settings", "check_overlap_for_machines")
+    all_overlap = frappe.get_value("RIGPL Settings", "RIGPL Settings", "check_overlap_for_machines")
+    operation_overlap = operation_doc.check_overlap_for_machines
+    if all_overlap == 1 or operation_overlap == 1:
+        check_overlap = 1
+    else:
+        check_overlap = 0
     update_job_card_posting_date(jc_doc)
     if operation_doc.is_subcontracting == 1:
         validate_sub_contracting_job_cards(jc_doc)
@@ -555,6 +560,10 @@ def validate_job_card_time_logs(jc_doc):
         if jc_doc.get('time_logs'):
             tl_tbl = jc_doc.get('time_logs')
             for i in range(0, len(tl_tbl)):
+                if not tl_tbl[i].from_time:
+                    frappe.throw(f"From Time is Needed in Row# {tl_tbl[i].idx}")
+                if not tl_tbl[i].to_time:
+                    frappe.throw(f"To Time is Needed in Row# {tl_tbl[i].idx}")
                 if i > 0:
                     if get_datetime(tl_tbl[i].from_time) < get_datetime(tl_tbl[i-1].to_time):
                         frappe.throw("Row# {}: From Time Cannot be Less than To Time in Row# {}".
@@ -638,12 +647,12 @@ def get_overlap_for(document, row, check_next_available_slot=False):
     if check_next_available_slot:
         extra_cond = " or (%(from_time)s <= jctl.from_time and %(to_time)s <= jctl.to_time)"
 
-    existing = frappe.db.sql(f"""SELECT jc.name AS name, jctl.to_time FROM `tabJob Card Time Log` jctl, 
-    `tabProcess Job Card RIGPL` jc 
-    WHERE jctl.parent = jc.name AND jctl.parenttype = 'Process Job Card RIGPL' AND ((%(from_time)s > 
-    jctl.from_time and %(from_time)s < jctl.to_time) OR (%(to_time)s > jctl.from_time and %(to_time)s < 
-    jctl.to_time) OR (%(from_time)s <= jctl.from_time AND %(to_time)s >= jctl.to_time) {extra_cond}) 
-    AND jctl.name != %(name)s AND jc.name != %(parent)s and jc.docstatus < 2 {validate_overlap_for} 
+    existing = frappe.db.sql(f"""SELECT jc.name AS name, jctl.to_time FROM `tabJob Card Time Log` jctl,
+    `tabProcess Job Card RIGPL` jc
+    WHERE jctl.parent = jc.name AND jctl.parenttype = 'Process Job Card RIGPL' AND ((%(from_time)s >
+    jctl.from_time and %(from_time)s < jctl.to_time) OR (%(to_time)s > jctl.from_time and %(to_time)s <
+    jctl.to_time) OR (%(from_time)s <= jctl.from_time AND %(to_time)s >= jctl.to_time) {extra_cond})
+    AND jctl.name != %(name)s AND jc.name != %(parent)s and jc.docstatus < 2 {validate_overlap_for}
     ORDER BY jctl.to_time desc limit 1""", {"from_time": row.from_time, "to_time": row.to_time,
                                             "name": row.name or "No Name", "parent": row.parent or "No Name",
                                             "employee": document.employee, "workstation": document.workstation},
@@ -730,7 +739,7 @@ def validate_sub_contracting_job_cards(jc_doc):
 
 
 def check_po_submitted(jc_doc):
-    po_list = frappe.db.sql("""SELECT name FROM `tabPurchase Order Item` 
+    po_list = frappe.db.sql("""SELECT name FROM `tabPurchase Order Item`
     WHERE docstatus=1 AND reference_dt = '%s' AND reference_dn = '%s'""" % (jc_doc.doctype, jc_doc.name), as_dict=1)
     if po_list:
         # Only allow Sub Contracting JC to be submitted after the  PO has been submitted
@@ -740,9 +749,9 @@ def check_po_submitted(jc_doc):
 
 
 def get_last_jc_for_so(so_item):
-    jc_list = frappe.db.sql("""SELECT jc.name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available, 
+    jc_list = frappe.db.sql("""SELECT jc.name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available,
     jc.docstatus, jc.process_sheet, bmop.idx, jc.total_completed_qty
-    FROM `tabProcess Job Card RIGPL` jc, `tabBOM Operation` bmop 
+    FROM `tabProcess Job Card RIGPL` jc, `tabBOM Operation` bmop
     WHERE jc.docstatus < 2 AND bmop.parent = jc.process_sheet AND bmop.operation = jc.operation
     AND jc.sales_order_item = '%s'""" % so_item, as_dict=1)
     jc_list = sorted(jc_list, key=lambda i: i['idx'])
@@ -760,9 +769,9 @@ def get_last_jc_for_so(so_item):
                     # if PO is pending then remarks should show PO# and PO Date else show Process Completed
                     op_doc = frappe.get_doc("Operation", jc_list[i].operation)
                     if op_doc.is_subcontracting == 1:
-                        po_details = frappe.db.sql("""SELECT po.name, po.transaction_date, poi.stock_qty, 
-                        poi.received_qty FROM `tabPurchase Order` po, `tabPurchase Order Item` poi 
-                        WHERE po.docstatus = 1 AND poi.parent = po.name AND poi.reference_dt = 'Process Job Card RIGPL' 
+                        po_details = frappe.db.sql("""SELECT po.name, po.transaction_date, poi.stock_qty,
+                        poi.received_qty FROM `tabPurchase Order` po, `tabPurchase Order Item` poi
+                        WHERE po.docstatus = 1 AND poi.parent = po.name AND poi.reference_dt = 'Process Job Card RIGPL'
                         AND poi.reference_dn = '%s'""" % jc_list[i].name, as_dict=1)
                         if po_details:
                             for po in po_details:
@@ -801,7 +810,7 @@ def get_made_to_stock_qty(jc_doc):
                 completed_qty = 0
                 if jc_doc.s_warehouse:
                     # If Source WH is there then check IN - OUT Qty, IN Qty is also from GRN for Sub-Contracting.
-                    query = """SELECT SUM(total_completed_qty)  as in_qty FROM `tab%s` WHERE status = "Completed" 
+                    query = """SELECT SUM(total_completed_qty)  as in_qty FROM `tab%s` WHERE status = "Completed"
                     AND t_warehouse = '%s' AND docstatus = 1 AND sales_order_item='%s'""" %\
                             (jc_doc.doctype, jc_doc.s_warehouse, jc_doc.sales_order_item)
                     in_qty = frappe.db.sql(query, as_dict=1)
@@ -834,13 +843,13 @@ def get_grn_qty(jc_doc):
             oth_doc = frappe.get_doc(jc_doc.doctype, oth_jc.name)
             op_doc = frappe.get_doc("Operation", oth_doc.operation)
             if op_doc.is_subcontracting == 1:
-                po = frappe.db.sql("""SELECT po.name as po, poi.name FROM `tabPurchase Order` po, 
+                po = frappe.db.sql("""SELECT po.name as po, poi.name FROM `tabPurchase Order` po,
                 `tabPurchase Order Item` poi WHERE po.docstatus=1 AND poi.parent = po.name ANd poi.reference_dn = '%s'
                 AND poi.reference_dt = '%s'""" % (oth_jc.name, jc_doc.doctype), as_dict=1)
                 if po:
                     # Check if GRN is submitted for this PO
-                    grn_list = frappe.db.sql("""SELECT pri.qty, pri.warehouse FROM `tabPurchase Receipt` pr, 
-                    `tabPurchase Receipt Item` pri WHERE pri.parent = pr.name AND pr.docstatus = 1 
+                    grn_list = frappe.db.sql("""SELECT pri.qty, pri.warehouse FROM `tabPurchase Receipt` pr,
+                    `tabPurchase Receipt Item` pri WHERE pri.parent = pr.name AND pr.docstatus = 1
                     AND pri.purchase_order_item = '%s'""" % po[0].name, as_dict=1)
                     if grn_list:
                         for grn in grn_list:
@@ -889,7 +898,7 @@ def cancel_delete_ste(jc_doc):
 
 def delete_job_card(pro_sheet_doc):
     for row in pro_sheet_doc.operations:
-        pro_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus < 1 AND operation_id 
+        pro_jc = frappe.db.sql("""SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus < 1 AND operation_id
         = '%s'""" % row.name, as_dict=1)
         if pro_jc:
             frappe.delete_doc('Process Job Card RIGPL', pro_jc[0].name, for_reload=True)

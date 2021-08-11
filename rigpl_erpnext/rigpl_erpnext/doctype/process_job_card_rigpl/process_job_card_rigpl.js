@@ -17,6 +17,14 @@ frappe.ui.form.on('Process Job Card RIGPL', {
 				]
 			};
 		});
+		frm.set_query("workstation", function(doc) {
+			return {
+                query: 'rigpl_erpnext.rigpl_erpnext.validations.workstation.get_workstation_for_operation',
+                filters: {
+                    operation: doc.operation
+                }
+			};
+		});
 	},
 	refresh: function(frm, dt, dn){
 	    frm.set_query("salvage_warehouse", "time_logs", function(doc){
