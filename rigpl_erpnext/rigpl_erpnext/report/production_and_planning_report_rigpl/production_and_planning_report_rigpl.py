@@ -56,10 +56,17 @@ def get_columns(filters):
             "Cost Per Pc:Currency:100", "JC#:Link/Process Job Card RIGPL:100", "Description::300"
         ]
     elif filters.get("mach_eff") == 1:
-        return [
-            "Total Days:Int:80", "Total Hours:Int:100", "Workstation:Link/Workstation:150",
-            "Hours Worked:Int:100", "Efficiency:Percent:100"
-        ]
+        if filters.get("mach_eff_type") == "Total":
+            return [
+                "Workstation:Link/Workstation:150", "Total Days:Int:80", "Total Hours:Int:100",
+                "Hours Worked:Float:100", "Efficiency:Percent:100", "Disabled:Int:50"
+            ]
+        else:
+            return [
+                "Workstation:Link/Workstation:150", "Date:Date:80",
+                "Total Hours:Int:100", "Hours Worked:Float:100", "Efficiency:Percent:100",
+                "Disabled:Int:50"
+            ]
     else:
         frappe.throw("Select one of the Check Boxes.")
 
@@ -164,16 +171,38 @@ def get_data(filters):
         if days < 1:
             frappe.throw(f"Difference Between From and To Date should be Minimum 1 \
                 days for Machine Efficiency")
-        query = f"""SELECT SUM(jc.total_time_in_mins) as tot_mins, jc.workstation
-        FROM `tabProcess Job Card RIGPL` jc, `tabJob Card Time Log` tlog
-        WHERE jc.docstatus = 1 AND tlog.parent = jc.name AND tlog.from_time IS NOT NULL {cond_jc}
-        GROUP BY jc.workstation ORDER BY jc.workstation"""
+        if filters.get("mach_eff_type") == "Total":
+            group_by = ""
+        else:
+            group_by = ", jc.posting_date"
+        machines = frappe.db.sql("""SELECT name, disabled FROM `tabWorkstation`""", as_dict=1)
+        query = f"""SELECT jc.workstation, SUM(jc.total_time_in_mins) as tot_mins, jc.posting_date
+        FROM `tabProcess Job Card RIGPL` jc, `tabJob Card Time Log` tlog, `tabWorkstation` ws
+        WHERE ws.name = jc.workstation AND jc.docstatus = 1 AND tlog.parent = jc.name
+        AND tlog.from_time IS NOT NULL {cond_jc}
+        GROUP BY jc.workstation {group_by} ORDER BY jc.workstation"""
         dt = frappe.db.sql(query, as_dict=1)
-        for d in dt:
-            worked_hrs = int(d.tot_mins/60)
-            eff = worked_hrs/tot_hrs * 100
-            row = [days, tot_hrs, d.workstation, worked_hrs, eff]
-            data.append(row)
+        # frappe.throw(str(dt))
+        for mc in machines:
+            mc_found = 0
+            for d in dt:
+                if d.workstation == mc.name:
+                    worked_hrs = d.tot_mins/60
+                    eff = worked_hrs/tot_hrs * 100
+                    if group_by == "":
+                        row = [d.workstation, days, tot_hrs, worked_hrs, eff, mc.disabled]
+                    else:
+                        row = [d.workstation, d.posting_date, 24, worked_hrs, worked_hrs/24*100, mc.disabled]
+                    data.append(row)
+                    mc_found = 1
+                    if group_by == "":
+                        break
+            if mc_found != 1:
+                if group_by == "":
+                    row = [mc.name, days, tot_hrs, 0, 0, mc.disabled]
+                else:
+                    row = [mc.name, filters.get("to_date"), 24, 0, 0, mc.disabled]
+                data.append(row)
     else:
         frappe.throw("Select one of the Check Boxes.")
     return data
@@ -234,12 +263,16 @@ def get_conditions(filters):
             filters.get("op_time_analysis") == 1 or filters.get("mach_eff") == 1):
         cond_jc += " AND jc.posting_date <= '%s'" % filters.get("to_date")
 
+    if filters.get("mach_eff"):
+        if not filters.get("mach_eff_type"):
+            frappe.throw("For Machine Efficiency Select Total or Daily in Type of Report")
+
     if not filters.get("summary"):
         if filters.get("sales_order") and filters.get("summary") != 1:
             cond_jc += " AND jc.sales_order = '%s'" % filters.get("sales_order")
         if filters.get("jc_status") and not filters.get("op_time_analysis") and not filters.get("mach_eff"):
             cond_jc += " AND jc.status = '%s'" % filters.get("jc_status")
-        if filters.get("operation"):
+        if filters.get("operation") and not filters.get("mach_eff"):
             cond_jc += " AND jc.operation = '%s'" % filters.get("operation")
         if filters.get("bm"):
             cond_it += " AND bm.attribute_value = '%s'" % filters.get("bm")

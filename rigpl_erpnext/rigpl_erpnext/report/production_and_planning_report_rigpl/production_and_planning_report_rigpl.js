@@ -76,6 +76,13 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			    "create_bulk_process_sheet.get_so_pending_for_process_sheet"}}
 		},
 		{
+			"fieldname":"mach_eff_type",
+			"label": "Efficiency Type",
+			"fieldtype": "Select",
+			"options": "\nDaily\nTotal",
+			"default": "Total"
+		},
+		{
 			"fieldname":"summary",
 			"label": "Post Production Summary",
 			"fieldtype": "Check",
