@@ -541,7 +541,7 @@ def validate_job_card_time_logs(jc_doc):
     operation_doc = frappe.get_doc("Operation", jc_doc.operation)
     all_overlap = frappe.get_value("RIGPL Settings", "RIGPL Settings", "check_overlap_for_machines")
     operation_overlap = operation_doc.check_overlap_for_machines
-    if all_overlap == 1 or operation_overlap == 1:
+    if (all_overlap == 1 or operation_overlap == 1) and jc_doc.bypass_time_logs != 1:
         check_overlap = 1
     else:
         check_overlap = 0
