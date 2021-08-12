@@ -535,6 +535,9 @@ def check_qty_job_card(jc_doc, row, calculated_qty, qty, uom, bypass=0):
 
 
 def validate_job_card_time_logs(jc_doc):
+    calculate_time_logs(jc_doc)
+    if jc_doc.total_time_in_mins < 0:
+        frappe.throw(f"Time Taken Cannot be Negative")
     operation_doc = frappe.get_doc("Operation", jc_doc.operation)
     all_overlap = frappe.get_value("RIGPL Settings", "RIGPL Settings", "check_overlap_for_machines")
     operation_overlap = operation_doc.check_overlap_for_machines
@@ -599,6 +602,20 @@ def validate_job_card_time_logs(jc_doc):
     else:
         return
 
+
+def calculate_time_logs(jc_doc):
+    tot_mins = 0
+    for d in jc_doc.time_logs:
+        if d.from_time or d.to_time:
+            if not d.to_time or not d.from_time:
+                frappe.throw(f"For Row# {d.idx} From or To Time is Needed")
+            else:
+                if d.to_time < d.from_time:
+                    frappe.throw(f"For Row# {d.idx} To Time Cannot be Less than From Time")
+                else:
+                    d.time_in_mins = int((get_datetime(d.to_time) - get_datetime(d.from_time)).seconds / 60)
+                    tot_mins += d.time_in_mins
+    d.total_time_in_mins = tot_mins
 
 def validate_job_card_quantities(jc_doc):
     total_comp_qty = 0
