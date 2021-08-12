@@ -110,6 +110,12 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"label": "SO wise Summary",
 			"fieldtype": "Check",
 			"default": 0
+		},
+		{
+			"fieldname":"op_time_analysis",
+			"label": "Operation Time Analysis",
+			"fieldtype": "Check",
+			"default": 0
 		}
 	]
 };
