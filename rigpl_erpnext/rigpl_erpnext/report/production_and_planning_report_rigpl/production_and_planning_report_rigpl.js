@@ -43,15 +43,6 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_bm_query"}}
 		},
 		{
-			"fieldname":"quality",
-			"label": "Quality",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"reqd": 0,
-			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_quality_query"}}
-		},
-		{
 			"fieldname":"tt",
 			"label": "Tool Type",
 			"fieldtype": "Link",
@@ -59,15 +50,6 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"reqd": 0,
 			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_tt_query"}}
-		},
-		{
-			"fieldname":"spl",
-			"label": "Special Treatment",
-			"fieldtype": "Link",
-			"options": "Item Attribute Value",
-			"reqd": 0,
-			"ignore_link_validation": true,
-			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_spl_query"}}
 		},
 		{
 			"fieldname":"series",
@@ -114,6 +96,12 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 		{
 			"fieldname":"op_time_analysis",
 			"label": "Operation Time Analysis",
+			"fieldtype": "Check",
+			"default": 0
+		},
+		{
+			"fieldname":"mach_eff",
+			"label": "Machine Efficiency",
 			"fieldtype": "Check",
 			"default": 0
 		}
