@@ -615,7 +615,7 @@ def calculate_time_logs(jc_doc):
                 else:
                     d.time_in_mins = int((get_datetime(d.to_time) - get_datetime(d.from_time)).seconds / 60)
                     tot_mins += d.time_in_mins
-    d.total_time_in_mins = tot_mins
+    jc_doc.total_time_in_mins = tot_mins
 
 def validate_job_card_quantities(jc_doc):
     total_comp_qty = 0

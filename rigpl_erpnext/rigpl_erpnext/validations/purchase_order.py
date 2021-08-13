@@ -43,7 +43,6 @@ def on_update(doc, method):
 def validate_job_card_linking(po_doc, submit=0):
     for d in po_doc.items:
         if d.reference_dt == 'Process Job Card RIGPL':
-            frappe.msgprint(f"For Row# {d.idx} We have JCR= {d.reference_dn}")
             jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
             if jc_doc.docstatus == 0:
                 it_doc = frappe.get_doc("Item", d.subcontracted_item)
