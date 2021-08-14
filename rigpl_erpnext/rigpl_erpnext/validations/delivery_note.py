@@ -90,17 +90,22 @@ def make_ste_for_reconciled_items(doc):
     remarks = f"Stock Entry Due to Cancellation of DN# {doc.name} with Posting Date {doc.posting_date} on {dt.now()}"
     ste_row = frappe._dict({})
     for d in doc.items:
-        sr = frappe.db.sql("""SELECT name, voucher_no FROM `tabStock Ledger Entry`
-            WHERE item_code = '%s' AND CONCAT(posting_date, ' ', posting_time) > '%s'""" % (d.item_code, dn_dt_time), as_dict=1)
-        if sr:
-            remarks += f"\nFor Row# {d.idx} and Item: {d.item_code} there was SR: {sr[0].voucher_no}"
-            ste_row["item_code"] = d.item_code
-            ste_row["t_warehouse"] = d.warehouse
-            ste_row["qty"] = d.qty
-            ste_row["uom"] = d.uom
-            ste_row["stock_uom"] = d.stock_uom
-            ste_row["conversion_factor"] = d.conversion_factor
-            ste_list.append(ste_row.copy())
+        itd = frappe.get_doc("Item", d.item_code)
+        if itd.is_stock_item == 1 and itd.made_to_order != 1:
+            sr = frappe.db.sql(f"""SELECT name, voucher_no FROM `tabStock Ledger Entry`
+                WHERE item_code = '{d.item_code}' AND CONCAT(posting_date, ' ', posting_time) >
+                '{dn_dt_time}' AND warehouse = '{d.warehouse}'
+                AND voucher_type = 'Stock Reconciliation'""", as_dict=1)
+            if sr:
+                remarks += f"\nFor Row# {d.idx} and Item: {d.item_code} there was "
+                f"Stock Reconciliation: {sr[0].voucher_no}"
+                ste_row["item_code"] = d.item_code
+                ste_row["t_warehouse"] = d.warehouse
+                ste_row["qty"] = d.qty
+                ste_row["uom"] = d.uom
+                ste_row["stock_uom"] = d.stock_uom
+                ste_row["conversion_factor"] = d.conversion_factor
+                ste_list.append(ste_row.copy())
     if ste_list:
         ste_account = frappe.db.get_value("Company", doc.company, "stock_adjustment_account")
         new_ste = frappe.get_doc({
