@@ -32,8 +32,9 @@ def execute():
         if commit_chk %100 == 0:
             frappe.db.commit()
     tot_time = int(time() - st_time)
+    print(f"Total Time Taken for Doc Share = {tot_time} seconds")
     files_sharing()
-    print(f"Total Time Taken {tot_time} seconds")
+    print(f"Total Time Taken for all processes = {int(time.time() - st_time)} seconds")
 
 
 def files_sharing():
