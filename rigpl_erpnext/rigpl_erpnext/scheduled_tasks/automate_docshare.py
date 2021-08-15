@@ -32,7 +32,7 @@ def execute():
         if commit_chk %100 == 0:
             frappe.db.commit()
     tot_time = int(time() - st_time)
-    file_sharing()
+    files_sharing()
     print(f"Total Time Taken {tot_time} seconds")
 
 
