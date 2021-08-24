@@ -10,6 +10,7 @@ from rigpl_erpnext.utils.sales_utils import *
 from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
 from rigpl_erpnext.utils.stock_utils import make_sales_job_work_ste, cancel_delete_ste_from_name
+from rigpl_erpnext.utils.accounts_receivable_utils import check_overdue_receivables
 from rigpl_erpnext.utils.process_sheet_utils import create_ps_from_so_item
 
 
@@ -85,6 +86,9 @@ def update_fields(doc):
 
 
 def on_submit(so, method):
+    cust_doc = frappe.get_doc("Customer", so.customer)
+    if so.bypass_credit_check != 1:
+        check_overdue_receivables(cust_doc)
     make_sales_job_work_ste(so_no=so.name)
     makes_process_sheet_if_needed(so)
     so.submitted_by = so.modified_by

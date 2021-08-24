@@ -3,12 +3,13 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe, time, datetime
+import frappe
+import time
+import datetime
 from frappe.utils import add_days, flt
-from ...utils.accounts_receivable_utils import get_average_payment_days, get_total_invoices_and_amount, \
-    get_customer_pmt_factor
+from ...utils.accounts_receivable_utils import get_average_payment_days, get_customer_pmt_factor
 from ...utils.sales_utils import get_total_sales_orders, get_first_order, get_customer_rating_factor, \
-    get_customer_rating_from_pts, get_total_company_sales
+    get_customer_rating_from_pts, get_total_company_sales, get_total_invoices_and_amount
 from frappe.utils.background_jobs import enqueue
 
 

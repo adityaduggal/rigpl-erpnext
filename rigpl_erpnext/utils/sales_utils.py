@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 import re
 import frappe
 import datetime
-from .accounts_receivable_utils import get_total_invoices_and_amount
 from .other_utils import get_base_doc, auto_round_up
 from frappe.utils import flt, today, add_months
 from rohit_common.utils.rohit_common_utils import replace_java_chars
@@ -517,6 +516,13 @@ def check_get_pl_rate(document, row_dict):
     else:
         frappe.msgprint("In {}# {} at Row# {} and Item Code: {} Price List Rate is Not Defined".format(
             document.doctype, document.name, row_dict.idx, row_dict.item_code))
+
+
+def get_total_invoices_and_amount(customer, from_date, to_date):
+    invoices = frappe.db.sql("""SELECT SUM(base_net_total) AS total_net_amt, COUNT(name) AS invoices
+    FROM `tabSales Invoice` WHERE docstatus = 1 AND base_net_total > 0 AND customer = '%s' AND posting_date >= '%s'
+    AND posting_date <= '%s'""" % (customer, from_date, to_date), as_dict=1)
+    return invoices
 
 
 def check_gst_rules(doc, bill_add_name, taxes_name):
