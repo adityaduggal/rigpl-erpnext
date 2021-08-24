@@ -3,28 +3,29 @@ from __future__ import unicode_literals
 from rigpl_erpnext.utils.rigpl_perm import *
 import frappe.permissions
 import re
+from ...utils.sales_utils import compare_cust_pmt_terms
 
 
 def on_update(doc, method):
     allowed_ids = []
     # Check if Customer Login ID is not Repeated
     if doc.customer_login_id:
-        other_login_id = frappe.db.sql("""SELECT name FROM `tabCustomer` WHERE customer_login_id = '%s' 
+        other_login_id = frappe.db.sql("""SELECT name FROM `tabCustomer` WHERE customer_login_id = '%s'
         AND name != '%s'""" % (doc.customer_login_id, doc.name), as_list=1)
         if other_login_id:
             frappe.throw("Customer {0} already linked to User ID {1}".format(other_login_id[0][0],
                                                                              doc.customer_login_id))
     # Check for From Lead field and don't allow duplication.
     if doc.lead_name:
-        other_lead = frappe.db.sql("""SELECT name FROM `tabCustomer` WHERE lead_name = '%s' 
+        other_lead = frappe.db.sql("""SELECT name FROM `tabCustomer` WHERE lead_name = '%s'
         AND name != '%s' """ % (doc.lead_name, doc.name), as_list=1)
         if other_lead:
             frappe.throw("Lead {0} already linked to Customer {1}".format(doc.lead_name, other_lead[0][0]))
         else:
             # Check all previous quotations and Opportunity on Lead and add the name of Customer
-            quote = frappe.db.sql("""SELECT name FROM `tabQuotation` WHERE lead = '%s' 
+            quote = frappe.db.sql("""SELECT name FROM `tabQuotation` WHERE lead = '%s'
             AND (customer IS NULL OR customer = '')""" % (doc.lead_name), as_list=1)
-            opp = frappe.db.sql("""SELECT name FROM `tabOpportunity` WHERE lead = '%s' 
+            opp = frappe.db.sql("""SELECT name FROM `tabOpportunity` WHERE lead = '%s'
             AND (customer IS NULL OR customer = '')""" % (doc.lead_name), as_list=1)
             if quote:
                 for i in quote:
@@ -34,9 +35,9 @@ def on_update(doc, method):
                     frappe.db.set_value("Opportunity", i[0], "customer", doc.name)
     else:
         # Check if any Quote or Opportunity is linked to Customer with Lead and if so Remove it.
-        quote = frappe.db.sql("""SELECT name FROM `tabQuotation` WHERE customer = '%s' 
+        quote = frappe.db.sql("""SELECT name FROM `tabQuotation` WHERE customer = '%s'
         AND (lead IS NOT NULL OR lead = '')""" % (doc.name), as_list=1)
-        opp = frappe.db.sql("""SELECT name FROM `tabOpportunity` WHERE customer = '%s' 
+        opp = frappe.db.sql("""SELECT name FROM `tabOpportunity` WHERE customer = '%s'
         AND (lead IS NOT NULL OR lead = '')""" % (doc.name), as_list=1)
         if quote:
             for i in quote:
@@ -97,6 +98,7 @@ def on_update(doc, method):
 
 
 def validate(doc, method):
+    compare_cust_pmt_terms(doc)
     new_name, entered_name = check_customer_id(doc, method)
     if doc.get('__islocal'):
         if new_name != doc.name:

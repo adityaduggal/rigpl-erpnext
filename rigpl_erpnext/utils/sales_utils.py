@@ -5,8 +5,9 @@ from __future__ import unicode_literals
 import re
 import frappe
 import datetime
+from .accounts_receivable_utils import get_total_invoices_and_amount
 from .other_utils import get_base_doc, auto_round_up
-from frappe.utils import flt
+from frappe.utils import flt, today, add_months
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
@@ -170,6 +171,48 @@ def get_first_order(customer, amt=0):
     first_order = frappe.db.sql("""SELECT transaction_date as date FROM `tabSales Order` WHERE docstatus = 1
     AND customer = '%s' AND base_net_total > %s ORDER BY transaction_date LIMIT 1""" % (customer, amt), as_dict=1)
     return first_order
+
+
+def compare_cust_pmt_terms(custd, enforce=0):
+    cust_rating = get_customer_sales_rating(custd.name)
+    if not custd.payment_terms:
+        if cust_rating > 0:
+            frappe.throw(f"Payment Terms are Mandatory for "
+                f"{frappe.get_desk_link('Customer', custd.name)}")
+        else:
+            def_pmt = frappe.get_value("RIGPL Settings", "RIGPL Settings", "default_payment_terms")
+            custd.payment_terms = def_pmt
+
+    else:
+        ptd = frappe.get_doc("Payment Terms Template", custd.payment_terms)
+        if ptd.minimum_sales_rating > cust_rating:
+            msg = f"For {frappe.get_desk_link('Customer', custd.name)}: Payment Terms Selected \
+            is {custd.payment_terms} which needs Min Sales Rating of {ptd.minimum_sales_rating}<br>\
+            But Customer has a Sales Rating of Only {cust_rating}. <br>\
+            Consider Changing the Payment Terms to a More Appropriate one Based on \
+            Customer Sales Rating"
+            frappe.msgprint(msg, raise_exception=enforce)
+
+
+def get_customer_sales_rating(cust_name):
+    sales_rating = 0
+    annual_base = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_annual_sales"))
+    period = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "years_to_consider"))
+    if period == 0:
+        period = 2
+    to_date = today()
+    from_date = add_months(to_date, months=12*period*(-1))
+    if annual_base == 0:
+        annual_base = 100000
+
+    invoices = get_total_invoices_and_amount(cust_name, from_date, to_date)
+    if invoices:
+        tot_sales = flt(invoices[0]["total_net_amt"])
+    else:
+        tot_sales = 0
+
+    sales_rating = min(int(tot_sales/annual_base/period*100), 100)
+    return sales_rating
 
 
 def get_customer_rating_factor(customer_dict, base_years=5):
