@@ -18,7 +18,7 @@ def get_columns(filters):
             "Payment Terms:Link/Payment Terms Template:100", "Avg Credit as per Terms:Int:60",
             "Pmt SF Requirement:Int:60",
             "Avg Pmt Days:Int:50", "Diff:Int:60", "PF:Int:50", "AF:Int:50",
-            "SF:Int:50", "Period:Int:50", "Since:Int:50",
+            "SF:Int:50", "SF Diff:Int:50", "Period:Int:50", "Since:Int:50",
             "Total SO:Currency:100", "# SO:Int:80", "Total Sales:Currency:100",
             "# SI:Int:50", "Total Rating:Int:100", "# Monthly Orders:Int:50",
             "Calculated Rating:Int:80", "Actual Rating:Int:80", "Difference:Int:80"
@@ -57,7 +57,8 @@ def get_data(filters):
         row = [
             cu.name, cu.territory, cu.customer_group, pmt_terms, pmt_days, sales_rating,
             cu.avg_pmt_days, (pmt_days - cu.avg_pmt_days), cu.pmt_factor, cu.age_factor,
-            cu.sales_factor, cu.period, cu.days_since, cu.total_orders, cu.total_so, cu.total_sales,
+            cu.sales_factor, (cu.sales_factor - sales_rating), cu.period, cu.days_since,
+            cu.total_orders, cu.total_so, cu.total_sales,
             cu.total_invoices, cu.total_rating, cu.avg_monthly_orders, cu.customer_rating,
             cust_doc.customer_rating, (cu.customer_rating - cust_doc.customer_rating)
         ]
