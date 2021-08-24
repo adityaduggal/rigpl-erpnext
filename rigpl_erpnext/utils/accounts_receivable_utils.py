@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2020, Rohit Industries Group Pvt. Ltd. and contributors
+# Copyright (c) 2021, Rohit Industries Group Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
@@ -44,6 +44,9 @@ def check_overdue_receivables(cu_doc):
 
 
 def get_pmt_doc_for_customer(cust_doc):
+    """
+    Returns default payment template or customer's payment template
+    """
     if cust_doc.payment_terms:
         pmt_doc = frappe.get_doc("Payment Terms Template", cust_doc.payment_terms)
     else:
@@ -53,15 +56,24 @@ def get_pmt_doc_for_customer(cust_doc):
 
 
 def get_max_credit_days(cust_doc, is_cc=0):
+    """
+    Returns Max Credit Days based on whether the user is Credit Controller.
+    If user is not Credit Controller but Customer Sales Rating is higher than Tempelate Rating
+    Then it adds the Leeway Period based on multiplying factor
+    """
     cust_rat = get_customer_sales_rating(cust_doc.name)
     pmt_doc = get_pmt_doc_for_customer(cust_doc)
+    if pmt_doc.minimum_sales_rating > 0:
+        rating_mf = cust_rat / pmt_doc.minimum_sales_rating
+    else:
+        rating_mf = 1
     if cust_rat > pmt_doc.minimum_sales_rating:
         # Max Days would be Av Credit + Leeway * Cust Rat/Min Rat
-        max_days = int(pmt_doc.average_credit_days + pmt_doc.leeway_days * (cust_rat/pmt_doc.minimum_sales_rating))
+        max_days = int(pmt_doc.average_credit_days + pmt_doc.leeway_days * rating_mf)
     else:
         # If credit controller = 1 then max_days= credit+leeway else only credit days
         if is_cc == 1:
-            max_days = int(pmt_doc.average_credit_days + pmt_doc.leeway_days * (cust_rat/pmt_doc.minimum_sales_rating))
+            max_days = int(pmt_doc.average_credit_days + pmt_doc.leeway_days * rating_mf)
         else:
             max_days = int(pmt_doc.average_credit_days)
     return max_days
@@ -69,6 +81,9 @@ def get_max_credit_days(cust_doc, is_cc=0):
 
 
 def get_credit_controller():
+    """
+    Returns Boolean if User is Credit Controller or Not
+    """
     user_roles = frappe.get_roles(frappe.session.user)
     credit_controller = frappe.get_value("Accounts Settings", "Accounts Settings",
         "credit_controller")
@@ -81,6 +96,9 @@ def get_credit_controller():
 
 
 def get_overdue_si(cust_name):
+    """
+    Returns the dictionary of Sales Invoices which are having an Outstanding Amount for a Customer
+    """
     cur_prec = flt(frappe.get_value("System Settings", "System Settings", "currency_precision"))
     out_amt = 1/pow(10, cur_prec)
     si_dict = frappe.db.sql("""SELECT name, posting_date, outstanding_amount,
@@ -92,20 +110,24 @@ def get_overdue_si(cust_name):
 
 
 def get_average_payment_days(customer, from_date, to_date):
-    invoice_list = frappe.db.sql("""SELECT customer, name, base_net_total as net_amt, base_grand_total as grand_total,
-    posting_date, due_date FROM `tabSales Invoice` WHERE docstatus = 1 AND base_grand_total > 0 AND customer = '%s'
-    AND is_pos = 0 AND posting_date >= '%s' AND posting_date <= '%s'""" % (customer, from_date, to_date), as_dict=1)
+    """
+    Returns the Average Payment Days for a Customer within a Period
+    """
+    invoice_list = frappe.db.sql("""SELECT customer, name, base_net_total as net_amt,
+        base_grand_total as grand_total, posting_date, due_date FROM `tabSales Invoice`
+        WHERE docstatus = 1 AND base_grand_total > 0 AND customer = '%s' AND is_pos = 0
+        AND posting_date >= '%s' AND posting_date <= '%s'""" % (customer,
+            from_date, to_date), as_dict=1)
     if invoice_list:
-        entries = frappe.db.sql("""SELECT voucher_type, voucher_no, party_type, party, posting_date, debit, credit,
-        remarks, against_voucher FROM `tabGL Entry` WHERE party_type="Customer" AND voucher_type in
-        ('Journal Entry', 'Payment Entry') AND party = '%s' """ % customer, as_dict=1)
+        entries = frappe.db.sql("""SELECT voucher_type, voucher_no, party_type, party,
+            posting_date, debit, credit, remarks, against_voucher
+            FROM `tabGL Entry` WHERE party_type="Customer" AND voucher_type in ('Journal Entry',
+            'Payment Entry') AND party = '%s' """ % customer, as_dict=1)
         for inv in invoice_list:
             inv["total_pmt_days"] = 0
             inv["paid_amt"] = 0
             for d in entries:
                 # Average days formula = p1 * d1 + p2 * d2 ... / total_amt
-                average_days = 0
-                total_days = 0
                 if d.against_voucher == inv.name:
                     if d.reference_type == "Purchase Invoice":
                         payment_amount = flt(d.debit) or -1 * flt(d.credit)
@@ -114,7 +136,6 @@ def get_average_payment_days(customer, from_date, to_date):
                     payment_days = (d.posting_date - inv.posting_date).days
                     inv["total_pmt_days"] += payment_days * payment_amount
                     inv["paid_amt"] += payment_amount
-    if invoice_list:
         avg_days_invoice = get_average_from_all_invoices(invoice_list)
         return avg_days_invoice.avg_days
     else:
@@ -122,8 +143,11 @@ def get_average_payment_days(customer, from_date, to_date):
 
 
 def get_average_from_all_invoices(invoice_list):
+    """
+    Returns the Average days for payment for invoice list which is a list of invoice dictionary
+    """
     avg_days = frappe._dict()
-    payment_days, total_pmt_days, total_invoice_amt, total_paid = 0,0,0,0
+    total_pmt_days, total_invoice_amt, total_paid = 0,0,0
     total_unpaid, total_unpaid_days = 0,0
     for inv in invoice_list:
         avg_days["customer"] = inv.customer
@@ -140,6 +164,10 @@ def get_average_from_all_invoices(invoice_list):
 
 
 def get_customer_pmt_factor(customer_dict):
+    """
+    Calculates the Payment Factor for Customer Dict wit key avg_pmt_days to show average payment
+    days for a customer
+    """
     avg_pmt_days = customer_dict["avg_pmt_days"]
     if avg_pmt_days < 15:
         pmt_factor = 10
