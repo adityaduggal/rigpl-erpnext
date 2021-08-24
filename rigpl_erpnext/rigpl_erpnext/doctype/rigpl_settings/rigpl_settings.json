@@ -18,6 +18,7 @@
   "rol_qty_percentages",
   "cb1",
   "auto_process_sheet_value",
+  "rol_calculation",
   "minimum_rol_value",
   "max_rol_fluctuation",
   "base_rol_multiplier",
@@ -28,6 +29,7 @@
   "minimum_first_order",
   "minimum_orders_per_month",
   "rating_divisor",
+  "default_payment_terms",
   "cb2",
   "base_annual_sales",
   "sales_weightage",
@@ -191,10 +193,24 @@
    "fieldname": "max_value_over_max_qty_allowed",
    "fieldtype": "Int",
    "label": "Max Value Over Max Qty Allowed"
+  },
+  {
+   "description": "Enter Numbers separated by comma only",
+   "fieldname": "rol_calculation",
+   "fieldtype": "Data",
+   "label": "ROL Calculation"
+  },
+  {
+   "fieldname": "default_payment_terms",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default Payment Terms for Zero Sales Rating",
+   "options": "Payment Terms Template",
+   "reqd": 1
   }
  ],
  "issingle": 1,
- "modified": "2021-03-09 19:58:38.239391",
+ "modified": "2021-08-24 07:44:29.523530",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
