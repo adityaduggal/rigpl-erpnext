@@ -42,7 +42,7 @@ def dtdc_get_available_services(ctrack, cod=0):
     if all_service == 1:
         message = ""
         for d in pin_resp:
-            message += "PIN Code: " + d.get("PIN") +  " Type of Services: " + d.get("PARTIALSERV_AREA_AND_CITY") + "\n"
+            message += "PIN Code: " + d.get("PIN") + " Type of Services: " + d.get("PARTIALSERV_AREA_AND_CITY") + "\n"
         frappe.msgprint(message)
     else:
         frappe.throw("No Service Available between PIN Codes {} and {}".format(frm_pincode, to_pincode))
@@ -198,7 +198,7 @@ def dtdc_update_tracking(doc, json_data):
                 try:
                     pickup_date_time = datetime.strptime(pdt, fmt)
                 except:
-                    print("Error in Format for Pickup Date")
+                    print(f"Error in Format for Pickup Date {pdt} and {fmt}")
         if header.get("strExpectedDeliveryDate") != "":
             exp_delivery_date = datetime.strptime(header.get("strExpectedDeliveryDate"), "%d%m%Y")
         else:
@@ -236,7 +236,7 @@ def dtdc_update_tracking(doc, json_data):
 def dtdc_get_track_json(track_doc, token):
     json_data = {}
     header = {}
-    json_data["trkType"] = "cnno" #cnno or reference
+    json_data["trkType"] = "cnno"  # cnno or reference
     json_data["strcnno"] = track_doc.awb_number
     json_data["addtnlDtl"] = "Y"
     header["X-Access-Token"] = token
