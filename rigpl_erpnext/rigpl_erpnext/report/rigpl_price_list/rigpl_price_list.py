@@ -284,7 +284,7 @@ def get_conditions(bm, filters):
     # Only allow Enabled Prices for Non-System Managers
     pld = frappe.get_doc("Price List", filters.get("pl"))
     if pld.enabled == 0 or pld.selling == 0 or pld.disable_so == 1:
-        if "System Manager" and "Administrator" not in user_roles:
+        if "System Manager" not in user_roles:
             frappe.throw(f"Price List Selected is Not Allowed for Reporting")
 
     if filters.get("price_list_type") == "Price List":
@@ -313,7 +313,7 @@ def get_conditions(bm, filters):
     if filters.get("tt"):
         conditions_it += " AND ToolType.attribute_value = '%s'" % filters.get("tt")
     else:
-        if "System Manager" and "Administrator" not in user_roles:
+        if "System Manager" not in user_roles:
             frappe.throw(f"Please select Tool Type to Proceed")
 
     if filters.get("item"):
