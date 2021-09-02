@@ -34,7 +34,7 @@ def execute():
     tot_time = int(time() - st_time)
     print(f"Total Time Taken for Doc Share = {tot_time} seconds")
     files_sharing()
-    print(f"Total Time Taken for all processes = {int(time.time() - st_time)} seconds")
+    print(f"Total Time Taken for all processes = {int(time() - st_time)} seconds")
 
 
 def files_sharing():
