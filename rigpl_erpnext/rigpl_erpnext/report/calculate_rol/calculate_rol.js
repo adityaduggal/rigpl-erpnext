@@ -5,7 +5,7 @@ frappe.query_reports["Calculate ROL"] = {
 			"label": "Period",
 			"fieldtype": "Data",
 			"reqd": 1,
-			"default": "3,6,12,24",
+			"default": "12,15,18,21,24",
 		},
 		{
 			"fieldname":"to_date",
