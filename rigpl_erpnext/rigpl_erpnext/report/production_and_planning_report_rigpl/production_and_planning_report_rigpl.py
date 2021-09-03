@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 import frappe
 from frappe.utils import flt, getdate
 from ....utils.job_card_utils import get_last_jc_for_so
-from ....utils.manufacturing_utils import get_quantities_for_item
 
 
 def execute(filters=None):

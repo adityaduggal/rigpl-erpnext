@@ -5,12 +5,13 @@
 from __future__ import unicode_literals
 from frappe.utils import nowdate
 from frappe.model.document import Document
+from ....utils.stock_utils import get_quantities_for_item
 from ....utils.process_sheet_utils import *
 from ....utils.job_card_utils import delete_job_card
 from ....utils.sales_utils import get_priority_for_so
-from ....utils.manufacturing_utils import calculated_value_from_formula, find_item_quantities, get_qty_to_manufacture, \
-    calculate_batch_size, calculate_operation_time, calculate_operation_cost, update_warehouse_from_bt, \
-    get_priority_for_stock_prd
+from ....utils.manufacturing_utils import calculated_value_from_formula, find_item_quantities, \
+    get_qty_to_manufacture, calculate_batch_size, calculate_operation_time, \
+    calculate_operation_cost, update_warehouse_from_bt, get_priority_for_stock_prd
 
 
 class ProcessSheet(Document):
@@ -75,11 +76,11 @@ class ProcessSheet(Document):
         if self.production_item:
             it_doc = frappe.get_doc("Item", self.production_item)
             if it_doc.variant_of:
-                other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 
+                other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0
                 AND production_item = '%s' AND name <> '%s' """ % (self.production_item, self.name), as_dict=1)
             else:
                 if self.sales_order_item:
-                    other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 AND 
+                    other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 AND
                     production_item = '%s' AND sales_order_item = '%s' AND name != '%s'""" %
                                              (self.production_item, self.sales_order_item, self.name),
                                              as_dict=1)
@@ -281,15 +282,15 @@ class ProcessSheet(Document):
 
     def get_balance_qty_from_so(self, so_detail):
         soi_doc = frappe.get_doc("Sales Order Item", so_detail)
-        qty_in_prd = frappe.db.sql("""SELECT SUM(quantity) FROM `tabProcess Sheet` WHERE docstatus=1 AND 
-        status NOT IN ("Stopped", "Short Closed") AND production_item = '%s' 
+        qty_in_prd = frappe.db.sql("""SELECT SUM(quantity) FROM `tabProcess Sheet` WHERE docstatus=1 AND
+        status NOT IN ("Stopped", "Short Closed") AND production_item = '%s'
         AND sales_order_item = '%s'""" % (soi_doc.item_code, so_detail), as_list=1)
         if qty_in_prd:
             qty_in_prd = flt(qty_in_prd[0][0])
         else:
             qty_in_prd = 0
-        qty_stopped = frappe.db.sql("""SELECT SUM(produced_qty) - SUM(short_closed_qty) 
-        FROM `tabProcess Sheet` WHERE docstatus=1 AND status IN ("Stopped", "Short Closed") 
+        qty_stopped = frappe.db.sql("""SELECT SUM(produced_qty) - SUM(short_closed_qty)
+        FROM `tabProcess Sheet` WHERE docstatus=1 AND status IN ("Stopped", "Short Closed")
         AND production_item = '%s' AND sales_order_item = '%s'""" % (soi_doc.item_code, so_detail), as_list=1)
         if qty_stopped:
             qty_stopped = flt(qty_stopped[0][0])
@@ -319,7 +320,7 @@ class ProcessSheet(Document):
         item_list = self.get_item_list(item_name=self.production_item, known_type="fg", unknown_type="rm")
         bt_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
         query = """SELECT idx, name, operation, workstation, hour_rate, time_based_on_formula, time_in_mins,
-        operation_time_formula, batch_size_based_on_formula, batch_size_formula FROM `tabBOM Operation` WHERE 
+        operation_time_formula, batch_size_based_on_formula, batch_size_formula FROM `tabBOM Operation` WHERE
         parenttype = 'BOM Template RIGPL' AND parent = '%s'""" % bt_doc.name
         routing_dict = frappe.db.sql(query, as_dict=1)
         if self.routing:

@@ -7,10 +7,11 @@ import time
 import frappe
 from operator import itemgetter
 from frappe.utils import today, flt
+from ...utils.stock_utils import get_quantities_for_item
 from ..doctype.process_sheet.process_sheet import update_priority_psd
 from ...utils.process_sheet_utils import update_process_sheet_quantities, update_process_sheet_operations, \
     get_pend_psop, stop_ps_operation, get_actual_qty_before_process_in_ps
-from ...utils.manufacturing_utils import get_qty_to_manufacture, get_quantities_for_item
+from ...utils.manufacturing_utils import get_qty_to_manufacture
 from ...utils.job_card_utils import check_existing_job_card, create_job_card
 from frappe.utils.background_jobs import enqueue
 

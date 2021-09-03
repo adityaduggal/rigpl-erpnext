@@ -12,16 +12,17 @@ from rigpl_erpnext.utils.other_utils import round_up
 from erpnext.stock.stock_balance import update_bin_qty
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 from .sales_utils import get_pending_so_qty_from_soitem
+from .stock_utils import get_quantities_for_item
 from .other_utils import auto_round_down, auto_round_up
 
 
 def get_planned_qty(item_name):
     planned = 0
     planned_dict = frappe._dict({})
-    work_orders = frappe.db.sql("""SELECT SUM(qty - produced_qty) as wo_plan FROM `tabWork Order` 
+    work_orders = frappe.db.sql("""SELECT SUM(qty - produced_qty) as wo_plan FROM `tabWork Order`
     WHERE docstatus = 1 AND status != 'Stopped' AND production_item = '%s'""" % item_name, as_list=1)
 
-    psheet = frappe.db.sql("""SELECT production_item as item, SUM(quantity - produced_qty) as ps_plan 
+    psheet = frappe.db.sql("""SELECT production_item as item, SUM(quantity - produced_qty) as ps_plan
     FROM `tabProcess Sheet` WHERE docstatus = 1 AND status != 'Short Closed' AND status != 'Stopped'
     AND status != 'Completed' AND production_item = '%s'""" % item_name, as_dict=1)
     if flt(work_orders[0][0]) > 0:
@@ -58,7 +59,7 @@ def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
     # factor = calc_rol * vr / qty
     factor = 0
     resd_prd = qty_dict["reserved_for_prd"]
-    rol_vr_lead_factor = qty_dict["calculated_rol"] * (qty_dict["valuation_rate"] + 1 ) * qty_dict["lead_time"]
+    rol_vr_lead_factor = qty_dict["calculated_rol"] * (qty_dict["valuation_rate"] + 1) * qty_dict["lead_time"]
     bal_fin = qty_dict["finished_qty"] - qty_dict["on_so"]
     bal_aft_prd = bal_fin - resd_prd + qty_before_process
     if bal_fin < 0:
@@ -111,96 +112,6 @@ def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
             return 28
         else:
             return 29
-
-
-def get_quantities_for_item(it_doc, so_item=None):
-    qty_dict = frappe._dict()
-    qty_dict.update({"on_so":0, "on_po":0, "on_indent":0, "planned_qty":0, "reserved_for_prd":0, "finished_qty":0,
-                     "wip_qty":0, "consumeable_qty":0, "raw_material_qty":0, "dead_qty":0, "rejected_qty":0,
-                     "calculated_rol":0, "lead_time":0, "re_order_level":0})
-    if it_doc.made_to_order != 1:
-        rol_dict = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty FROM `tabItem Reorder` 
-        WHERE parent = '%s' AND parenttype = '%s' AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype),
-                            as_dict=1)
-        if rol_dict:
-            qty_dict["re_order_level"] = flt(rol_dict[0].warehouse_reorder_level)
-            rol = qty_dict["re_order_level"]
-        else:
-            qty_dict["re_order_level"] = 0
-            rol = 0
-        bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty, bn.actual_qty, bn.ordered_qty,
-            bn.indented_qty, bn.planned_qty, bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract, 
-            wh.warehouse_type, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND 
-            bn.item_code = '%s'""" % it_doc.name, as_dict=1)
-        qty_dict["valuation_rate"] = flt(it_doc.valuation_rate)
-        qty_dict["lead_time"] = flt(it_doc.lead_time_days) if flt(it_doc.lead_time_days) > 0 else 30
-        calc_rol = get_calculated_rol(rol, flt(qty_dict["valuation_rate"]))
-
-        qty_dict["calculated_rol"] = calc_rol
-        if bin_dict:
-            for d in bin_dict:
-                qty_dict["on_so"] += flt(d.reserved_qty)
-                qty_dict["on_po"] += flt(d.ordered_qty)
-                qty_dict["on_indent"] += flt(d.indented_qty)
-                qty_dict["planned_qty"] += flt(d.planned_qty)
-                qty_dict["reserved_for_prd"] += flt(d.reserved_qty_for_production)
-
-                if d.warehouse_type == 'Finished Stock':
-                    qty_dict["finished_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Work In Progress':
-                    qty_dict["wip_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Consumable':
-                    qty_dict["consumeable_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Raw Material':
-                    qty_dict["raw_material_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Dead Stock':
-                    qty_dict["dead_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Recoverable Stock':
-                    qty_dict["rejected_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Subcontracting':
-                    qty_dict["on_po"] += flt(d.actual_qty)
-    else:
-        if so_item:
-            on_so = frappe.db.sql("""SELECT (soi.qty - soi.delivered_qty) FROM `tabSales Order Item` soi, `tabSales Order` so
-            WHERE so.docstatus=1 AND so.status != 'Closed' AND soi.qty > soi.delivered_qty 
-            AND soi.name = '%s'""" % so_item, as_list=1)
-
-            on_po = frappe.db.sql("""SELECT (poi.qty - poi.received_qty) FROM `tabPurchase Order Item` poi, 
-            `tabPurchase Order` po
-            WHERE po.docstatus=1 AND po.status != 'Closed' AND poi.qty > poi.received_qty 
-            AND poi.so_detail = '%s'""" % so_item, as_list=1)
-            if on_so:
-                qty_dict["on_so"] += on_so[0][0]
-            if on_po:
-                qty_dict["on_po"] += on_po[0][0]
-            # frappe.msgprint(str(on_so))
-
-    return qty_dict
-
-
-def get_calculated_rol(rol, val_rate):
-    rol_text = frappe.get_value("RIGPL Settings", "RIGPL Settings", "rol_multiplier")
-    rol_text = rol_text.split(",")
-    if not rol_text[0]:
-        # Default Multipliers
-        rol_text = ["5:1000", "2.5:2000", "2:2500"]
-    rol_multi = []
-    for d in rol_text:
-        multi_dict = {}
-        d=d.split(":")
-        multi_dict["multiplier"] = flt(d[0])
-        multi_dict["value"] = flt(d[1])
-        rol_multi.append(multi_dict.copy())
-    rol_multi = sorted(rol_multi, key=lambda i:i["value"])
-    rol_val_rate_prod = rol * val_rate
-    multiplied = 0
-    for multi in rol_multi:
-        if rol_val_rate_prod <= multi.get("value"):
-            calc_rol = multi.get("multiplier") * rol
-            multiplied = 1
-    if multiplied == 0:
-        calc_rol = rol
-    return calc_rol
 
 
 def get_qty_to_manufacture(it_doc):
@@ -274,20 +185,20 @@ def get_oal_frm_item_code(item_code, qty, oal_field, so_detail=None):
 def find_item_quantities(item_dict):
     availability = []
     for d in item_dict:
-        one_item_availability = frappe.db.sql("""SELECT name, warehouse, item_code, stock_uom, valuation_rate, 
-        actual_qty, 
+        one_item_availability = frappe.db.sql("""SELECT name, warehouse, item_code, stock_uom, valuation_rate,
+        actual_qty,
         (SELECT SUM(reserved_qty_for_production) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as prd_qty,
         (SELECT SUM(reserved_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as on_so,
         (SELECT SUM(ordered_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as on_po,
-        (SELECT SUM(planned_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as planned 
-        FROM `tabBin` WHERE docstatus = 0 
+        (SELECT SUM(planned_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as planned
+        FROM `tabBin` WHERE docstatus = 0
         AND item_code = '%s'""" % ((d.get("name") or d.get("item_code")), (d.get("name") or d.get("item_code")),
                                    (d.get("name") or d.get("item_code")), (d.get("name") or d.get("item_code")),
                                    (d.get("name") or d.get("item_code"))), as_dict=1)
         # If Item is for Job Work then need to get the PO Items for that as well since on_po is wrong in that case
         # In that case get the quantity of the Material in Sub-Contracting Warehouse
         subcon = frappe.db.sql("""SELECT bn.item_code, bn.actual_qty, wh.name FROM `tabBin` bn, `tabWarehouse` wh
-        WHERE wh.name = bn.warehouse AND wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0 
+        WHERE wh.name = bn.warehouse AND wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0
         AND bn.item_code = '%s'""" % d.get("item_code"), as_dict=1)
 
         if one_item_availability:
@@ -353,14 +264,14 @@ def convert_rule_to_mysql_statement(rule, it_dict, process_sheet_name=None):
 
 
 def get_special_item_attributes(it_name, special_item_attribute):
-    attribute_dict = frappe.db.sql("""SELECT idx, name, attribute, attribute_value, numeric_values 
-        FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Made to Order Item Attributes' ORDER BY 
+    attribute_dict = frappe.db.sql("""SELECT idx, name, attribute, attribute_value, numeric_values
+        FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Made to Order Item Attributes' ORDER BY
         idx""" % special_item_attribute, as_dict=1)
     return attribute_dict
 
 
 def get_attributes(item_name, so_detail=None):
-    attribute_dict = frappe.db.sql("""SELECT idx, name, attribute, attribute_value, numeric_values 
+    attribute_dict = frappe.db.sql("""SELECT idx, name, attribute, attribute_value, numeric_values
         FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Item' ORDER BY idx""" % item_name,
                                    as_dict=1)
     return attribute_dict
@@ -411,7 +322,7 @@ def create_new_special_attributes(it_name, so_detail):
 
 
 def get_special_item_attribute_doc(item_name, so_detail, docstatus=1):
-    return frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE docstatus = %s AND item_code = 
+    return frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE docstatus = %s AND item_code =
     '%s' AND sales_order_item = '%s'""" % (docstatus, item_name, so_detail), as_dict=1)
 
 
@@ -693,7 +604,7 @@ def update_produced_qty(jc_doc, status="Submit"):
 
 
 def get_comp_qty_operation(op_id):
-    qty_dict = frappe.db.sql("""SELECT SUM(total_completed_qty) as tot_qty FROM `tabProcess Job Card RIGPL` 
+    qty_dict = frappe.db.sql("""SELECT SUM(total_completed_qty) as tot_qty FROM `tabProcess Job Card RIGPL`
     WHERE docstatus = 1 AND operation_id = '%s'""" % op_id, as_dict=1)
     if qty_dict:
         return flt(qty_dict[0].tot_qty)
@@ -707,10 +618,10 @@ def update_qty_for_prod(item_code, warehouse, table_name):
 
 
 def get_qty_for_prod(item_code, warehouse, table_name):
-    qty_res_for_prod = frappe.db.sql("""SELECT SUM(psi.calculated_qty - psi.qty) FROM `tabProcess Sheet Items` psi, 
-    `tabProcess Sheet` ps 
+    qty_res_for_prod = frappe.db.sql("""SELECT SUM(psi.calculated_qty - psi.qty) FROM `tabProcess Sheet Items` psi,
+    `tabProcess Sheet` ps
     WHERE ps.name = psi.parent AND psi.parenttype = 'Process Sheet' AND ps.docstatus = 1 AND psi.parentfield = '%s' AND
-    ps.status NOT IN ("Stopped", "Completed", "Short Closed") AND psi.donot_consider_rm_for_production != 1 
+    ps.status NOT IN ("Stopped", "Completed", "Short Closed") AND psi.donot_consider_rm_for_production != 1
     AND psi.item_code = '%s' AND psi.source_warehouse = '%s'""" % (table_name, item_code, warehouse))
 
     return flt(qty_res_for_prod[0][0]) if qty_res_for_prod else 0
@@ -723,8 +634,8 @@ def update_planned_qty(item_code, warehouse):
 
 
 def get_planned_qty_process(item_code, warehouse):
-    planned_qty = frappe.db.sql(""" SELECT IF(SUM(quantity - produced_qty) > 0, SUM(quantity - produced_qty), 0) FROM 
-    `tabProcess Sheet` WHERE production_item = %s and fg_warehouse = %s and status NOT IN 
+    planned_qty = frappe.db.sql(""" SELECT IF(SUM(quantity - produced_qty) > 0, SUM(quantity - produced_qty), 0) FROM
+    `tabProcess Sheet` WHERE production_item = %s and fg_warehouse = %s and status NOT IN
     ("Stopped", "Completed", "Short Closed") AND docstatus=1 AND quantity > produced_qty""", (item_code, warehouse))
 
     return flt(planned_qty[0][0]) if planned_qty else 0

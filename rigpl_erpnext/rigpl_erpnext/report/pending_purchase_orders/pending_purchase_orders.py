@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.utils import flt
-from ....utils.manufacturing_utils import get_quantities_for_item
+from ....utils.stock_utils import get_quantities_for_item
 from ....utils.other_utils import auto_round_up
 
 
@@ -45,20 +45,20 @@ def get_items(filters, conditions):
                     "AND bm.attribute = 'Base Material'" % item_field
 
     if filters.get("subcontracting") == 1:
-        query = """SELECT po.name, po.transaction_date, pod.schedule_date, po.supplier, pod.subcontracted_item, 
-        pod.description, (pod.qty - pod.received_qty) as pend_qty, pod.qty, pod.returned_qty, 
-        pod.stock_uom, pod.base_rate, IF(pod.conversion_factor != 1, pod.conversion_factor, NULL) as con_fac, 
+        query = """SELECT po.name, po.transaction_date, pod.schedule_date, po.supplier, pod.subcontracted_item,
+        pod.description, (pod.qty - pod.received_qty) as pend_qty, pod.qty, pod.returned_qty,
+        pod.stock_uom, pod.base_rate, IF(pod.conversion_factor != 1, pod.conversion_factor, NULL) as con_fac,
         pod.reference_dn FROM `tabPurchase Order` po
         LEFT JOIN `tabPurchase Order Item` pod ON pod.parent = po.name %s
-        WHERE po.docstatus = 1 AND po.status != 'Closed' AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s 
+        WHERE po.docstatus = 1 AND po.status != 'Closed' AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s
         ORDER BY po.transaction_date, pod.schedule_date""" % (tbl_join, conditions)
         data = frappe.db.sql(query, as_list=1)
     else:
         query = """SELECT po.name, po.transaction_date, pod.schedule_date, po.supplier, pod.item_code, pod.description,
         (pod.qty - pod.received_qty) as pend_qty, pod.qty, pod.returned_qty, pod.stock_uom, pod.base_rate, "Urgent"
         FROM `tabPurchase Order` po, `tabPurchase Order Item` pod %s
-        WHERE po.docstatus = 1 AND po.name = pod.parent AND po.status != 'Closed' 
-        AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s 
+        WHERE po.docstatus = 1 AND po.name = pod.parent AND po.status != 'Closed'
+        AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s
         ORDER BY po.transaction_date, pod.schedule_date""" % (tbl_join, conditions)
         data_dict = frappe.db.sql(query, as_dict=1)
         data = []

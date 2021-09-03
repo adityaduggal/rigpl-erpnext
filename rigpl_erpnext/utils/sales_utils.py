@@ -5,80 +5,84 @@ from __future__ import unicode_literals
 import re
 import frappe
 import datetime
-from .other_utils import get_base_doc, auto_round_up, get_weighted_average
+from .other_utils import get_base_doc, round_up, auto_round_up, compute_lcm
+from .stock_utils import get_qty_available_to_sell
 from frappe.utils import flt, today, add_months
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
-def get_selling_lead_times(item_name, frm_dt=None, to_dt=None):
+def validate_item_pack_size(so_doc, enforce=1):
     """
-    Returns a dict with item_name and lead_times based on Sales Orders to DN times
-    Lead Time Dict would have following keys: item_name, avg_days, no_of_trans, total_qty
-    min_days, max_days, avg_days_wt, tot_qty
-    avg_days_wt is the weighted average delivery time
+    Validation for Pack Size of Items while booking orders basically it would suggest the
+    quantity in multiple of Pack Sizes so if Pack Size is 20 then only booking qty would be
+    multiples of 20. Check pack size for only Items Not made to order and also should be variant
+    of a template
     """
-    day_wise = []
-    ldt_dict = frappe._dict({})
-    ldt_dict["item_name"] = item_name
-    so_dict = get_so_for_item(item_name, frm_dt=frm_dt, to_dt=to_dt)
-    ldt_dict["no_of_trans"] = len(so_dict)
-    for sod in so_dict:
-        avg_days = get_avg_days_for_so(sod)
-        if ldt_dict.get("min_days", 0) == 0:
-            ldt_dict["min_days"] = avg_days.avg_days
+    user_roles = frappe.get_roles(frappe.session.user)
+    itm_pkg_lst = []
+    cr_cont = frappe.get_value("Accounts Settings", "Accounts Settings", "credit_controller")
+    if ("System Manager" or cr_cont) in user_roles:
+        enforce = 0
+    for itm in so_doc.items:
+        it_doc = frappe.get_doc("Item", itm.item_code)
+        if it_doc.pack_size <= 0:
+            pk_sz = 1
         else:
-            if ldt_dict["min_days"] > avg_days.avg_days:
-                ldt_dict["min_days"] = avg_days.avg_days
-        if ldt_dict.get("max_days", 0) == 0:
-            ldt_dict["max_days"] = avg_days.avg_days
+            pk_sz = it_doc.pack_size
+        if it_doc.made_to_order != 1 and it_doc.variant_of:
+            if itm.qty % pk_sz != 0:
+                sug_qty = round_up(itm.qty, pk_sz)
+                pack_message = f"For Row# {itm.idx} and Item Code: {itm.item_code} Pack Size = \
+                {pk_sz} but you are trying for Qty= {itm.qty} which is not as per Pack Size <br> \
+                Suggested Qty for Pack Size = {sug_qty}"
+                if enforce == 1:
+                    pack_message += "<br>Validation Failed ask System Manager to \
+                        bypass or Change Qty to Suggested Qty"
+                itm_pkg_lst.append(pack_message)
+    if itm_pkg_lst:
+        frappe.msgprint(itm_pkg_lst, as_table=1, raise_exception=enforce)
+
+
+def validate_item_mov(so_doc, enforce=1):
+    """
+    Validation for Minimum Order Value (MOV) is based on the following rules:
+        1. It checks MoV only if Item is not Made to Order Item
+        2. It would only enforce if enforce = 1 with enforce it would send error.
+        3. If item is in stock then it would allow booking orders for below MoV value
+        4. If item is not in stock and needs production then MoV is to be enforced
+        5. Only check MoV for Items which are Variant of Some Template
+    """
+    user_roles = frappe.get_roles(frappe.session.user)
+    itm_mov_lst = []
+    cr_cont = frappe.get_value("Accounts Settings", "Accounts Settings", "credit_controller")
+    if ("System Manager" or cr_cont) in user_roles:
+        enforce = 0
+    for itm in so_doc.items:
+        it_doc = frappe.get_doc("Item", itm.item_code)
+        if it_doc.pack_size <= 0:
+            pk_sz = 1
         else:
-            if ldt_dict["max_days"] < avg_days.avg_days:
-                ldt_dict["max_days"] = avg_days.avg_days
-        day_wise.append(get_avg_days_for_so(sod).copy())
-    avg_days_wt, tot_qty = get_weighted_average(list_of_data=day_wise, avg_key="avg_days",
-        wt_key="tot_qty")
-    ldt_dict["avg_days_wt"] = avg_days_wt
-    ldt_dict["tot_qty"] = tot_qty
-    return ldt_dict
+            pk_sz = it_doc.pack_size
+        if it_doc.made_to_order != 1 and it_doc.variant_of:
+            # Don't check MOV for Made to Order Items or Items which are not Part of templates
+            qty_avail = get_qty_available_to_sell(it_doc)
+            if itm.qty > qty_avail:
+                if itm.base_net_amount < it_doc.selling_mov:
+                    if itm.base_net_rate > 0:
+                        sug_qty = round_up(it_doc.selling_mov / itm.base_net_rate, pk_sz) - pk_sz
+                    else:
+                        sug_qty = round_up(it_doc.selling_mov / 1, pk_sz) - pk_sz
+                    mov_message = f"For Row# {itm.idx} and Item: {itm.item_code} Suggested Qty \
+                        for SO = {sug_qty} but SO Qty = {itm.qty} But Qty Available for Sales = \
+                        {qty_avail}.<br>Since the Item has MoV= {it_doc.selling_mov} and \
+                        Pack Size = {it_doc.pack_size}"
+                    if enforce == 1:
+                        mov_message += "<br>Validation Failed ask System Manager to \
+                        bypass or Change Qty to Suggested Qty"
+                    itm_mov_lst.append(mov_message)
+    if itm_mov_lst:
+        frappe.msgprint(itm_mov_lst, as_table=1, raise_exception=enforce)
 
-
-def get_so_for_item(it_name, frm_dt=None, to_dt=None):
-    cond = ""
-    if frm_dt:
-        cond += " AND so.transaction_date >= '%s'" % frm_dt
-    if to_dt:
-        cond += " AND so.transaction_date <= '%s'" % to_dt
-
-    so_dict = frappe.db.sql("""SELECT so.name as so_no, sod.name, so.transaction_date, sod.qty, sod.idx
-        FROM `tabSales Order` so, `tabSales Order Item` sod
-        WHERE so.docstatus = 1 AND sod.parent = so.name AND sod.item_code = '%s' AND sod.delivered_qty > 0 %s
-        ORDER BY so.transaction_date DESC, sod.name LIMIT 100""" % (it_name, cond), as_dict=1)
-    return so_dict
-
-
-def get_avg_days_for_so(so_dict):
-    avg_days_dict = frappe._dict({})
-    avg_days, days_wt, tot_qty = 0, 0, 0
-    query = """SELECT dn.name as dn, dni.name, dn.posting_date, dni.qty
-        FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni
-        WHERE dn.name = dni.parent AND dni.so_detail = '%s'
-        ORDER BY dn.posting_date DESC""" % so_dict.name
-    dn_dict = frappe.db.sql(query, as_dict=1)
-    for dn in dn_dict:
-        base_dn = get_base_doc("Delivery Note", dn.dn)
-        dnd = frappe.get_doc("Delivery Note", base_dn)
-        dn["posting_date"] = dnd.posting_date
-        days = (dn.posting_date - so_dict.transaction_date).days
-        if days > 0:
-            tot_qty += dn.qty
-            days_wt += days * dn.qty
-    if tot_qty > 0:
-        avg_days = auto_round_up(days_wt / tot_qty)
-    else:
-        avg_days = 0
-    avg_days_dict["tot_qty"] = tot_qty
-    avg_days_dict["avg_days"] = avg_days
-    return avg_days_dict
 
 
 def get_email_from_contact(contact_name):

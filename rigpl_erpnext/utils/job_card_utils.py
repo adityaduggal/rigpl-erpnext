@@ -8,10 +8,10 @@ import frappe
 import datetime
 from frappe.utils import nowdate, nowtime, getdate, get_time, get_datetime, time_diff_in_hours, flt
 from .manufacturing_utils import get_items_from_process_sheet_for_job_card, get_min_max_ps_qty, \
-    get_quantities_for_item, get_priority_for_stock_prd, convert_qty_per_uom, get_oal_field, get_oal_frm_item_code, \
+    get_priority_for_stock_prd, convert_qty_per_uom, get_oal_field, get_oal_frm_item_code, \
     check_jc_needed_for_ps
 from .sales_utils import get_priority_for_so
-from .stock_utils import cancel_delete_ste_from_name
+from .stock_utils import cancel_delete_ste_from_name, get_quantities_for_item
 from .other_utils import auto_round_up, auto_round_down
 
 

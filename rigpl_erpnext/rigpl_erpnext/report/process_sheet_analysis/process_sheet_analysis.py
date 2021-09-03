@@ -4,7 +4,6 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.utils import flt
-from ....utils.manufacturing_utils import get_quantities_for_item
 
 
 def execute(filters=None):
@@ -44,21 +43,21 @@ def get_data(filters):
     conditions_it, conditions_ps = get_conditions(filters)
     if filters.get("process_wise") == 1:
         query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, pso.operation, pso.planned_qty,
-        pso.completed_qty, IF ((pso.planned_qty - pso.completed_qty > 0) AND (pso.status NOT IN 
-        ('Short Closed', 'Stopped', 'Obsolete')), pso.planned_qty - pso.completed_qty, 0) , 
+        pso.completed_qty, IF ((pso.planned_qty - pso.completed_qty > 0) AND (pso.status NOT IN
+        ('Short Closed', 'Stopped', 'Obsolete')), pso.planned_qty - pso.completed_qty, 0) ,
         ps.description, pso.status, pso.allow_consumption_of_rm,
         IF(ps.quantity - ps.produced_qty > 0, ps.quantity - ps.produced_qty, 0), ps.date, ps.bom_template,
         pso.source_warehouse, pso.target_warehouse
-        FROM `tabProcess Sheet` ps, `tabBOM Operation` pso 
-        WHERE pso.parent = ps.name AND pso.parenttype = 'Process Sheet' 
+        FROM `tabProcess Sheet` ps, `tabBOM Operation` pso
+        WHERE pso.parent = ps.name AND pso.parenttype = 'Process Sheet'
         AND ps.docstatus != 2 %s ORDER BY ps.name, pso.idx""" % conditions_it
     elif filters.get("pending") == 1:
-        query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, bm.attribute_value AS bm, 
-        tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, 
-        w1.attribute_value as w1, l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, 
+        query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, bm.attribute_value AS bm,
+        tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1,
+        w1.attribute_value as w1, l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2,
         ps.quantity, IF(ps.produced_qty=0, NULL,ps.produced_qty) as prod_qty,
         (ps.quantity - ps.produced_qty) as pend_qty, ps.bom_template, ps.sales_order, ps.description, ps.creation
-        FROM `tabProcess Sheet` ps 
+        FROM `tabProcess Sheet` ps
         LEFT JOIN `tabItem` it ON it.name = ps.production_item
         LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
             AND bm.attribute = 'Base Material'
@@ -78,18 +77,18 @@ def get_data(filters):
             AND d2.attribute = 'd2_mm'
         LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
             AND l2.attribute = 'l2_mm'
-        WHERE ps.docstatus = 1 AND ps.produced_qty < ps.quantity AND ps.status != 'Stopped' 
+        WHERE ps.docstatus = 1 AND ps.produced_qty < ps.quantity AND ps.status != 'Stopped'
         AND ps.status != 'Short Closed' %s
         ORDER BY ps.priority, bm.attribute_value, tt.attribute_value, spl.attribute_value, ser.attribute_value,
         d1.attribute_value, w1.attribute_value, l1.attribute_value, d2.attribute_value, l2.attribute_value,
         ps.production_item, ps.sales_order, ps.description""" % conditions_it
     else:
-        query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, bm.attribute_value AS bm, 
-        tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, 
-        w1.attribute_value as w1, l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, 
+        query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, bm.attribute_value AS bm,
+        tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1,
+        w1.attribute_value as w1, l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2,
         ps.quantity, IF(ps.produced_qty=0, NULL,ps.produced_qty) as prod_qty, ps.sales_order, ps.sales_order_item,
         IF(ps.short_closed_qty=0, NULL, ps.short_closed_qty) as sc_qty, ps.bom_template, ps.description, ps.creation
-        FROM `tabProcess Sheet` ps 
+        FROM `tabProcess Sheet` ps
         LEFT JOIN `tabItem` it ON it.name = ps.production_item
         LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
             AND bm.attribute = 'Base Material'

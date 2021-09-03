@@ -150,3 +150,19 @@ def get_base_doc(doctype, docname):
         return get_base_doc(doctype, dt.amended_from)
     else:
         return docname
+
+
+def compute_lcm(x,y):
+    """
+    Returns least common multiple (LCM) of 2 nos
+    """
+    if x > y:
+        greater = x
+    else:
+        greater = y
+    while True:
+        if((greater % x == 0) and (greater % y == 0)):
+            lcm = greater
+            break
+        greater += 1
+    return lcm

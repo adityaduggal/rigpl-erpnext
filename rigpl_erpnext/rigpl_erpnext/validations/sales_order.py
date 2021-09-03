@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 
 from frappe.utils import nowdate
 from ...utils.other_utils import remove_html
-from rigpl_erpnext.utils.sales_utils import *
+from ...utils.sales_utils import *
 from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sales_taxes_integrity
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
 from rigpl_erpnext.utils.stock_utils import make_sales_job_work_ste, cancel_delete_ste_from_name
@@ -15,6 +15,8 @@ from rigpl_erpnext.utils.process_sheet_utils import create_ps_from_so_item
 
 
 def validate(doc, method):
+    validate_item_pack_size(doc)
+    validate_item_mov(doc)
     validate_address_google_update(doc.customer_address)
     validate_address_google_update(doc.shipping_address_name)
     add_list = [doc.customer_address, doc.shipping_address_name]

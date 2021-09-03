@@ -5,8 +5,10 @@
 from __future__ import unicode_literals
 from frappe.model.document import Document
 from ....utils.job_card_utils import *
-from ....utils.manufacturing_utils import update_produced_qty, update_planned_qty, update_pro_sheet_rm_from_jc, \
-    check_warehouse_in_child_tables, find_item_quantities, calculated_value_from_formula
+from ....utils.stock_utils import get_quantities_for_item
+from ....utils.manufacturing_utils import update_produced_qty, update_planned_qty, \
+    update_pro_sheet_rm_from_jc, check_warehouse_in_child_tables, find_item_quantities, \
+    calculated_value_from_formula
 from ....utils.process_sheet_utils import update_process_sheet_operations
 
 
