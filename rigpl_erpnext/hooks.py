@@ -234,8 +234,9 @@ scheduler_events = {
             # Runs weekly at 3:10 AM on Sunday
         ],
         "15 3 01 */3 *": [
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute"
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.enqueue_rol_job"
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute",
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.enqueue_rol_job",
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_calculate_lead_times.enqueue_job"
             # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:15 AM
         ]
     },

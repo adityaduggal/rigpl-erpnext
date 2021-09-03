@@ -5,9 +5,41 @@ from __future__ import unicode_literals
 import re
 import frappe
 import datetime
-from .other_utils import get_base_doc, auto_round_up
+from .other_utils import get_base_doc, auto_round_up, get_weighted_average
 from frappe.utils import flt, today, add_months
 from rohit_common.utils.rohit_common_utils import replace_java_chars
+
+
+def get_selling_lead_times(item_name, frm_dt=None, to_dt=None):
+    """
+    Returns a dict with item_name and lead_times based on Sales Orders to DN times
+    Lead Time Dict would have following keys: item_name, avg_days, no_of_trans, total_qty
+    min_days, max_days, avg_days_wt, tot_qty
+    avg_days_wt is the weighted average delivery time
+    """
+    day_wise = []
+    ldt_dict = frappe._dict({})
+    ldt_dict["item_name"] = item_name
+    so_dict = get_so_for_item(item_name, frm_dt=frm_dt, to_dt=to_dt)
+    ldt_dict["no_of_trans"] = len(so_dict)
+    for sod in so_dict:
+        avg_days = get_avg_days_for_so(sod)
+        if ldt_dict.get("min_days", 0) == 0:
+            ldt_dict["min_days"] = avg_days.avg_days
+        else:
+            if ldt_dict["min_days"] > avg_days.avg_days:
+                ldt_dict["min_days"] = avg_days.avg_days
+        if ldt_dict.get("max_days", 0) == 0:
+            ldt_dict["max_days"] = avg_days.avg_days
+        else:
+            if ldt_dict["max_days"] < avg_days.avg_days:
+                ldt_dict["max_days"] = avg_days.avg_days
+        day_wise.append(get_avg_days_for_so(sod).copy())
+    avg_days_wt, tot_qty = get_weighted_average(list_of_data=day_wise, avg_key="avg_days",
+        wt_key="tot_qty")
+    ldt_dict["avg_days_wt"] = avg_days_wt
+    ldt_dict["tot_qty"] = tot_qty
+    return ldt_dict
 
 
 def get_so_for_item(it_name, frm_dt=None, to_dt=None):
@@ -20,7 +52,7 @@ def get_so_for_item(it_name, frm_dt=None, to_dt=None):
     so_dict = frappe.db.sql("""SELECT so.name as so_no, sod.name, so.transaction_date, sod.qty, sod.idx
         FROM `tabSales Order` so, `tabSales Order Item` sod
         WHERE so.docstatus = 1 AND sod.parent = so.name AND sod.item_code = '%s' AND sod.delivered_qty > 0 %s
-        ORDER BY so.transaction_date DESC, sod.name""" % (it_name, cond), as_dict=1)
+        ORDER BY so.transaction_date DESC, sod.name LIMIT 100""" % (it_name, cond), as_dict=1)
     return so_dict
 
 

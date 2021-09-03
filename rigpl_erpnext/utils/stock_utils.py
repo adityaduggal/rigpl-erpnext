@@ -6,8 +6,8 @@ from __future__ import unicode_literals
 import frappe
 from datetime import date
 from frappe.utils import nowdate, nowtime, today, add_months, flt
-from .sales_utils import get_so_for_item, get_avg_days_for_so
-from .purchase_utils import get_po_for_item, get_avg_days_for_po
+from .sales_utils import get_selling_lead_times
+from .purchase_utils import get_purchase_lead_times
 from .other_utils import auto_round_down, auto_round_up, round_up
 
 
@@ -510,55 +510,39 @@ def get_wh_wise_qty(item_name):
     return qty_dict
 
 
+def get_max_lead_times(item_name):
+    """
+    Returns the Maximum lead time for an Item. Basically when an item does not have a Sales Order
+    or Purchase Orders then its not possible to calculate the Lead Times for an Item hence
+    to overcome this problem this function checks the maximum lead time for sister items
+    which are within the same Template
+    """
+    itd = frappe.get_doc("Item", item_name)
+    if itd.variant_of and itd.has_variants != 1:
+        max_ld_time = frappe.db.sql("""SELECT MAX(lead_time_days) as max_lead_time FROM `tabItem`
+            WHERE variant_of = '%s' AND disabled = 0 LIMIT 1""" % (itd.variant_of), as_dict=1)
+        return flt(max_ld_time[0].max_lead_time)
+    else:
+        print("Either Item has Variants or Is Not a Variant of Any Template in this Case Return 0")
+        return 0
+
+
 def get_item_lead_time(item_name, frm_dt=None, to_dt=None):
     """
     This function gets the lead time for an item based on Purchase or Manufacture
     """
-    calc_dict = frappe._dict({})
-    calc_dict["item_name"] = item_name
-    calc_dict["max_days"] = 0
-    calc_dict["min_days"] = 0
-    changes_to_be_made = 0
-    avg_days, avg_days_wt, tot_qty = 0, 0, 0
     day_wise = []
+    ldt_dict = frappe._dict({})
     itd = frappe.get_doc("Item", item_name)
     if itd.is_sales_item == 1:
         # Items which are in Sales should be taken from the DN status
-        so_dict = get_so_for_item(item_name, frm_dt=frm_dt, to_dt=to_dt)
-        calc_dict["no_of_so"] = len(so_dict)
-        for so in so_dict:
-            avg_days = get_avg_days_for_so(so)
-            if calc_dict["min_days"] == 0:
-                calc_dict["min_days"] = avg_days.avg_days
-            else:
-                if calc_dict["min_days"] < avg_days.avg_days:
-                    frappe.throw(str(avg_days))
-            day_wise.append(get_avg_days_for_so(so).copy())
-        frappe.throw(str(day_wise))
+        ldt_dict = get_selling_lead_times(item_name, frm_dt=frm_dt, to_dt=to_dt)
     elif itd.is_purchase_item == 1:
         # Check the days between the PO and GRN if ZERO days then dont consider that
         # set for calculations
-        po_dict = get_po_for_item(item_name)
-        for po in po_dict:
-            day_wise.append(get_avg_days_for_po(po).copy())
+        ldt_dict = get_purchase_lead_times(item_name, frm_dt=frm_dt, to_dt=to_dt)
     else:
         # Check which items are there and device a formula for that as well.
-        print("WIP Item not Sales and Not Purchase")
-
-    if day_wise:
-        for pd in day_wise:
-            avg_days_wt += pd.avg_days * pd.avg_days
-            tot_qty += pd.avg_days
-        if tot_qty > 0:
-            avg_days = auto_round_up(avg_days_wt / tot_qty)
-        else:
-            avg_days = 0
-    else:
-        avg_days = 0
-    if avg_days > 0:
-        if itd.lead_time_days != avg_days:
-            changes_to_be_made = 1
-    calc_dict["avg_days"] = avg_days
-    calc_dict["changes_made"] = changes_to_be_made
-    frappe.throw(str(calc_dict))
-    return avg_days, changes_to_be_made
+        print(f"WIP Item {item_name} is neither Sales nor Purchase")
+        exit()
+    return ldt_dict

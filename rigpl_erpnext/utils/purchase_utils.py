@@ -4,7 +4,39 @@
 
 from __future__ import unicode_literals
 import frappe
-from .other_utils import auto_round_up, get_base_doc
+from .other_utils import auto_round_up, get_base_doc, get_weighted_average
+
+
+def get_purchase_lead_times(item_name, frm_dt=None, to_dt=None):
+    """
+    Returns a dict with item_name and lead_times based on Purchase Orders to GRN times
+    Lead Time Dict would have following keys: item_name, avg_days, no_of_trans, total_qty
+    min_days, max_days, avg_days_wt, tot_qty
+    avg_days_wt is the weighted average delivery time
+    """
+    day_wise = []
+    ldt_dict = frappe._dict({})
+    ldt_dict["item_name"] = item_name
+    po_dict = get_po_for_item(item_name, frm_dt=frm_dt, to_dt=to_dt)
+    ldt_dict["no_of_trans"] = len(po_dict)
+    for pod in po_dict:
+        avg_days = get_avg_days_for_po(pod)
+        if ldt_dict.get("min_days", 0) == 0:
+            ldt_dict["min_days"] = avg_days.avg_days
+        else:
+            if ldt_dict["min_days"] > avg_days.avg_days:
+                ldt_dict["min_days"] = avg_days.avg_days
+        if ldt_dict.get("max_days", 0) == 0:
+            ldt_dict["max_days"] = avg_days.avg_days
+        else:
+            if ldt_dict["max_days"] < avg_days.avg_days:
+                ldt_dict["max_days"] = avg_days.avg_days
+        day_wise.append(get_avg_days_for_po(pod).copy())
+    avg_days_wt, tot_qty = get_weighted_average(list_of_data=day_wise, avg_key="avg_days",
+        wt_key="tot_qty")
+    ldt_dict["avg_days_wt"] = avg_days_wt
+    ldt_dict["tot_qty"] = tot_qty
+    return ldt_dict
 
 
 def get_po_for_item(it_name, frm_dt=None, to_dt=None):
@@ -17,7 +49,7 @@ def get_po_for_item(it_name, frm_dt=None, to_dt=None):
         po.amended_from
         FROM `tabPurchase Order` po, `tabPurchase Order Item` pod WHERE pod.parent = po.name
         AND pod.item_code = '%s' AND pod.received_qty > 0 %s
-        ORDER BY po.transaction_date DESC, pod.name""" % (it_name, cond), as_dict=1)
+        ORDER BY po.transaction_date DESC, pod.name LIMIT 100""" % (it_name, cond), as_dict=1)
     return po_dict
 
 
