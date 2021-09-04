@@ -40,3 +40,4 @@ execute:frappe.delete_doc("DocType", "Homepage Section Content")
 execute:frappe.delete_doc("Module Def", "RIGPL Theme")
 execute:frappe.delete_doc("Report", "Pending So (Prd)")
 rigpl_erpnext.patches.correct_ssa_dates
+execute:frappe.delete_doc("Report", "Item Report")
