@@ -9,7 +9,7 @@ from rohit_common.utils.rohit_common_utils import fn_check_digit, fn_next_string
 def validate(doc, method):
     if doc.variant_of:
         template = frappe.get_doc("Item", doc.variant_of)
-        if doc.lead_time_days == 0:
+        if doc.lead_time_days == 0 and not doc.is_new():
             ldt_dict = get_item_lead_time(doc.name)
             if ldt_dict.avg_days_wt == 0:
                 lead_time = get_max_lead_times(doc.name)
