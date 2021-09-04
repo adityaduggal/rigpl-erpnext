@@ -1,4 +1,4 @@
-frappe.query_reports["Item Report"] = {
+frappe.query_reports["Item Report RIGPL"] = {
 	"filters": [
 		{
 			"fieldname":"rm",
@@ -22,7 +22,7 @@ frappe.query_reports["Item Report"] = {
 			"label": "Tool Type",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
-			"reqd": 1,
+			"reqd": 0,
 			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_tt_query"}}
 		},
