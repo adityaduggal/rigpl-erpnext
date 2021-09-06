@@ -15,8 +15,8 @@ from rigpl_erpnext.utils.process_sheet_utils import create_ps_from_so_item
 
 
 def validate(doc, method):
-    validate_item_pack_size(doc)
-    validate_item_mov(doc)
+    validate_item_pack_size(doc, enforce=0)
+    validate_item_mov(doc, enforce=0)
     validate_address_google_update(doc.customer_address)
     validate_address_google_update(doc.shipping_address_name)
     add_list = [doc.customer_address, doc.shipping_address_name]
@@ -103,6 +103,8 @@ def update_fields(doc):
 
 
 def on_submit(so, method):
+    validate_item_pack_size(so)
+    validate_item_mov(doc)
     cust_doc = frappe.get_doc("Customer", so.customer)
     if so.bypass_credit_check != 1:
         check_overdue_receivables(cust_doc)
