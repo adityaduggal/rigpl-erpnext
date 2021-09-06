@@ -538,6 +538,20 @@ def get_hsn_code(row_dict):
             row_dict.item_code, row_dict.idx))
 
 
+def get_item_price(item_name, price_list):
+    """
+    If Price List Rate exists then returns the Price List Rate else returns False
+    """
+    itp_dict = frappe.db.sql("""SELECT name, item_code, price_list, currency, price_list_rate
+        FROM `tabItem Price` WHERE item_code ='%s' AND price_list = '%s'""" %
+        (item_name, price_list), as_dict=1)
+    if not itp_dict:
+        return False
+    else:
+        return itp_dict[0].price_list_rate
+
+
+
 def check_get_pl_rate(document, row_dict):
     pl_doc = frappe.get_doc("Price List", row_dict.price_list)
     if pl_doc.disable_so == 1:
@@ -608,6 +622,16 @@ def check_gst_rules(doc, bill_add_name, taxes_name):
                 frappe.throw("Selected Tax {0} is for Indian Sales but Shipping Address is in Different Country {1}, "
                              "hence either change Shipping Address or Change the Selected Tax".format(taxes_name,
                                                                                                       bill_country))
+
+def disallow_qty_change(so_doc):
+    """
+    Don't allow change in Qty after submission of Sales Order
+    """
+    if so_doc.docstatus == 1:
+        for itm in so_doc.items:
+            old_qty = frappe.db.get_value("Sales Order Item", itm.name, "qty")
+            frappe.msgprint(f"For Row# {itm.idx} Previous Qty = {old_qty} and New Qty = {itm.qty} and SOI name = {itm.name}")
+
 
 
 @frappe.whitelist()

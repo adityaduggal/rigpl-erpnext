@@ -3,9 +3,12 @@ frappe.provide("erpnext.item");
 frappe.ui.form.on("Item", {
 	refresh: function(frm) {
 		if (frm.doc.has_variants) {
-			frm.add_custom_button(__("Make New Item Code"), function() {
-				erpnext.item.make_variant_custom()
-			}, "RIGPL Make Item", "btn-default");
+			if (frm.doc.variant_based_on === "Item Attribute"){
+				frm.add_custom_button(__("New Variant"), function() {
+					erpnext.item.make_variant_custom()}, "Create");
+				frm.remove_custom_button("Single Variant", 'Create');
+				frm.remove_custom_button("Multiple Variants", 'Create');
+			}
 		}
 	},
 });
@@ -144,24 +147,24 @@ $.extend(erpnext.item, {
 			title: __("Make Variant Custom"),
 			fields: fields
 		});
-		
+
 		Object.keys(d.fields_dict).forEach(function(fieldname){
 			if (d.fields_dict[fieldname].df.fieldtype !== 'Data') return;
-			
+
 			var field = d.fields_dict[fieldname],
 				target = field.$input.parent(),
 			    options = $('<ul class="dropdown-menu"></ul>');
-			
+
 			Object.keys(hidden_fields[fieldname]).forEach(function(key){
 				if (in_list(['created', 'source', 'options'], key)) return;
-				
+
 				var option = $(repl('<li><a data-option="%(0)s">%(0)s</a></li>', [hidden_fields[fieldname][key]]));
 				option.find('a').on('click', function(evt){
 					evt.preventDefault();
 					var text = options.parent().find('button').text();
 					if (text === $(this).text()) return;
 					options.parent().find('button').text($(this).text());
-					
+
 					if (field.$input.data('awesomplete_obj')) field.$input.data('awesomplete_obj').destroy();
 					if ((hidden_fields[fieldname].options[key]||'').length){
 						field.$input.data('awesomplete_obj', new Awesomplete(field.$input[0], {
@@ -177,13 +180,13 @@ $.extend(erpnext.item, {
 				});
 				options.append(option);
 			});
-				
+
 			$(frappe.utils.format('<div class="input-group-btn">\
 				 <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" data-fieldname="{1}" aria-expanded="false">{0}<span class="caret"></span></button>\
 			  </div>', __([hidden_fields[fieldname].source, fieldname]))).append(options).prependTo(target);
-			
+
 			target.addClass('input-group').removeAttr('style');
-			
+
 			field.$input.on('change', function(evt){
 				if (!field.$input.val().length) return;
 				var uom = options.parent().find('button').text();
@@ -198,9 +201,9 @@ $.extend(erpnext.item, {
 		d.set_primary_action(__("Make"), function(args) {
                         var rules = {}, eval_in_context = (js) => {
                             Object.keys(args).forEach(k => {
-                               js = js.replace(k, "args." + k); 
+                               js = js.replace(k, "args." + k);
                             });
-                            return eval(js); 
+                            return eval(js);
                         };
 			if(!args) return;
 
@@ -208,7 +211,7 @@ $.extend(erpnext.item, {
 				if (!rules.hasOwnProperty(d.attribute)) rules[d.attribute] = [];
 				rules[d.attribute].push(d.rule);
 			});
-			
+
 			Object.keys(args).filter(function(key){ return hidden_fields.hasOwnProperty(key); }).forEach(function(key){
 				var val = args[key], base, targets = Object.keys(hidden_fields[key]).filter(function(k){ return !in_list(['created', 'source', 'options'], k)});
 				try {
@@ -229,7 +232,7 @@ $.extend(erpnext.item, {
 					} else if (factors && factors.rgt){
 						args[tgt] = flt((base * factors.rgt).toFixed(frappe.defaults.get_global_default('float_precision')));
 					} else {
-						args[tgt] = cint(args[key]) || args[key]; 
+						args[tgt] = cint(args[key]) || args[key];
 					}
 				});
 			    delete args[key];
@@ -314,7 +317,7 @@ cur_frm.cscript.custom_onload = function () {
 			});
 			return {'filters': [['Item Attribute', 'name', 'in', attrs]]}
 		});
-		
+
 	}
 }
 //Below code would disable the attribute table after being saved.

@@ -3,7 +3,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-
+import json
 from frappe.utils import nowdate
 from ...utils.other_utils import remove_html
 from ...utils.sales_utils import *
@@ -48,10 +48,25 @@ def validate(doc, method):
 
 
 def check_price_list(doc):
+    """
+    Removes HTML from Item Description and Also Adds Price List if not there in Item Table
+    1. If Item is a Variant of and not made to order then it should have Price List Rate
+    2. Also base net rate cannot be lower than item valuation rate
+    """
     for it in doc.items:
+        itd = frappe.get_doc("Item", it.item_code)
         it.description = remove_html(it.description)
         if not it.price_list:
             it.price_list = doc.selling_price_list
+        if itd.made_to_order != 1 and itd.variant_of:
+            it_price = get_item_price(it.item_code, it.price_list)
+            if not it_price:
+                frappe.throw(f"In Row# {it.idx} for Item: {it.item_code} No Price List Rate "
+                    f"for {it.price_list} Create a Price List Rate to Proceed or Remove Item.")
+            if it.base_net_rate < itd.valuation_rate:
+                frappe.throw(f"In Row# {it.idx} for Item: {it.item_code} Selling Base Price "
+                    f"{it.base_net_rate} is Lower than Valuation Rate {itd.valuation_rate}<br>"
+                    f"To Proceed Correct the Price.")
 
 
 def update_fields(doc):
@@ -135,6 +150,23 @@ def on_cancel(so, method):
             if name:
                 frappe.delete_doc("Trial Tracking", name[0], for_reload=True)
                 frappe.msgprint('{0}{1}'.format("Deleted Trial Tracking No: ", name[0][0]))
+
+
+@frappe.whitelist()
+def after_submit(ex_dt, ex_dn, new_so_doc):
+    """
+    Some validations for changes after submission of Sales Order
+        1. Disallow changing the Qty for Item
+        2. Prices for Item can only be changed by System Manager or Credit Controller or
+        Cancel Rights Role
+        3. Stopping for Sales Orders only possible for Sys Mgr or Credit Controller or Cancel Rights
+        4. Stopping should be disallowed if already there is Process Sheets submitted for Item
+        5. Stopping should be disallowed if No DN is being made since ask user to Cancel instead
+    """
+    edoc = frappe.get_doc(ex_dt, ex_dn)
+    ndoc = json.loads(new_so_doc)
+    frappe.throw(f"Earlier Status {edoc.status} and New Doc = {ndoc.get('status')} ")
+
 
 
 def makes_process_sheet_if_needed(so):
