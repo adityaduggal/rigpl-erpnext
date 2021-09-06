@@ -104,7 +104,7 @@ def update_fields(doc):
 
 def on_submit(so, method):
     validate_item_pack_size(so)
-    validate_item_mov(doc)
+    validate_item_mov(so)
     cust_doc = frappe.get_doc("Customer", so.customer)
     if so.bypass_credit_check != 1:
         check_overdue_receivables(cust_doc)
