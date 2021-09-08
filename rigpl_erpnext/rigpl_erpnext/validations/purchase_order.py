@@ -5,8 +5,9 @@ from __future__ import unicode_literals
 import frappe
 from frappe.utils import nowdate, nowtime, getdate
 from frappe.desk.reportview import get_match_cond
-from rigpl_erpnext.utils.manufacturing_utils import get_special_item_attribute_doc, get_special_item_attributes, \
-    get_attributes, get_formula_values, calculate_formula_values
+from ..utils.manufacturing_utils import get_special_item_attribute_doc, \
+    get_special_item_attributes, get_formula_values, calculate_formula_values
+from ..utils.item_utils import get_item_attributes
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
 
 from rohit_common.utils.rohit_common_utils import replace_java_chars
@@ -210,10 +211,10 @@ def get_pending_jc(doctype, txt, searchfield, start, page_len, filters):
 def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
     return frappe.db.sql("""SELECT DISTINCT(wo.name), wo.sales_order, wo.production_order_date,
     wo.item_description FROM `tabWork Order` wo, `tabSales Order` so, `tabSales Order Item` soi
-	WHERE wo.docstatus = 1 AND so.docstatus = 1 AND soi.parent = so.name AND so.status != "Closed"
-	AND soi.qty > soi.delivered_qty AND wo.sales_order = so.name AND (wo.name LIKE %(txt)s OR
-	wo.sales_order LIKE %(txt)s) {mcond} ORDER BY IF(locate(%(_txt)s, wo.name), locate(%(_txt)s, wo.name), 1)
-	LIMIT %(start)s, %(page_len)s""".format(**{
+    WHERE wo.docstatus = 1 AND so.docstatus = 1 AND soi.parent = so.name AND so.status != "Closed"
+    AND soi.qty > soi.delivered_qty AND wo.sales_order = so.name AND (wo.name LIKE %(txt)s OR
+    wo.sales_order LIKE %(txt)s) {mcond} ORDER BY IF(locate(%(_txt)s, wo.name), locate(%(_txt)s, wo.name), 1)
+    LIMIT %(start)s, %(page_len)s""".format(**{
         'key': searchfield,
         'mcond': get_match_cond(doctype)
     }), {
@@ -241,7 +242,7 @@ def get_pricing_rule_based_on_attributes(doc):
                                                                            docstatus=1)
                     item_att_dict = get_special_item_attributes(d.subcontracted_item, special_item_attr_doc[0].name)
             else:
-                item_att_dict = get_attributes(d.subcontracted_item)
+                item_att_dict = get_item_attributes(d.subcontracted_item)
             if supp_prule_dict:
                 for prule in supp_prule_dict:
                     prule_doc = frappe.get_doc("Pricing Rule", prule.name)
