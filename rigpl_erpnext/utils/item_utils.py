@@ -528,5 +528,4 @@ def get_item_attributes(item_name):
         use_in_description, field_name, from_range, to_range, increment
         FROM `tabItem Variant Attribute` WHERE parenttype = 'Item'
         AND parent = '%s' ORDER BY idx""" % item_name, as_dict=1)
-    print(att_dict)
     return att_dict
