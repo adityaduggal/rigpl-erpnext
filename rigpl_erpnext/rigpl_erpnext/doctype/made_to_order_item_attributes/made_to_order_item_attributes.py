@@ -5,8 +5,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.model.document import Document
-from rigpl_erpnext.utils.manufacturing_utils import get_attributes
-from rigpl_erpnext.utils.item_utils import check_numeric_attributes, check_text_attributes
+from ...utils.item_utils import check_numeric_attributes, check_text_attributes, get_item_attributes
 
 
 class MadetoOrderItemAttributes(Document):
@@ -14,7 +13,7 @@ class MadetoOrderItemAttributes(Document):
         self.validate_attribute_values()
         if self.reference_spl:
             self.reference_spl = ""
-        other_specials = frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE sales_order = 
+        other_specials = frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE sales_order =
         '%s' AND sales_order_item = '%s' AND item_code = '%s' AND name != '%s' AND docstatus != 2"""
                                        % (self.sales_order, self.sales_order_item, self.item_code, self.name),
                                        as_dict=1)
@@ -31,7 +30,7 @@ class MadetoOrderItemAttributes(Document):
 
     def copy_attributes_from_item(self):
         if self.reference_item_code:
-            attributes = get_attributes(self.reference_item_code)
+            attributes = get_item_attributes(self.reference_item_code)
             self.set("attributes", [])
             self.set_attributes_in_table(attributes)
         else:
@@ -42,8 +41,8 @@ class MadetoOrderItemAttributes(Document):
             if self.reference_spl == self.name:
                 frappe.throw("Cannot Select Name of Special Item Attribute as {}".format(self.name))
             else:
-                query = """SELECT idx, name, attribute, attribute_value, numeric_values 
-                FROM `tabItem Variant Attribute` 
+                query = """SELECT idx, name, attribute, attribute_value, numeric_values
+                FROM `tabItem Variant Attribute`
                 WHERE parent = '%s' AND parenttype= '%s'
                 ORDER BY idx""" % (self.reference_spl, self.doctype)
                 attributes = frappe.db.sql(query, as_dict=1)
