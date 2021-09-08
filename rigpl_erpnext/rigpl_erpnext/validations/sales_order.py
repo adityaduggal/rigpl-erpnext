@@ -64,7 +64,7 @@ def check_price_list(doc):
                 frappe.throw(f"In Row# {it.idx} for Item: {it.item_code} No Price List Rate "
                     f"for {it.price_list} Create a Price List Rate to Proceed or Remove Item.")
             if it.base_net_rate < itd.valuation_rate:
-                frappe.throw(f"In Row# {it.idx} for Item: {it.item_code} Selling Base Price "
+                frappe.msgprint(f"In Row# {it.idx} for Item: {it.item_code} Selling Base Price "
                     f"{it.base_net_rate} is Lower than Valuation Rate {itd.valuation_rate}<br>"
                     f"To Proceed Correct the Price.")
 
