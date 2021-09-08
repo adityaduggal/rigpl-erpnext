@@ -509,3 +509,24 @@ def check_text_attributes(att_doc, att_value, error=1):
     else:
         frappe.throw("For {} No Attribute Values are Defined".format(frappe.get_desk_link(att_doc.doctype,
                                                                                                                                                                           att_doc.name)))
+
+def get_template_restrictions(temp_name):
+    """
+    Returns a dictionary for Template with Item Restrictions
+    """
+    temp_dict = frappe.db.sql("""SELECT name, idx, attribute, is_numeric, allowed_values, rule
+        FROM `tabItem Variant Restrictions` WHERE parenttype = 'Item'
+        AND parent = '%s' ORDER BY idx""" % temp_name, as_dict=1)
+    return temp_dict
+
+
+def get_item_attributes(item_name):
+    """
+    Returns a dictionary for all Attributes for an Item Name
+    """
+    att_dict = frappe.db.sql("""SELECT name, idx, attribute, attribute_value, prefix,
+        use_in_description, field_name, from_range, to_range, increment
+        FROM `tabItem Variant Attribute` WHERE parenttype = 'Item'
+        AND parent = '%s' ORDER BY idx""" % item_name, as_dict=1)
+    print(att_dict)
+    return att_dict

@@ -3,11 +3,12 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-from datetime import datetime, date
 import frappe
-from rigpl_erpnext.utils.other_utils import round_down
 from time import time
+from datetime import datetime, date
+from ...utils.other_utils import round_down
 from frappe.utils.background_jobs import enqueue
+from ...utils.item_utils import get_item_attributes
 
 '''
 This file would run regularly to update the valuation rate of all the items.
@@ -16,13 +17,13 @@ change of template then it should run every hour
 2. It should check for all item templates and if template == selling and then
 check if the template percent is set. If the template percent is set then
 check items of that template.
-3. Now if item of a template is selling then it would check the whether ther is 
+3. Now if item of a template is selling then it would check the whether ther is
 Price List rate if there is PL rate then it would check if its default or not.
 If there is no default PL then it would take the latest selling price list.
 4. If an item template is not for selling then it would check if its purchase
 5. If its purchase then the valuation rate would be as per the purchase invoice
     - Here things to note, RM which is not purchased ever should be valued at 1
-    - If the RM which is not purchased ever does have valuation rate > 1 then dont change anything. This is so that 
+    - If the RM which is not purchased ever does have valuation rate > 1 then dont change anything. This is so that
     we can set them manually.
     - Also for the Cut Pieces in Carbide RM take the price from RM purchased last
     - Also consider the exchange rate for prices in NON INR (Default currency)
@@ -62,8 +63,8 @@ def set_valuation_rate_for_template(temp_doc):
 
 
 def get_templates():
-    temp_list = frappe.db.sql("""SELECT it.name, (SELECT count(name) FROM `tabItem` 
-    WHERE variant_of = it.name) as variants FROM `tabItem` it WHERE it.has_variants = 1 
+    temp_list = frappe.db.sql("""SELECT it.name, (SELECT count(name) FROM `tabItem`
+    WHERE variant_of = it.name) as variants FROM `tabItem` it WHERE it.has_variants = 1
     ORDER BY variants DESC""", as_list=1)
     return temp_list
 
@@ -107,7 +108,7 @@ def get_sim_variants(it_doc):
     # Find all round Carbide Item Code with diff lengths and Radius 8.2 would
     # also search for items with 8mm dia
     template_doc = frappe.get_doc("Item", it_doc.variant_of)
-    attributes = get_attributes(it_doc.name)
+    attributes = get_item_attributes(it_doc.name)
     check = 0
     for att in attributes:
         if att.attribute == 'Base Material' and att.attribute_value == 'Carbide':
@@ -127,14 +128,14 @@ def get_sim_variants(it_doc):
             base_dia1 = int(float(base_dia)) + 0.2
         similar_variants = []
         for d in [float(base_dia), float(base_dia1)]:
-            sim_variants = frappe.db.sql("""SELECT it.name FROM `tabItem` it, `tabItem Variant Attribute` iva 
-            WHERE it.variant_of = '%s' AND iva.attribute = 'd1_mm' AND iva.attribute_value = %s 
+            sim_variants = frappe.db.sql("""SELECT it.name FROM `tabItem` it, `tabItem Variant Attribute` iva
+            WHERE it.variant_of = '%s' AND iva.attribute = 'd1_mm' AND iva.attribute_value = %s
             AND iva.parent = it.name""" % (it_doc.variant_of, d), as_list=1)
             similar_variants.extend(sim_variants)
         pp_similar = [{"item_code": it_doc.name, "length": float(base_len),
                        "purchase_rate": 0, "purchase_date": conv_str_to_date('1900-01-01')}]
         for items in similar_variants:
-            att_dict = get_attributes(items[0])
+            att_dict = get_item_attributes(items[0])
             att_len = get_specific_attribute(att_dict, "l1_mm")
             att_pp_rate, att_pp_date, pi_found = get_pp_rate_item(items[0])
             pp_similar_dict = {"item_code": items[0], "length": float(att_len), "purchase_rate": float(att_pp_rate),
@@ -143,7 +144,7 @@ def get_sim_variants(it_doc):
             pp_similar.append(pp_similar_dict.copy())
 
         if [x for x in pp_similar if x['length'] > float(base_len)]:
-            latest_rate_details = max([x for x in pp_similar if x['length'] > float(base_len)], \
+            latest_rate_details = max([x for x in pp_similar if x['length'] > float(base_len)],
                                       key=lambda x: x['purchase_date'])
         else:
             latest_rate_details = []
@@ -182,8 +183,8 @@ def conv_str_to_date(string_date):
 
 
 def get_pp_rate_item(item_code):
-    pinvoice = frappe.db.sql("""SELECT pid.base_rate, pid.item_code, pi.posting_date FROM `tabPurchase Invoice Item` 
-    pid, `tabPurchase Invoice` pi WHERE pid.parent = pi.name AND pid.item_code = '%s' AND pi.docstatus = 1 ORDER BY 
+    pinvoice = frappe.db.sql("""SELECT pid.base_rate, pid.item_code, pi.posting_date FROM `tabPurchase Invoice Item`
+    pid, `tabPurchase Invoice` pi WHERE pid.parent = pi.name AND pid.item_code = '%s' AND pi.docstatus = 1 ORDER BY
     pi.posting_date DESC LIMIT 1""" % item_code, as_dict=1)
     if pinvoice:
         pur_rate = pinvoice[0].base_rate
@@ -194,12 +195,6 @@ def get_pp_rate_item(item_code):
         pur_date = conv_str_to_date('1900-01-01')
         pi_found = 'Not Found'
     return pur_rate, pur_date, pi_found
-
-
-def get_attributes(item_code):
-    attributes = frappe.db.sql("""SELECT idx, attribute, attribute_value FROM `tabItem Variant Attribute` 
-    WHERE parent = '%s' ORDER BY idx""" % item_code, as_dict=1)
-    return attributes
 
 
 def get_specific_attribute(attributes_dict, att_name):
@@ -223,13 +218,13 @@ def update_valuation_rate(it_doc, itpr, t_doc, date_of_price):
             it_doc.valuation_rate_date = date_of_price
             it_doc.save()
             frappe.db.commit()
-            print("Saved Item Code: " + it_doc.name + \
+            print("Saved Item Code: " + it_doc.name +
                   " Changed Valuation Rate to " + str(it_doc.valuation_rate))
         elif it_doc.valuation_rate_date != date_of_price:
             it_doc.valuation_rate_date = date_of_price
             it_doc.save()
             frappe.db.commit()
-            print("Saved Item Code: " + it_doc.name + \
+            print("Saved Item Code: " + it_doc.name +
                   " Changed Valuation Rate Date to " + str(date_of_price))
 
 
@@ -240,7 +235,7 @@ def update_std_valuation_rate(it_doc):
         it_doc.valuation_rate = 1
         it_doc.save()
         frappe.db.commit()
-        print("Saved Item Code: " + it_doc.name + \
+        print("Saved Item Code: " + it_doc.name +
               " Changed Valuation Rate to " + "1")
 
 
@@ -256,7 +251,7 @@ def get_default_price_list(template_doc):
 
 
 def get_sp_rate(item, price_list):
-    rate = frappe.db.sql("""SELECT price_list_rate, creation FROM `tabItem Price` WHERE item_code = '%s'  AND 
+    rate = frappe.db.sql("""SELECT price_list_rate, creation FROM `tabItem Price` WHERE item_code = '%s'  AND
     price_list = '%s'""" % (item, price_list), as_list=1)
     if rate:
         return rate[0][0], rate[0][1]
