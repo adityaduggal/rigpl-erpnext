@@ -8,12 +8,12 @@ import re
 import math
 from frappe import _
 from frappe.utils import flt
-from rigpl_erpnext.utils.other_utils import round_up
 from erpnext.stock.stock_balance import update_bin_qty
 from rohit_common.utils.rohit_common_utils import replace_java_chars
+from .item_utils import get_item_attributes
 from .sales_utils import get_pending_so_qty_from_soitem
 from .stock_utils import get_quantities_for_item
-from .other_utils import auto_round_down, auto_round_up
+from .other_utils import round_up, auto_round_down, auto_round_up
 
 
 def get_planned_qty(item_name):
@@ -176,7 +176,7 @@ def get_oal_frm_item_code(item_code, qty, oal_field, so_detail=None):
         spl = get_special_item_attribute_doc(item_name=item_code, so_detail=so_detail)
         it_dict = get_special_item_attributes(it_name=item_code, special_item_attribute=spl[0].name)
     else:
-        it_dict = get_attributes(item_code)
+        it_dict = get_item_attributes(item_code)
     for d in it_dict:
         if d.attribute == oal_field:
             return qty * flt(d.attribute_value)
@@ -219,8 +219,8 @@ def convert_wip_rule_to_mysql_statement(rule, fg_item, rm_item, process_sheet_na
                                                                docstatus=1)
         fg_att_dict = get_special_item_attributes(fg_item, special_item_attr_doc[0].name)
     else:
-        fg_att_dict = get_attributes(fg_item)
-    rm_att_dict = get_attributes(rm_item)
+        fg_att_dict = get_item_attributes(fg_item)
+    rm_att_dict = get_item_attributes(rm_item)
     res = re.findall(r'\w+', rule)
     for word in res:
         if word[:3] == 'fg_':
@@ -247,7 +247,7 @@ def convert_rule_to_mysql_statement(rule, it_dict, process_sheet_name=None):
                                                                docstatus=1)
         known_it_att_dict = get_special_item_attributes(it_name, special_item_attr_doc[0].name)
     else:
-        known_it_att_dict = get_attributes(it_name)
+        known_it_att_dict = get_item_attributes(it_name)
     known_type = it_dict.get(it_name)
     unknown_type = it_dict.get("unknown_type")
     res = re.findall(r'\w+', rule)
@@ -270,17 +270,10 @@ def get_special_item_attributes(it_name, special_item_attribute):
     return attribute_dict
 
 
-def get_attributes(item_name, so_detail=None):
-    attribute_dict = frappe.db.sql("""SELECT idx, name, attribute, attribute_value, numeric_values
-        FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Item' ORDER BY idx""" % item_name,
-                                   as_dict=1)
-    return attribute_dict
-
-
 def get_bom_template_from_item(item_doc, so_detail=None, no_error=0):
     bom_template = {}
     if item_doc.variant_of:
-        it_att_dict = get_attributes(item_doc.name)
+        it_att_dict = get_item_attributes(item_doc.name)
         bom_template = get_bom_temp_from_it_att(item_doc, it_att_dict)
         if not bom_template:
             if no_error == 0:
@@ -395,7 +388,7 @@ def replace_java_to_mysql(string):
 
 def calculate_operation_time(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
     if fg_it_doc.variant_of:
-        fg_attributes = get_attributes(fg_it_doc.name)
+        fg_attributes = get_item_attributes(fg_it_doc.name)
     elif fg_it_doc.made_to_order == 1:
         special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_it_doc.name,
                                                                so_detail=ps_doc.sales_order_item, docstatus=1)
@@ -409,7 +402,7 @@ def calculate_operation_time(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
                 op_time_formula_edited = replace_java_chars(op.operation_time_formula)
                 formula_values = formula_values.update(get_formula_values(fg_attributes, op_time_formula_edited, "fg"))
                 for rm in rm_it_dict:
-                    rm_attributes = get_attributes(rm.name)
+                    rm_attributes = get_item_attributes(rm.name)
                     formula_values = formula_values.update(get_formula_values(rm_attributes, op_time_formula_edited,
                                                                               "rm"))
                 operation_time = calculate_formula_values(op_time_formula_edited, formula_values)
@@ -424,7 +417,7 @@ def calculate_batch_size(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
                                                                so_detail=ps_doc.sales_order_item, docstatus=1)
         fg_attributes = get_special_item_attributes(fg_it_doc.name, special_item_attr_doc[0].name)
     else:
-        fg_attributes = get_attributes(fg_it_doc.name)
+        fg_attributes = get_item_attributes(fg_it_doc.name)
     for d in ps_doc.operations:
         formula_values = frappe._dict({})
         for op in rt_dict:
@@ -432,7 +425,7 @@ def calculate_batch_size(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
                 batch_edited_formula = replace_java_chars(op.batch_size_formula)
                 formula_values = formula_values.update(get_formula_values(fg_attributes, batch_edited_formula, "fg"))
                 for rm in rm_it_dict:
-                    rm_attributes = get_attributes(rm.name)
+                    rm_attributes = get_item_attributes(rm.name)
                     formula_values = formula_values.update(get_formula_values(rm_attributes, batch_edited_formula,
                                                                               "rm"))
                 batch_size = calculate_formula_values(batch_edited_formula, formula_values)
@@ -466,9 +459,9 @@ def calculated_value_from_formula(rm_item_dict, fg_item_name, bom_template_name,
                                                                so_detail=ps_doc.sales_order_item, docstatus=1)
         fg_att_dict = get_special_item_attributes(fg_item_name, special_item_attr_doc[0].name)
     else:
-        fg_att_dict = get_attributes(fg_item_name)
+        fg_att_dict = get_item_attributes(fg_item_name)
     for d in rm_item_dict:
-        rm_att_dict = get_attributes(d.get("name") or d.get("item_code"))
+        rm_att_dict = get_item_attributes(d.get("name") or d.get("item_code"))
         qty = calculate_formula(rm_att=rm_att_dict, fg_att=fg_att_dict, formula=formula, fg_qty=fg_qty,
                                 bt_name=bom_template_name, is_wip=is_wip)
         qty = convert_qty_per_uom(qty, d.get("item"))
