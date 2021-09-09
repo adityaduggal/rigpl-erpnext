@@ -5,7 +5,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.model.document import Document
-from ...utils.item_utils import check_numeric_attributes, check_text_attributes, get_item_attributes
+from ....utils.item_utils import check_numeric_attributes, check_text_attributes, get_item_attributes
 
 
 class MadetoOrderItemAttributes(Document):
