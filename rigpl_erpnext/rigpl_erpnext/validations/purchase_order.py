@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 import frappe
 from frappe.utils import nowdate, nowtime, getdate
 from frappe.desk.reportview import get_match_cond
-from ..utils.manufacturing_utils import get_special_item_attribute_doc, \
+from ...utils.manufacturing_utils import get_special_item_attribute_doc, \
     get_special_item_attributes, get_formula_values, calculate_formula_values
-from ..utils.item_utils import get_item_attributes
+from ...utils.item_utils import get_item_attributes
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
 
 from rohit_common.utils.rohit_common_utils import replace_java_chars
