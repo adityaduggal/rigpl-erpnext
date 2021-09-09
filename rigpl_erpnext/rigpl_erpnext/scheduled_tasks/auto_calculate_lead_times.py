@@ -24,7 +24,7 @@ def execute():
         LEFT JOIN `tabItem Reorder` rol ON it.name = rol.parent
         AND rol.parentfield = 'reorder_levels' AND rol.parenttype = 'Item'
         WHERE it.has_variants = 0 AND it.disabled = 0 AND it.made_to_order = 0
-        AND it.variant_of IS NOT NULL AND it.name = 'CX3XP3002W7'
+        AND it.variant_of IS NOT NULL
         ORDER BY rol_value ASC, it.valuation_rate DESC, rol.warehouse_reorder_level ASC,
         it.name""", as_dict=1)
     sno, changes, old_changes = 0, 0,0
