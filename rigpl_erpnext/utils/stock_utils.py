@@ -415,7 +415,7 @@ def get_rol_for_item(item_name, period=1, to_date=date.today()):
 
     if rol_dict["is_sale"] == 1:
         # More than 2 customers is good but 2 customers = half of Sale ROL and in Case of
-        # 1 customer 1/4
+        # 1 customer ROL should be ZERO
         if rol_dict["customers"] > 2:
             # Case where customers in Period is More than 2 then set the ROL
             rol_dict["calculated_rol"] = rol_dict["con_avg"] + rol_dict["sold_avg"]
@@ -423,7 +423,7 @@ def get_rol_for_item(item_name, period=1, to_date=date.today()):
             rol_dict["calculated_rol"] = rol_dict["con_avg"] + (rol_dict["sold_avg"]/2)
         else:
             # Half of the sold average since low customers
-            rol_dict["calculated_rol"] = (rol_dict["sold_avg"]/4) + rol_dict["con_avg"]
+            rol_dict["calculated_rol"] = rol_dict["con_avg"]
     else:
         # Base the Purchase Items on PO avg instead of Consumed Average since many times no STE or
         # it could be that Item is Non-Stock Item and hence NO STE could be there. But also check
