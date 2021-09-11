@@ -115,8 +115,13 @@ def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
 
 
 def get_qty_to_manufacture(it_doc):
-    base_multiplier = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_rol_multiplier"))
-    max_months = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_months_for_manufacturing_qty"))
+    """
+    Returns Min and Max Quantity to Manufacture
+    """
+    base_multiplier = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings",
+        "base_rol_multiplier"))
+    max_months = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings",
+        "max_months_for_manufacturing_qty"))
     if max_months <= 0:
         max_months = 3
     if base_multiplier <= 0:
@@ -125,32 +130,23 @@ def get_qty_to_manufacture(it_doc):
     # print(qty_dict)
     calc_rol = qty_dict["calculated_rol"]
     lead = qty_dict["lead_time"] if qty_dict["lead_time"] > 0 else 30
-    so = qty_dict["on_so"]
-    po = qty_dict["on_po"]
+    soq = qty_dict["on_so"]
+    poq = qty_dict["on_po"]
     prd = qty_dict["reserved_for_prd"]
-    fg = qty_dict["finished_qty"] + qty_dict["dead_qty"]
+    fgq = qty_dict["finished_qty"] + qty_dict["dead_qty"]
     wipq = qty_dict["wip_qty"]
     plan = qty_dict["planned_qty"]
     rol = qty_dict["re_order_level"]
     rol_multiplier = (base_multiplier * calc_rol * lead / 30)
-    qty_on_docs = so + prd - fg - wipq - plan - po
-    reqd_qty = rol_multiplier + qty_on_docs
-    max_reqd_qty = (max_months * rol_multiplier) + qty_on_docs
-    if reqd_qty < 0:
-        reqd_qty = 0
-    if max_reqd_qty < 0:
-        max_reqd_qty = 0
+    qty_on_docs = soq + prd - fgq - wipq - plan - poq
+    reqd_qty = max(rol_multiplier + qty_on_docs, 0)
+    max_reqd_qty = max((max_months * rol_multiplier) + qty_on_docs, 0)
     if rol > 0:
-        if reqd_qty <= 0:
-            reqd_qty = 0
-        else:
-            reqd_qty = auto_round_down(reqd_qty)
-        if max_reqd_qty < 0:
-            max_reqd_qty = 0
-        else:
-            max_reqd_qty = auto_round_up(max_reqd_qty)
+        reqd_qty = auto_round_down(reqd_qty)
+        max_reqd_qty = auto_round_up(max_reqd_qty)
     else:
         reqd_qty = round(reqd_qty)
+        max_reqd_qty = round(max_reqd_qty)
     return reqd_qty, max_reqd_qty
 
 
