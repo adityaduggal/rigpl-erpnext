@@ -3,12 +3,10 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe
 from datetime import date
-from frappe.utils import nowdate, nowtime, today, add_months, flt
-from .purchase_utils import get_purchase_lead_times
-from .other_utils import auto_round_down, auto_round_up, round_up, get_weighted_average, \
-    get_base_doc
+import frappe
+from frappe.utils import nowdate, nowtime, add_months, flt
+from .other_utils import auto_round_down, auto_round_up, round_up
 
 
 def get_consolidate_bin(item_name):
@@ -35,23 +33,27 @@ def get_qty_available_to_sell(it_doc):
 
 
 def get_quantities_for_item(it_doc, so_item=None):
+    """
+    Returns a Dictionary for Item Doc and its quantities on Sales Order, On Indent etc
+    """
     qty_dict = frappe._dict()
     qty_dict.update({"on_so":0, "on_po":0, "on_indent":0, "planned_qty":0, "reserved_for_prd":0,
         "finished_qty":0, "wip_qty":0, "consumeable_qty":0, "raw_material_qty":0, "dead_qty":0,
         "rejected_qty":0, "calculated_rol":0, "lead_time":0, "re_order_level":0})
     if it_doc.made_to_order != 1:
-        rol_dict = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty FROM `tabItem Reorder`
-        WHERE parent = '%s' AND parenttype = '%s' AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype),
-                            as_dict=1)
+        rol_dict = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty
+            FROM `tabItem Reorder` WHERE parent = '%s' AND parenttype = '%s'
+            AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype), as_dict=1)
         if rol_dict:
             qty_dict["re_order_level"] = flt(rol_dict[0].warehouse_reorder_level)
             rol = qty_dict["re_order_level"]
         else:
             qty_dict["re_order_level"] = 0
             rol = 0
-        bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty, bn.actual_qty, bn.ordered_qty,
-            bn.indented_qty, bn.planned_qty, bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract,
-            wh.warehouse_type, wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND
+        bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty,
+            bn.actual_qty, bn.ordered_qty, bn.indented_qty, bn.planned_qty,
+            bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract, wh.warehouse_type,
+            wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND
             bn.item_code = '%s'""" % it_doc.name, as_dict=1)
         qty_dict["valuation_rate"] = flt(it_doc.valuation_rate)
         qty_dict["lead_time"] = flt(it_doc.lead_time_days) if flt(it_doc.lead_time_days) > 0 else 30
@@ -59,27 +61,27 @@ def get_quantities_for_item(it_doc, so_item=None):
 
         qty_dict["calculated_rol"] = calc_rol
         if bin_dict:
-            for d in bin_dict:
-                qty_dict["on_so"] += flt(d.reserved_qty)
-                qty_dict["on_po"] += flt(d.ordered_qty)
-                qty_dict["on_indent"] += flt(d.indented_qty)
-                qty_dict["planned_qty"] += flt(d.planned_qty)
-                qty_dict["reserved_for_prd"] += flt(d.reserved_qty_for_production)
+            for bnd in bin_dict:
+                qty_dict["on_so"] += flt(bnd.reserved_qty)
+                qty_dict["on_po"] += flt(bnd.ordered_qty)
+                qty_dict["on_indent"] += flt(bnd.indented_qty)
+                qty_dict["planned_qty"] += flt(bnd.planned_qty)
+                qty_dict["reserved_for_prd"] += flt(bnd.reserved_qty_for_production)
 
-                if d.warehouse_type == 'Finished Stock':
-                    qty_dict["finished_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Work In Progress':
-                    qty_dict["wip_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Consumable':
-                    qty_dict["consumeable_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Raw Material':
-                    qty_dict["raw_material_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Dead Stock':
-                    qty_dict["dead_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Recoverable Stock':
-                    qty_dict["rejected_qty"] += flt(d.actual_qty)
-                elif d.warehouse_type == 'Subcontracting':
-                    qty_dict["on_po"] += flt(d.actual_qty)
+                if bnd.warehouse_type == 'Finished Stock':
+                    qty_dict["finished_qty"] += flt(bnd.actual_qty)
+                elif bnd.warehouse_type == 'Work In Progress':
+                    qty_dict["wip_qty"] += flt(bnd.actual_qty)
+                elif bnd.warehouse_type == 'Consumable':
+                    qty_dict["consumeable_qty"] += flt(bnd.actual_qty)
+                elif bnd.warehouse_type == 'Raw Material':
+                    qty_dict["raw_material_qty"] += flt(bnd.actual_qty)
+                elif bnd.warehouse_type == 'Dead Stock':
+                    qty_dict["dead_qty"] += flt(bnd.actual_qty)
+                elif bnd.warehouse_type == 'Recoverable Stock':
+                    qty_dict["rejected_qty"] += flt(bnd.actual_qty)
+                elif bnd.warehouse_type == 'Subcontracting':
+                    qty_dict["on_po"] += flt(bnd.actual_qty)
     else:
         if so_item:
             on_so = frappe.db.sql("""SELECT (soi.qty - soi.delivered_qty) FROM `tabSales Order Item` soi, `tabSales Order` so
@@ -626,96 +628,3 @@ def get_max_lead_times(item_name):
     else:
         print("Either Item has Variants or Is Not a Variant of Any Template in this Case Return 0")
         return 0
-
-
-def get_item_lead_time(item_name, frm_dt=None, to_dt=None):
-    """
-    This function gets the lead time for an item based on Purchase or Manufacture
-    """
-    ldt_dict = frappe._dict({})
-    itd = frappe.get_doc("Item", item_name)
-    if itd.is_sales_item == 1:
-        # Items which are in Sales should be taken from the DN status
-        ldt_dict = get_selling_lead_times(item_name, frm_dt=frm_dt, to_dt=to_dt)
-    elif itd.is_purchase_item == 1:
-        # Check the days between the PO and GRN if ZERO days then dont consider that
-        # set for calculations
-        ldt_dict = get_purchase_lead_times(item_name, frm_dt=frm_dt, to_dt=to_dt)
-    else:
-        # Check which items are there and device a formula for that as well.
-        ldt_dict["avg_days_wt"] = 0
-        print(f"Item {item_name} is neither Sales nor Purchase so Lead Time is Set to 0")
-    return ldt_dict
-
-
-def get_selling_lead_times(item_name, frm_dt=None, to_dt=None):
-    """
-    Returns a dict with item_name and lead_times based on Sales Orders to DN times
-    Lead Time Dict would have following keys: item_name, avg_days, no_of_trans, total_qty
-    min_days, max_days, avg_days_wt, tot_qty
-    avg_days_wt is the weighted average delivery time
-    """
-    day_wise = []
-    ldt_dict = frappe._dict({})
-    ldt_dict["item_name"] = item_name
-    so_dict = get_so_for_item(item_name, frm_dt=frm_dt, to_dt=to_dt)
-    ldt_dict["no_of_trans"] = len(so_dict)
-    for sod in so_dict:
-        avg_days = get_avg_days_for_so(sod)
-        if ldt_dict.get("min_days", 0) == 0:
-            ldt_dict["min_days"] = avg_days.avg_days
-        else:
-            if ldt_dict["min_days"] > avg_days.avg_days:
-                ldt_dict["min_days"] = avg_days.avg_days
-        if ldt_dict.get("max_days", 0) == 0:
-            ldt_dict["max_days"] = avg_days.avg_days
-        else:
-            if ldt_dict["max_days"] < avg_days.avg_days:
-                ldt_dict["max_days"] = avg_days.avg_days
-        day_wise.append(get_avg_days_for_so(sod).copy())
-    avg_days_wt, tot_qty = get_weighted_average(list_of_data=day_wise, avg_key="avg_days",
-        wt_key="tot_qty")
-    ldt_dict["avg_days_wt"] = avg_days_wt
-    ldt_dict["tot_qty"] = tot_qty
-    return ldt_dict
-
-
-def get_so_for_item(it_name, frm_dt=None, to_dt=None):
-    cond = ""
-    if frm_dt:
-        cond += " AND so.transaction_date >= '%s'" % frm_dt
-    if to_dt:
-        cond += " AND so.transaction_date <= '%s'" % to_dt
-
-    so_dict = frappe.db.sql("""SELECT so.name as so_no, sod.name, so.transaction_date,
-        sod.qty, sod.idx
-        FROM `tabSales Order` so, `tabSales Order Item` sod
-        WHERE so.docstatus = 1 AND sod.parent = so.name AND sod.item_code = '%s'
-        AND sod.delivered_qty > 0 %s
-        ORDER BY so.transaction_date DESC, sod.name LIMIT 100""" % (it_name, cond), as_dict=1)
-    return so_dict
-
-
-def get_avg_days_for_so(so_dict):
-    avg_days_dict = frappe._dict({})
-    avg_days, days_wt, tot_qty = 0, 0, 0
-    query = """SELECT dn.name as dn, dni.name, dn.posting_date, dni.qty
-        FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni
-        WHERE dn.name = dni.parent AND dni.so_detail = '%s'
-        ORDER BY dn.posting_date DESC""" % so_dict.name
-    dn_dict = frappe.db.sql(query, as_dict=1)
-    for dn_no in dn_dict:
-        base_dn = get_base_doc("Delivery Note", dn_no.dn)
-        dnd = frappe.get_doc("Delivery Note", base_dn)
-        dn_no["posting_date"] = dnd.posting_date
-        days = (dn_no.posting_date - so_dict.transaction_date).days
-        if days > 0:
-            tot_qty += dn_no.qty
-            days_wt += days * dn_no.qty
-    if tot_qty > 0:
-        avg_days = auto_round_up(days_wt / tot_qty)
-    else:
-        avg_days = 0
-    avg_days_dict["tot_qty"] = tot_qty
-    avg_days_dict["avg_days"] = avg_days
-    return avg_days_dict
