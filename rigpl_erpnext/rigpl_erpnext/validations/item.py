@@ -3,7 +3,8 @@ from __future__ import unicode_literals
 from rigpl_erpnext.utils.item_utils import *
 from datetime import date, datetime
 from frappe.utils import getdate
-from ...utils.stock_utils import get_item_lead_time, get_max_lead_times
+from ...utils.lead_time_utils import get_item_lead_time
+from ...utils.stock_utils import get_max_lead_times
 from rohit_common.utils.rohit_common_utils import fn_check_digit, fn_next_string
 
 def validate(doc, method):
