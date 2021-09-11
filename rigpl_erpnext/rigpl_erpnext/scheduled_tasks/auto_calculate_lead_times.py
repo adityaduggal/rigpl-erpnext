@@ -7,7 +7,8 @@ import frappe
 import time
 from frappe.utils import flt
 from frappe.utils.background_jobs import enqueue
-from ...utils.stock_utils import get_item_lead_time, get_max_lead_times
+from ...utils.lead_time_utils import get_item_lead_time
+from ...utils.stock_utils import get_max_lead_times
 
 
 def enqueue_job():
@@ -25,7 +26,7 @@ def execute():
         AND rol.parentfield = 'reorder_levels' AND rol.parenttype = 'Item'
         WHERE it.has_variants = 0 AND it.disabled = 0 AND it.made_to_order = 0
         AND it.variant_of IS NOT NULL
-        ORDER BY rol_value ASC, it.valuation_rate DESC, rol.warehouse_reorder_level ASC,
+        ORDER BY rol_value DESC, it.valuation_rate DESC, rol.warehouse_reorder_level DESC,
         it.name""", as_dict=1)
     sno, changes, old_changes = 0, 0,0
     print(f"Total Items to be Checked = {len(item_list)}")
