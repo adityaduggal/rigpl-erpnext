@@ -13,6 +13,24 @@ from .job_card_utils import check_existing_job_card, create_job_card, update_job
     get_bin
 
 
+def get_last_operation_for_psheet(psdoc, no_cons_ld_time):
+    """
+    Returns the Last Operation for a Process Sheet Doc
+    no_cons_ld_time is Boolean basically if Not Consider Operation in Lead time is a check in
+    operation master
+    """
+    op_list = psdoc.operations
+    tot_operations = len(op_list)
+    for val in range(tot_operations):
+        if val == tot_operations - 1:
+            no_consider = frappe.get_value("Operation", op_list[val].operation,
+                "dont_consider_in_lead_time")
+            if no_cons_ld_time == no_consider:
+                return op_list[val - 1].operation
+            else:
+                return op_list[val].operation
+
+
 def get_actual_qty_before_process_in_ps(psd, itd, operation):
     qty_before_process, op_idx, add_po = 0, 0, 0
     self_subcon_op = frappe.get_value("Operation", operation, "is_subcontracting")
