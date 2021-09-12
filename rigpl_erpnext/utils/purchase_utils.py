@@ -32,24 +32,35 @@ def get_purchase_lead_times(item_name, frm_dt=None, to_dt=None):
             if ldt_dict["max_days"] < avg_days.avg_days:
                 ldt_dict["max_days"] = avg_days.avg_days
         day_wise.append(get_avg_days_for_po(pod).copy())
-    avg_days_wt, tot_qty = get_weighted_average(list_of_data=day_wise, avg_key="avg_days",
-        wt_key="tot_qty")
+    tot_length_wt = len(day_wise)
+    for day in day_wise:
+        day["age_wt"] = tot_length_wt
+        tot_length_wt -= 1
+    avg_days_wt, tot_qty, wt_key2 = get_weighted_average(list_of_data=day_wise, avg_key="avg_days",
+        wt_key="tot_qty", wt_key2="age_wt")
     ldt_dict["avg_days_wt"] = avg_days_wt
-    ldt_dict["tot_qty"] = tot_qty
+    ldt_dict["tot_qty"] = int(tot_qty)
     return ldt_dict
 
 
 def get_po_for_item(it_name, frm_dt=None, to_dt=None):
+    """
+    Returns the PO dictionary for an Item in a period also limits the no of transactions to
+    defined in settings.
+    """
+    max_trans = frappe.get_value("RIGPL Settings", "RIGPL Settings",
+        "max_transactions_for_lead_time_to_consider")
+    if max_trans == 0:
+        max_trans = 10
     cond = ""
     if frm_dt:
-        cond += " AND po.creation >= '%s'" % frm_dt
+        cond += f" AND po.creation >= '{frm_dt}'"
     if to_dt:
-        cond += " AND po.creation <= '%s'" % to_dt
-    po_dict = frappe.db.sql("""SELECT po.name as po_no, pod.name, po.creation, pod.qty, pod.idx,
-        po.amended_from
-        FROM `tabPurchase Order` po, `tabPurchase Order Item` pod WHERE pod.parent = po.name
-        AND pod.item_code = '%s' AND pod.received_qty > 0 %s
-        ORDER BY po.transaction_date DESC, pod.name LIMIT 100""" % (it_name, cond), as_dict=1)
+        cond += f" AND po.creation <= '{to_dt}'"
+    po_dict = frappe.db.sql(f"""SELECT po.name as po_no, pod.name, po.creation, pod.qty, pod.idx,
+        po.amended_from FROM `tabPurchase Order` po, `tabPurchase Order Item` pod
+        WHERE pod.parent = po.name AND pod.item_code = '{it_name}' AND pod.received_qty > 0 {cond}
+        ORDER BY po.transaction_date DESC, pod.name LIMIT {max_trans}""", as_dict=1)
     return po_dict
 
 

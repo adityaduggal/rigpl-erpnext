@@ -21,16 +21,16 @@ def get_item_lead_time(item_name, frm_dt=None, to_dt=None):
     if itd.include_item_in_manufacturing == 1:
         # Items which are used for Manufacturing would be taken from Process Sheet
         ldt_dict = get_manuf_lead_time(item_name, frm_dt=frm_dt, to_dt=to_dt)
+        ldt_dict["based_on"] = "Manufacture"
     elif itd.is_purchase_item == 1:
         # Check the days between the PO and GRN if ZERO days then dont consider that
         # set for calculations
         ldt_dict = get_purchase_lead_times(item_name, frm_dt=frm_dt, to_dt=to_dt)
-    elif itd.is_sales_item == 1:
-        # Items which are in Sales should be taken from the DN status
-        ldt_dict = get_selling_lead_times(item_name, frm_dt=frm_dt, to_dt=to_dt)
+        ldt_dict["based_on"] = "Purchase"
     else:
         # Check which items are there and device a formula for that as well.
         ldt_dict["avg_days_wt"] = 0
+        ldt_dict["based_on"] = "Unknown"
         print(f"Item {item_name} is neither Sales nor Purchase so Lead Time is Set to 0")
     return ldt_dict
 
@@ -54,9 +54,10 @@ def get_manuf_lead_time(item_name, frm_dt=None, to_dt=None):
             ldt_dict["max_days"] = psh.max_days
         tot_qty += psh.completed_qty
     ldt_dict["total_qty"] = tot_qty
-    avg_days_wt, total_wt = get_weighted_average(days_data, avg_key= "avg_days", wt_key="avg_days",
-        wt_key2="ps_wt")
+    avg_days_wt, total_qty, wt_key2 = get_weighted_average(days_data, avg_key= "avg_days",
+        wt_key="avg_days", wt_key2="ps_wt")
     ldt_dict["avg_days_wt"] = avg_days_wt
+    ldt_dict["total_qty"] = total_qty
     return ldt_dict
 
 
@@ -64,17 +65,21 @@ def get_manuf_days_data_for_item(it_name, frm_dt=None, to_dt=None):
     """
     Returns a dictionary of Process Sheets for an Item
     """
+    max_trans = frappe.get_value("RIGPL Settings", "RIGPL Settings",
+        "max_transactions_for_lead_time_to_consider")
+    if max_trans == 0:
+        max_trans = 10
     cond = ""
     if frm_dt:
-        cond += " AND ps.date >= '%s'" % frm_dt
+        cond += f" AND ps.date >= '{frm_dt}'"
     if to_dt:
-        cond += " AND ps.date <= '%s'" % to_dt
+        cond += f" AND ps.date <= '{to_dt}'"
     psd_list = []
     ps_dict = frappe.db.sql(f"""SELECT ps.name, ps.date, ps.quantity, ps.produced_qty,
         ps.production_item, ps.status
         FROM `tabProcess Sheet` ps WHERE ps.docstatus = 1 AND ps.production_item = '{it_name}'
         AND ps.produced_qty > 0
-        ORDER BY ps.date DESC LIMIT 100""", as_dict=1)
+        ORDER BY ps.date DESC LIMIT {max_trans}""", as_dict=1)
     if ps_dict:
         max_wt = len(ps_dict)
         for psh in ps_dict:

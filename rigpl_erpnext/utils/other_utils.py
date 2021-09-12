@@ -11,15 +11,22 @@ def get_weighted_average(list_of_data, avg_key, wt_key, wt_key2=None):
     """
     Returns average weighted Value and Total Weights for list of dict
     """
-    wt_avg, total_wt = 0, 0
+    wt_avg, total_wt, total_wt2 = 0, 0, 0
     for entry in list_of_data:
         wt_avg += entry.get(avg_key) * entry.get(wt_key) * entry.get(wt_key2, 1)
-        total_wt += entry.get(wt_key) * entry.get(wt_key2, 1)
-    if total_wt > 0:
-        wt_avg = auto_round_up(wt_avg/total_wt)
+        total_wt2 += entry.get(wt_key) * entry.get(wt_key2, 1)
+        total_wt += entry.get(wt_key)
+    if not wt_key2:
+        if total_wt > 0:
+            wt_avg = auto_round_up(wt_avg/total_wt)
+        else:
+            wt_avg = 0
     else:
-        wt_avg = 0
-    return wt_avg, total_wt
+        if total_wt2 > 0:
+            wt_avg = auto_round_up(wt_avg/total_wt2)
+        else:
+            wt_avg = 0
+    return wt_avg, total_wt, total_wt2
 
 
 def remove_html(html_text):

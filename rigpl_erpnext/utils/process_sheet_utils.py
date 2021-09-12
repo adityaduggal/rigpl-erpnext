@@ -26,7 +26,12 @@ def get_last_operation_for_psheet(psdoc, no_cons_ld_time):
             no_consider = frappe.get_value("Operation", op_list[val].operation,
                 "dont_consider_in_lead_time")
             if no_cons_ld_time == no_consider:
-                return op_list[val - 1].operation
+                no_consider_next = frappe.get_value("Operation", op_list[val - 1].operation,
+                    "dont_consider_in_lead_time")
+                if no_cons_ld_time == no_consider_next:
+                    return op_list[val - 2].operation
+                else:
+                    return op_list[val - 1].operation
             else:
                 return op_list[val].operation
 
