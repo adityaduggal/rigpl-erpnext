@@ -16,6 +16,7 @@
   "rol_multiplier",
   "rol_value_percentages",
   "rol_qty_percentages",
+  "max_transactions_for_lead_time_to_consider",
   "cb1",
   "auto_process_sheet_value",
   "rol_calculation",
@@ -207,10 +208,16 @@
    "label": "Default Payment Terms for Zero Sales Rating",
    "options": "Payment Terms Template",
    "reqd": 1
+  },
+  {
+   "default": "20",
+   "fieldname": "max_transactions_for_lead_time_to_consider",
+   "fieldtype": "Int",
+   "label": "Max Transactions for Lead Time to Consider"
   }
  ],
  "issingle": 1,
- "modified": "2021-08-24 07:44:29.523530",
+ "modified": "2021-09-12 10:18:43.406961",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
