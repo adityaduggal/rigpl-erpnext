@@ -21,12 +21,12 @@ def get_item_lead_time(item_name, frm_dt=None, to_dt=None):
     if itd.include_item_in_manufacturing == 1:
         # Items which are used for Manufacturing would be taken from Process Sheet
         ldt_dict = get_manuf_lead_time(item_name, frm_dt=frm_dt, to_dt=to_dt)
-        ldt_dict["based_on"] = "Manufacture"
+        ldt_dict["based_on"] = "Process Sheet"
     elif itd.is_purchase_item == 1:
         # Check the days between the PO and GRN if ZERO days then dont consider that
         # set for calculations
         ldt_dict = get_purchase_lead_times(item_name, frm_dt=frm_dt, to_dt=to_dt)
-        ldt_dict["based_on"] = "Purchase"
+        ldt_dict["based_on"] = "Purchase Order"
     else:
         # Check which items are there and device a formula for that as well.
         ldt_dict["avg_days_wt"] = 0
@@ -55,7 +55,7 @@ def get_manuf_lead_time(item_name, frm_dt=None, to_dt=None):
         tot_qty += psh.completed_qty
     ldt_dict["total_qty"] = tot_qty
     avg_days_wt, total_qty, wt_key2 = get_weighted_average(days_data, avg_key= "avg_days",
-        wt_key="avg_days", wt_key2="ps_wt")
+        wt_key="avg_days", wt_key2="trans_wt")
     ldt_dict["avg_days_wt"] = avg_days_wt
     ldt_dict["total_qty"] = total_qty
     return ldt_dict
@@ -84,7 +84,8 @@ def get_manuf_days_data_for_item(it_name, frm_dt=None, to_dt=None):
         max_wt = len(ps_dict)
         for psh in ps_dict:
             days_data = get_process_sheet_days(psh.name)
-            days_data["ps_wt"] = max_wt
+            days_data["trans_name"] = psh.name
+            days_data["trans_wt"] = max_wt
             max_wt -= 1
             if days_data.completed_qty > 0:
                 psd_list.append(days_data)
@@ -105,16 +106,43 @@ def get_process_sheet_days(ps_name, op_name=None, dont_consider=1):
         return ps_days
     else:
         if psd.produced_qty > 0:
+            # Update the psdoc date with the date when first JCR is submitted to signify start of
+            # operations for a Process Sheet
+            psd = update_process_sheet_start_date(psd)
             if not op_name:
                 op_name = get_last_operation_for_psheet(psd, dont_consider)
             for oper in psd.operations:
                 if oper.operation == op_name:
                     ps_days = get_full_processing_for_psheet(psd, op_name=oper.operation,
                         ps_days=ps_days)
+                    ps_days["trans_date"] = psd.date
             return ps_days
         else:
             print(f"{ps_name} Still Waiting for 1st Process to Complete")
             return ps_days
+
+
+def update_process_sheet_start_date(psdoc):
+    """
+    This function updates the start date for a Process Sheet basically if there is a lag between
+    submission of Prodcess Sheet and completion of first process then it should update the PS date
+    to the date of first operation completion. For Ex: Is PS is submitted on 1st Jan but the first
+    operation is completed on 20th Feb so item was in planning for 50 days which should not be
+    included in calculation of lead time.
+    """
+
+    for opr in psdoc.operations:
+        if opr.idx == 1:
+            first_op_name = opr.operation
+    first_jcr = frappe.db.sql(f"""SELECT name, posting_date, total_completed_qty
+        FROM `tabProcess Job Card RIGPL`
+        WHERE docstatus = 1 AND process_sheet = '{psdoc.name}' AND total_completed_qty > 0
+        AND operation = '{first_op_name}'
+        ORDER BY posting_date, posting_time LIMIT 1""", as_dict=1)
+    if first_jcr:
+        if first_jcr[0].posting_date != psdoc.date:
+            psdoc.date = first_jcr[0].posting_date
+    return psdoc
 
 
 def get_full_processing_for_psheet(psdoc, op_name, ps_days):

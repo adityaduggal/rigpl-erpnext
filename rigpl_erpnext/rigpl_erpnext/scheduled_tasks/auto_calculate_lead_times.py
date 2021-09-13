@@ -16,6 +16,12 @@ def enqueue_job():
 
 
 def execute():
+    """
+    Gets all items and calculates the lead times for them if lead time is zero then set to zero
+    Once all items are completed get another list of items where lead time is ZERO only and
+    then set to max lead time for that template this ways the max lead time is only based on real
+    data.
+    """
     st_time = time.time()
     error_items = []
     item_list = frappe.db.sql("""SELECT it.name, IFNULL(rol.warehouse_reorder_level, 0) as rol_qty,
@@ -45,25 +51,44 @@ def execute():
             except Exception as excp:
                 print(f"Error Occurred while Saving {itm.name} and Error = {excp}")
                 error_items.append(itd.name)
-        elif ldt_dict.avg_days_wt == 0:
-            max_lead_times = get_max_lead_times(itm.name)
-            if max_lead_times != itm.lead_time_days:
-                itd = frappe.get_doc("Item", itm.name)
-                print(f"{itm.name} Lead Time to be Changed based on Maximum Lead Time for Template "
-                    f"from {itd.lead_time_days} to New = {max_lead_times}")
-                try:
-                    itd.lead_time_days = max_lead_times
-                    itd.save()
-                except Exception as excp:
-                    print(f"Error Occurred while Saving {itm.name} and Error = {excp}")
-                    error_items.append(itd.name)
+        elif ldt_dict.avg_days_wt < 2:
+            itd = frappe.get_doc("Item", itm.name)
+            changes += 1
+            print(f"{itm.name} Lead Time being Set to Zero since no Data received")
+            try:
+                itd.lead_time_days = 0
+                itd.save()
+            except Exception as excp:
+                print(f"Error Occurred while Saving {itm.name} and Error = {excp}")
+                error_items.append(itd.name)
         # Commit changes to the Database after every 50 item changes
         if changes % 50 == 0 and changes > 0 and changes != old_changes:
             old_changes = changes
             frappe.db.commit()
             print(f"Committing Changes to Database after {changes}, Total Time Elapsed = "
             f"{int(time.time() - st_time)}")
-            time.sleep(2)
+    frappe.db.commit()
+    zero_ld_items = frappe.db.sql("""SELECT it.name,
+        IFNULL(rol.warehouse_reorder_level, 0) as rol_qty, it.valuation_rate,
+        (IFNULL(rol.warehouse_reorder_level, 0) * it.valuation_rate) as rol_value,
+        it.lead_time_days
+        FROM `tabItem` it LEFT JOIN `tabItem Reorder` rol ON it.name = rol.parent
+        AND rol.parentfield = 'reorder_levels' AND rol.parenttype = 'Item'
+        WHERE it.has_variants = 0 AND it.disabled = 0 AND it.made_to_order = 0
+        AND it.variant_of IS NOT NULL AND it.lead_time_days < 2
+        ORDER BY rol_value DESC, it.valuation_rate DESC, rol.warehouse_reorder_level DESC,
+        it.name""", as_dict=1)
+    for itm in zero_ld_items:
+        itd = frappe.get_doc("Item", itm.name)
+        max_lead_times = get_max_lead_times(itm.name)
+        print(f"{itm.name} Lead Time to be Changed based on Maximum Lead Time for Template "
+            f"from {itd.lead_time_days} to New = {max_lead_times}")
+        try:
+            itd.lead_time_days = 0
+            itd.save()
+        except Exception as excp:
+            print(f"Error Occurred while Saving {itm.name} and Error = {excp}")
+            error_items.append(itd.name)
     if error_items:
         print(f"Unable to save \n\n {error_items}")
 
