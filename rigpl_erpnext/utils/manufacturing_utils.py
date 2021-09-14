@@ -606,6 +606,21 @@ def update_qty_for_prod(item_code, warehouse, table_name):
                                                                                           table_name)})
 
 
+def get_qty_for_prod_for_item(item_code, warehouse=None):
+    wh_cond = ""
+    if warehouse:
+        wh_cond += f" AND psi.source_warehouse = {warehouse}"
+    qty_res_for_prod = frappe.db.sql(f"""SELECT SUM(psi.calculated_qty - psi.qty) as qty_prod
+        FROM `tabProcess Sheet Items` psi, `tabProcess Sheet` ps
+        WHERE ps.name = psi.parent AND psi.parenttype = 'Process Sheet' AND ps.docstatus = 1
+        AND psi.parentfield = 'rm_consumed' AND ps.status NOT IN ("Stopped", "Completed",
+        "Short Closed") AND psi.donot_consider_rm_for_production != 1
+        AND psi.item_code = '{item_code}' {wh_cond}""", as_dict=1)
+
+    return flt(qty_res_for_prod[0].qty_prod) if qty_res_for_prod else 0
+
+
+
 def get_qty_for_prod(item_code, warehouse, table_name):
     qty_res_for_prod = frappe.db.sql("""SELECT SUM(psi.calculated_qty - psi.qty) FROM `tabProcess Sheet Items` psi,
     `tabProcess Sheet` ps

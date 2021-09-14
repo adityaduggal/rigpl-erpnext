@@ -4,7 +4,28 @@
 
 from __future__ import unicode_literals
 import frappe
+from frappe.utils import flt
 from .other_utils import auto_round_up, get_base_doc, get_weighted_average
+
+
+def get_po_pend_qty(item_code, warehouse=None):
+    """
+    Returns integer value as per pending PO for an Item Code
+    """
+    wh_cond = ""
+    if warehouse:
+        wh_cond += f" AND pod.warehouse = '{warehouse}'"
+    po_query = f"""SELECT po.name as po_no, pod.name as pod_name,
+    (pod.qty - pod.received_qty) as poq, pod.idx, pod.item_code
+    FROM `tabPurchase Order` po, `tabPurchase Order Item` pod
+    WHERE po.docstatus = 1 AND po.status != 'Closed' AND pod.received_qty < pod.qty
+    AND pod.parent = po.name AND pod.item_code = '{item_code}' {wh_cond}"""
+    po_dict = frappe.db.sql(po_query, as_dict=1)
+    poq = 0
+    if po_dict:
+        for pono in po_dict:
+            poq += pono.poq
+    return poq
 
 
 def get_purchase_lead_times(item_name, frm_dt=None, to_dt=None):
