@@ -106,8 +106,8 @@ def get_data(filters):
             AND d2.attribute = 'd2_mm'
         LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
             AND l2.attribute = 'l2_mm'
-        WHERE ps.docstatus = 1 AND ps.produced_qty < ps.quantity AND ps.status != 'Stopped'
-        AND ps.status != 'Short Closed' %s
+        WHERE ps.docstatus = 1 AND ps.produced_qty < ps.quantity AND ps.status NOT IN
+        ('Stopped', 'Completed', 'Short Closed') %s
         ORDER BY ps.priority, bm.attribute_value, tt.attribute_value, spl.attribute_value,
         ser.attribute_value,
         d1.attribute_value, w1.attribute_value, l1.attribute_value, d2.attribute_value,
