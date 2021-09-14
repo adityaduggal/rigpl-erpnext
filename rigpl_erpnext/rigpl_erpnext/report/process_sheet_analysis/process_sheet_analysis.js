@@ -73,6 +73,12 @@ frappe.query_reports["Process Sheet Analysis"] = {
 			"label": "Pending Process Sheets",
 			"fieldtype": "Check",
 			"reqd": 0
+		},
+		{
+			"fieldname":"rm_used",
+			"label": "Get RM Used Details",
+			"fieldtype": "Check",
+			"reqd": 0
 		}
 	]
 };
