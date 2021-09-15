@@ -479,6 +479,9 @@ def validate_qty_decimal(document, table_name):
 
 
 def check_qty_job_card(jc_doc, row, calculated_qty, qty, uom, bypass=0):
+    """
+    Checks the Job Card Quantities as per the BOM templates formula
+    """
     bt_name = frappe.get_value("Process Sheet", jc_doc.process_sheet, "bom_template")
     bt_doc = frappe.get_doc("BOM Template RIGPL", bt_name)
     uom_doc = frappe.get_doc('UOM', uom)
@@ -681,34 +684,49 @@ def get_overlap_for(document, row, check_next_available_slot=False):
 
 
 def create_submit_ste_from_job_card(jc_doc):
+    """
+    Creates and Submits a Stock Entry for a Process Job Card Document
+    """
     if jc_doc.no_stock_entry != 1:
         remarks = 'STE for Process Job Card # {}'.format(jc_doc.name)
         item_table = []
         it_dict = {}
         if jc_doc.total_completed_qty > 0:
             it_dict.setdefault("item_code", jc_doc.production_item)
-            it_dict.setdefault("allow_zero_valuation_rate", 1)
+            it_vr = frappe.get_value("Item", jc_doc.production_item, "valuation_rate")
+            if it_vr == 0:
+                it_dict.setdefault("allow_zero_valuation_rate", 1)
+            it_dict.setdefault("basic_rate", it_vr)
+            it_dict.setdefault("valuation_rate", it_vr)
             it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
             it_dict.setdefault("t_warehouse", jc_doc.t_warehouse)
             it_dict.setdefault("qty", jc_doc.total_completed_qty)
             item_table.append(it_dict.copy())
-        for d in jc_doc.time_logs:
-            if d.rejected_qty > 0 and jc_doc.s_warehouse:
+        for row in jc_doc.time_logs:
+            if row.rejected_qty > 0 and jc_doc.s_warehouse:
                 it_dict = {}
                 it_dict.setdefault("item_code", jc_doc.production_item)
-                it_dict.setdefault("allow_zero_valuation_rate", 1)
-                it_dict.setdefault("qty", d.rejected_qty)
+                it_vr = frappe.get_value("Item", jc_doc.production_item, "valuation_rate")
+                if it_vr == 0:
+                    it_dict.setdefault("allow_zero_valuation_rate", 1)
+                it_dict.setdefault("basic_rate", it_vr)
+                it_dict.setdefault("valuation_rate", it_vr)
+                it_dict.setdefault("qty", row.rejected_qty)
                 it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
                 it_dict.setdefault("t_warehouse", "")
                 item_table.append(it_dict.copy())
-            if d.salvage_qty > 0:
+            if row.salvage_qty > 0:
                 it_dict = {}
                 it_dict.setdefault("item_code", jc_doc.production_item)
-                it_dict.setdefault("allow_zero_valuation_rate", 1)
-                it_dict.setdefault("qty", d.salvage_qty)
+                it_vr = frappe.get_value("Item", jc_doc.production_item, "valuation_rate")
+                if it_vr == 0:
+                    it_dict.setdefault("allow_zero_valuation_rate", 1)
+                it_dict.setdefault("basic_rate", it_vr)
+                it_dict.setdefault("valuation_rate", it_vr)
+                it_dict.setdefault("qty", row.salvage_qty)
                 if jc_doc.s_warehouse:
                     it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
-                it_dict.setdefault("t_warehouse", d.salvage_warehouse)
+                it_dict.setdefault("t_warehouse", row.salvage_warehouse)
                 item_table.append(it_dict.copy())
         if jc_doc.rm_consumed:
             for row in jc_doc.rm_consumed:
@@ -725,7 +743,11 @@ def create_submit_ste_from_job_card(jc_doc):
                 if row.qty > 0:
                     it_dict = {}
                     it_dict.setdefault("item_code", row.item_code)
-                    it_dict.setdefault("allow_zero_valuation_rate", 1)
+                    it_vr = frappe.get_value("Item", row.item_code, "valuation_rate")
+                    if it_vr == 0:
+                        it_dict.setdefault("allow_zero_valuation_rate", 1)
+                    it_dict.setdefault("basic_rate", it_vr)
+                    it_dict.setdefault("valuation_rate", it_vr)
                     it_dict.setdefault("qty", row.qty)
                     it_dict.setdefault("s_warehouse", row.source_warehouse)
                     it_dict.setdefault("t_warehouse", row.target_warehouse)
