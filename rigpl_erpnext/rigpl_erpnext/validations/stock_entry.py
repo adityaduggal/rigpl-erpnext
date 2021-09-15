@@ -44,31 +44,20 @@ def on_submit(doc, method):
 
 def update_valuation_rate(ste):
     """
-    Updates the Valuation Rate for an Item
+    Updates the Valuation Rate for an Item some basic things to know
+    - If Source Warehouse is Not ther then Get the Valuation Rate from Item Master
     """
     for itm in ste.items:
-        itd = frappe.get_doc("Item", itm.item_code)
-        if itd.made_to_order != 1:
-            # Check if its purchase item or manufacture item if manufactured item them Valuation
-            # Rate from Item Doc and if its a purchase item then as per fifo rate in that warehouse
-            if itd.include_item_in_manufacturing == 1:
-                itm.basic_rate = itd.valuation_rate
-                itm.valuation_rate = itd.valuation_rate
-                itm.amount = itd.valuation_rate * itm.qty
-                itm.basic_amount = itd.valuation_rate * itm.qty
-                if itd.valuation_rate > 0:
-                    itm.allow_zero_valuation_rate = 0
-                else:
-                    itm.allow_zero_valuation_rate = 1
+        if not itm.s_warehouse:
+            itd = frappe.get_doc("Item", itm.item_code)
+            itm.basic_rate = itd.valuation_rate
+            itm.valuation_rate = itd.valuation_rate
+            itm.amount = itd.valuation_rate * itm.qty
+            itm.basic_amount = itd.valuation_rate * itm.qty
+            if itd.valuation_rate > 0:
+                itm.allow_zero_valuation_rate = 0
             else:
-                # Generally the system takes the incoming valuation rate automatically
-                pass
-        else:
-            itm.basic_rate = 1
-            itm.valuation_rate = 1
-            itm.basic_amount = itm.qty
-            itm.amount = itm.qty
-            itm.allow_zero_valuation_rate = 0
+                itm.allow_zero_valuation_rate = 1
     StockEntry.set_total_incoming_outgoing_value(ste)
 
 
