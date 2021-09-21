@@ -54,7 +54,7 @@ def get_columns(filters):
 def get_data(filters):
     conditions_it, conditions_ps = get_conditions(filters)
     if filters.get("process_wise") == 1:
-        query = """SELECT ps.name, ps.status, ps.priority, ps.production_item, pso.operation,
+        query = f"""SELECT ps.name, ps.status, ps.priority, ps.production_item, pso.operation,
          pso.planned_qty,
         pso.completed_qty, IF ((pso.planned_qty - pso.completed_qty > 0) AND (pso.status NOT IN
         ('Short Closed', 'Stopped', 'Obsolete')), pso.planned_qty - pso.completed_qty, 0) ,
@@ -64,7 +64,7 @@ def get_data(filters):
         pso.source_warehouse, pso.target_warehouse
         FROM `tabProcess Sheet` ps, `tabBOM Operation` pso
         WHERE pso.parent = ps.name AND pso.parenttype = 'Process Sheet'
-        AND ps.docstatus != 2 %s ORDER BY ps.name, pso.idx""" % conditions_it
+        AND ps.docstatus != 2 {conditions_it} ORDER BY ps.name, pso.idx"""
     elif filters.get("rm_used") == 1:
         query = f"""SELECT ps.name, ps.status, ps.priority, ps.production_item, ps.date,
         rm.item_code as rm_item, rm.source_warehouse, rm.calculated_qty, rm.qty,
@@ -77,7 +77,7 @@ def get_data(filters):
         AND rm.qty < rm.calculated_qty AND rm.item_code = '{filters.get("item")}'"""
 
     elif filters.get("pending") == 1:
-        query = """SELECT ps.name, ps.date, ps.status, ps.priority, ps.production_item,
+        query = f"""SELECT ps.name, ps.date, ps.status, ps.priority, ps.production_item,
         bm.attribute_value AS bm,
         tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series,
         d1.attribute_value as d1,
@@ -107,14 +107,14 @@ def get_data(filters):
         LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
             AND l2.attribute = 'l2_mm'
         WHERE ps.docstatus = 1 AND ps.produced_qty < ps.quantity AND ps.status NOT IN
-        ('Stopped', 'Completed', 'Short Closed') %s
+        ('Stopped', 'Completed', 'Short Closed') {conditions_it}
         ORDER BY ps.priority, bm.attribute_value, tt.attribute_value, spl.attribute_value,
         ser.attribute_value,
         d1.attribute_value, w1.attribute_value, l1.attribute_value, d2.attribute_value,
         l2.attribute_value,
-        ps.production_item, ps.sales_order, ps.description""" % conditions_it
+        ps.production_item, ps.sales_order, ps.description"""
     else:
-        query = """SELECT ps.name, ps.status, ps.priority, ps.production_item,
+        query = f"""SELECT ps.name, ps.status, ps.priority, ps.production_item,
         bm.attribute_value AS bm,
         tt.attribute_value AS tt, spl.attribute_value as spl, ser.attribute_value as series,
         d1.attribute_value as d1,
@@ -144,12 +144,12 @@ def get_data(filters):
             AND d2.attribute = 'd2_mm'
         LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
             AND l2.attribute = 'l2_mm'
-        WHERE ps.docstatus < 3 %s %s
+        WHERE ps.docstatus < 3 {conditions_ps} {conditions_it}
         ORDER BY ps.priority, bm.attribute_value, tt.attribute_value, spl.attribute_value,
         ser.attribute_value,
         d1.attribute_value, w1.attribute_value, l1.attribute_value, d2.attribute_value,
         l2.attribute_value,
-        ps.production_item, ps.sales_order, ps.description""" % (conditions_ps, conditions_it)
+        ps.production_item, ps.sales_order, ps.description"""
     if filters.get("process_wise") == 1:
         data = frappe.db.sql(query, as_list=1)
     elif filters.get("rm_used") == 1:
@@ -201,6 +201,11 @@ def get_conditions(filters):
 
     if check_box > 1:
         frappe.throw("Maximum 1 Checkbox can be Selected")
+
+    if filters.get("show_zero_qty") == 1:
+        conditions_ps += " AND ps.quantity = 0"
+    else:
+        conditions_ps += " AND ps.quantity > 0"
 
     if filters.get("status"):
         conditions_ps += " AND ps.status = '%s'" % filters.get("status")
