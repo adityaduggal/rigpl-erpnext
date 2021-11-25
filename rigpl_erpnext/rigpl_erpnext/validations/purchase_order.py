@@ -287,6 +287,8 @@ def check_prule_for_it_att(prule_doc, it_att_dict):
 
 
 def get_supplier_pricing_rule(supplier):
-    prule_dict = frappe.db.sql("""SELECT name FROM `tabPricing Rule` WHERE apply_on = 'Attributes' AND buying = 1
-    AND applicable_for = 'Supplier' AND supplier = '%s'""" % supplier, as_dict=1)
+    query= f"""SELECT name FROM `tabPricing Rule` WHERE apply_on = 'Attributes' AND buying = 1
+    AND applicable_for = 'Supplier' AND supplier = '{supplier}' AND disable=0
+    AND valid_from <= CURDATE() AND IFNULL(valid_upto, '2099-12-31') >=CURDATE()"""
+    prule_dict = frappe.db.sql(query , as_dict=1)
     return prule_dict
