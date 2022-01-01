@@ -59,4 +59,7 @@ def execute():
 
 
 def download_file(url, file_path):
-    urllib.request.urlretrieve(url, file_path)
+    try:
+        urllib.request.urlretrieve(url, file_path)
+    except Exception as e:
+        print(e)
