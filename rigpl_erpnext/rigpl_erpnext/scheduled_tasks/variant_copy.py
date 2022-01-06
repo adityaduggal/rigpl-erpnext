@@ -10,7 +10,7 @@ from frappe.utils.background_jobs import enqueue
 
 
 def enqueue_check_wrong_variants():
-    enqueue(check_wrong_variants, queue="long", timeout=7200)
+    enqueue(check_wrong_variants, queue="long", timeout=14400)
 
 
 def check_wrong_variants():
