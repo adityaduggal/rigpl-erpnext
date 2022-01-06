@@ -63,6 +63,8 @@ def get_columns(filters, data):
             {"fieldname": "anniversary", "label": "Anniversary", "fieldtype":"Date", "options":"",
                 "width":80},
             {"fieldname": "notes", "label": "Notes", "fieldtype":"", "option":""},
+            {"fieldname": "is_primary_contact", "label": "Primary", "fieldtype":"Int", "options":"",
+                "width": 20},
             {"fieldname": "link_doctype", "label": "Master Type", "fieldtype":"", "options":""},
             {"fieldname": "link_name", "label": "Master Name", "fieldtype":"Dynamic Link",
                 "options":"link_doctype"},
@@ -146,7 +148,7 @@ def get_entries(filters, conditions, tbl_join, fd_add):
             IF(TRIM(con.last_name)="" or TRIM(con.last_name) IS NULL , 'zNo Last Name',
             con.last_name) as last_name,
             IF(TRIM(con.gender)="" or TRIM(con.gender) IS NULL , 'zNo Gender',
-            con.gender) as gender,
+            con.gender) as gender, con.is_primary_contact,
             con.birthday, con.anniversary, con.designation, con.department, con.notes,
             dl.link_doctype, dl.link_name {fd_add}
             FROM `tabContact` con, `tabDynamic Link` dl {tbl_join}
@@ -163,7 +165,7 @@ def get_entries(filters, conditions, tbl_join, fd_add):
             IF(TRIM(con.last_name)="" or TRIM(con.last_name) IS NULL , 'zNo Last Name',
             con.last_name) as last_name,
             IF(TRIM(con.gender)="" or TRIM(con.gender) IS NULL , 'zNo Gender',
-            con.gender) as gender,
+            con.gender) as gender, con.is_primary_contact,
             con.birthday, con.anniversary, con.designation, con.department, con.notes
             FROM `tabContact` con
             WHERE con.name NOT IN (SELECT parent FROM `tabDynamic Link` WHERE parenttype = 'Contact'
