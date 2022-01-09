@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from rigpl_erpnext.utils.rigpl_perm import *
-from frappe.utils import getdate
+from frappe.utils import getdate, split_emails
 from dateutil.relativedelta import relativedelta
+from frappe.contacts.address_and_contact import load_address_and_contact
 from rigpl_erpnext.utils.other_utils import validate_pan, validate_aadhaar
-from rohit_common.utils.rohit_common_utils import fn_check_digit, validate_email_addresses
+from rohit_common.utils.rohit_common_utils import fn_check_digit
+from rohit_common.rohit_common.integrations.email_verification.email_verification \
+    import full_email_validation
+
+
+def onload(doc, method):
+    load_address_and_contact(doc)
 
 
 def validate(doc, method):
@@ -13,12 +20,13 @@ def validate(doc, method):
         is_base_list = frappe.get_value("Holiday List", doc.holiday_list, "is_base_list")
         if is_base_list != 1:
             frappe.throw(f"{doc.holiday_list} is not a Base List Select a Base List in {doc.name}")
-    if doc.company_email and doc.company_email_validated != 1:
-        valid_co_email = validate_email_addresses(doc.company_email)
-        doc.company_email_validated = valid_co_email
-    if doc.personal_email and doc.personal_email_validated != 1:
-        valid_per_email = validate_email_addresses(doc.personal_email)
-        doc.personal_email_validated = valid_per_email
+    if doc.company_email:
+        cmp_validated_email = full_email_validation(doc.company_email)
+        multi_emails = split_emails(cmp_validated_email)
+        if len(multi_emails) > 1:
+            frappe.throw(f"Only 1 Email is allowed in Company Email field {doc.company_email} entered Rejected")
+    if doc.personal_email:
+        doc.personal_email = full_email_validation(doc.personal_email)
     dob = getdate(doc.date_of_birth)
     doj = getdate(doc.date_of_joining)
     if relativedelta(doj, dob).years < 18:

@@ -107,6 +107,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.department.validate"
     },
     "Employee": {
+        "onload": "rigpl_erpnext.rigpl_erpnext.validations.employee.onload",
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.employee.validate",
         "autoname": "rigpl_erpnext.rigpl_erpnext.validations.employee.autoname",
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.employee.on_update",
