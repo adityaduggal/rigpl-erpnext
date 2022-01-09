@@ -1,7 +1,7 @@
 frappe.ui.form.on("Employee", {
     refresh: function(frm){
         frappe.dynamic_link = {doc: frm.doc, fieldname: 'name', doctype: 'Employee'}
-        frm.toggle_display(['contact_html'], !frm.doc.__islocal);
+        frm.toggle_display(['address_html', 'contact_html'], !frm.doc.__islocal);
 
         if(!frm.doc.__islocal) {
             frappe.contacts.render_address_and_contact(frm);
