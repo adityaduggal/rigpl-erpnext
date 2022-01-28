@@ -3,13 +3,16 @@ from __future__ import unicode_literals
 from frappe.share import add, remove
 import frappe.permissions
 from rigpl_erpnext.utils.rigpl_perm import *
-from rohit_common.utils.rohit_common_utils import validate_email_addresses
+from rohit_common.utils.email_utils import comma_email_validations
 
 
 def validate(doc, method):
-    if doc.email_address_validated != 1 and doc.email_id:
-        valid_email = validate_email_addresses(doc.email_id)
-        doc.email_address_validated = valid_email
+    """
+    Does various validations for Lead Doctype
+    1. Email ID is validated else removed
+    2. Lead and related Addresses and Quotes are shared with the lead owner
+    """
+    doc.email_id = comma_email_validations(doc.email_id, backend=0)
     if doc.lead_owner:
         if doc.lead_owner != doc.contact_by:
             doc.contact_by = doc.lead_owner
@@ -24,7 +27,7 @@ def validate(doc, method):
 def on_update(doc, method):
     check_sys = 0
     # Lock Lead if its linked to a Customer so no editing on Lead is allowed
-    check_conversion = frappe.db.sql("""SELECT name FROM `tabCustomer` 
+    check_conversion = frappe.db.sql("""SELECT name FROM `tabCustomer`
     WHERE lead_name = '%s'""" % doc.name, as_list=1)
 
     if check_conversion:
@@ -61,7 +64,7 @@ def lead_docshare(lead_doc):
 def lead_quote_share(lead_doc):
     check_sys = 0
     emp_stat = frappe.get_value("User", lead_doc.lead_owner, "enabled")
-    quote_dict = frappe.db.sql("""SELECT name FROM `tabQuotation` WHERE lead = '%s' AND 
+    quote_dict = frappe.db.sql("""SELECT name FROM `tabQuotation` WHERE lead = '%s' AND
     customer IS NULL""" % lead_doc.name, as_dict=1)
     if quote_dict:
         for quote in quote_dict:
@@ -93,7 +96,7 @@ def lead_address_share(lead_doc):
     check_sys = 0
     emp_stat = frappe.get_value("User", lead_doc.lead_owner, "enabled")
 
-    add_dict = frappe.db.sql("""SELECT parent FROM `tabDynamic Link` WHERE parenttype = 'Address' AND 
+    add_dict = frappe.db.sql("""SELECT parent FROM `tabDynamic Link` WHERE parenttype = 'Address' AND
     link_doctype = '%s' AND link_name = '%s'""" % (lead_doc.doctype, lead_doc.name), as_dict=1)
     if add_dict:
         for address in add_dict:
