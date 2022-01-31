@@ -6,8 +6,7 @@ from dateutil.relativedelta import relativedelta
 from frappe.contacts.address_and_contact import load_address_and_contact
 from rigpl_erpnext.utils.other_utils import validate_pan, validate_aadhaar
 from rohit_common.utils.rohit_common_utils import fn_check_digit
-from rohit_common.rohit_common.integrations.email_verification.email_verification \
-    import full_email_validation
+from rohit_common.utils.email_utils import comma_email_validations
 
 
 def onload(doc, method):
@@ -21,12 +20,12 @@ def validate(doc, method):
         if is_base_list != 1:
             frappe.throw(f"{doc.holiday_list} is not a Base List Select a Base List in {doc.name}")
     if doc.company_email:
-        cmp_validated_email = full_email_validation(doc.company_email)
+        cmp_validated_email = comma_email_validations(doc.company_email)
         multi_emails = split_emails(cmp_validated_email)
         if len(multi_emails) > 1:
             frappe.throw(f"Only 1 Email is allowed in Company Email field {doc.company_email} entered Rejected")
     if doc.personal_email:
-        doc.personal_email = full_email_validation(doc.personal_email)
+        doc.personal_email = comma_email_validations(doc.personal_email)
     dob = getdate(doc.date_of_birth)
     doj = getdate(doc.date_of_joining)
     if relativedelta(doj, dob).years < 18:
