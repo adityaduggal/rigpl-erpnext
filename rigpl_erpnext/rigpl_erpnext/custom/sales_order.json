@@ -22,6 +22,9 @@
    "fieldname": "shipping_address_title",
    "fieldtype": "Data",
    "hidden": 0,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
    "idx": 35,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
@@ -29,14 +32,17 @@
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "place_of_supply",
    "label": "Shipping Address Title",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2016-06-29 11:06:44.470188",
    "modified_by": "aditya@rigpl.com",
    "name": "Sales Order-shipping_address_title",
    "no_copy": 0,
+   "non_negative": 0,
    "options": null,
    "owner": "aditya@rigpl.com",
    "parent": null,
@@ -48,6 +54,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 1,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -77,21 +84,27 @@
    "fieldname": "track_trial",
    "fieldtype": "Check",
    "hidden": 0,
-   "idx": 41,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
+   "idx": 43,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
    "in_filter": 0,
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "currency",
    "label": "Track Trial",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2016-06-29 11:06:45.802439",
    "modified_by": "aditya@rigpl.com",
    "name": "Sales Order-track_trial",
    "no_copy": 1,
+   "non_negative": 0,
    "options": null,
    "owner": "aditya@rigpl.com",
    "parent": null,
@@ -103,6 +116,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 0,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -132,21 +146,27 @@
    "fieldname": "trial_status",
    "fieldtype": "Select",
    "hidden": 0,
-   "idx": 134,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
+   "idx": 140,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
    "in_filter": 0,
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "sales_team",
    "label": "Trial Status",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2016-06-29 11:06:53.573552",
    "modified_by": "aditya@rigpl.com",
    "name": "Sales Order-trial_status",
    "no_copy": 0,
+   "non_negative": 0,
    "options": "\nApproved\nRejected\nAwaited",
    "owner": "aditya@rigpl.com",
    "parent": null,
@@ -158,6 +178,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 0,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -187,21 +208,27 @@
    "fieldname": "submitted_by",
    "fieldtype": "Link",
    "hidden": 0,
-   "idx": 109,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
+   "idx": 114,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
    "in_filter": 0,
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "project",
    "label": "Submitted By",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2019-02-04 13:56:50.165984",
    "modified_by": "Administrator",
    "name": "Sales Order-submitted_by",
    "no_copy": 0,
+   "non_negative": 0,
    "options": "User",
    "owner": "Administrator",
    "parent": null,
@@ -213,6 +240,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 1,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -242,6 +270,9 @@
    "fieldname": "follow_strict_po_rules",
    "fieldtype": "Check",
    "hidden": 0,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
    "idx": 8,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
@@ -249,14 +280,17 @@
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "order_type",
    "label": "Follow Strict PO Rules",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2020-09-02 10:50:26.179094",
    "modified_by": "Administrator",
    "name": "Sales Order-follow_strict_po_rules",
    "no_copy": 0,
+   "non_negative": 0,
    "options": null,
    "owner": "Administrator",
    "parent": null,
@@ -268,6 +302,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 0,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -297,6 +332,9 @@
    "fieldname": "billing_address_gstin",
    "fieldtype": "Data",
    "hidden": 0,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
    "idx": 21,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
@@ -304,14 +342,17 @@
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "customer_address",
    "label": "Billing Address GSTIN",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2020-10-18 00:10:31.225345",
    "modified_by": "Administrator",
    "name": "Sales Order-billing_address_gstin",
    "no_copy": 0,
+   "non_negative": 0,
    "options": null,
    "owner": "Administrator",
    "parent": null,
@@ -323,6 +364,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 1,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -352,6 +394,9 @@
    "fieldname": "customer_gstin",
    "fieldtype": "Data",
    "hidden": 0,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
    "idx": 33,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
@@ -359,14 +404,17 @@
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "shipping_address_name",
    "label": "Customer GSTIN",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2020-10-18 00:10:32.443033",
    "modified_by": "Administrator",
    "name": "Sales Order-customer_gstin",
    "no_copy": 0,
+   "non_negative": 0,
    "options": null,
    "owner": "Administrator",
    "parent": null,
@@ -378,6 +426,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 0,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -407,6 +456,9 @@
    "fieldname": "place_of_supply",
    "fieldtype": "Data",
    "hidden": 0,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
    "idx": 34,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
@@ -414,14 +466,17 @@
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "customer_gstin",
    "label": "Place of Supply",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2020-10-18 00:10:33.674729",
    "modified_by": "Administrator",
    "name": "Sales Order-place_of_supply",
    "no_copy": 0,
+   "non_negative": 0,
    "options": null,
    "owner": "Administrator",
    "parent": null,
@@ -433,6 +488,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 1,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -462,6 +518,9 @@
    "fieldname": "company_gstin",
    "fieldtype": "Data",
    "hidden": 0,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
    "idx": 29,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
@@ -469,14 +528,17 @@
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "company_address",
    "label": "Company GSTIN",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2020-10-18 00:10:34.904557",
    "modified_by": "Administrator",
    "name": "Sales Order-company_gstin",
    "no_copy": 0,
+   "non_negative": 0,
    "options": null,
    "owner": "Administrator",
    "parent": null,
@@ -488,6 +550,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 1,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -517,21 +580,27 @@
    "fieldname": "bypass_credit_check",
    "fieldtype": "Check",
    "hidden": 0,
-   "idx": 8,
+   "hide_border": 0,
+   "hide_days": 0,
+   "hide_seconds": 0,
+   "idx": 9,
    "ignore_user_permissions": 0,
    "ignore_xss_filter": 0,
    "in_filter": 0,
    "in_filter_dash": 0,
    "in_global_search": 0,
    "in_list_view": 0,
+   "in_preview": 0,
    "in_standard_filter": 0,
    "insert_after": "follow_strict_po_rules",
    "label": "Bypass Credit Check",
    "length": 0,
+   "mandatory_depends_on": null,
    "modified": "2021-08-24 13:42:06.194010",
    "modified_by": "Administrator",
    "name": "Sales Order-bypass_credit_check",
    "no_copy": 0,
+   "non_negative": 0,
    "options": null,
    "owner": "Administrator",
    "parent": null,
@@ -543,6 +612,7 @@
    "print_hide_if_no_value": 0,
    "print_width": null,
    "read_only": 0,
+   "read_only_depends_on": null,
    "report_hide": 0,
    "reqd": 0,
    "search_index": 0,
@@ -559,22 +629,95 @@
    "_comments": null,
    "_liked_by": null,
    "_user_tags": null,
-   "creation": "2021-07-19 17:25:50.485080",
+   "creation": "2022-02-01 21:41:40.536725",
+   "default_value": null,
+   "doc_type": "Sales Order",
+   "docstatus": 0,
+   "doctype_or_field": "DocField",
+   "field_name": "title",
+   "idx": 0,
+   "modified": "2022-02-01 21:41:40.536725",
+   "modified_by": "Administrator",
+   "name": "Sales Order-title-default",
+   "owner": "Administrator",
+   "parent": null,
+   "parentfield": null,
+   "parenttype": null,
+   "property": "default",
+   "property_type": "Text",
+   "row_name": null,
+   "value": ""
+  },
+  {
+   "_assign": null,
+   "_comments": null,
+   "_liked_by": null,
+   "_user_tags": null,
+   "creation": "2022-02-01 20:18:35.314003",
+   "default_value": null,
+   "doc_type": "Sales Order",
+   "docstatus": 0,
+   "doctype_or_field": "DocField",
+   "field_name": "tax_id",
+   "idx": 0,
+   "modified": "2022-02-01 20:18:35.314003",
+   "modified_by": "Administrator",
+   "name": "Sales Order-tax_id-print_hide",
+   "owner": "Administrator",
+   "parent": null,
+   "parentfield": null,
+   "parenttype": null,
+   "property": "print_hide",
+   "property_type": "Check",
+   "row_name": null,
+   "value": "0"
+  },
+  {
+   "_assign": null,
+   "_comments": null,
+   "_liked_by": null,
+   "_user_tags": null,
+   "creation": "2022-02-01 20:18:35.294548",
+   "default_value": null,
+   "doc_type": "Sales Order",
+   "docstatus": 0,
+   "doctype_or_field": "DocField",
+   "field_name": "tax_id",
+   "idx": 0,
+   "modified": "2022-02-01 20:18:35.294548",
+   "modified_by": "Administrator",
+   "name": "Sales Order-tax_id-hidden",
+   "owner": "Administrator",
+   "parent": null,
+   "parentfield": null,
+   "parenttype": null,
+   "property": "hidden",
+   "property_type": "Check",
+   "row_name": null,
+   "value": "0"
+  },
+  {
+   "_assign": null,
+   "_comments": null,
+   "_liked_by": null,
+   "_user_tags": null,
+   "creation": "2022-02-01 19:46:20.491421",
    "default_value": null,
    "doc_type": "Sales Order",
    "docstatus": 0,
    "doctype_or_field": "DocField",
    "field_name": "payment_schedule",
    "idx": 0,
-   "modified": "2021-07-19 17:25:50.485080",
-   "modified_by": "aditya@rigpl.com",
+   "modified": "2022-02-01 19:46:20.491421",
+   "modified_by": "Administrator",
    "name": "Sales Order-payment_schedule-print_hide",
-   "owner": "aditya@rigpl.com",
+   "owner": "Administrator",
    "parent": null,
    "parentfield": null,
    "parenttype": null,
    "property": "print_hide",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -582,68 +725,23 @@
    "_comments": null,
    "_liked_by": null,
    "_user_tags": null,
-   "creation": "2021-07-19 17:25:49.950472",
+   "creation": "2022-02-01 19:46:20.464840",
    "default_value": null,
    "doc_type": "Sales Order",
    "docstatus": 0,
    "doctype_or_field": "DocField",
    "field_name": "due_date",
    "idx": 0,
-   "modified": "2021-07-19 17:25:49.950472",
-   "modified_by": "aditya@rigpl.com",
+   "modified": "2022-02-01 19:46:20.464840",
+   "modified_by": "Administrator",
    "name": "Sales Order-due_date-print_hide",
-   "owner": "aditya@rigpl.com",
+   "owner": "Administrator",
    "parent": null,
    "parentfield": null,
    "parenttype": null,
    "property": "print_hide",
    "property_type": "Check",
-   "value": "0"
-  },
-  {
-   "_assign": null,
-   "_comments": null,
-   "_liked_by": null,
-   "_user_tags": null,
-   "creation": "2021-06-05 14:50:33.327224",
-   "default_value": null,
-   "doc_type": "Sales Order",
-   "docstatus": 0,
-   "doctype_or_field": "DocField",
-   "field_name": "tax_id",
-   "idx": 0,
-   "modified": "2021-06-05 14:50:33.327224",
-   "modified_by": "abhinav@rigpl.com",
-   "name": "Sales Order-tax_id-print_hide",
-   "owner": "abhinav@rigpl.com",
-   "parent": null,
-   "parentfield": null,
-   "parenttype": null,
-   "property": "print_hide",
-   "property_type": "Check",
-   "value": "0"
-  },
-  {
-   "_assign": null,
-   "_comments": null,
-   "_liked_by": null,
-   "_user_tags": null,
-   "creation": "2021-06-05 14:50:32.923250",
-   "default_value": null,
-   "doc_type": "Sales Order",
-   "docstatus": 0,
-   "doctype_or_field": "DocField",
-   "field_name": "tax_id",
-   "idx": 0,
-   "modified": "2021-06-05 14:50:32.923250",
-   "modified_by": "abhinav@rigpl.com",
-   "name": "Sales Order-tax_id-hidden",
-   "owner": "abhinav@rigpl.com",
-   "parent": null,
-   "parentfield": null,
-   "parenttype": null,
-   "property": "hidden",
-   "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -667,6 +765,7 @@
    "parenttype": null,
    "property": "print_hide",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -690,6 +789,7 @@
    "parenttype": null,
    "property": "hidden",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -713,6 +813,7 @@
    "parenttype": null,
    "property": "print_hide",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -736,6 +837,7 @@
    "parenttype": null,
    "property": "hidden",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -759,6 +861,7 @@
    "parenttype": null,
    "property": "print_hide",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -782,6 +885,7 @@
    "parenttype": null,
    "property": "hidden",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -805,6 +909,7 @@
    "parenttype": null,
    "property": "default",
    "property_type": "Text",
+   "row_name": null,
    "value": ""
   },
   {
@@ -828,6 +933,7 @@
    "parenttype": null,
    "property": "options",
    "property_type": "Text",
+   "row_name": null,
    "value": "\nSORB2122\nSOOG2122"
   },
   {
@@ -851,6 +957,7 @@
    "parenttype": null,
    "property": "default",
    "property_type": "Text",
+   "row_name": null,
    "value": "RIGPL"
   },
   {
@@ -874,6 +981,7 @@
    "parenttype": null,
    "property": "print_hide",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -897,6 +1005,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "2"
   },
   {
@@ -920,6 +1029,7 @@
    "parenttype": null,
    "property": "default",
    "property_type": "Text",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -943,6 +1053,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -966,6 +1077,7 @@
    "parenttype": null,
    "property": "hidden",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -989,6 +1101,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1012,6 +1125,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1035,6 +1149,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1058,6 +1173,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1081,6 +1197,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1104,6 +1221,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1127,6 +1245,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1150,6 +1269,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1173,6 +1293,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1196,6 +1317,7 @@
    "parenttype": null,
    "property": "reqd",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1219,6 +1341,7 @@
    "parenttype": null,
    "property": "reqd",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1242,6 +1365,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1265,6 +1389,7 @@
    "parenttype": null,
    "property": "in_list_view",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -1288,6 +1413,7 @@
    "parenttype": null,
    "property": "in_list_view",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1311,6 +1437,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1334,6 +1461,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1357,6 +1485,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1380,6 +1509,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1403,6 +1533,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1426,6 +1557,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1449,6 +1581,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1472,6 +1605,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1495,6 +1629,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1518,6 +1653,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1541,6 +1677,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1564,6 +1701,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1587,6 +1725,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1610,6 +1749,7 @@
    "parenttype": null,
    "property": "ignore_user_permissions",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1633,6 +1773,7 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "235"
   },
   {
@@ -1656,6 +1797,7 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "94"
   },
   {
@@ -1679,6 +1821,7 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "381"
   },
   {
@@ -1702,6 +1845,7 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "94"
   },
   {
@@ -1725,6 +1869,7 @@
    "parenttype": null,
    "property": "collapsible_depends_on",
    "property_type": "Data",
+   "row_name": null,
    "value": "eval:doc.selling_price_list == 'PL49' || doc.track_trial == 1 || doc.currency !== 'INR' || doc.ignore_pricing_rule == 1"
   },
   {
@@ -1748,6 +1893,7 @@
    "parenttype": null,
    "property": "depends_on",
    "property_type": "Data",
+   "row_name": null,
    "value": ""
   },
   {
@@ -1771,6 +1917,7 @@
    "parenttype": null,
    "property": "in_standard_filter",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1794,6 +1941,7 @@
    "parenttype": null,
    "property": "in_standard_filter",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1817,6 +1965,7 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "138"
   },
   {
@@ -1840,6 +1989,7 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "160"
   },
   {
@@ -1863,6 +2013,7 @@
    "parenttype": null,
    "property": "in_standard_filter",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -1886,6 +2037,7 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "170"
   },
   {
@@ -1909,6 +2061,7 @@
    "parenttype": null,
    "property": "default_print_format",
    "property_type": "Data",
+   "row_name": null,
    "value": "SO No Discounts"
   },
   {
@@ -1932,6 +2085,7 @@
    "parenttype": null,
    "property": "in_standard_filter",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -1955,6 +2109,7 @@
    "parenttype": null,
    "property": "in_standard_filter",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -1978,6 +2133,7 @@
    "parenttype": null,
    "property": "in_standard_filter",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -2001,6 +2157,7 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "180"
   },
   {
@@ -2024,6 +2181,7 @@
    "parenttype": null,
    "property": "track_changes",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -2047,6 +2205,7 @@
    "parenttype": null,
    "property": "length",
    "property_type": "Int",
+   "row_name": null,
    "value": "180"
   },
   {
@@ -2070,6 +2229,7 @@
    "parenttype": null,
    "property": "in_list_view",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2093,6 +2253,7 @@
    "parenttype": null,
    "property": "in_filter",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2116,6 +2277,7 @@
    "parenttype": null,
    "property": "in_filter",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2139,6 +2301,7 @@
    "parenttype": null,
    "property": "precision",
    "property_type": "Select",
+   "row_name": null,
    "value": "3"
   },
   {
@@ -2162,6 +2325,7 @@
    "parenttype": null,
    "property": "precision",
    "property_type": "Select",
+   "row_name": null,
    "value": "3"
   },
   {
@@ -2185,6 +2349,7 @@
    "parenttype": null,
    "property": "precision",
    "property_type": "Select",
+   "row_name": null,
    "value": "3"
   },
   {
@@ -2208,6 +2373,7 @@
    "parenttype": null,
    "property": "_idx",
    "property_type": "Text",
+   "row_name": null,
    "value": "[\"customer_section\", \"column_break0\", \"naming_series\", \"customer\", \"order_type\", \"payment_terms\", \"customer_name\", \"contact_display\", \"contact_mobile\", \"contact_email\", \"customer_address\", \"address_display\", \"column_break1\", \"amended_from\", \"company\", \"transaction_date\", \"delivery_date\", \"po_no\", \"po_date\", \"shipping_address_name\", \"shipping_address_title\", \"shipping_address\", \"currency_and_price_list\", \"currency\", \"track_trial\", \"conversion_rate\", \"column_break2\", \"selling_price_list\", \"price_list_currency\", \"plc_conversion_rate\", \"ignore_pricing_rule\", \"items_section\", \"items\", \"section_break_31\", \"column_break_33a\", \"base_total\", \"base_net_total\", \"column_break_33\", \"total\", \"net_total\", \"taxes_section\", \"taxes_and_charges\", \"column_break_38\", \"shipping_rule\", \"section_break_40\", \"taxes\", \"other_charges_calculation\", \"section_break_43\", \"base_total_taxes_and_charges\", \"column_break_46\", \"total_taxes_and_charges\", \"section_break_48\", \"apply_discount_on\", \"column_break_50\", \"discount_amount\", \"base_discount_amount\", \"totals\", \"base_grand_total\", \"base_rounded_total\", \"base_in_words\", \"column_break3\", \"grand_total\", \"rounded_total\", \"in_words\", \"advance_paid\", \"view_details\", \"packing_list\", \"packed_items\", \"terms_section_break\", \"tc_name\", \"terms\", \"contact_info\", \"col_break45\", \"territory\", \"customer_group\", \"col_break46\", \"contact_person\", \"more_info\", \"project_name\", \"campaign\", \"source\", \"tin_no\", \"shipping_tin_no\", \"column_break4\", \"letter_head\", \"select_print_heading\", \"fiscal_year\", \"excise_number\", \"shipping_excise_no\", \"section_break_78\", \"status\", \"delivery_status\", \"per_delivered\", \"column_break_81\", \"per_billed\", \"billing_status\", \"sales_team_section_break\", \"sales_partner\", \"column_break7\", \"commission_rate\", \"total_commission\", \"section_break1\", \"sales_team\", \"trial_status\", \"recurring_order\", \"column_break82\", \"is_recurring\", \"recurring_type\", \"from_date\", \"to_date\", \"repeat_on_day_of_month\", \"end_date\", \"column_break83\", \"next_date\", \"recurring_id\", \"notification_email_address\"]"
   },
   {
@@ -2231,30 +2397,8 @@
    "parenttype": null,
    "property": "width",
    "property_type": null,
+   "row_name": null,
    "value": "64"
-  },
-  {
-   "_assign": null,
-   "_comments": null,
-   "_liked_by": null,
-   "_user_tags": null,
-   "creation": "2015-09-04 10:00:25.346697",
-   "default_value": null,
-   "doc_type": "Sales Order",
-   "docstatus": 0,
-   "doctype_or_field": "DocField",
-   "field_name": "title",
-   "idx": 0,
-   "modified": "2015-09-04 10:00:25.346697",
-   "modified_by": "aditya@rigpl.com",
-   "name": "Sales Order-title-options",
-   "owner": "aditya@rigpl.com",
-   "parent": null,
-   "parentfield": null,
-   "parenttype": null,
-   "property": "options",
-   "property_type": "Text",
-   "value": "{customer_name}"
   },
   {
    "_assign": null,
@@ -2277,6 +2421,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "3"
   },
   {
@@ -2300,6 +2445,7 @@
    "parenttype": null,
    "property": "in_list_view",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -2323,6 +2469,7 @@
    "parenttype": null,
    "property": "in_list_view",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2346,6 +2493,7 @@
    "parenttype": null,
    "property": "reqd",
    "property_type": "Check",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2369,6 +2517,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2392,6 +2541,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2415,6 +2565,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2438,6 +2589,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2461,6 +2613,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2484,6 +2637,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2507,6 +2661,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2530,6 +2685,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2553,6 +2709,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2576,6 +2733,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2599,6 +2757,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2622,6 +2781,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2645,6 +2805,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2668,6 +2829,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2691,6 +2853,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2714,6 +2877,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2737,6 +2901,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2760,6 +2925,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2783,6 +2949,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2806,6 +2973,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2829,6 +2997,7 @@
    "parenttype": null,
    "property": "permlevel",
    "property_type": "Int",
+   "row_name": null,
    "value": "1"
   },
   {
@@ -2852,6 +3021,7 @@
    "parenttype": null,
    "property": "label",
    "property_type": "Data",
+   "row_name": null,
    "value": "Billing Address"
   },
   {
@@ -2875,6 +3045,7 @@
    "parenttype": null,
    "property": "hidden",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -2898,6 +3069,7 @@
    "parenttype": null,
    "property": "hidden",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   },
   {
@@ -2921,6 +3093,7 @@
    "parenttype": null,
    "property": "label",
    "property_type": "Data",
+   "row_name": null,
    "value": "Billing Address"
   },
   {
@@ -2944,6 +3117,7 @@
    "parenttype": null,
    "property": "hidden",
    "property_type": "Check",
+   "row_name": null,
    "value": "0"
   }
  ],
