@@ -12,13 +12,16 @@ def validate(doc, method):
     1. Email ID is validated else removed
     2. Lead and related Addresses and Quotes are shared with the lead owner
     """
-    doc.email_id = comma_email_validations(doc.email_id, backend=0)
+    if doc.flags.ignore_mandatory == 1:
+        backend = 1
+    else:
+        backend = 0
+        if not doc.email_id:
+            frappe.throw(f"For {frappe.get_desk_link('Lead', doc.name)} Email ID is Mandatory")
+    doc.email_id = comma_email_validations(doc.email_id, backend=backend)
     if doc.lead_owner:
         if doc.lead_owner != doc.contact_by:
             doc.contact_by = doc.lead_owner
-    if doc.campaign_name != 'India Mart':
-        if not doc.email_id:
-            frappe.throw('Email ID is Mandatory')
     lead_docshare(doc)
     lead_quote_share(doc)
     lead_address_share(doc)
