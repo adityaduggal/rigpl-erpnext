@@ -172,6 +172,7 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
             else:
                 print(f"{lead.get('RN')}. Creating New Lead")
                 ld = frappe.new_doc("Lead")
+                ld.flags.ignore_mandatory = True
                 ld.email_id = lead.get('SENDEREMAIL', 'IM-Email')
                 if lead.get('GLUSR_USR_COMPANYNAME') is None or (str(lead.get('GLUSR_USR_COMPANYNAME'))).replace(" ",
                                                                                                                  "") == "":
@@ -213,8 +214,8 @@ def make_or_update_lead(parsed_response, frm_dt_txt, to_dt_txt, lst_exe_dt, last
                 ld.requirement = 100
                 ld.creation = datetime.strptime(lead.get('DATE_TIME_RE'), '%d-%b-%Y %I:%M:%S %p')
                 ld.remark = str(lead.get('SUBJECT', "")) + " " + str(lead.get('ENQ_MESSAGE', "")) + \
-                " City: "+ str(lead.get('ENQ_CITY', "")) + " State: " + str(lead.get('ENQ_STATE', "")) + \
-                " Country: " + str(lead.get('COUNTRY_ISO', ""))
+                    " City: "+ str(lead.get('ENQ_CITY', "")) + " State: " + str(lead.get('ENQ_STATE', "")) + \
+                    " Country: " + str(lead.get('COUNTRY_ISO', ""))
                 ld.save()
                 print("Created New Lead# " + ld.name)
                 lead_doc = frappe.get_doc("Lead", ld.name)
@@ -259,7 +260,7 @@ def search_existing(search_e, search_m, country):
         search_m_key = None
 
     if search_m_key:
-        lead_m = frappe.db.sql("""SELECT doctype, name FROM __global_search WHERE doctype = 'Lead' 
+        lead_m = frappe.db.sql("""SELECT doctype, name FROM __global_search WHERE doctype = 'Lead'
         AND content LIKE '%s'""" % search_m_key, as_dict=1)
     else:
         lead_m = {}
@@ -269,7 +270,7 @@ def search_existing(search_e, search_m, country):
         for lead in lead_m:
             lead_list.append(lead.name)
     if search_e_key:
-        lead_e = frappe.db.sql("""SELECT doctype, name FROM __global_search WHERE doctype = 'Lead' AND content LIKE 
+        lead_e = frappe.db.sql("""SELECT doctype, name FROM __global_search WHERE doctype = 'Lead' AND content LIKE
         '%s'""" % search_e_key, as_dict=1)
     if lead_e:
         for lead in lead_e:
