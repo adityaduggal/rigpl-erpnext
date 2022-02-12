@@ -6,13 +6,14 @@ from __future__ import unicode_literals
 import time
 import datetime
 import frappe
+from frappe.utils.background_jobs import enqueue
 from ...utils.job_card_utils import update_job_card_qty_available, update_job_card_status, update_job_card_priority, \
     update_job_card_source_warehouse, return_job_card_qty, get_jc_rm_status, update_jc_rm_status
 
 
 def update_rm_status_unmodified():
     st_time = time.time()
-    jc_dict = frappe.db.sql("""SELECT name, creation, modified FROM `tabProcess Job Card RIGPL` 
+    jc_dict = frappe.db.sql("""SELECT name, creation, modified FROM `tabProcess Job Card RIGPL`
     WHERE docstatus = 0 AND allow_consumption_of_rm = 1 ORDER BY creation DESC""", as_dict=1)
     print(f"Total Number of Draft JC for RM Consumption = {len(jc_dict)}")
     no_mod = 0
@@ -26,7 +27,7 @@ def update_rm_status_unmodified():
             update_jc_rm_status(jc.name)
 
     no_rm_jc_nos = 0
-    no_rm_jc = frappe.db.sql("""SELECT name, creation, modified FROM `tabProcess Job Card RIGPL` 
+    no_rm_jc = frappe.db.sql("""SELECT name, creation, modified FROM `tabProcess Job Card RIGPL`
     WHERE docstatus = 0 AND allow_consumption_of_rm = 0 AND transfer_entry = 0 ORDER BY creation DESC""", as_dict=1)
     print(f"Total No of JC without RM and without Transfer = {len(no_rm_jc)}")
 
@@ -59,9 +60,13 @@ def update_jc_rm_status(jc_name):
         print(f"Some Error in JCR# {jcd.name} and Error is {e}")
 
 
+def enqueue_jc_status_update():
+    enqueue(execute, queue="long", timeout=1500)
+
+
 def execute():
     start_time = time.time()
-    jc_dict = frappe.db.sql("""SELECT name, status, creation, modified FROM `tabProcess Job Card RIGPL` 
+    jc_dict = frappe.db.sql("""SELECT name, status, creation, modified FROM `tabProcess Job Card RIGPL`
     WHERE docstatus = 0 ORDER BY modified, name""", as_dict=1)
     updated_jc_nos = 0
     for jc in jc_dict:
