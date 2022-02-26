@@ -17,18 +17,26 @@ def get_last_operation_for_psheet(psdoc, no_cons_ld_time):
     """
     Returns the Last Operation for a Process Sheet Doc
     no_cons_ld_time is Boolean basically if Not Consider Operation in Lead time is a check in
-    operation master
+    operation master also if the BOM template has checked it can be used
     """
     op_list = psdoc.operations
     tot_operations = len(op_list)
-    for val in range(tot_operations):
+    for val in range(tot_operations, 0, -1):
         if val == tot_operations - 1:
-            no_consider = frappe.get_value("Operation", op_list[val].operation,
+            no_consider_op = frappe.get_value("Operation", op_list[val].operation,
                 "dont_consider_in_lead_time")
-            if no_cons_ld_time == no_consider:
-                no_consider_next = frappe.get_value("Operation", op_list[val - 1].operation,
+            no_consider_btd = flt(frappe.db.sql(f"""SELECT SUM(bop.dont_consider_in_lead_time)
+                            FROM `tabBOM Operation` bop WHERE bop.parenttype = 'BOM Template RIGPL'
+                            AND bop.parent = '{psdoc.bom_template}'
+                            AND bop.operation = '{op_list[val].operation}'""", as_list=1)[0][0])
+            if no_cons_ld_time == no_consider_op or no_cons_ld_time == no_consider_btd:
+                no_consider_next_op = frappe.get_value("Operation", op_list[val - 1].operation,
                     "dont_consider_in_lead_time")
-                if no_cons_ld_time == no_consider_next:
+                no_consider_next_bt = flt(frappe.db.sql(f"""SELECT SUM(bop.dont_consider_in_lead_time)
+                                FROM `tabBOM Operation` bop WHERE bop.parenttype = 'BOM Template RIGPL'
+                                AND bop.parent = '{psdoc.bom_template}'
+                                AND bop.operation = '{op_list[val - 1].operation}'""", as_list=1)[0][0])
+                if no_cons_ld_time == no_consider_next_op or no_cons_ld_time == no_consider_next_bt:
                     return op_list[val - 2].operation
                 else:
                     return op_list[val - 1].operation

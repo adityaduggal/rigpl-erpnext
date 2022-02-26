@@ -3,8 +3,8 @@
 
 from __future__ import unicode_literals
 import frappe
-from ....utils.lead_time_utils import get_item_lead_time, get_manuf_days_data_for_item
-from ....utils.purchase_utils import get_po_data_for_item
+from ....utils.lead_time_utils import get_detailed_manuf_lead_time_for_item, get_item_lead_time
+from ....utils.purchase_utils import get_detailed_po_lead_time_for_item
 
 
 def execute(filters=None):
@@ -22,7 +22,7 @@ def get_columns(filters):
             {
                 "label": "Avg Based On",
                 "fieldname": "based_on",
-                "width": 100
+                "width": 10
             },
             {
                 "label": "Trans #",
@@ -31,15 +31,29 @@ def get_columns(filters):
                 "options": "based_on",
                 "width": 120
             },
-            "Trans Date:Date:100",
-            "Completed Qty:Float:100", "Min Days:Int:80", "Max Days:Int:80", "Avg Days:Int:80",
-            "Trans Weight:Int:80", "Description::450"
+            "Trans Date:Date:100", "S No Trans:Int:50", "Qty Trans:Float:100",
+            "Curr Lead:Int:80", "Min Days Trans:Int:80", "Max Days Trans:Int:80", "Avg Days:Int:80",
+            "Trans Weight:Int:80", "No of Sub Trans:Int:80",
+            {
+                "label": "Sub Trans Type",
+                "fieldname": "sub_trans_type",
+                "width": 10
+            },
+            {
+                "label": "Sub Trans #",
+                "fieldname": "sub_link_name",
+                "fieldtype": "Dynamic Link",
+                "options": "sub_trans_type",
+                "width": 120
+            },
+            "Date Sub Trans:Date:80", "Qty Sub Trans:Float:80",
+            "Days Sub Trans:Int:80", "Wt Sub Trans:Int:80","Description::450"
         ]
     else:
         return [
                 "Item:Link/Item:130", "ROL:Int:60", "Avg Based On::90",
-                "# Transactions:Int:80", "Total Qty:Float:80", "Max Days:Int:80",
-                "Min Days:Int:80", "Current Lead Time:Int:80", "Calculated Lead Time:Int:80",
+                "# Transactions:Int:80", "Total Qty:Float:80", "Min Days:Int:80",
+                "Max Days:Int:80", "Current Lead Time:Int:80", "Calculated Lead Time:Int:80",
                 "Lead Time Diff:Int:80",
                 "BM::60", "Brand::60", "Quality::60", "TT::130", "SPL::50",
                 "D1 MM:Float:50", "W1 MM:Float:50", "L1 MM:Float:60",
@@ -54,19 +68,22 @@ def get_data(filters):
     if filters.get("detail") == 1:
         itd = frappe.get_doc("Item", filters.get("item"))
         if itd.include_item_in_manufacturing == 1:
-            based_on = "Process Sheet"
-            ld_dt = get_manuf_days_data_for_item(itd.name, frm_dt=filters.get("from_date"),
+            ld_dt = get_detailed_manuf_lead_time_for_item(itd.name, frm_dt=filters.get("from_date"),
                 to_dt=filters.get("to_date"))
         else:
-            based_on = "Purchase Order"
-            ld_dt = get_po_data_for_item(itd.name, frm_dt=filters.get("from_date"),
+            ld_dt = get_detailed_po_lead_time_for_item(itd.name, frm_dt=filters.get("from_date"),
                 to_dt=filters.get("to_date"))
         for ldt in ld_dt:
-            row = [
-                itd.name, based_on, ldt.trans_name, ldt.trans_date, ldt.completed_qty, ldt.min_days,
-                ldt.max_days, ldt.avg_days, ldt.trans_wt, itd.description
+            base_row = [
+                itd.name, ldt.based_on, ldt.trans_name, ldt.calc_trans_date, ldt.idx, ldt.trans_qty,
+                itd.lead_time_days, ldt.trans_min_days, ldt.trans_max_days, ldt.trans_avg_days,
+                ldt.trans_wt, len(ldt.sub_trans)
             ]
-            data.append(row)
+            for sub in ldt.sub_trans:
+                row = base_row + [sub.sub_trans_type, sub.sub_trans_name, sub.sub_trans_date,
+                sub.sub_trans_qty, sub.days_diff, sub.sub_trans_wt, itd.description]
+                # frappe.throw(str(row))
+                data.append(row)
     else:
         query = f"""SELECT it.name,
             IF(ro.warehouse_reorder_level=0,NULL,ro.warehouse_reorder_level) as rol,
@@ -132,8 +149,8 @@ def get_data(filters):
             itm["avg_days_wt"] = calc_dict.get("avg_days_wt", 0)
         for row in it_dict:
             row = [
-                row.name, row.rol, row.based_on, row.no_of_trans, row.total_qty, row.max_days,
-                row.min_days, row.ex_lead,row.avg_days_wt, (row.avg_days_wt - row.ex_lead),
+                row.name, row.rol, row.based_on, row.no_of_trans, row.total_qty, row.min_days,
+                row.max_days, row.ex_lead,row.avg_days_wt, (row.avg_days_wt - row.ex_lead),
                 row.bm, row.brand, row.qual, row.tt,
                 row.spl, row.d1, row.w1, row.l1, row.d2, row.l2, row.description, row.variant_of
                    ]
