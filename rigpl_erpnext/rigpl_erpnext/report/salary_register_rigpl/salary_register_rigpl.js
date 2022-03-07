@@ -1,8 +1,16 @@
-// Copyright (c) 2016, Rohit Industries Ltd. and contributors
+// Copyright (c) 2016, Rohit Industries Group Private Limited and contributors
 // For license information, please see license.txt
+/* eslint-disable */
 
-frappe.query_reports["Salary Register"] = {
+frappe.query_reports["Salary Register RIGPL"] = {
 	"filters": [
+		{
+			"fieldname":"docstatus",
+			"label":__("Document Status"),
+			"fieldtype":"Select",
+			"options":["", "Draft", "Submitted", "Cancelled"],
+			"default":"Submitted"
+		},
 		{
 			"fieldname":"from_date",
 			"label": __("From Date"),
@@ -69,4 +77,4 @@ frappe.query_reports["Salary Register"] = {
 			"fieldtype": "Check"
 		},
 	]
-}
+};
