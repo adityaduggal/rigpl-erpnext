@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import frappe, erpnext
+import frappe
+import erpnext
 import math
 import datetime
 from frappe.utils import money_in_words, flt
@@ -39,7 +40,7 @@ def post_gl_entry(doc):
             ec_ded += earn.amount
             # Check if the expense claim is already posted if not then post the expense claim
             # separately
-            ec_posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` WHERE docstatus =1 
+            ec_posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` WHERE docstatus =1
             AND voucher_type = 'Expense Claim' AND voucher_no = '%s'""" % earn.expense_claim, as_list=1)
             if not ec_posted:
                 # Post the Expense Claim Separately.
@@ -224,12 +225,12 @@ def validate_ec_posting(doc):
     for e in doc.earnings:
         if e.expense_claim:
             # Check if the expense claim is properly posted in  Expenses Payable
-            posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` WHERE voucher_type = 'Expense Claim' 
+            posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` WHERE voucher_type = 'Expense Claim'
             AND voucher_no = '%s' AND docstatus = 1""" % (e.expense_claim), as_list=1)
             if posted:
                 for ec_claim in posted:
                     # Check Credit Entry's account should be Expenses Payable
-                    debit = frappe.db.sql("""SELECT name, credit, account FROM `tabGL Entry` 
+                    debit = frappe.db.sql("""SELECT name, credit, account FROM `tabGL Entry`
                     WHERE name = '%s'""" % (ec_claim[0]), as_list=1)
 
                     if debit[0][1] > 0:
@@ -260,12 +261,12 @@ def calculate_net_salary(doc, msd, med):
     doc.posting_date = med
     wd = twd - holidays  # total working days
     doc.total_days_in_month = tdim
-    att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` WHERE employee = '%s' 
-    AND attendance_date >= '%s' AND attendance_date <= '%s' AND status = 'Present' 
+    att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` WHERE employee = '%s'
+    AND attendance_date >= '%s' AND attendance_date <= '%s' AND status = 'Present'
     AND docstatus=1""" % (doc.employee, msd, med), as_list=1)
 
-    half_day = frappe.db.sql("""SELECT count(name) FROM `tabAttendance` WHERE employee = '%s' 
-    AND attendance_date >= '%s' AND attendance_date <= '%s' AND status = 'Half Day' 
+    half_day = frappe.db.sql("""SELECT count(name) FROM `tabAttendance` WHERE employee = '%s'
+    AND attendance_date >= '%s' AND attendance_date <= '%s' AND status = 'Half Day'
     AND docstatus=1""" % (doc.employee, msd, med), as_list=1)
 
     t_hd = flt(half_day[0][0])
@@ -371,8 +372,8 @@ def get_leaves(doc, start_date, end_date, emp):
     diff = (end_date - start_date).days + 1
     for day in range(0, diff):
         date = start_date + datetime.timedelta(days=day)
-        auth_leaves = frappe.db.sql("""SELECT la.name FROM `tabLeave Application` la WHERE la.status = 'Approved' 
-        AND la.docstatus = 1 AND la.employee = '%s' AND la.from_date <= '%s' 
+        auth_leaves = frappe.db.sql("""SELECT la.name FROM `tabLeave Application` la WHERE la.status = 'Approved'
+        AND la.docstatus = 1 AND la.employee = '%s' AND la.from_date <= '%s'
         AND la.to_date >= '%s'""" % (doc.employee, date, date), as_list=1)
         if auth_leaves:
             auth_leaves = auth_leaves[0][0]
@@ -404,7 +405,7 @@ def get_holidays(doc, start_date, end_date, emp):
         end_date = relieving_date
 
     holiday_list = get_holiday_list_for_employee(doc.employee)
-    holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND holiday_date >= '%s' 
+    holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND holiday_date >= '%s'
     AND holiday_date <= '%s'""" % (holiday_list, start_date, end_date), as_list=1)
 
     holidays = flt(holidays[0][0])  # no of holidays in a month from the holiday list
@@ -430,9 +431,9 @@ def get_total_days(doc, emp, msd, med):
 
 def get_expense_claim(doc, med):
     # Get total Expense Claims Due for an Employee
-    query = """SELECT ec.name, ec.employee, ec.total_sanctioned_amount, ec.total_amount_reimbursed 
-    FROM `tabExpense Claim` ec WHERE ec.docstatus = 1 AND ec.approval_status = 'Approved' 
-    AND ec.total_amount_reimbursed < ec.total_sanctioned_amount AND ec.posting_date <= '%s' AND ec.pay_with_salary = 1 
+    query = """SELECT ec.name, ec.employee, ec.total_sanctioned_amount, ec.total_amount_reimbursed
+    FROM `tabExpense Claim` ec WHERE ec.docstatus = 1 AND ec.approval_status = 'Approved'
+    AND ec.total_amount_reimbursed < ec.total_sanctioned_amount AND ec.posting_date <= '%s' AND ec.pay_with_salary = 1
     AND ec.employee = '%s'""" % (med, doc.employee)
 
     ec_list = frappe.db.sql(query, as_list=1)
@@ -453,8 +454,8 @@ def get_loan_deduction(doc, msd, med):
     for d in doc.deductions:
         existing_loan.append(d.employee_loan)
     # get total loan due for employee
-    query = """SELECT el.name, eld.name, eld.emi, el.deduction_type, eld.loan_amount 
-    FROM `tabEmployee Advance` el, `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND el.docstatus = 1 
+    query = """SELECT el.name, eld.name, eld.emi, el.deduction_type, eld.loan_amount
+    FROM `tabEmployee Advance` el, `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND el.docstatus = 1
     AND el.posting_date <= '%s' AND eld.employee = '%s'""" % (med, doc.employee)
 
     loan_list = frappe.db.sql(query, as_list=1)
@@ -463,8 +464,8 @@ def get_loan_deduction(doc, msd, med):
         total_loan = i[4]
         if i[0] not in existing_loan:
             # Check if the loan has already been deducted
-            query = """SELECT SUM(ssd.amount) FROM `tabSalary Detail` ssd, `tabSalary Slip` ss 
-            WHERE ss.docstatus = 1 AND ssd.parent = ss.name AND ssd.employee_loan = '%s' 
+            query = """SELECT SUM(ssd.amount) FROM `tabSalary Detail` ssd, `tabSalary Slip` ss
+            WHERE ss.docstatus = 1 AND ssd.parent = ss.name AND ssd.employee_loan = '%s'
             AND ss.employee = '%s'""" % (i[0], doc.employee)
             deducted_amount = frappe.db.sql(query, as_list=1)
 
@@ -483,12 +484,12 @@ def get_loan_deduction(doc, msd, med):
                     })
     for d in doc.deductions:
         if d.employee_loan:
-            total_given = frappe.db.sql("""SELECT eld.loan_amount FROM `tabEmployee Advance` el, 
-            `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND eld.employee = '%s' 
+            total_given = frappe.db.sql("""SELECT eld.loan_amount FROM `tabEmployee Advance` el,
+            `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND eld.employee = '%s'
             AND el.name = '%s'""" % (doc.employee, d.employee_loan), as_list=1)
 
-            deducted = frappe.db.sql("""SELECT SUM(ssd.amount) FROM `tabSalary Detail` ssd, `tabSalary Slip` ss 
-            WHERE ss.docstatus = 1 AND ssd.parent = ss.name  AND ssd.employee_loan = '%s' 
+            deducted = frappe.db.sql("""SELECT SUM(ssd.amount) FROM `tabSalary Detail` ssd, `tabSalary Slip` ss
+            WHERE ss.docstatus = 1 AND ssd.parent = ss.name  AND ssd.employee_loan = '%s'
             AND ss.employee = '%s'""" % (d.employee_loan, doc.employee), as_list=1)
             balance = flt(total_given[0][0]) - flt(deducted[0][0])
             if balance < d.amount:
@@ -518,9 +519,11 @@ def get_edc(doc):
     else:
         date_for_sstra = doc.start_date
 
-    appl_sstr = frappe.db.sql("""SELECT sstra.salary_structure FROM `tabSalary Structure Assignment` sstra 
-    WHERE sstra.employee = '%s'  AND sstra.from_date <= '%s' ORDER BY sstra.from_date DESC 
-    LIMIT 1""" % (doc.employee, date_for_sstra), as_list=1)
+    appl_sstr = frappe.db.sql(f"""SELECT sstra.salary_structure
+        FROM `tabSalary Structure Assignment` sstra
+    WHERE sstra.employee = '{doc.employee}'  AND sstra.from_date <= '{date_for_sstra}'
+    AND sstra.docstatus = 1
+    ORDER BY sstra.from_date DESC LIMIT 1""", as_list=1)
     if appl_sstr:
         doc.salary_structure = appl_sstr[0][0]
     else:
