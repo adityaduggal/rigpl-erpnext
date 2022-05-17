@@ -73,7 +73,7 @@ def get_entries(filters):
     data_dict = frappe.db.sql(query, as_dict=1)
     row = []
     for row in data_dict:
-        frappe.throw(str(row))
+        # frappe.throw(str(row))
         base_hols = row.holidays
         if row.date_of_joining > from_date:
             act_tot_days = (to_date - row.date_of_joining).days + 1
