@@ -36,7 +36,8 @@ def get_columns(filters):
             "BM::60", "TT::60", "SPL::60", "Series::60", "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50",
             "L2:Float:50", "Description::400",
             "Operation:Link/Operation:100", "Allocated Machine:Link/Workstation:150",
-            "Total Planned:Float:80", "Planned Qty:Float:80", "Qty Avail:Float:80"
+            "Total Planned:Float:80", "Planned Qty:Float:80", "Qty Avail:Float:80",
+            "Creation:Datetime:120"
         ]
     elif filters.get("order_wise_summary") == 1:
         return [
@@ -88,7 +89,7 @@ def get_data(filters):
         spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, w1.attribute_value as w1,
         l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, jc.description, jc.operation,
         jc.workstation, jc.total_qty, jc.for_quantity, IF(jc.qty_available=0, NULL, jc.qty_available) as qty_available,
-        jc.sales_order_item
+        jc.sales_order_item, jc.creation
         FROM `tabProcess Job Card RIGPL` jc, `tabItem` it
         LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
             AND bm.attribute = 'Base Material'
@@ -119,7 +120,7 @@ def get_data(filters):
                        row.priority, 'X' if not row.remarks else row.remarks, row.bm, row.tt, row.spl, row.series,
                        row.d1, row.w1, row.l1, row.d2, row.l2,
                        row.description, row.operation, row.workstation,
-                       row.total_qty, row.for_quantity, row.qty_available]
+                       row.total_qty, row.for_quantity, row.qty_available, row.creation]
             data.append(tmp_row)
     elif filters.get("order_wise_summary") == 1:
         query = """SELECT so.name, so.transaction_date, soi.item_code, soi.description,
