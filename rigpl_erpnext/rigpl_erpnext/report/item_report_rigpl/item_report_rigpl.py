@@ -3,20 +3,27 @@ import frappe
 from frappe import msgprint, _
 from frappe.utils import flt, getdate, nowdate
 
+
 def execute(filters=None):
+    """
+    Executes the report
+    """
     if not filters:
         filters = {}
-    bm = filters.get("bm")
-    tt = filters.get("tt")
-    conditions_it = get_conditions(bm, filters)
-    templates = get_templates(bm, conditions_it, filters)
+    bmat = filters.get("bm")
+    conditions_it = get_conditions(bmat, filters)
+    templates = get_templates(bmat, conditions_it, filters)
 
     columns, attributes, att_details = get_columns(templates)
-    data = get_items(conditions_it, attributes, att_details, filters)
+    data = get_items(conditions_it, attributes, att_details)
 
     return columns, data
 
+
 def get_columns(templates):
+    """
+    Returns columns for the Report based on the Templates
+    """
     columns = [
             _("Item") + ":Link/Item:130"
     ]
@@ -31,54 +38,54 @@ def get_columns(templates):
     att_details = []
     #above dict would be as below
     #[{name: "Base Material", max_length: 20, numeric_values:0, name_in_template: "bm"}]
-    for i in attributes:
-        dict = {}
-
-        cond = """ attribute = '%s'""" %(i)
-        att_name = frappe.db.sql("""SELECT name, attribute, field_name FROM `tabItem Variant Attribute`
-			WHERE {condition} AND parent IN (%s) GROUP BY field_name""".format(condition=cond)
+    for row in attributes:
+        format_dict = frappe._dict({})
+        cond = f""" attribute = '{row}'"""
+        att_name = frappe.db.sql("""SELECT name, attribute, field_name
+            FROM `tabItem Variant Attribute` WHERE {condition} AND parent IN (%s)
+            GROUP BY field_name""".format(condition=cond)
                 %(", ".join(['%s']*len(templates))),
                 tuple([d.variant_of for d in templates]), as_dict=1)
 
-        attr = frappe.get_doc("Item Attribute", i)
-        dict["name"] = i
-        dict["numeric_values"] = attr.numeric_values
+        attr = frappe.get_doc("Item Attribute", row)
+        format_dict["name"] = row
+        format_dict["numeric_values"] = attr.numeric_values
         if attr.numeric_values != 1:
             max_length = frappe.db.sql("""SELECT MAX(CHAR_LENGTH(attribute_value))
-				FROM `tabItem Attribute Value` WHERE parent = '%s'""" %(i), as_list=1)
+				FROM `tabItem Attribute Value` WHERE parent = '%s'""" %(row), as_list=1)
             if attr.hidden == 1:
-                s = att_name[0].field_name
-                n = i.split('_', 1)[1]
-                nit = s.split('(', 1)[0] + "(" + n + ")"
+                sname = att_name[0].field_name
+                n_row = row.split('_', 1)[1]
+                nit = sname.split('(', 1)[0] + "(" + n_row + ")"
                 name_in_template = nit
             else:
                 name_in_template = att_name[0].attribute
         else:
             max_length = [[6]]
-            s = att_name[0].field_name
-            if '_' in i:
-                n = i.split('_', 1)[1]
+            sname = att_name[0].field_name
+            if '_' in row:
+                n_row = row.split('_', 1)[1]
             else:
-                n = i
-            if '(' in s:
-                nit = s.split('(', 1)[0] + "(" + n + ")"
+                n_row = row
+            if sname and '(' in sname:
+                nit = sname.split('(', 1)[0] + "(" + n_row + ")"
             else:
-                nit = i
+                nit = row
             name_in_template = nit
 
-        dict["max_length"] = int(max_length[0][0])
-        dict["name_in_template"] = name_in_template
-        att_details.append(dict.copy())
+        format_dict["max_length"] = int(max_length[0][0])
+        format_dict["name_in_template"] = name_in_template
+        att_details.append(format_dict.copy())
 
     for att in attributes:
         for i in att_details:
             if att == i["name"]:
                 label = i["name_in_template"]
                 if i["max_length"] > 10:
-                    max = 10
+                    wd_max = 10
                 else:
-                    max = i["max_length"]
-                width = 10 * max
+                    wd_max = i["max_length"]
+                width = 10 * wd_max
                 if i["numeric_values"] == 1:
                     col = ":Float:%s" %(width)
                 else:
@@ -96,11 +103,17 @@ def get_columns(templates):
     return columns, attributes, att_details
 
 def define_join(string, tab,val):
+    """
+    Defines join for SQL query for attribute
+    """
     string += """ LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent
 			AND %s.attribute = '%s'""" %(tab, tab, tab, val)
     return string
 
-def get_templates(bm, conditions_it, filters):
+def get_templates(bmat, conditions_it, filters):
+    """
+    Returns templates based on conditions and filters
+    """
     query_join = ""
     if filters.get("rm"):
         tab = 'Is RM'
@@ -115,7 +128,7 @@ def get_templates(bm, conditions_it, filters):
         query_join = define_join(query_join, tab.replace(" ", ""), tab)
 
     if filters.get("quality"):
-        tab = '%s Quality' %(bm)
+        tab = '%s Quality' %(bmat)
         query_join = define_join(query_join, tab.replace(" ", ""), tab)
 
     if filters.get("series"):
@@ -143,13 +156,14 @@ def get_templates(bm, conditions_it, filters):
 
     templates = frappe.db.sql(query, as_dict=1)
 
-    if templates:
-        pass
-    else:
+    if not templates:
         frappe.throw("No Temps in the given Criterion")
     return templates
 
-def get_items(conditions_it, attributes, att_details, filters):
+def get_items(conditions_it, attributes, att_details):
+    """
+    Retunrs Items based on Conditions, Attributes and Attribute Details
+    """
     att_join = ''
     att_query = ''
     att_order = ''
@@ -184,10 +198,13 @@ def get_items(conditions_it, attributes, att_details, filters):
 		ORDER BY %s it.name""" %(att_query, att_join, conditions_it, att_order)
 
     data = frappe.db.sql(query, as_list=1)
-
     return data
 
-def get_conditions(bm, filters):
+
+def get_conditions(bmat, filters):
+    """
+    Returns Conditions based on filters selected
+    """
     conditions_it = ""
 
     if filters.get("eol"):
@@ -203,7 +220,7 @@ def get_conditions(bm, filters):
         conditions_it += " AND Series.attribute_value = '%s'" % filters.get("series")
 
     if filters.get("quality"):
-        conditions_it += " AND %sQuality.attribute_value = '%s'" % (bm, filters.get("quality"))
+        conditions_it += " AND %sQuality.attribute_value = '%s'" % (bmat, filters.get("quality"))
 
     if filters.get("spl"):
         conditions_it += " AND SpecialTreatment.attribute_value = '%s'" % filters.get("spl")
