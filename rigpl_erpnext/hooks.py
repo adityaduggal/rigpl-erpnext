@@ -247,7 +247,8 @@ scheduler_events = {
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute"
     ],
     "daily": [
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
+        "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks"
 
     ],
     "hourly": [

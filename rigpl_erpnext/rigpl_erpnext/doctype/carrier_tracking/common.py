@@ -7,6 +7,23 @@ from __future__ import unicode_literals
 import frappe
 import math
 from frappe.utils import flt
+from datetime import date, timedelta
+
+
+def unpublish_old_ctracks():
+    """
+    Unpublishes ctracks which are older than default days and delivered
+    """
+    def_days = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "published_ctrack_days"))
+    if def_days <= 0:
+        def_days = 90
+    last_date = date.today() - timedelta(days=def_days)
+    old_published_ctracks = frappe.db.sql(f"""SELECT name, modified, creation, docstatus,
+        status
+    FROM `tabCarrier Tracking` WHERE published = 1  AND creation <= '{last_date}'
+    ORDER BY creation""", as_dict=1)
+    for ctrack in old_published_ctracks:
+        frappe.db.set_value("Carrier Tracking", ctrack.name, "published", 0)
 
 
 def get_shipment_cost(ct_doc):

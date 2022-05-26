@@ -2,14 +2,19 @@
 <!-- add-breadcrumbs -->
 <!-- show-sidebar -->
 <!-- no-sitemap -->
+{% block head_include %}
+    <meta name="robots" content="noindex,nofollow">
+{% endblock %}
 {% block title %} Rohit Cutting Tools - Shipment Tracking {% endblock %}
 {% block page_content %}
-    <h1> Details of Shipment </h1>
+    <h1> Details of Shipment</h1>
     <table class="table table-hover">
+        <!--
         <tr>
             <td><span style="font-weight:bold">{{ doc.document }}</span></td>
             <td>{{ doc.document_name }}</td>
         </tr>
+    -->
         <tr>
             <td><span style="font-weight:bold">{{ "Courier" }}</span></td>
             <td>{{ doc.carrier_name }}</td>
