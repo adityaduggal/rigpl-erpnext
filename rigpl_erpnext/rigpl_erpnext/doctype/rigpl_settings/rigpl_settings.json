@@ -35,7 +35,8 @@
   "base_annual_sales",
   "sales_weightage",
   "payment_weightage",
-  "age_weightage"
+  "age_weightage",
+  "published_ctrack_days"
  ],
  "fields": [
   {
@@ -214,10 +215,16 @@
    "fieldname": "max_transactions_for_lead_time_to_consider",
    "fieldtype": "Int",
    "label": "Max Transactions for Lead Time to Consider"
+  },
+  {
+   "default": "15",
+   "fieldname": "published_ctrack_days",
+   "fieldtype": "Int",
+   "label": "Published Ctrack Days"
   }
  ],
  "issingle": 1,
- "modified": "2021-09-12 10:18:43.406961",
+ "modified": "2022-05-26 05:32:35.175318",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
