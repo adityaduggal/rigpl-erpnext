@@ -42,4 +42,4 @@ execute:frappe.delete_doc("Report", "Pending So (Prd)")
 rigpl_erpnext.patches.correct_ssa_dates
 execute:frappe.delete_doc("Report", "Item Report")
 execute:frappe.delete_doc("Report", "Salary Register")
-rigpl_erpnext.patches.delete_custom_fields #2
+rigpl_erpnext.patches.delete_custom_fields

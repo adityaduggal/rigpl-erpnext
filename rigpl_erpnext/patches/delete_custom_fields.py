@@ -5,7 +5,8 @@ import frappe
 
 def execute():
     # Deletes custom fields from Custom Field Table based on Dictionary
-    custom_field_list = [{"dt": "Attendance", "fieldname": "shift"}
+    custom_field_list = [{"dt": "Attendance", "fieldname": "shift"},
+                         {"dt": "Lead", "fieldname": "designation"}
                          ]
     for fld in custom_field_list:
         custom_field = frappe.db.get_value("Custom Field", fld)
