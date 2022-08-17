@@ -5,7 +5,7 @@ import erpnext
 import math
 import datetime
 from frappe.utils import money_in_words, flt
-from erpnext.accounts.general_ledger import make_gl_entries, delete_gl_entries
+from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_fiscal_years
 from erpnext.hr.doctype.payroll_entry.payroll_entry import get_start_end_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
@@ -75,7 +75,8 @@ def post_gl_entry(doc):
                 })
                 ec_gl_map.append(ec_gl_dict)
                 make_gl_entries(ec_gl_map, cancel=0, adv_adj=0)
-                frappe.msgprint("Posted Expense Claim # {0}".format(earn.expense_claim))
+                frappe.msgprint(
+                    "Posted Expense Claim # {0}".format(earn.expense_claim))
 
     for ded in doc.deductions:
         ded_doc = frappe.get_doc("Salary Component", ded.salary_component)
@@ -138,7 +139,8 @@ def post_gl_entry(doc):
 
     for cont in doc.contributions:
         if cont.amount > 0:
-            cont_doc = frappe.get_doc("Salary Component", cont.salary_component)
+            cont_doc = frappe.get_doc(
+                "Salary Component", cont.salary_component)
             gl_dict = frappe._dict({
                 'company': doc.company,
                 'posting_date': doc.posting_date,
@@ -168,7 +170,8 @@ def post_gl_entry(doc):
 
 
 def get_fy(document):
-    fiscal_years = get_fiscal_years(document.posting_date, company=document.company)
+    fiscal_years = get_fiscal_years(
+        document.posting_date, company=document.company)
     if len(fiscal_years) > 1:
         frappe.throw(_("Multiple fiscal years exist for the date {0}. Please set company "
                        "in Fiscal Year").format(formatdate(document.posting_date)))
@@ -185,8 +188,10 @@ def on_submit(doc, method):
     for i in doc.earnings:
         if i.expense_claim:
             ec = frappe.get_doc("Expense Claim", i.expense_claim)
-            frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", i.amount)
-            frappe.db.set_value("Expense Claim", i.expense_claim, "status", "Paid")
+            frappe.db.set_value("Expense Claim", i.expense_claim,
+                                "total_amount_reimbursed", i.amount)
+            frappe.db.set_value(
+                "Expense Claim", i.expense_claim, "status", "Paid")
 
     # post the salary slip to GL entry table
     post_gl_entry(doc)
@@ -197,9 +202,11 @@ def on_cancel(doc, method):
     for i in doc.earnings:
         if i.expense_claim:
             ec = frappe.get_doc("Expense Claim", i.expense_claim)
-            frappe.db.set_value("Expense Claim", i.expense_claim, "total_amount_reimbursed", 0)
-            frappe.db.set_value("Expense Claim", i.expense_claim, "status", "Unpaid")
-    delete_gl_entries(None, 'Salary Slip', doc.name)
+            frappe.db.set_value(
+                "Expense Claim", i.expense_claim, "total_amount_reimbursed", 0)
+            frappe.db.set_value(
+                "Expense Claim", i.expense_claim, "status", "Unpaid")
+    make_reverse_gl_entries(None, 'Salary Slip', doc.name)
 
 
 def validate(doc, method):
@@ -241,7 +248,8 @@ def validate_ec_posting(doc):
 
 def recalculate_formula(doc, table):
     data = SalarySlip.get_data_for_eval(doc)
-    salary_structure_doc = frappe.get_doc("Salary Structure", doc.salary_structure)
+    salary_structure_doc = frappe.get_doc(
+        "Salary Structure", doc.salary_structure)
     for table_name in table:
         for comp in salary_structure_doc.get(table_name):
             amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
@@ -277,9 +285,11 @@ def calculate_net_salary(doc, msd, med):
     ual = twd - tpres - lwp - holidays - plw - (t_hd / 2)
 
     if ual < 0:
-        frappe.throw("Unauthorized Leave cannot be Negative for Employee {0}".format(doc.employee_name))
+        frappe.throw("Unauthorized Leave cannot be Negative for Employee {0}".format(
+            doc.employee_name))
 
-    paydays = tpres + (t_hd / 2) + plw + math.ceil((tpres + (t_hd / 2)) / wd * holidays)
+    paydays = tpres + (t_hd / 2) + plw + \
+        math.ceil((tpres + (t_hd / 2)) / wd * holidays)
     pd_ded = flt(doc.payment_days_for_deductions)
     doc.payment_days = paydays
 
@@ -319,11 +329,14 @@ def calculate_net_salary(doc, msd, med):
         else:
             if d.depends_on_lwp == 1 and earn.books == 0:
                 if chk_ot == 1:
-                    d.amount = round(flt(d.default_amount) * (paydays + d_ual) / tdim, 0)
+                    d.amount = round(flt(d.default_amount) *
+                                     (paydays + d_ual) / tdim, 0)
                 else:
-                    d.amount = round(flt(d.default_amount) * (paydays) / tdim, 0)
+                    d.amount = round(flt(d.default_amount)
+                                     * (paydays) / tdim, 0)
             elif d.depends_on_lwp == 1 and earn.books == 1:
-                d.amount = round(flt(d.default_amount) * flt(doc.payment_days_for_deductions) / tdim, 0)
+                d.amount = round(flt(d.default_amount) *
+                                 flt(doc.payment_days_for_deductions) / tdim, 0)
             elif earn.manual == 1:
                 d.default_amount = d.amount
             else:
@@ -335,22 +348,27 @@ def calculate_net_salary(doc, msd, med):
             gross_pay += flt(d.amount)
 
     if gross_pay < 0:
-        frappe.throw("Gross Pay Cannot be Less than Zero for Employee: {0}".format(emp.employee_name))
+        frappe.throw("Gross Pay Cannot be Less than Zero for Employee: {0}".format(
+            emp.employee_name))
 
     # Calculate Deductions
     for d in doc.deductions:
         if d.salary_component != 'Loan Deduction':
-            sal_comp_doc = frappe.get_doc("Salary Component", d.salary_component)
+            sal_comp_doc = frappe.get_doc(
+                "Salary Component", d.salary_component)
             if sal_comp_doc.depends_on_lwp == 1:
                 if sal_comp_doc.round_up == 1:
-                    d.amount = int(flt(d.default_amount) * flt(doc.payment_days_for_deductions) / tdim) + 1
+                    d.amount = int(flt(d.default_amount) *
+                                   flt(doc.payment_days_for_deductions) / tdim) + 1
                 else:
-                    d.amount = round(flt(d.default_amount) * flt(doc.payment_days_for_deductions) / tdim, 0)
+                    d.amount = round(
+                        flt(d.default_amount) * flt(doc.payment_days_for_deductions) / tdim, 0)
         tot_ded += flt(d.amount)
 
     # Calculate Contributions
     for c in doc.contributions:
-        c.amount = round((flt(c.default_amount) * flt(doc.payment_days_for_deductions) / tdim), 0)
+        c.amount = round(
+            (flt(c.default_amount) * flt(doc.payment_days_for_deductions) / tdim), 0)
         tot_cont += c.amount
 
     doc.gross_pay = gross_pay
@@ -408,7 +426,8 @@ def get_holidays(doc, start_date, end_date, emp):
     holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND holiday_date >= '%s'
     AND holiday_date <= '%s'""" % (holiday_list, start_date, end_date), as_list=1)
 
-    holidays = flt(holidays[0][0])  # no of holidays in a month from the holiday list
+    # no of holidays in a month from the holiday list
+    holidays = flt(holidays[0][0])
     return holidays
 
 
@@ -420,9 +439,11 @@ def get_total_days(doc, emp, msd, med):
         relieving_date = emp.relieving_date
 
     if emp.date_of_joining >= msd:
-        twd = (med - emp.date_of_joining).days + 1  # Joining DATE IS THE First WORKING DAY
+        # Joining DATE IS THE First WORKING DAY
+        twd = (med - emp.date_of_joining).days + 1
     elif relieving_date <= med:
-        twd = (emp.relieving_date - msd).days + 1  # RELIEVING DATE IS THE LAST WORKING DAY
+        # RELIEVING DATE IS THE LAST WORKING DAY
+        twd = (emp.relieving_date - msd).days + 1
     else:
         twd = tdim  # total days in a month
     doc.working_days = twd
@@ -498,7 +519,8 @@ def get_loan_deduction(doc, msd, med):
 
 
 def get_month_dates(doc):
-    date_details = get_start_end_dates(doc.payroll_frequency, doc.start_date or doc.posting_date)
+    date_details = get_start_end_dates(
+        doc.payroll_frequency, doc.start_date or doc.posting_date)
     doc.end_date = date_details.end_date
     med = date_details.end_date
     doc.start_date = date_details.start_date
@@ -527,7 +549,8 @@ def get_edc(doc):
     if appl_sstr:
         doc.salary_structure = appl_sstr[0][0]
     else:
-        frappe.throw("No Salary Structure Found for Employee {}".format(doc.employee))
+        frappe.throw(
+            "No Salary Structure Found for Employee {}".format(doc.employee))
     sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
     existing_ded = []
     manual_earn = []
