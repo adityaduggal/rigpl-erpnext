@@ -4,6 +4,7 @@ from frappe import msgprint, _
 from frappe.utils import flt, getdate, nowdate
 from ....utils.item_utils import get_distinct_attributes, get_pricing_rule_for_item
 
+
 def execute(filters=None):
     """
     Executes the Report
@@ -19,80 +20,82 @@ def execute(filters=None):
 
     return columns, data
 
+
 def get_columns(filters, templates):
     """
     Returns Columns based on Filters and Templates found
     """
     if filters.get("price_list_type") == "Price List":
         columns = [
-                _("PL ID") + ":Link/Item Price:80",
-                {
-                    "label": _("PL"),
-                    "fieldname": "pl_name",
-                    "fieldtype": "Link",
-                    "options": "Price List",
-                    "width": 50
-                },
-                {
-                    "label": _("List Price"),
-                    "fieldname": "price",
-                    "fieldtype": "Currency",
-                    "width": 70
-                },
-                _("Cur") + "::40",
-                {
-                    "label": _("Item"),
-                    "fieldname": "it_name",
-                    "fieldtype": "Link",
-                    "options": "Item",
-                    "width": 120
-                }
+            _("PL ID") + ":Link/Item Price:80",
+            {
+                "label": _("PL"),
+                "fieldname": "pl_name",
+                "fieldtype": "Link",
+                "options": "Price List",
+                "width": 50
+            },
+            {
+                "label": _("List Price"),
+                "fieldname": "price",
+                "fieldtype": "Currency",
+                "width": 70
+            },
+            _("Cur") + "::40",
+            {
+                "label": _("Item"),
+                "fieldname": "it_name",
+                "fieldtype": "Link",
+                "options": "Item",
+                "width": 120
+            }
         ]
     elif filters.get("price_list_type") == "Pricing Rule":
         columns = [
-                {
-                    "label": _("PR ID"),
-                    "fieldname": "pr_id",
-                    "fieldtype": "Link",
-                    "options": "Pricing Rule",
-                    "width": 80,
-                    "ignore_permissions": True
-                },
-                {
-                    "label": _("Valid Upto"),
-                    "fieldname": "valid_upto",
-                    "fieldtype": "Date",
-                    "width": 80
-                },
-                {
-                    "label": _("MoQ"),
-                    "fieldname": "moq",
-                    "fieldtype": "Int",
-                    "width": 50
-                },
-                {
-                    "label": _("Price"),
-                    "fieldname": "price",
-                    "fieldtype": "Currency",
-                    "width": 70
-                },
-                {
-                    "label": _("Currency"),
-                    "fieldname": "currency",
-                    "fieldtype": "",
-                    "width": 50
-                },
-                {
-                    "label": _("Item"),
-                    "fieldname": "it_name",
-                    "fieldtype": "Link",
-                    "options": "Item",
-                    "width": 120
-                }
+            {
+                "label": _("PR ID"),
+                "fieldname": "pr_id",
+                "fieldtype": "Link",
+                "options": "Pricing Rule",
+                "width": 80,
+                "ignore_permissions": True
+            },
+            {
+                "label": _("Valid Upto"),
+                "fieldname": "valid_upto",
+                "fieldtype": "Date",
+                "width": 80
+            },
+            {
+                "label": _("MoQ"),
+                "fieldname": "moq",
+                "fieldtype": "Int",
+                "width": 50
+            },
+            {
+                "label": _("Price"),
+                "fieldname": "price",
+                "fieldtype": "Currency",
+                "width": 70
+            },
+            {
+                "label": _("Currency"),
+                "fieldname": "currency",
+                "fieldtype": "",
+                "width": 50
+            },
+            {
+                "label": _("Item"),
+                "fieldname": "it_name",
+                "fieldtype": "Link",
+                "options": "Item",
+                "width": 120
+            }
         ]
-    attributes = get_distinct_attributes(item_dict=templates, field_name="template")
+    attributes = get_distinct_attributes(
+        item_dict=templates, field_name="template")
     att_details = []
-    #above dict would be as below
+    # above dict would be as below
     #[{name: "Base Material", max_length: 20, numeric_values:0, name_in_template: "bm"}]
     for att in attributes:
         at_dt = {}
@@ -101,8 +104,8 @@ def get_columns(filters, templates):
         att_name = frappe.db.sql("""SELECT name, attribute, field_name
             FROM `tabItem Variant Attribute`
             WHERE {condition} AND parent IN (%s) GROUP BY field_name""".format(condition=cond)
-                %(", ".join(['%s']*len(templates))),
-                tuple([d.template for d in templates]), as_dict=1)
+                                 % (", ".join(['%s']*len(templates))),
+                                 tuple([d.template for d in templates]), as_dict=1)
 
         attr = frappe.get_doc("Item Attribute", att.att_name)
         at_dt["name"] = att.att_name
@@ -174,6 +177,7 @@ def get_columns(filters, templates):
     ]
     return columns, attributes, att_details
 
+
 def get_items(attributes, att_details, filters):
     """
     Returns items for the Attributes and Filters
@@ -209,7 +213,7 @@ def get_items(attributes, att_details, filters):
                     AND ro.warehouse = it.default_warehouse %s
             WHERE
                 IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
-            ORDER BY %s it.name""" %(att_query, plist, att_join, conditions_it, att_order)
+            ORDER BY %s it.name""" % (att_query, plist, att_join, conditions_it, att_order)
         data = frappe.db.sql(query, as_list=1)
     elif filters.get("price_list_type") == "Pricing Rule":
         query = f"""SELECT it.name {att_query}, IFNULL(it.pl_item, '-') as pl_item,
@@ -224,10 +228,12 @@ def get_items(attributes, att_details, filters):
             rows = []
             frm_dt = filters.get("valid_from")
             to_dt = filters.get("valid_upto")
-            prule = get_pricing_rule_for_item(it_name=itm.name, frm_dt=frm_dt, to_dt=to_dt)
+            prule = get_pricing_rule_for_item(
+                it_name=itm.name, frm_dt=frm_dt, to_dt=to_dt)
             if prule:
                 for prl in prule:
-                    drow = [prl.name, prl.valid_upto, prl.min_qty, prl.rate, prl.currency, itm.name]
+                    drow = [prl.name, prl.valid_upto, prl.min_qty,
+                            prl.rate, prl.currency, itm.name]
                     rows.append(drow)
             else:
                 if filters.get("show_zero") == 1:
@@ -248,16 +254,17 @@ def get_items(attributes, att_details, filters):
     else:
         frappe.throw(f"Wrong Price List Type Selected {filters.get('price_list_type')}")
 
-
     return data
+
 
 def define_join(string, tab, val):
     """
     Defines the Joins to be used for the Item Attributes
     """
     string += """ LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent
-            AND %s.attribute = '%s'""" %(tab, tab, tab, val)
+            AND %s.attribute = '%s'""" % (tab, tab, tab, val)
     return string
+
 
 def get_templates(bmat, conditions_it, filters):
     """
@@ -274,7 +281,7 @@ def get_templates(bmat, conditions_it, filters):
         query_join = define_join(query_join, tab.replace(" ", ""), tab)
 
     if filters.get("quality"):
-        tab = '%s Quality' %(bmat)
+        tab = '%s Quality' % (bmat)
         query_join = define_join(query_join, tab.replace(" ", ""), tab)
 
     if filters.get("series"):
@@ -288,6 +295,7 @@ def get_templates(bmat, conditions_it, filters):
     if not templates:
         frappe.throw("No Temps in the given Criterion")
     return templates
+
 
 def get_conditions(filters):
     """
@@ -316,19 +324,25 @@ def get_conditions(filters):
             cond_pr += f" AND pr.valid_from >= '{filters.get('valid_from')}'"
 
     if filters.get("eol"):
-        conditions_it += " WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters.get("eol")
+        conditions_it += " WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters.get(
+            "eol")
 
     if filters.get("bm"):
-        conditions_it += " AND BaseMaterial.attribute_value = '%s'" % filters.get("bm")
+        conditions_it += " AND BaseMaterial.attribute_value = '%s'" % filters.get(
+            "bm")
 
     if filters.get("series"):
-        conditions_it += " AND Series.attribute_value = '%s'" % filters.get("series")
+        conditions_it += " AND Series.attribute_value = '%s'" % filters.get(
+            "series")
 
     if filters.get("quality"):
-        conditions_it += " AND %sQuality.attribute_value = '%s'" % (bm, filters.get("quality"))
+        bm = filters.get("bm")
+        conditions_it += " AND %sQuality.attribute_value = '%s'" % (
+            bm, filters.get("quality"))
 
     if filters.get("tt"):
-        conditions_it += " AND ToolType.attribute_value = '%s'" % filters.get("tt")
+        conditions_it += " AND ToolType.attribute_value = '%s'" % filters.get(
+            "tt")
     else:
         if "System Manager" not in user_roles:
             frappe.throw("Please select Tool Type to Proceed")
