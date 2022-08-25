@@ -13,8 +13,15 @@ app_color = "#007AFF"
 app_email = "aditya@rigpl.com"
 app_url = "https://github.com/adityaduggal/custom_erpnext"
 app_version = "0.0.1"
-fixtures = ["Custom Script"]
 hide_in_installer = True
+
+# Fixtures help https://frappeframework.com/docs/v13/user/en/python-api/hooks#fixtures
+fixtures = [
+    {"dt": "Client Script", "filters": [
+        ["dt", "in", "Bank Account, Branch, Communication, Customer, Delivery Note, Employee, \
+        Holiday List, Item, Item Attribute, Lead, Purchase Order, Salary Component, \
+        Salary Structure, Sales Order"]]}
+]
 
 # controller_context = {
 #    'Item': 'rigpl_erpnext.templates.generators.item'
@@ -69,6 +76,12 @@ hide_in_installer = True
 #
 # has_permission = {
 #   "Event": "frappe.core.doctype.event.event.has_permission",
+# }
+
+# Javascripts for Standard Documents to Override Forms Script
+# -----------
+# doctype_js = {
+#    "Bank Account": "public/js/todo.js",
 # }
 
 # Document Events

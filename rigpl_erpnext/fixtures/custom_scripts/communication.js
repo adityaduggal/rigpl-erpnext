@@ -1,3 +1,0 @@
-$.extend(frappe.views.CommunicationComposer, {
-	
-});

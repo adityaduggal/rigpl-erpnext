@@ -43,3 +43,4 @@ rigpl_erpnext.patches.correct_ssa_dates
 execute:frappe.delete_doc("Report", "Item Report")
 execute:frappe.delete_doc("Report", "Salary Register")
 rigpl_erpnext.patches.delete_custom_fields
+rigpl_erpnext.patches.v13.reset_client_scripts
