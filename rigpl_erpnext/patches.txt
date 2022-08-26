@@ -44,3 +44,4 @@ execute:frappe.delete_doc("Report", "Item Report")
 execute:frappe.delete_doc("Report", "Salary Register")
 rigpl_erpnext.patches.delete_custom_fields
 rigpl_erpnext.patches.v13.reset_client_scripts
+rigpl_erpnext.patches.v13.update_leave_type_in_attendance
