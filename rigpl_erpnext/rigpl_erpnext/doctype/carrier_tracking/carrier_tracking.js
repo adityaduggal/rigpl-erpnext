@@ -24,7 +24,7 @@ frappe.ui.form.on('Carrier Tracking', {
 		            frappe.throw(__('Please first select Receiver Document and Receiver Document Name before setting address'));
 		        }
                 return {
-                    query: 'frappe.contacts.doctype.address.address.address_query',
+                    query: 'rohit_common.utils.address_utils.rigpl_address_query',
                     filters: {
                         link_doctype: frm.doc.receiver_document,
                         link_name: frm.doc.receiver_name
@@ -38,10 +38,10 @@ frappe.ui.form.on('Carrier Tracking', {
 		            frappe.throw(__('Please first select Receiver Document and Receiver Document Name before setting address'));
 		        }
                 return {
-                    query: 'frappe.contacts.doctype.address.address.address_query',
-                    filters: {
-                        link_doctype: frm.doc.receiver_document,
-                        link_name: frm.doc.receiver_name
+                    query: 'rohit_common.utils.address_utils.rigpl_address_query',
+                    "filters": {
+                        "link_doctype": frm.doc.receiver_document,
+                        "link_name": frm.doc.receiver_name
                     }
                 };
 		    } else {
@@ -72,7 +72,7 @@ frappe.ui.form.on('Carrier Tracking', {
                 frappe.throw(__('Please first select Receiver Document and Receiver Document Name before setting Contact'));
             }
             return {
-                query: 'frappe.contacts.doctype.contact.contact.contact_query',
+                query: 'rohit_common.utils.contact_utils.rigpl_contact_query',
                 filters: {
                     link_doctype: frm.doc.receiver_document,
                     link_name: frm.doc.receiver_name
