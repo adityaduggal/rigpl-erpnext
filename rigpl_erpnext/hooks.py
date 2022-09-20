@@ -4,6 +4,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import frappe
+
 app_name = "rigpl_erpnext"
 app_title = "Rohit ERPNext Extensions"
 app_publisher = "Rohit Industries Group Private Limited"
@@ -16,12 +18,7 @@ app_version = "0.0.1"
 hide_in_installer = True
 
 # Fixtures help https://frappeframework.com/docs/v13/user/en/python-api/hooks#fixtures
-fixtures = [
-    {"dt": "Client Script", "filters": [
-        ["dt", "in", "Bank Account, Branch, Communication, Customer, Delivery Note, Employee, \
-        Holiday List, Item, Item Attribute, Lead, Purchase Order, Salary Component, \
-        Salary Structure, Sales Order"]]}
-]
+fixtures = []
 
 # controller_context = {
 #    'Item': 'rigpl_erpnext.templates.generators.item'
@@ -36,8 +33,8 @@ fixtures = [
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/rigpl_erpnext/css/rigpl_erpnext.css"
-# app_include_js = "/assets/rigpl_erpnext/js/rigpl_erpnext.js"
+# app_include_css = "/assets/css/rigpl.css"
+# app_include_js = "/assets/js/app.min.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/rigpl_erpnext/css/rigpl_erpnext.css"
@@ -80,38 +77,38 @@ fixtures = [
 
 # Javascripts for Standard Documents to Override Forms Script
 # -----------
-# doctype_js = {
-#    "Bank Account": "public/js/todo.js",
-# }
+doctype_js = {
+    "Bank Account": "public/js/bank_account.js",
+    "Item": "public/js/stock/item.js",
+    "Leave Allocation": "public/js/hr/leave_allocation.js",
+}
 
 # Document Events
 # ---------------
 # Hook on document methods and events
 
 doc_events = {
-    "Account": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.account.validate"
-    },
+    "Account": {"validate": "rigpl_erpnext.rigpl_erpnext.validations.account.validate"},
     "Attendance": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
-        "update_after_submit": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update"
+        "update_after_submit": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
     },
     "Bank Account": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.validate",
-        "autoname": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.autoname"
+        "autoname": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.autoname",
     },
     "Communication": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.communication.validate"
     },
     "Customer": {
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update",
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.customer.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.customer.validate",
     },
     "Delivery Note": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
-        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel"
+        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel",
     },
     "Department": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.department.validate"
@@ -130,29 +127,35 @@ doc_events = {
     },
     "Item": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item.validate",
-        "autoname": "rigpl_erpnext.rigpl_erpnext.validations.item.autoname"
+        "autoname": "rigpl_erpnext.rigpl_erpnext.validations.item.autoname",
     },
     "Item Group": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"
     },
     "Item Price": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_price.validate",
-        "on_update": "rigpl_erpnext.rigpl_erpnext.validations.item_price.on_update"
+        "on_update": "rigpl_erpnext.rigpl_erpnext.validations.item_price.on_update",
     },
     "Lead": {
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update",
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate",
+    },
+    "Leave Allocation": {
+        "validate": "rigpl_erpnext.hr_rigpl.validations.leave_allocation.validate"
     },
     "Leave Application": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate",
-        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.on_submit"
+        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.on_submit",
+    },
+    "Leave Policy": {
+        "validate": "rigpl_erpnext.hr_rigpl.validations.leave_policy.validate"
     },
     "Opportunity": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
     },
     "Payment Entry": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.validate",
-        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.on_submit"
+        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.on_submit",
     },
     "Price List": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
@@ -164,7 +167,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_submit",
         "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_cancel",
-        "on_update": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_update"
+        "on_update": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.on_update",
     },
     "Purchase Invoice": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_invoice.validate"
@@ -172,7 +175,7 @@ doc_events = {
     "Purchase Receipt": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_submit",
-        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_cancel"
+        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_cancel",
     },
     "Quotation": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate"
@@ -183,19 +186,19 @@ doc_events = {
     "Salary Slip": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_submit",
-        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel"
+        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel",
     },
     "Salary Structure": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure.validate"
     },
     "Salary Structure Assignment": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure_assignment.validate",
-        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure_assignment.on_submit"
+        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure_assignment.on_submit",
     },
     "Sales Invoice": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_submit",
-        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_cancel"
+        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_cancel",
     },
     "Sales Person": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_person.validate"
@@ -203,11 +206,11 @@ doc_events = {
     "Sales Order": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_submit",
-        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_cancel"
+        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_cancel",
     },
     "Stock Entry": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
-        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.on_submit"
+        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.on_submit",
     },
     "Stock Reconciliation": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_reconciliation.validate"
@@ -215,9 +218,7 @@ doc_events = {
     "Supplier": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.supplier.validate"
     },
-    "ToDo": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.todo.validate"
-    },
+    "ToDo": {"validate": "rigpl_erpnext.rigpl_erpnext.validations.todo.validate"},
     "Warehouse": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.warehouse.validate"
     },
@@ -249,17 +250,16 @@ scheduler_events = {
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.enqueue_rol_job",
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_calculate_lead_times.enqueue_job"
             # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:15 AM
-        ]
+        ],
     },
     "all": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.update_rm_status_unmodified",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute",
     ],
     "daily": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
-        "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks"
-
+        "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks",
     ],
     "hourly": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
@@ -267,7 +267,7 @@ scheduler_events = {
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.enqueue_get_ship_data",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.enqueue_jc_status_update",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update"
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update",
     ]
     #   "monthly": [
     #       "rigpl_erpnext.tasks.monthly"
