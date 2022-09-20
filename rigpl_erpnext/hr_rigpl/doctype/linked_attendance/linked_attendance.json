@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "creation": "2022-09-12 09:27:58.615161",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "valid_attendance",
+  "attendance_date",
+  "status",
+  "employee",
+  "employee_name"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "valid_attendance",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Valid Attendance",
+   "options": "Attendance"
+  },
+  {
+   "fetch_from": "valid_attendance.attendance_date",
+   "fieldname": "attendance_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Attendance Date",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fetch_from": "valid_attendance.status",
+   "fieldname": "status",
+   "fieldtype": "Read Only",
+   "in_list_view": 1,
+   "label": "Status"
+  },
+  {
+   "columns": 2,
+   "fetch_from": "valid_attendance.employee",
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Read Only",
+   "in_list_view": 1,
+   "label": "Employee Name"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2022-09-12 14:52:26.478227",
+ "modified_by": "Administrator",
+ "module": "HR-RIGPL",
+ "name": "Linked Attendance",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
