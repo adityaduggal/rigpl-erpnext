@@ -302,7 +302,7 @@
  "max_attachments": 0, 
  "modified": "2017-04-28 16:57:29.357274", 
  "modified_by": "Administrator", 
- "module": "RIGPL ERPNext", 
+ "module": "HR-RIGPL", 
  "name": "Employee Advance", 
  "name_case": "UPPER CASE", 
  "owner": "Administrator", 
