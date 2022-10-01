@@ -2,3 +2,4 @@ RIGPL ERPNext
 Accounts-RIGPL
 HR-RIGPL
 Management-RIGPL
+Stock-RIGPL
