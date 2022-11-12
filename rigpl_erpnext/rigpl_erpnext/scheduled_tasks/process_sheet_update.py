@@ -46,8 +46,8 @@ def consolidate_transfer_operations():
         for opr in pend_ps_ops:
             sno += 1
             itd = frappe.get_doc("Item", opr.production_item)
-            if not any(d["production_item"] == opr.production_item and
-                    d["operation"] == opr.operation for d in done_ops) and itd.made_to_order != 1:
+            if not any(d["production_item"] == opr.production_item and  \
+                d["operation"] == opr.operation for d in done_ops) and itd.made_to_order != 1:
                 done_op_dict["production_item"] = opr.production_item
                 done_op_dict["operation"] = opr.operation
                 done_ops.append(done_op_dict.copy())
@@ -82,6 +82,14 @@ def stop_or_change_ops(op_dict, stop_nos, change_nos, un_nos, tot_changes, itd, 
             # If qty is same then close old operations and create JCR from new ones.
             exist_jcr = check_existing_job_card(item_name=itd.name, operation=op_dict[i].operation,
                 ps_doc=psd)
+            if exist_jcr and len(exist_jcr) > 1:
+                print(f"For Item: {itd.name} and Operation: {op_dict[i].operation}"
+                    f" there are {len(exist_jcr)} Job Cards. Deleting latest one "
+                    "to rectify the error.")
+                for k in range(0, len(exist_jcr) - 1):
+                    print(f"Deleting {exist_jcr[k+1].name}")
+                    frappe.delete_doc('Process Job Card RIGPL', exist_jcr[k].name,
+                    for_reload=True)
             op_qty = get_actual_qty_before_process_in_ps(psd=psd, itd=itd,
                 operation=op_dict[i].operation)
             new_op_planned_qty = op_qty + op_dict[i].completed_qty
@@ -113,11 +121,6 @@ def stop_or_change_ops(op_dict, stop_nos, change_nos, un_nos, tot_changes, itd, 
                                     f" for Process Sheet {op_dict[i].ps_name}")
                                 frappe.delete_doc('Process Job Card RIGPL', jcd.name,
                                     for_reload=True)
-                        else:
-                            print(f"For Item: {itd.name} and Operation: {op_dict[i].operation}"
-                                f" there are {len(exist_jcr)} Job Cards. Kindly remove this "
-                                "to proceed.")
-                            exit()
                     else:
                         tot_changes += 1
                         create_nos += 1
