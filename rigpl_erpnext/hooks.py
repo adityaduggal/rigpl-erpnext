@@ -204,9 +204,9 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_person.validate"
     },
     "Sales Order": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.validate",
-        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_submit",
-        "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_order.on_cancel",
+        "validate": "rigpl_erpnext.selling_rigpl.validations.sales_order.validate",
+        "on_submit": "rigpl_erpnext.selling_rigpl.validations.sales_order.on_submit",
+        "on_cancel": "rigpl_erpnext.selling_rigpl.validations.sales_order.on_cancel",
     },
     "Stock Entry": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
