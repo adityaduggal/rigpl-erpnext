@@ -1,4 +1,4 @@
-#  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
+#  Copyright (c) 2022. Rohit Industries Group Private Limited and Contributors.
 #  For license information, please see license.txt
 
 from __future__ import unicode_literals
@@ -14,55 +14,42 @@ def execute(filters=None):
 
 def get_columns(filters):
 	entry_type = filters.get("entry_type")
-	if filters.get("entry_type") == "Payment Entry":
-		return [
-			"PE#:Link/Payment Entry:120",
-			{
-				"label": "Party Type",
-				"fieldname": "party_type",
-				"width": 100
-			},
-			{
-				"label": "Party",
-				"fieldname": "party",
-				"fieldtype": "Dynamic Link",
-				"options": "party_type",
-				"width": 150
-			}, "Party Name::200", "Company Bank::150", "Party Bank Account#::150", "Party IFSC::100", "Amount:Currency:100",
-			"Swift Number::100"
-		]
-	else:
-		return [
-			"Entry#:Link/" + entry_type + ":120",
-			{
-				"label": "Party Type",
-				"fieldname": "party_type",
-				"width": 100
-			},
-			{
-				"label": "Party",
-				"fieldname": "party",
-				"fieldtype": "Dynamic Link",
-				"options": "party_type",
-				"width": 150
-			}, "Party Name::200", "Company Bank::150", "Party Bank Account#::150", "Party IFSC::100", "Amount:Currency:100",
-			"Swift Number::100"
-		]
+	cols = [
+	"Entry Date:Date:100",
+	"Entry#: Link/" + entry_type + ":120", "Bank A/C:Link/Bank Account:100",
+	{
+		"label": "Party Type",
+		"fieldname": "party_type",
+		"width": 100
+	},
+	{
+		"label": "Party",
+		"fieldname": "party",
+		"fieldtype": "Dynamic Link",
+		"options": "party_type",
+		"width": 150
+	}, "Company Bank::150", "Name in Bank::300", "Party Bank Account#::150",
+	"Party IFSC::100", "Amount:Currency:100"
+	]
+	if entry_type == "Payment Entry":
+		cols += ["Swift Number::100"]
+	return cols
 
 
 def get_data(filters):
 	cond = get_conditions(filters)
 	if filters.get("entry_type") == "Payment Entry":
-		query = """SELECT pe.name, pe.party_type, pe.party, ba.name_in_bank_records, pe.bank_account, ba.bank_account_no, 
-		ba.branch_code, pe.paid_amount, ba.swift_number FROM `tabPayment Entry` pe 
-			LEFT JOIN `tabBank Account` ba ON ba.name = pe.party_bank_account 
+		query = """SELECT pe.posting_date, pe.name, ba.name, pe.party_type, pe.party, pe.bank_account,
+		ba.name_in_bank_records, ba.bank_account_no, ba.branch_code, pe.paid_amount, ba.swift_number
+		FROM `tabPayment Entry` pe
+			LEFT JOIN `tabBank Account` ba ON ba.name = pe.party_bank_account
 		WHERE pe.docstatus < 3 %s ORDER BY pe.name""" % cond
 	else:
-		query = """SELECT ea.name, "Employee", eld.employee, ba.name_in_bank_records, ea.credit_account, 
-		ba.bank_account_no, ba.branch_code, eld.loan_amount, ba.swift_number 
-		FROM `tabEmployee Advance` ea, `tabEmployee Loan Detail` eld 
+		query = """SELECT ea.posting_date, ea.name, ba.name, "Employee", eld.employee, ea.credit_account,
+		ba.name_in_bank_records, ba.bank_account_no, ba.branch_code, eld.loan_amount
+		FROM `tabEmployee Advance` ea, `tabEmployee Loan Detail` eld
 			LEFT JOIN `tabBank Account` ba ON ba.party_type = "Employee" AND ba.party = eld.employee AND ba.verified = 1
-		WHERE eld.parent = ea.name AND eld.parenttype = "Employee Advance" AND ea.docstatus < 3 %s 
+		WHERE eld.parent = ea.name AND eld.parenttype = "Employee Advance" AND ea.docstatus < 3 %s
 		ORDER BY ea.name""" % cond
 	data = frappe.db.sql(query, as_list=1)
 
