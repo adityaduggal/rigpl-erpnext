@@ -3,3 +3,11 @@
 *.egg-info
 *.swp
 tags
+node_modules
+.vscode
+.vs
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
