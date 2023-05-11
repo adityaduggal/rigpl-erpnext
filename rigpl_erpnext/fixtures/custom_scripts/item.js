@@ -53,6 +53,7 @@ $.extend(erpnext.item, {
 							'method': 'frappe.client.get_list',
 							'args': {
 								'doctype': 'Item Attribute Value',
+								'parent': 'Item Attribute',
 								'filters': [
 									['Item Attribute Value', 'parent', '=', r.name]
 								],
@@ -116,6 +117,7 @@ $.extend(erpnext.item, {
 							'async': false,
 							'args': {
 								'doctype': 'Item Attribute Value',
+								'parent': 'Item Attribute',
 								'filters': filters,
 								'fields': ['attribute_value'],
 								'parent': cur_frm.doctype
@@ -342,6 +344,7 @@ frappe.ui.form.on("Item Variant Restrictions", "form_render", function(frm, cdt,
 				method: 'frappe.client.get_list',
 				args: {
 					doctype: 'Item Attribute Value',
+					parent: 'Item Attribute',
 					filters: [
 						['parent', '=', field.doc.attribute],
 						['attribute_value', 'like', request.term + '%']
