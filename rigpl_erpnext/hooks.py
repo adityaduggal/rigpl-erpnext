@@ -2,9 +2,6 @@
 #  For license information, please see license.txt
 
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
-import frappe
 
 app_name = "rigpl_erpnext"
 app_title = "Rohit ERPNext Extensions"
@@ -13,12 +10,19 @@ app_description = "Rohit ERPNext Extensions"
 app_icon = "icon-paper-clip"
 app_color = "#007AFF"
 app_email = "aditya@rigpl.com"
-app_url = "https://github.com/adityaduggal/custom_erpnext"
+app_url = "https://github.com/adityaduggal/rigpl-erpnext"
 app_version = "0.0.1"
 hide_in_installer = True
 
 # Fixtures help https://frappeframework.com/docs/v13/user/en/python-api/hooks#fixtures
 fixtures = []
+
+
+# override_whitelisted_methods = {
+# Below mentod would also take into account the search fields mentioned in the Customize form view
+#    "erpnext.accounts.doctype.pricing_rule.pricing_rule.apply_pricing_rule":
+#    "rigpl_erpnext.accounts_rigpl.validations.pricing_rule.apply_pricing_rule"
+# }
 
 # controller_context = {
 #    'Item': 'rigpl_erpnext.templates.generators.item'
@@ -42,7 +46,7 @@ fixtures = []
 
 # Home Pages
 # ----------
-# website_generators = ["Carrier Tracking", "Item", "Item Group"]
+website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
 # application home page (will override Website Settings)
 # home_page = "login"
 
@@ -51,11 +55,24 @@ fixtures = []
 #   "Role": "home_page"
 # }
 
+# When a Portal Page is rendered, a dictionary is built with all of the possible variables that the page might
+# need to render. This dict is also known as context. You can use these hooks to add or modify values in this dict.
+
+# website_context = {
+#    "favicon": "/assets/app/image/favicon.png"
+# }
+
+update_website_context = "rigpl_erpnext.app.overrides.website_context"
+
+# You can use the update_website_context hook for more complex scenarios as it allows you to manipulate the
+# context dict in a python method. The method is called with one argument, which is the context dict
+
 # Installation
 # ------------
 
 # before_install = "rigpl_erpnext.install.before_install"
-# after_install = "rigpl_erpnext.install.after_install"
+after_install = "rigpl_erpnext.setup.after_install"
+after_migrate = "rigpl_erpnext.setup.after_migrate"
 
 # Desk Notifications
 # ------------------
@@ -161,7 +178,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
     },
     "Pricing Rule": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.pricing_rule.validate"
+        "validate": "rigpl_erpnext.accounts_rigpl.validations.pricing_rule.validate"
     },
     "Purchase Order": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate",
