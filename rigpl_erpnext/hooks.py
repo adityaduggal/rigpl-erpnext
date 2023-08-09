@@ -140,7 +140,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.expense_claim.validate"
     },
     "Holiday List": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.holiday_list.validate"
+        "validate": "rigpl_erpnext.hr_rigpl.validations.holiday_list.validate"
     },
     "Item": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item.validate",
