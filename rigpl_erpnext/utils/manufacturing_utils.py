@@ -3,28 +3,39 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe
-import re
+
 import math
+import re
+
+import frappe
+from erpnext.stock.stock_balance import update_bin_qty
 from frappe import _
 from frappe.utils import flt
-from erpnext.stock.stock_balance import update_bin_qty
 from rohit_common.utils.rohit_common_utils import replace_java_chars
+
 from .item_utils import get_item_attributes
+from .other_utils import auto_round_down, auto_round_up, round_up
 from .sales_utils import get_pending_so_qty_from_soitem
 from .stock_utils import get_quantities_for_item
-from .other_utils import round_up, auto_round_down, auto_round_up
 
 
 def get_planned_qty(item_name):
     planned = 0
     planned_dict = frappe._dict({})
-    work_orders = frappe.db.sql("""SELECT SUM(qty - produced_qty) as wo_plan FROM `tabWork Order`
-    WHERE docstatus = 1 AND status != 'Stopped' AND production_item = '%s'""" % item_name, as_list=1)
+    work_orders = frappe.db.sql(
+        """SELECT SUM(qty - produced_qty) as wo_plan FROM `tabWork Order`
+    WHERE docstatus = 1 AND status != 'Stopped' AND production_item = '%s'"""
+        % item_name,
+        as_list=1,
+    )
 
-    psheet = frappe.db.sql("""SELECT production_item as item, SUM(quantity - produced_qty) as ps_plan
+    psheet = frappe.db.sql(
+        """SELECT production_item as item, SUM(quantity - produced_qty) as ps_plan
     FROM `tabProcess Sheet` WHERE docstatus = 1 AND status != 'Short Closed' AND status != 'Stopped'
-    AND status != 'Completed' AND production_item = '%s'""" % item_name, as_dict=1)
+    AND status != 'Completed' AND production_item = '%s'"""
+        % item_name,
+        as_dict=1,
+    )
     if flt(work_orders[0][0]) > 0:
         planned += work_orders[0][0]
 
@@ -42,16 +53,27 @@ def get_items_from_process_sheet_for_job_card(document, table_name):
     for d in pro_sheet.operations:
         if d.name == document.operation_id:
             document.operation = d.operation
-    for d in frappe.get_all("Process Sheet Items", fields=["*"], filters={'parenttype': 'Process Sheet',
-            'parent': document.process_sheet, 'parentfield': table_name}, order_by='idx'):
-        child = document.append(table_name, {
-            "idx": d.idx,
-            "item_code": d.item_code,
-            "description": d.description,
-            "source_warehouse": d.source_warehouse,
-            "target_warehouse": d.target_warehouse,
-            "uom": d.uom
-        })
+    for d in frappe.get_all(
+        "Process Sheet Items",
+        fields=["*"],
+        filters={
+            "parenttype": "Process Sheet",
+            "parent": document.process_sheet,
+            "parentfield": table_name,
+        },
+        order_by="idx",
+    ):
+        child = document.append(
+            table_name,
+            {
+                "idx": d.idx,
+                "item_code": d.item_code,
+                "description": d.description,
+                "source_warehouse": d.source_warehouse,
+                "target_warehouse": d.target_warehouse,
+                "uom": d.uom,
+            },
+        )
 
 
 def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
@@ -59,7 +81,11 @@ def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
     # factor = calc_rol * vr / qty
     factor = 0
     resd_prd = qty_dict["reserved_for_prd"]
-    rol_vr_lead_factor = qty_dict["calculated_rol"] * (qty_dict["valuation_rate"] + 1) * qty_dict["lead_time"]
+    rol_vr_lead_factor = (
+        qty_dict["calculated_rol"]
+        * (qty_dict["valuation_rate"] + 1)
+        * qty_dict["lead_time"]
+    )
     bal_fin = qty_dict["finished_qty"] - qty_dict["on_so"]
     bal_aft_prd = bal_fin - resd_prd + qty_before_process
     if bal_fin < 0:
@@ -67,9 +93,9 @@ def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
     if bal_aft_prd < 0:
         bal_aft_prd = 0
     if resd_prd == 0:
-        factor = rol_vr_lead_factor/(bal_fin + 1)
+        factor = rol_vr_lead_factor / (bal_fin + 1)
     else:
-        factor = rol_vr_lead_factor/(bal_aft_prd + 1)
+        factor = rol_vr_lead_factor / (bal_aft_prd + 1)
     if resd_prd == 0:
         if factor > 1000000:
             return 30
@@ -118,10 +144,14 @@ def get_qty_to_manufacture(it_doc):
     """
     Returns Min and Max Quantity to Manufacture
     """
-    base_multiplier = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings",
-        "base_rol_multiplier"))
-    max_months = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings",
-        "max_months_for_manufacturing_qty"))
+    base_multiplier = flt(
+        frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_rol_multiplier")
+    )
+    max_months = flt(
+        frappe.get_value(
+            "RIGPL Settings", "RIGPL Settings", "max_months_for_manufacturing_qty"
+        )
+    )
     if max_months <= 0:
         max_months = 3
     if base_multiplier <= 0:
@@ -137,7 +167,7 @@ def get_qty_to_manufacture(it_doc):
     wipq = qty_dict["wip_qty"]
     plan = qty_dict["planned_qty"]
     rol = qty_dict["re_order_level"]
-    rol_multiplier = (base_multiplier * calc_rol * lead / 30)
+    rol_multiplier = base_multiplier * calc_rol * lead / 30
     qty_on_docs = soq + prd - fgq - wipq - plan - poq
     reqd_qty = max(rol_multiplier + qty_on_docs, 0)
     max_reqd_qty = max((max_months * rol_multiplier) + qty_on_docs, 0)
@@ -170,7 +200,9 @@ def get_oal_frm_item_code(item_code, qty, oal_field, so_detail=None):
     itd = frappe.get_doc("Item", item_code)
     if itd.made_to_order == 1:
         spl = get_special_item_attribute_doc(item_name=item_code, so_detail=so_detail)
-        it_dict = get_special_item_attributes(it_name=item_code, special_item_attribute=spl[0].name)
+        it_dict = get_special_item_attributes(
+            it_name=item_code, special_item_attribute=spl[0].name
+        )
     else:
         it_dict = get_item_attributes(item_code)
     for d in it_dict:
@@ -181,21 +213,33 @@ def get_oal_frm_item_code(item_code, qty, oal_field, so_detail=None):
 def find_item_quantities(item_dict):
     availability = []
     for d in item_dict:
-        one_item_availability = frappe.db.sql("""SELECT name, warehouse, item_code, stock_uom, valuation_rate,
+        one_item_availability = frappe.db.sql(
+            """SELECT name, warehouse, item_code, stock_uom, valuation_rate,
         actual_qty,
         (SELECT SUM(reserved_qty_for_production) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as prd_qty,
         (SELECT SUM(reserved_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as on_so,
         (SELECT SUM(ordered_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as on_po,
         (SELECT SUM(planned_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as planned
         FROM `tabBin` WHERE docstatus = 0
-        AND item_code = '%s'""" % ((d.get("name") or d.get("item_code")), (d.get("name") or d.get("item_code")),
-                                   (d.get("name") or d.get("item_code")), (d.get("name") or d.get("item_code")),
-                                   (d.get("name") or d.get("item_code"))), as_dict=1)
+        AND item_code = '%s'"""
+            % (
+                (d.get("name") or d.get("item_code")),
+                (d.get("name") or d.get("item_code")),
+                (d.get("name") or d.get("item_code")),
+                (d.get("name") or d.get("item_code")),
+                (d.get("name") or d.get("item_code")),
+            ),
+            as_dict=1,
+        )
         # If Item is for Job Work then need to get the PO Items for that as well since on_po is wrong in that case
         # In that case get the quantity of the Material in Sub-Contracting Warehouse
-        subcon = frappe.db.sql("""SELECT bn.item_code, bn.actual_qty, wh.name FROM `tabBin` bn, `tabWarehouse` wh
+        subcon = frappe.db.sql(
+            """SELECT bn.item_code, bn.actual_qty, wh.name FROM `tabBin` bn, `tabWarehouse` wh
         WHERE wh.name = bn.warehouse AND wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0
-        AND bn.item_code = '%s'""" % d.get("item_code"), as_dict=1)
+        AND bn.item_code = '%s'"""
+            % d.get("item_code"),
+            as_dict=1,
+        )
 
         if one_item_availability:
             if subcon:
@@ -206,30 +250,35 @@ def find_item_quantities(item_dict):
     return availability
 
 
-def convert_wip_rule_to_mysql_statement(rule, fg_item, rm_item, process_sheet_name=None):
+def convert_wip_rule_to_mysql_statement(
+    rule, fg_item, rm_item, process_sheet_name=None
+):
     new_rule = replace_java_to_mysql(rule)
     fg_item_doc = frappe.get_doc("Item", fg_item)
     if not fg_item_doc.variant_of:
         ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_item, so_detail=ps_doc.sales_order_item,
-                                                               docstatus=1)
-        fg_att_dict = get_special_item_attributes(fg_item, special_item_attr_doc[0].name)
+        special_item_attr_doc = get_special_item_attribute_doc(
+            item_name=fg_item, so_detail=ps_doc.sales_order_item, docstatus=1
+        )
+        fg_att_dict = get_special_item_attributes(
+            fg_item, special_item_attr_doc[0].name
+        )
     else:
         fg_att_dict = get_item_attributes(fg_item)
     rm_att_dict = get_item_attributes(rm_item)
-    res = re.findall(r'\w+', rule)
+    res = re.findall(r"\w+", rule)
     for word in res:
-        if word[:3] == 'fg_':
+        if word[:3] == "fg_":
             for d in fg_att_dict:
                 if d.attribute == word[3:]:
                     new_rule = new_rule.replace(word, d.attribute_value)
-        elif word[:3] == 'rm_':
+        elif word[:3] == "rm_":
             for d in rm_att_dict:
                 if d.attribute == word[3:]:
                     new_rule = new_rule.replace(word, d.attribute_value)
-        if word[:4] == 'wip_':
-            new_rule = new_rule.replace(word, word[4:] + '.attribute_value')
-    new_rule = ' AND ' + new_rule
+        if word[:4] == "wip_":
+            new_rule = new_rule.replace(word, word[4:] + ".attribute_value")
+    new_rule = " AND " + new_rule
     return new_rule
 
 
@@ -239,30 +288,39 @@ def convert_rule_to_mysql_statement(rule, it_dict, process_sheet_name=None):
     it_doc = frappe.get_doc("Item", it_name)
     if not it_doc.variant_of:
         ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(item_name=it_name, so_detail=ps_doc.sales_order_item,
-                                                               docstatus=1)
-        known_it_att_dict = get_special_item_attributes(it_name, special_item_attr_doc[0].name)
+        special_item_attr_doc = get_special_item_attribute_doc(
+            item_name=it_name, so_detail=ps_doc.sales_order_item, docstatus=1
+        )
+        known_it_att_dict = get_special_item_attributes(
+            it_name, special_item_attr_doc[0].name
+        )
     else:
         known_it_att_dict = get_item_attributes(it_name)
     known_type = it_dict.get(it_name)
     unknown_type = it_dict.get("unknown_type")
-    res = re.findall(r'\w+', rule)
+    res = re.findall(r"\w+", rule)
     for word in res:
-        if word[:len(known_type) + 1] == known_type + '_':
+        if word[: len(known_type) + 1] == known_type + "_":
             for d in known_it_att_dict:
-                if d.attribute == word[len(known_type)+1:]:
+                if d.attribute == word[len(known_type) + 1 :]:
                     new_rule = new_rule.replace(word, d.attribute_value)
 
-        if word[:len(unknown_type) + 1] == unknown_type + '_':
-            new_rule = new_rule.replace(word, word[len(unknown_type) + 1:] + '.attribute_value')
-    new_rule = ' AND ' + new_rule
+        if word[: len(unknown_type) + 1] == unknown_type + "_":
+            new_rule = new_rule.replace(
+                word, word[len(unknown_type) + 1 :] + ".attribute_value"
+            )
+    new_rule = " AND " + new_rule
     return new_rule
 
 
 def get_special_item_attributes(it_name, special_item_attribute):
-    attribute_dict = frappe.db.sql("""SELECT idx, name, attribute, attribute_value, numeric_values
+    attribute_dict = frappe.db.sql(
+        """SELECT idx, name, attribute, attribute_value, numeric_values
         FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Made to Order Item Attributes' ORDER BY
-        idx""" % special_item_attribute, as_dict=1)
+        idx"""
+        % special_item_attribute,
+        as_dict=1,
+    )
     return attribute_dict
 
 
@@ -279,23 +337,36 @@ def get_bom_template_from_item(item_doc, so_detail=None, no_error=0):
     else:
         # Find Item Attributes in Special Item Table or Create a New Special Item Table and ask user to fill it.
         if so_detail:
-            special_attributes = get_special_item_attribute_doc(item_name=item_doc.name, so_detail=so_detail,
-                                                                docstatus=1)
+            special_attributes = get_special_item_attribute_doc(
+                item_name=item_doc.name, so_detail=so_detail, docstatus=1
+            )
             if not special_attributes:
-                sp_att_draft = get_special_item_attribute_doc(item_name=item_doc.name, so_detail=so_detail, docstatus=0)
+                sp_att_draft = get_special_item_attribute_doc(
+                    item_name=item_doc.name, so_detail=so_detail, docstatus=0
+                )
                 if sp_att_draft:
-                    frappe.throw("Special Item Attributes not Submitted please fill and Submit {}".
-                                 format(frappe.get_desk_link("Made to Order Item Attributes", sp_att_draft[0].name)))
+                    frappe.throw(
+                        "Special Item Attributes not Submitted please fill and Submit {}".format(
+                            frappe.get_desk_link(
+                                "Made to Order Item Attributes", sp_att_draft[0].name
+                            )
+                        )
+                    )
                 else:
                     create_new_special_attributes(item_doc.name, so_detail)
                     frappe.msgprint("Fill the Special Item Attributes and Try Again")
             else:
                 # Get Special Attributes from the Table and then find bom template
-                it_att_dict = get_special_item_attributes(item_doc.name, special_attributes[0].name)
+                it_att_dict = get_special_item_attributes(
+                    item_doc.name, special_attributes[0].name
+                )
                 bom_template = get_bom_temp_from_it_att(item_doc, it_att_dict)
         else:
-            frappe.throw("{} item seems like a Special Item hence Sales Order is Mandatory for the same.".format(
-                item_doc.name))
+            frappe.throw(
+                "{} item seems like a Special Item hence Sales Order is Mandatory for the same.".format(
+                    item_doc.name
+                )
+            )
     return bom_template
 
 
@@ -305,14 +376,23 @@ def create_new_special_attributes(it_name, so_detail):
     special.sales_order_item = so_detail
     special.sales_order = frappe.get_value("Sales Order Item", so_detail, "parent")
     special.description = frappe.get_value("Sales Order Item", so_detail, "description")
+    special.sno = frappe.get_value("Sales Order Item", so_detail, "idx")
     special.insert()
     frappe.db.commit()
-    frappe.msgprint(_("{} created").format(frappe.get_desk_link("Made to Order Item Attributes", special.name)))
+    frappe.msgprint(
+        _("{} created").format(
+            frappe.get_desk_link("Made to Order Item Attributes", special.name)
+        )
+    )
 
 
 def get_special_item_attribute_doc(item_name, so_detail, docstatus=1):
-    return frappe.db.sql("""SELECT name FROM `tabMade to Order Item Attributes` WHERE docstatus = %s AND item_code =
-    '%s' AND sales_order_item = '%s'""" % (docstatus, item_name, so_detail), as_dict=1)
+    return frappe.db.sql(
+        """SELECT name FROM `tabMade to Order Item Attributes` WHERE docstatus = %s AND item_code =
+    '%s' AND sales_order_item = '%s'"""
+        % (docstatus, item_name, so_detail),
+        as_dict=1,
+    )
 
 
 def get_bom_temp_from_it_att(item_doc, att_dict):
@@ -337,7 +417,11 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
                 if exit_bt == 1:
                     break
                 for att in att_dict:
-                    if bt_rule.is_numeric == 1 and att.numeric_values == 1 and exit_bt != 1:
+                    if (
+                        bt_rule.is_numeric == 1
+                        and att.numeric_values == 1
+                        and exit_bt != 1
+                    ):
                         formula = replace_java_chars(bt_rule.rule)
                         formula_values = get_formula_values(att_dict, formula, "fg")
                         dont_calculate_formula = 0
@@ -346,7 +430,9 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
                                 dont_calculate_formula = 1
                                 break
                         if dont_calculate_formula == 0:
-                            calculated_value = calculate_formula_values(formula, formula_values)
+                            calculated_value = calculate_formula_values(
+                                formula, formula_values
+                            )
                         else:
                             break
                         if calculated_value == 1:
@@ -367,14 +453,14 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
 
 def replace_java_to_mysql(string):
     replace_dict = {
-        'false': 'False',
-        'true': 'True',
-        '&&': ' and ',
-        '||': ' or ',
-        '&gt;': '>',
-        '&lt;': '<',
-        '==': '=',
-        '!=': '!='
+        "false": "False",
+        "true": "True",
+        "&&": " and ",
+        "||": " or ",
+        "&gt;": ">",
+        "&lt;": "<",
+        "==": "=",
+        "!=": "!=",
     }
 
     for k, v in replace_dict.items():
@@ -386,22 +472,34 @@ def calculate_operation_time(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
     if fg_it_doc.variant_of:
         fg_attributes = get_item_attributes(fg_it_doc.name)
     elif fg_it_doc.made_to_order == 1:
-        special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_it_doc.name,
-                                                               so_detail=ps_doc.sales_order_item, docstatus=1)
-        fg_attributes = get_special_item_attributes(fg_it_doc.name, special_item_attr_doc[0].name)
+        special_item_attr_doc = get_special_item_attribute_doc(
+            item_name=fg_it_doc.name, so_detail=ps_doc.sales_order_item, docstatus=1
+        )
+        fg_attributes = get_special_item_attributes(
+            fg_it_doc.name, special_item_attr_doc[0].name
+        )
     else:
-        frappe.throw("{} selected is neither a Variant nor Made to Order Item".format(frappe.get_desk_link()))
+        frappe.throw(
+            "{} selected is neither a Variant nor Made to Order Item".format(
+                frappe.get_desk_link()
+            )
+        )
     for d in ps_doc.operations:
         formula_values = frappe._dict({})
         for op in rt_dict:
             if op.time_based_on_formula == 1 and d.operation == op.operation:
                 op_time_formula_edited = replace_java_chars(op.operation_time_formula)
-                formula_values = formula_values.update(get_formula_values(fg_attributes, op_time_formula_edited, "fg"))
+                formula_values = formula_values.update(
+                    get_formula_values(fg_attributes, op_time_formula_edited, "fg")
+                )
                 for rm in rm_it_dict:
                     rm_attributes = get_item_attributes(rm.name)
-                    formula_values = formula_values.update(get_formula_values(rm_attributes, op_time_formula_edited,
-                                                                              "rm"))
-                operation_time = calculate_formula_values(op_time_formula_edited, formula_values)
+                    formula_values = formula_values.update(
+                        get_formula_values(rm_attributes, op_time_formula_edited, "rm")
+                    )
+                operation_time = calculate_formula_values(
+                    op_time_formula_edited, formula_values
+                )
                 d.time_in_mins = int(operation_time * ps_doc.quantity / d.batch_size)
             elif op.time_based_on_formula != 1:
                 d.time_in_mins = int(op.time_in_mins * ps_doc.quantity / d.batch_size)
@@ -409,9 +507,12 @@ def calculate_operation_time(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
 
 def calculate_batch_size(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
     if ps_doc.sales_order_item:
-        special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_it_doc.name,
-                                                               so_detail=ps_doc.sales_order_item, docstatus=1)
-        fg_attributes = get_special_item_attributes(fg_it_doc.name, special_item_attr_doc[0].name)
+        special_item_attr_doc = get_special_item_attribute_doc(
+            item_name=fg_it_doc.name, so_detail=ps_doc.sales_order_item, docstatus=1
+        )
+        fg_attributes = get_special_item_attributes(
+            fg_it_doc.name, special_item_attr_doc[0].name
+        )
     else:
         fg_attributes = get_item_attributes(fg_it_doc.name)
     for d in ps_doc.operations:
@@ -419,12 +520,17 @@ def calculate_batch_size(ps_doc, rt_dict, fg_it_doc, rm_it_dict):
         for op in rt_dict:
             if op.batch_size_based_on_formula == 1 and d.operation == op.operation:
                 batch_edited_formula = replace_java_chars(op.batch_size_formula)
-                formula_values = formula_values.update(get_formula_values(fg_attributes, batch_edited_formula, "fg"))
+                formula_values = formula_values.update(
+                    get_formula_values(fg_attributes, batch_edited_formula, "fg")
+                )
                 for rm in rm_it_dict:
                     rm_attributes = get_item_attributes(rm.name)
-                    formula_values = formula_values.update(get_formula_values(rm_attributes, batch_edited_formula,
-                                                                              "rm"))
-                batch_size = calculate_formula_values(batch_edited_formula, formula_values)
+                    formula_values = formula_values.update(
+                        get_formula_values(rm_attributes, batch_edited_formula, "rm")
+                    )
+                batch_size = calculate_formula_values(
+                    batch_edited_formula, formula_values
+                )
                 batch_size = convert_qty_per_uom(batch_size, fg_it_doc.name)
                 d.batch_size = batch_size
 
@@ -433,33 +539,48 @@ def get_formula_values(att_dict, formula, type_of_dict=None):
     values = {}
     for att in att_dict:
         if type_of_dict:
-            if (type_of_dict + '_' + att.attribute) in formula:
-                values[(type_of_dict + '_' + att.attribute)] = flt(att.attribute_value)
+            if (type_of_dict + "_" + att.attribute) in formula:
+                values[(type_of_dict + "_" + att.attribute)] = flt(att.attribute_value)
         else:
             if att.attribute in formula:
                 values[att.attribute] = flt(att.attribute_value)
     return values
 
 
-def calculated_value_from_formula(rm_item_dict, fg_item_name, bom_template_name, fg_qty=0, process_sheet_name=None,
-                                  is_wip=0):
+def calculated_value_from_formula(
+    rm_item_dict,
+    fg_item_name,
+    bom_template_name,
+    fg_qty=0,
+    process_sheet_name=None,
+    is_wip=0,
+):
     qty_dict = frappe._dict({})
     qty_list = []
     # bom_temp_name = get_bom_template_from_item(frappe.get_doc("Item", fg_item_name), so_detail=so_detail)
     bom_temp_doc = frappe.get_doc("BOM Template RIGPL", bom_template_name)
     formula = replace_java_chars(bom_temp_doc.formula)
-    fg_item_doc = frappe.get_doc('Item', fg_item_name)
+    fg_item_doc = frappe.get_doc("Item", fg_item_name)
     if not fg_item_doc.variant_of:
         ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(item_name=fg_item_name,
-                                                               so_detail=ps_doc.sales_order_item, docstatus=1)
-        fg_att_dict = get_special_item_attributes(fg_item_name, special_item_attr_doc[0].name)
+        special_item_attr_doc = get_special_item_attribute_doc(
+            item_name=fg_item_name, so_detail=ps_doc.sales_order_item, docstatus=1
+        )
+        fg_att_dict = get_special_item_attributes(
+            fg_item_name, special_item_attr_doc[0].name
+        )
     else:
         fg_att_dict = get_item_attributes(fg_item_name)
     for d in rm_item_dict:
         rm_att_dict = get_item_attributes(d.get("name") or d.get("item_code"))
-        qty = calculate_formula(rm_att=rm_att_dict, fg_att=fg_att_dict, formula=formula, fg_qty=fg_qty,
-                                bt_name=bom_template_name, is_wip=is_wip)
+        qty = calculate_formula(
+            rm_att=rm_att_dict,
+            fg_att=fg_att_dict,
+            formula=formula,
+            fg_qty=fg_qty,
+            bt_name=bom_template_name,
+            is_wip=is_wip,
+        )
         qty = convert_qty_per_uom(qty, d.get("item"))
         qty_dict["rm_item_code"] = d.get("name") or d.get("item_code")
         qty_dict["fg_item_code"] = fg_item_name
@@ -477,7 +598,7 @@ def calculate_formula(rm_att, fg_att, formula, fg_qty, bt_name, is_wip=0):
     rm_att = change_att_if_needed(rm_att, bt_doc, "rm")
     fg_att = change_att_if_needed(fg_att, bt_doc, table_pref)
     formula_values = frappe._dict({})
-    formula_values['qty'] = fg_qty
+    formula_values["qty"] = fg_qty
     formula_values = formula_values.update(get_formula_values(rm_att, formula, "rm"))
     formula_values = formula_values.update(get_formula_values(fg_att, formula, "fg"))
     calc_qty = calculate_formula_values(formula, formula_values)
@@ -497,13 +618,27 @@ def calculate_formula_values(formula, formula_values_dict):
     original_keys = formula_values_dict.keys()
     try:
         if "compile" in formula:
-            calc_value = (eval(formula))
+            calc_value = eval(formula)
             calc_value = eval(calc_value, formula_values_dict, formula_values_dict)
         else:
             calc_value = eval(formula, formula_values_dict, formula_values_dict)
     except Exception as e:
-        frappe.throw("\n\n".join(map(str, [formula, {k: v for k, v in formula_values_dict.items() if k in
-                                                     original_keys}, e])))
+        frappe.throw(
+            "\n\n".join(
+                map(
+                    str,
+                    [
+                        formula,
+                        {
+                            k: v
+                            for k, v in formula_values_dict.items()
+                            if k in original_keys
+                        },
+                        e,
+                    ],
+                )
+            )
+        )
     return calc_value
 
 
@@ -542,59 +677,122 @@ def update_produced_qty(jc_doc, status="Submit"):
     max_bal_qty = max_qty - pro_sheet.produced_qty
     pro_sheet = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     if min_bal_qty < jc_doc.total_completed_qty < max_bal_qty and bal_qty != 0:
-        frappe.msgprint("Balance Ordered Qty = {} but Manufactured Qty = {} for Job Card# {} for Item Code: {}. Check "
-                        "Short Close Operation to Short Close the Operation".format(bal_qty,
-                                jc_doc.total_completed_qty, jc_doc.name, jc_doc.production_item))
+        frappe.msgprint(
+            "Balance Ordered Qty = {} but Manufactured Qty = {} for Job Card# {} for Item Code: {}. Check "
+            "Short Close Operation to Short Close the Operation".format(
+                bal_qty, jc_doc.total_completed_qty, jc_doc.name, jc_doc.production_item
+            )
+        )
 
     for ps_r in pro_sheet.operations:
         if ps_r.name == jc_doc.operation_id:
             if status == "Submit":
                 tc_comp_qty = get_comp_qty_operation(ps_r.name)
-                frappe.db.set_value("BOM Operation", ps_r.name, "completed_qty", tc_comp_qty if tc_comp_qty > 0 else 0)
+                frappe.db.set_value(
+                    "BOM Operation",
+                    ps_r.name,
+                    "completed_qty",
+                    tc_comp_qty if tc_comp_qty > 0 else 0,
+                )
                 if pro_sheet.status == "Submitted":
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
+                    frappe.db.set_value(
+                        "Process Sheet", pro_sheet.name, "status", "In Progress"
+                    )
                 if tc_comp_qty >= ps_r.planned_qty or jc_doc.short_close_operation == 1:
-                    frappe.db.set_value("BOM Operation", ps_r.name, "status", "Completed")
+                    frappe.db.set_value(
+                        "BOM Operation", ps_r.name, "status", "Completed"
+                    )
                 else:
-                    frappe.db.set_value("BOM Operation", ps_r.name, "status", "In Progress")
+                    frappe.db.set_value(
+                        "BOM Operation", ps_r.name, "status", "In Progress"
+                    )
             else:
-                tc_comp_qty = get_comp_qty_operation(ps_r.name)  # jc_doc.total_completed_qty
-                frappe.db.set_value("BOM Operation", ps_r.name, "completed_qty", tc_comp_qty if tc_comp_qty > 0 else 0)
+                tc_comp_qty = get_comp_qty_operation(
+                    ps_r.name
+                )  # jc_doc.total_completed_qty
+                frappe.db.set_value(
+                    "BOM Operation",
+                    ps_r.name,
+                    "completed_qty",
+                    tc_comp_qty if tc_comp_qty > 0 else 0,
+                )
                 if tc_comp_qty < ps_r.planned_qty or jc_doc.short_close_operation == 1:
-                    frappe.db.set_value("BOM Operation", ps_r.name, "status", "In Progress")
+                    frappe.db.set_value(
+                        "BOM Operation", ps_r.name, "status", "In Progress"
+                    )
 
             if ps_r.idx == 1 and status == "Submit":
                 tc_comp_qty = pro_sheet.produced_qty + jc_doc.total_completed_qty
-                frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
-                else 0)
+                frappe.db.set_value(
+                    "Process Sheet",
+                    pro_sheet.name,
+                    "produced_qty",
+                    tc_comp_qty if tc_comp_qty > 0 else 0,
+                )
                 if tc_comp_qty >= pro_sheet.quantity:
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "Completed")
+                    frappe.db.set_value(
+                        "Process Sheet", pro_sheet.name, "status", "Completed"
+                    )
                 elif jc_doc.short_close_operation != 1:
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "In Progress")
+                    frappe.db.set_value(
+                        "Process Sheet", pro_sheet.name, "status", "In Progress"
+                    )
                 else:
-                    sc_qty = pro_sheet.quantity - jc_doc.total_completed_qty - pro_sheet.produced_qty
+                    sc_qty = (
+                        pro_sheet.quantity
+                        - jc_doc.total_completed_qty
+                        - pro_sheet.produced_qty
+                    )
                     tc_comp_qty = pro_sheet.quantity
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
-                    else 0)
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "short_closed_qty", sc_qty if sc_qty > 0
-                    else 0)
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "status", "Short Closed")
-            elif ps_r.idx == 1 and status == 'Cancel':
+                    frappe.db.set_value(
+                        "Process Sheet",
+                        pro_sheet.name,
+                        "produced_qty",
+                        tc_comp_qty if tc_comp_qty > 0 else 0,
+                    )
+                    frappe.db.set_value(
+                        "Process Sheet",
+                        pro_sheet.name,
+                        "short_closed_qty",
+                        sc_qty if sc_qty > 0 else 0,
+                    )
+                    frappe.db.set_value(
+                        "Process Sheet", pro_sheet.name, "status", "Short Closed"
+                    )
+            elif ps_r.idx == 1 and status == "Cancel":
                 if jc_doc.short_close_operation != 1:
                     tc_comp_qty = pro_sheet.produced_qty - jc_doc.total_completed_qty
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
-                    else 0)
+                    frappe.db.set_value(
+                        "Process Sheet",
+                        pro_sheet.name,
+                        "produced_qty",
+                        tc_comp_qty if tc_comp_qty > 0 else 0,
+                    )
                 else:
                     sc_qty = 0
-                    tc_comp_qty = pro_sheet.quantity - jc_doc.total_completed_qty - pro_sheet.short_closed_qty
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "produced_qty", tc_comp_qty if tc_comp_qty > 0
-                    else 0)
-                    frappe.db.set_value("Process Sheet", pro_sheet.name, "short_closed_qty", 0)
+                    tc_comp_qty = (
+                        pro_sheet.quantity
+                        - jc_doc.total_completed_qty
+                        - pro_sheet.short_closed_qty
+                    )
+                    frappe.db.set_value(
+                        "Process Sheet",
+                        pro_sheet.name,
+                        "produced_qty",
+                        tc_comp_qty if tc_comp_qty > 0 else 0,
+                    )
+                    frappe.db.set_value(
+                        "Process Sheet", pro_sheet.name, "short_closed_qty", 0
+                    )
 
 
 def get_comp_qty_operation(op_id):
-    qty_dict = frappe.db.sql("""SELECT SUM(total_completed_qty) as tot_qty FROM `tabProcess Job Card RIGPL`
-    WHERE docstatus = 1 AND operation_id = '%s'""" % op_id, as_dict=1)
+    qty_dict = frappe.db.sql(
+        """SELECT SUM(total_completed_qty) as tot_qty FROM `tabProcess Job Card RIGPL`
+    WHERE docstatus = 1 AND operation_id = '%s'"""
+        % op_id,
+        as_dict=1,
+    )
     if qty_dict:
         return flt(qty_dict[0].tot_qty)
     else:
@@ -602,59 +800,80 @@ def get_comp_qty_operation(op_id):
 
 
 def update_qty_for_prod(item_code, warehouse, table_name):
-    update_bin_qty(item_code, warehouse, {"reserved_qty_for_production": get_qty_for_prod(item_code, warehouse,
-                                                                                          table_name)})
+    update_bin_qty(
+        item_code,
+        warehouse,
+        {
+            "reserved_qty_for_production": get_qty_for_prod(
+                item_code, warehouse, table_name
+            )
+        },
+    )
 
 
 def get_qty_for_prod_for_item(item_code, warehouse=None):
     wh_cond = ""
     if warehouse:
         wh_cond += f" AND psi.source_warehouse = {warehouse}"
-    qty_res_for_prod = frappe.db.sql(f"""SELECT SUM(psi.calculated_qty - psi.qty) as qty_prod
+    qty_res_for_prod = frappe.db.sql(
+        f"""SELECT SUM(psi.calculated_qty - psi.qty) as qty_prod
         FROM `tabProcess Sheet Items` psi, `tabProcess Sheet` ps
         WHERE ps.name = psi.parent AND psi.parenttype = 'Process Sheet' AND ps.docstatus = 1
         AND psi.parentfield = 'rm_consumed' AND ps.status NOT IN ("Stopped", "Completed",
         "Short Closed") AND psi.donot_consider_rm_for_production != 1
-        AND psi.item_code = '{item_code}' {wh_cond}""", as_dict=1)
+        AND psi.item_code = '{item_code}' {wh_cond}""",
+        as_dict=1,
+    )
 
     return flt(qty_res_for_prod[0].qty_prod) if qty_res_for_prod else 0
 
 
-
 def get_qty_for_prod(item_code, warehouse, table_name):
-    qty_res_for_prod = frappe.db.sql("""SELECT SUM(psi.calculated_qty - psi.qty) FROM `tabProcess Sheet Items` psi,
+    qty_res_for_prod = frappe.db.sql(
+        """SELECT SUM(psi.calculated_qty - psi.qty) FROM `tabProcess Sheet Items` psi,
     `tabProcess Sheet` ps
     WHERE ps.name = psi.parent AND psi.parenttype = 'Process Sheet' AND ps.docstatus = 1 AND psi.parentfield = '%s' AND
     ps.status NOT IN ("Stopped", "Completed", "Short Closed") AND psi.donot_consider_rm_for_production != 1
-    AND psi.item_code = '%s' AND psi.source_warehouse = '%s'""" % (table_name, item_code, warehouse))
+    AND psi.item_code = '%s' AND psi.source_warehouse = '%s'"""
+        % (table_name, item_code, warehouse)
+    )
 
     return flt(qty_res_for_prod[0][0]) if qty_res_for_prod else 0
 
 
 def update_planned_qty(item_code, warehouse):
-    update_bin_qty(item_code, warehouse, {
-        "planned_qty": get_planned_qty_process(item_code, warehouse)
-    })
+    update_bin_qty(
+        item_code,
+        warehouse,
+        {"planned_qty": get_planned_qty_process(item_code, warehouse)},
+    )
 
 
 def get_planned_qty_process(item_code, warehouse):
-    planned_qty = frappe.db.sql(""" SELECT IF(SUM(quantity - produced_qty) > 0, SUM(quantity - produced_qty), 0) FROM
+    planned_qty = frappe.db.sql(
+        """ SELECT IF(SUM(quantity - produced_qty) > 0, SUM(quantity - produced_qty), 0) FROM
     `tabProcess Sheet` WHERE production_item = %s and fg_warehouse = %s and status NOT IN
-    ("Stopped", "Completed", "Short Closed") AND docstatus=1 AND quantity > produced_qty""", (item_code, warehouse))
+    ("Stopped", "Completed", "Short Closed") AND docstatus=1 AND quantity > produced_qty""",
+        (item_code, warehouse),
+    )
 
     return flt(planned_qty[0][0]) if planned_qty else 0
 
 
 def check_warehouse_in_child_tables(document, table_name, type_of_table):
     for row in document.get(table_name):
-        if type_of_table == 'Consume':
+        if type_of_table == "Consume":
             row.target_warehouse = ""
             if not row.source_warehouse:
-                frappe.throw('Source Warehouse is Mandatory for Row# {}'.format(row.idx))
-        elif type_of_table == 'Production':
+                frappe.throw(
+                    "Source Warehouse is Mandatory for Row# {}".format(row.idx)
+                )
+        elif type_of_table == "Production":
             row.source_warehouse = ""
             if not row.target_warehouse:
-                frappe.throw('Target Warehouse is Mandatory for Row# {}'.format(row.idx))
+                frappe.throw(
+                    "Target Warehouse is Mandatory for Row# {}".format(row.idx)
+                )
 
 
 def update_warehouse_from_bt(pro_sheet_doc):
@@ -671,8 +890,8 @@ def update_warehouse_from_bt(pro_sheet_doc):
 def get_min_max_ps_qty(qty):
     manuf_settings = frappe.get_single("Manufacturing Settings")
     over_prod = manuf_settings.overproduction_percentage_for_work_order
-    max_qty = math.ceil(qty * (1 + over_prod/100))
-    min_qty = math.floor(qty * (1 - over_prod/100))
+    max_qty = math.ceil(qty * (1 + over_prod / 100))
+    min_qty = math.floor(qty * (1 - over_prod / 100))
     return min_qty, max_qty
 
 
@@ -686,7 +905,16 @@ def update_pro_sheet_rm_from_jc(jc_doc, status="Submit"):
                 else:
                     tc_qty = int(row.qty - rm.qty)
                 if row.calculated_qty > tc_qty:
-                    frappe.db.set_value("Process Sheet Items", row.name, "qty", tc_qty if tc_qty > 0 else 0)
+                    frappe.db.set_value(
+                        "Process Sheet Items",
+                        row.name,
+                        "qty",
+                        tc_qty if tc_qty > 0 else 0,
+                    )
                 else:
-                    frappe.db.set_value("Process Sheet Items", row.name, "qty", row.calculated_qty)
-        update_qty_for_prod(row.item_code, row.source_warehouse, table_name="rm_consumed")
+                    frappe.db.set_value(
+                        "Process Sheet Items", row.name, "qty", row.calculated_qty
+                    )
+        update_qty_for_prod(
+            row.item_code, row.source_warehouse, table_name="rm_consumed"
+        )
