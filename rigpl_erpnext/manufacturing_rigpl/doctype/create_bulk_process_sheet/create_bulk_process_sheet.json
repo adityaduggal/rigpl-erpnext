@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "allow_copy": 1,
  "creation": "2016-05-31 13:35:27.081710",
  "doctype": "DocType",
@@ -135,9 +136,10 @@
  "hide_toolbar": 1,
  "in_create": 1,
  "issingle": 1,
- "modified": "2020-10-30 10:14:03.379091",
+ "links": [],
+ "modified": "2023-08-10 04:47:07.325592",
  "modified_by": "Administrator",
- "module": "RIGPL ERPNext",
+ "module": "Manufacturing-RIGPL",
  "name": "Create Bulk Process Sheet",
  "owner": "Administrator",
  "permissions": [
