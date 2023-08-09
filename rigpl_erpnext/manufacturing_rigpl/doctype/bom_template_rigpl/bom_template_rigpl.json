@@ -1,4 +1,5 @@
 {
+ "actions": [],
  "allow_events_in_timeline": 1,
  "allow_import": 1,
  "allow_rename": 1,
@@ -129,9 +130,10 @@
    "label": "Length Formula"
   }
  ],
- "modified": "2021-03-03 18:09:13.597230",
+ "links": [],
+ "modified": "2023-08-10 04:15:40.473729",
  "modified_by": "Administrator",
- "module": "RIGPL ERPNext",
+ "module": "Manufacturing-RIGPL",
  "name": "BOM Template RIGPL",
  "owner": "Administrator",
  "permissions": [
