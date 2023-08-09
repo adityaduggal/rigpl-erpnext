@@ -35,8 +35,8 @@ execute:frappe.delete_doc("DocType", "Create Bulk Production Orders") #2020-11-3
 rigpl_erpnext.patches.customer_rating_field
 rigpl_erpnext.patches.update_email_id_sales_team
 execute:frappe.delete_doc("Report", "Dynamic Items for Production")
-execute:frappe.delete_doc("DocType", "Homepage Settings")
-execute:frappe.delete_doc("DocType", "Homepage Section Content")
+execute:frappe.delete_doc("DocType", "Homepage Settings") #2023-08-10
+execute:frappe.delete_doc("DocType", "Homepage Section Content") #2023-08-10
 execute:frappe.delete_doc("Module Def", "RIGPL Theme")
 execute:frappe.delete_doc("Report", "Pending So (Prd)")
 rigpl_erpnext.patches.correct_ssa_dates
@@ -44,4 +44,13 @@ execute:frappe.delete_doc("Report", "Item Report")
 execute:frappe.delete_doc("Report", "Salary Register")
 rigpl_erpnext.patches.delete_custom_fields
 rigpl_erpnext.patches.v13.reset_client_scripts
-rigpl_erpnext.patches.v13.update_leave_type_in_attendance
+execute:frappe.delete_doc("DocType", "Contribution Formula")
+execute:frappe.delete_doc("DocType", "Contribution Type")
+execute:frappe.delete_doc("DocType", "Deduction Contribution Formula")
+execute:frappe.delete_doc("DocType", "Deduction Formula")
+execute:frappe.delete_doc("DocType", "Salary Slip Contribution")
+execute:frappe.delete_doc("DocType", "Salary Slip Payment Details")
+execute:frappe.delete_doc("DocType", "Salary Structure Contribution")
+execute:frappe.delete_doc("DocType", "Sales Call Tool")
+execute:frappe.delete_doc("DocType", "Schedule Pickup")
+execute:frappe.delete_doc("DocType", "Schedule Pickup")
