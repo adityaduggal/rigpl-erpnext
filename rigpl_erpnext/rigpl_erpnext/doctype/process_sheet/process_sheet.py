@@ -3,15 +3,24 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-from frappe.utils import nowdate
+
 from frappe.model.document import Document
-from ....utils.stock_utils import get_quantities_for_item
-from ....utils.process_sheet_utils import *
+from frappe.utils import nowdate
+
 from ....utils.job_card_utils import delete_job_card
+from ....utils.manufacturing_utils import (
+    calculate_batch_size,
+    calculate_operation_cost,
+    calculate_operation_time,
+    calculated_value_from_formula,
+    find_item_quantities,
+    get_priority_for_stock_prd,
+    get_qty_to_manufacture,
+    update_warehouse_from_bt,
+)
+from ....utils.process_sheet_utils import *
 from ....utils.sales_utils import get_priority_for_so
-from ....utils.manufacturing_utils import calculated_value_from_formula, find_item_quantities, \
-    get_qty_to_manufacture, calculate_batch_size, calculate_operation_time, \
-    calculate_operation_cost, update_warehouse_from_bt, get_priority_for_stock_prd
+from ....utils.stock_utils import get_quantities_for_item
 
 
 class ProcessSheet(Document):
@@ -25,7 +34,9 @@ class ProcessSheet(Document):
 
         if allow_rm_consumption == 1:
             if not self.rm_consumed:
-                frappe.throw("Raw Material Consumption is Required for this Process Sheet")
+                frappe.throw(
+                    "Raw Material Consumption is Required for this Process Sheet"
+                )
             else:
                 self.validate_no_of_raw_material_items(bt_doc)
 
@@ -33,17 +44,25 @@ class ProcessSheet(Document):
             frappe.throw("Not Allowed to Submit Quantity Equal to ZERO")
         update_planned_qty(self.production_item, self.fg_warehouse)
         for d in self.rm_consumed:
-            update_qty_for_prod(d.item_code, d.source_warehouse, table_name="rm_consumed")
+            update_qty_for_prod(
+                d.item_code, d.source_warehouse, table_name="rm_consumed"
+            )
         make_jc_for_process_sheet(self)
 
     def on_cancel(self):
         frappe.db.set_value("Process Sheet", self.name, "status", "Cancelled")
         update_planned_qty(self.production_item, self.fg_warehouse)
         for d in self.rm_consumed:
-            update_qty_for_prod(d.item_code, d.source_warehouse, table_name="rm_consumed")
+            update_qty_for_prod(
+                d.item_code, d.source_warehouse, table_name="rm_consumed"
+            )
         for row in self.operations:
-            existing_jc = check_existing_job_card(item_name=self.production_item, operation=row.operation,
-                                                  so_detail=self.sales_order_item, ps_doc=self)
+            existing_jc = check_existing_job_card(
+                item_name=self.production_item,
+                operation=row.operation,
+                so_detail=self.sales_order_item,
+                ps_doc=self,
+            )
             if existing_jc:
                 # Update the Total Quantity for All the Job Cards which are existing
                 for jc in existing_jc:
@@ -60,7 +79,7 @@ class ProcessSheet(Document):
         self.update_ps_status()
         self.validate_other_psheet()
         if not self.flags.ignore_mandatory:
-            it_doc = frappe.get_doc('Item', self.production_item)
+            it_doc = frappe.get_doc("Item", self.production_item)
             disallow_templates(self, it_doc)
             if not self.bom_template:
                 bom_tmp_name = get_bom_template_from_item(it_doc, self.sales_order_item)
@@ -76,29 +95,43 @@ class ProcessSheet(Document):
         if self.production_item:
             it_doc = frappe.get_doc("Item", self.production_item)
             if it_doc.variant_of:
-                other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0
-                AND production_item = '%s' AND name <> '%s' """ % (self.production_item, self.name), as_dict=1)
+                other_ps = frappe.db.sql(
+                    """SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0
+                AND production_item = '%s' AND name <> '%s' """
+                    % (self.production_item, self.name),
+                    as_dict=1,
+                )
             else:
                 if self.sales_order_item:
-                    other_ps = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 AND
-                    production_item = '%s' AND sales_order_item = '%s' AND name != '%s'""" %
-                                             (self.production_item, self.sales_order_item, self.name),
-                                             as_dict=1)
+                    other_ps = frappe.db.sql(
+                        """SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 AND
+                    production_item = '%s' AND sales_order_item = '%s' AND name != '%s'"""
+                        % (self.production_item, self.sales_order_item, self.name),
+                        as_dict=1,
+                    )
                 else:
-                    frappe.throw("Sales Order is Mandatory for Item: {} in Process Sheet {}".format(
-                        self.production_item, self.name))
+                    frappe.throw(
+                        "Sales Order is Mandatory for Item: {} in Process Sheet {}".format(
+                            self.production_item, self.name
+                        )
+                    )
             if other_ps:
                 if self.sales_order:
-                    frappe.throw(f"{frappe.get_desk_link('Process Sheet', other_ps[0].name)} for Item: "
-                                 f"{self.production_item} and Sales Order {self.sales_order} already in Draft. "
-                                 f"Cannot Proceed", title="Another Process Sheet with Same Item in Draft")
+                    frappe.throw(
+                        f"{frappe.get_desk_link('Process Sheet', other_ps[0].name)} for Item: "
+                        f"{self.production_item} and Sales Order {self.sales_order} already in Draft. "
+                        f"Cannot Proceed",
+                        title="Another Process Sheet with Same Item in Draft",
+                    )
                 else:
-                    frappe.throw(f"{frappe.get_desk_link('Process Sheet', other_ps[0].name)} for Item: "
-                                 f"{self.production_item} already in Draft. Cannot Proceed",
-                                 title="Another Process Sheet with Same Item in Draft")
+                    frappe.throw(
+                        f"{frappe.get_desk_link('Process Sheet', other_ps[0].name)} for Item: "
+                        f"{self.production_item} already in Draft. Cannot Proceed",
+                        title="Another Process Sheet with Same Item in Draft",
+                    )
 
     def fill_details_from_item(self):
-        item_doc = frappe.get_doc('Item', self.production_item)
+        item_doc = frappe.get_doc("Item", self.production_item)
         if not self.bom_template:
             bom_template = get_bom_template_from_item(item_doc, self.sales_order_item)
             if not bom_template:
@@ -114,8 +147,8 @@ class ProcessSheet(Document):
             self.set("rm_consumed", [])
             self.set("item_manufactured", [])
             self.set("operations", [])
-            frappe.throw('No BOM Template found for {}'.format(self.production_item))
-        bom_temp_doc = frappe.get_doc('BOM Template RIGPL', self.bom_template)
+            frappe.throw("No BOM Template found for {}".format(self.production_item))
+        bom_temp_doc = frappe.get_doc("BOM Template RIGPL", self.bom_template)
         self.routing = bom_temp_doc.routing
         self.set("rm_consumed", [])
         self.set("item_manufactured", [])
@@ -123,7 +156,9 @@ class ProcessSheet(Document):
     def update_ps_fields(self, bt_doc, it_doc):
         if self.date != nowdate():
             self.date = nowdate()
-        self.total_applicable_bom_templates = len(get_bom_template_from_item(it_doc, self.sales_order_item))
+        self.total_applicable_bom_templates = len(
+            get_bom_template_from_item(it_doc, self.sales_order_item)
+        )
         self.bom_template = bt_doc.name
         if bt_doc.remarks:
             remarks = ", Remarks: " + bt_doc.remarks
@@ -157,27 +192,43 @@ class ProcessSheet(Document):
         item_dict = frappe._dict({})
         item_dict["known_item"] = self.production_item
         item_dict["known_type"] = "fg"
-        item_list = self.get_item_list(self.production_item, known_type="fg", unknown_type="rm")
+        item_list = self.get_item_list(
+            self.production_item, known_type="fg", unknown_type="rm"
+        )
         if not self.rm_consumed:
-            rm_item_dict = get_req_sizes_from_template(bom_temp_name=self.bom_template, item_type_list=item_list,
-                                                        table_name="rm_restrictions",
-                                                        allow_zero_rol=1, ps_name=self.name)
+            rm_item_dict = get_req_sizes_from_template(
+                bom_temp_name=self.bom_template,
+                item_type_list=item_list,
+                table_name="rm_restrictions",
+                allow_zero_rol=1,
+                ps_name=self.name,
+            )
         else:
             rm_item_dict = self.make_rm_item_dict()
         if not rm_item_dict:
-            frappe.throw("NO Raw Material Found. Possible Solutions /n"
-                         "1. Check Box for Show Unavailable Raw Material \n"
-                         "2. Change Raw Material Warehouse in the Process Sheet \n"
-                         "3. Change the BOM Template from {}".format(self.bom_template))
-        rm_calc_qty_list = calculated_value_from_formula(rm_item_dict, self.production_item, fg_qty=self.quantity,
-                                                         process_sheet_name=self.name,
-                                                         bom_template_name=self.bom_template)
+            frappe.throw(
+                "NO Raw Material Found. Possible Solutions /n"
+                "1. Check Box for Show Unavailable Raw Material \n"
+                "2. Change Raw Material Warehouse in the Process Sheet \n"
+                "3. Change the BOM Template from {}".format(self.bom_template)
+            )
+        rm_calc_qty_list = calculated_value_from_formula(
+            rm_item_dict,
+            self.production_item,
+            fg_qty=self.quantity,
+            process_sheet_name=self.name,
+            bom_template_name=self.bom_template,
+        )
         wip_list = []
         for rm in rm_item_dict:
-            wip_item_dict = get_req_wip_sizes_from_template(self.bom_template, fg_item=self.production_item,
-                                                            table_name="wip_restrictions", rm_item=rm.get("name"),
-                                                            allow_zero_rol=self.allow_zero_rol_for_wip,
-                                                            process_sheet_name=self.name)
+            wip_item_dict = get_req_wip_sizes_from_template(
+                self.bom_template,
+                fg_item=self.production_item,
+                table_name="wip_restrictions",
+                rm_item=rm.get("name"),
+                allow_zero_rol=self.allow_zero_rol_for_wip,
+                process_sheet_name=self.name,
+            )
             dont_add = 0
             if wip_item_dict:
                 for wip in wip_item_dict:
@@ -200,13 +251,20 @@ class ProcessSheet(Document):
             if qty_dict:
                 for d in qty_dict:
                     for rm in self.rm_consumed:
-                        if d.item_code == rm.item_code and d.warehouse == rm.source_warehouse:
+                        if (
+                            d.item_code == rm.item_code
+                            and d.warehouse == rm.source_warehouse
+                        ):
                             rm.target_warehouse = ""
                             rm.uom = d.stock_uom
                             rm.qty = 0
                             rm.qty_available = d.actual_qty
-                            rm.current_projected_qty = d.actual_qty - d.prd_qty - d.on_so
-                            rm.projected_qty = d.actual_qty - d.prd_qty - d.on_so + d.on_po + d.planned
+                            rm.current_projected_qty = (
+                                d.actual_qty - d.prd_qty - d.on_so
+                            )
+                            rm.projected_qty = (
+                                d.actual_qty - d.prd_qty - d.on_so + d.on_po + d.planned
+                            )
                         for rm_calc in rm_calc_qty_list:
                             if rm.item_code == rm_calc.rm_item_code:
                                 rm.calculated_qty = int(rm_calc.qty)
@@ -245,10 +303,14 @@ class ProcessSheet(Document):
         self.max_auto_qty = max_auto_qty
         dead_qty = get_quantities_for_item(it_doc)["dead_qty"]
         if dead_qty > 0 and self.bypass_all_qty_checks != 1:
-            frappe.throw(f"There are {dead_qty} Qty in Dead Stock for {self.production_item}.\nHence Cannot Proceed")
+            frappe.throw(
+                f"There are {dead_qty} Qty in Dead Stock for {self.production_item}.\nHence Cannot Proceed"
+            )
         if self.bypass_all_qty_checks == 1:
             if auto_qty != self.quantity:
-                frappe.msgprint(f"Qty Calculated = {auto_qty} But Entered Qty= {self.quantity}")
+                frappe.msgprint(
+                    f"Qty Calculated = {auto_qty} But Entered Qty= {self.quantity}"
+                )
             return
         if auto_qty == self.quantity:
             self.update_qty_manually = 0
@@ -260,42 +322,67 @@ class ProcessSheet(Document):
         else:
             if not self.sales_order_item:
                 if self.quantity != auto_qty:
-                    frappe.msgprint("Calculated Qty to Manufacture = " + str(auto_qty) +
-                                    " but Qty entered to Manufacture  = " + str(self.quantity))
+                    frappe.msgprint(
+                        "Calculated Qty to Manufacture = "
+                        + str(auto_qty)
+                        + " but Qty entered to Manufacture  = "
+                        + str(self.quantity)
+                    )
             else:
                 pend_qty = self.get_balance_qty_from_so(self.sales_order_item)
                 if pend_qty < self.quantity:
                     self.update_qty_manually = 0
                     self.quantity = pend_qty
-                    frappe.msgprint("For {} Item in Row#{} Pending Qty= {} but Qty Planned= {}".
-                                    format(frappe.get_desk_link("Sales Order", self.sales_order), self.sno,
-                                           pend_qty, self.quantity))
+                    frappe.msgprint(
+                        "For {} Item in Row#{} Pending Qty= {} but Qty Planned= {}".format(
+                            frappe.get_desk_link("Sales Order", self.sales_order),
+                            self.sno,
+                            pend_qty,
+                            self.quantity,
+                        )
+                    )
         if self.quantity > self.max_auto_qty and self.bypass_all_qty_checks != 1:
-            vrate = flt(frappe.get_value("Item", self.production_item, "valuation_rate"))
-            max_amt = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "max_value_over_max_qty_allowed"))
+            vrate = flt(
+                frappe.get_value("Item", self.production_item, "valuation_rate")
+            )
+            max_amt = flt(
+                frappe.get_value(
+                    "RIGPL Settings", "RIGPL Settings", "max_value_over_max_qty_allowed"
+                )
+            )
             excess_amt = (self.quantity - self.max_auto_qty) * vrate
             if excess_amt > max_amt and vrate > 1:
-                frappe.throw(f"Max Qty Allowed to Manufacture = {max_auto_qty}.<br>"
-                             f"Also Max Excess Amount allowed = {max_amt} & Valuation Rate of Item is {vrate}.<br>"
-                             f"But you are trying to Manufacture excess qty with amount of {excess_amt}.<br>"
-                             f"Either Bypass Qty Check or Change Qty to Manufacture")
+                frappe.throw(
+                    f"Max Qty Allowed to Manufacture = {max_auto_qty}.<br>"
+                    f"Also Max Excess Amount allowed = {max_amt} & Valuation Rate of Item is {vrate}.<br>"
+                    f"But you are trying to Manufacture excess qty with amount of {excess_amt}.<br>"
+                    f"Either Bypass Qty Check or Change Qty to Manufacture"
+                )
 
     def get_balance_qty_from_so(self, so_detail):
         soi_doc = frappe.get_doc("Sales Order Item", so_detail)
-        qty_in_prd = frappe.db.sql("""SELECT SUM(quantity) FROM `tabProcess Sheet` WHERE docstatus=1 AND
+        qty_in_prd = frappe.db.sql(
+            """SELECT SUM(quantity) FROM `tabProcess Sheet` WHERE docstatus=1 AND
         status NOT IN ("Stopped", "Short Closed") AND production_item = '%s'
-        AND sales_order_item = '%s'""" % (soi_doc.item_code, so_detail), as_list=1)
+        AND sales_order_item = '%s'"""
+            % (soi_doc.item_code, so_detail),
+            as_list=1,
+        )
         if qty_in_prd:
             qty_in_prd = flt(qty_in_prd[0][0])
         else:
             qty_in_prd = 0
-        qty_stopped = frappe.db.sql("""SELECT SUM(produced_qty) - SUM(short_closed_qty)
+        qty_stopped = frappe.db.sql(
+            """SELECT SUM(produced_qty) - SUM(short_closed_qty)
         FROM `tabProcess Sheet` WHERE docstatus=1 AND status IN ("Stopped", "Short Closed")
-        AND production_item = '%s' AND sales_order_item = '%s'""" % (soi_doc.item_code, so_detail), as_list=1)
+        AND production_item = '%s' AND sales_order_item = '%s'"""
+            % (soi_doc.item_code, so_detail),
+            as_list=1,
+        )
         if qty_stopped:
             qty_stopped = flt(qty_stopped[0][0])
         else:
-            qty_stopped=0
+            qty_stopped = 0
         forced_qty = soi_doc.qty - soi_doc.delivered_qty - qty_in_prd - qty_stopped
         if forced_qty < 0:
             forced_qty = 0
@@ -317,17 +404,27 @@ class ProcessSheet(Document):
                 self.total_applicable_bom_templates = len(bom_tmp_name)
         else:
             bom_tmp_name = self.bom_template
-        item_list = self.get_item_list(item_name=self.production_item, known_type="fg", unknown_type="rm")
+        item_list = self.get_item_list(
+            item_name=self.production_item, known_type="fg", unknown_type="rm"
+        )
         bt_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
-        query = """SELECT idx, name, operation, workstation, hour_rate, time_based_on_formula, time_in_mins,
+        query = (
+            """SELECT idx, name, operation, workstation, hour_rate, time_based_on_formula, time_in_mins,
         operation_time_formula, batch_size_based_on_formula, batch_size_formula FROM `tabBOM Operation` WHERE
-        parenttype = 'BOM Template RIGPL' AND parent = '%s'""" % bt_doc.name
+        parenttype = 'BOM Template RIGPL' AND parent = '%s'"""
+            % bt_doc.name
+        )
         routing_dict = frappe.db.sql(query, as_dict=1)
         if self.routing:
             self.get_routing()
             if self.get("__islocal") != 1:
-                rm_item_dict = get_req_sizes_from_template(bom_tmp_name, item_list, "rm_restrictions", allow_zero_rol=1,
-                                                           ps_name=self.name)
+                rm_item_dict = get_req_sizes_from_template(
+                    bom_tmp_name,
+                    item_list,
+                    "rm_restrictions",
+                    allow_zero_rol=1,
+                    ps_name=self.name,
+                )
                 if not rm_item_dict:
                     frappe.throw("NO RM Found")
                 calculate_batch_size(self, routing_dict, fg_it_doc, rm_item_dict)
@@ -337,30 +434,36 @@ class ProcessSheet(Document):
 
     def get_routing(self):
         self.set("operations", [])
-        for d in frappe.get_all("BOM Operation", fields=["*"],
-                                filters={'parenttype': 'BOM Template RIGPL', 'parent': self.bom_template},
-                                order_by="idx"):
-            child = self.append('operations', {
-                "operation": d.operation,
-                "workstation": d.workstation,
-                "description": d.description,
-                "time_in_mins": d.time_in_mins,
-                "batch_size": d.batch_size,
-                "operating_cost": d.operating_cost,
-                "time_based_on_formula": 0,
-                "batch_size_based_on_formula": 0,
-                "hour_rate": d.hour_rate,
-                "allow_consumption_of_rm": d.allow_consumption_of_rm,
-                "rm_warehouse": d.rm_warehouse,
-                "allow_production_of_wip_materials": d.allow_production_of_wip_materials,
-                "wip_material_warehouse": d.wip_material_warehouse,
-                "source_warehouse": d.source_warehouse,
-                "target_warehouse": d.target_warehouse,
-                "transfer_entry": d.transfer_entry,
-                "final_operation": d.final_operation,
-                "final_warehouse": d.final_warehouse,
-                "idx": d.idx
-            })
+        for d in frappe.get_all(
+            "BOM Operation",
+            fields=["*"],
+            filters={"parenttype": "BOM Template RIGPL", "parent": self.bom_template},
+            order_by="idx",
+        ):
+            child = self.append(
+                "operations",
+                {
+                    "operation": d.operation,
+                    "workstation": d.workstation,
+                    "description": d.description,
+                    "time_in_mins": d.time_in_mins,
+                    "batch_size": d.batch_size,
+                    "operating_cost": d.operating_cost,
+                    "time_based_on_formula": 0,
+                    "batch_size_based_on_formula": 0,
+                    "hour_rate": d.hour_rate,
+                    "allow_consumption_of_rm": d.allow_consumption_of_rm,
+                    "rm_warehouse": d.rm_warehouse,
+                    "allow_production_of_wip_materials": d.allow_production_of_wip_materials,
+                    "wip_material_warehouse": d.wip_material_warehouse,
+                    "source_warehouse": d.source_warehouse,
+                    "target_warehouse": d.target_warehouse,
+                    "transfer_entry": d.transfer_entry,
+                    "final_operation": d.final_operation,
+                    "final_warehouse": d.final_warehouse,
+                    "idx": d.idx,
+                },
+            )
             if d.final_warehouse:
                 self.fg_warehouse = d.final_warehouse
 
@@ -377,13 +480,23 @@ class ProcessSheet(Document):
         if self.rm_consumed:
             for bt_op in bt_doc.operations:
                 if bt_op.allow_consumption_of_rm == 1 and not bt_op.rm_warehouse:
-                    frappe.throw("For {} in Row# {} Raw Material Warehouse is Not Mentioned get it "
-                                 "corrected to Proceed.".format(frappe.get_desk_link("BOM Template RIGPL", bt_doc.name),
-                                                                bt_op.idx), "Error: BOM Template Error")
+                    frappe.throw(
+                        "For {} in Row# {} Raw Material Warehouse is Not Mentioned get it "
+                        "corrected to Proceed.".format(
+                            frappe.get_desk_link("BOM Template RIGPL", bt_doc.name),
+                            bt_op.idx,
+                        ),
+                        "Error: BOM Template Error",
+                    )
             if len(self.rm_consumed) != bt_doc.no_of_rm_items:
-                frappe.throw("For {} No of Allowed RM Items = {} but Selected RM = {}".format(
-                    frappe.get_desk_link("BOM Template RIGPL", bt_doc.name), bt_doc.no_of_rm_items,
-                    len(self.rm_consumed)), "Error: No of RM Selected is Wrong")
+                frappe.throw(
+                    "For {} No of Allowed RM Items = {} but Selected RM = {}".format(
+                        frappe.get_desk_link("BOM Template RIGPL", bt_doc.name),
+                        bt_doc.no_of_rm_items,
+                        len(self.rm_consumed),
+                    ),
+                    "Error: No of RM Selected is Wrong",
+                )
 
     def make_rm_item_dict(self):
         rm_item_dict = []
@@ -396,14 +509,26 @@ class ProcessSheet(Document):
 
 
 def return_priority_psd(psd, itd):
-    if itd.made_to_order == 1:
-        priority = get_priority_for_so(it_name=itd.name, prd_qty=psd.quantity, short_qty=psd.quantity,
-                                            so_detail=psd.sales_order_item)
+    if itd.p_to_order == 1:
+        priority = get_priority_for_so(
+            it_name=itd.name,
+            prd_qty=psd.quantity,
+            short_qty=psd.quantity,
+            so_detail=psd.sales_order_item,
+        )
     else:
         qty_dict = get_quantities_for_item(itd)
         prd_qty = psd.quantity
-        soqty, poqty, pqty = qty_dict["on_so"], qty_dict["on_po"], qty_dict["planned_qty"]
-        fqty, res_prd_qty, wipqty = qty_dict["finished_qty"], qty_dict["reserved_for_prd"], qty_dict["wip_qty"]
+        soqty, poqty, pqty = (
+            qty_dict["on_so"],
+            qty_dict["on_po"],
+            qty_dict["planned_qty"],
+        )
+        fqty, res_prd_qty, wipqty = (
+            qty_dict["finished_qty"],
+            qty_dict["reserved_for_prd"],
+            qty_dict["wip_qty"],
+        )
         dead_qty = qty_dict["dead_qty"]
         if soqty > 0:
             if soqty > fqty + dead_qty:
@@ -411,14 +536,20 @@ def return_priority_psd(psd, itd):
                 shortage = soqty - fqty - dead_qty
                 if shortage > wipqty + poqty:
                     # Shortage of Material is More than WIP Qty
-                    shortage -= (wipqty + poqty)
-                    priority = get_priority_for_so(it_name=itd.name, prd_qty=prd_qty, short_qty=shortage)
+                    shortage -= wipqty + poqty
+                    priority = get_priority_for_so(
+                        it_name=itd.name, prd_qty=prd_qty, short_qty=shortage
+                    )
                 else:
                     # Shortage is Less than Items in Production now get shortage for the Job Card First
-                    priority = get_priority_for_stock_prd(it_name=itd.name, qty_dict=qty_dict)
+                    priority = get_priority_for_stock_prd(
+                        it_name=itd.name, qty_dict=qty_dict
+                    )
             else:
                 # Qty in Production is for Stock Only
-                priority = get_priority_for_stock_prd(it_name=itd.name, qty_dict=qty_dict)
+                priority = get_priority_for_stock_prd(
+                    it_name=itd.name, qty_dict=qty_dict
+                )
         else:
             # No Order for Item, For Stock Production Priority
             priority = get_priority_for_stock_prd(it_name=itd.name, qty_dict=qty_dict)
