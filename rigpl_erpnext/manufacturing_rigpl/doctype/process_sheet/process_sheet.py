@@ -7,8 +7,10 @@ from __future__ import unicode_literals
 from frappe.model.document import Document
 from frappe.utils import nowdate
 
-from ....utils.job_card_utils import delete_job_card
-from ....utils.manufacturing_utils import (
+from ....utils.sales_utils import get_priority_for_so
+from ....utils.stock_utils import get_quantities_for_item
+from ...utils.job_card_utils import delete_job_card
+from ...utils.manufacturing_utils import (
     calculate_batch_size,
     calculate_operation_cost,
     calculate_operation_time,
@@ -18,9 +20,7 @@ from ....utils.manufacturing_utils import (
     get_qty_to_manufacture,
     update_warehouse_from_bt,
 )
-from ....utils.process_sheet_utils import *
-from ....utils.sales_utils import get_priority_for_so
-from ....utils.stock_utils import get_quantities_for_item
+from ...utils.process_sheet_utils import *
 
 
 class ProcessSheet(Document):

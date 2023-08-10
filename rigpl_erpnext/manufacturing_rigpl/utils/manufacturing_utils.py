@@ -13,10 +13,10 @@ from frappe import _
 from frappe.utils import flt
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
-from .item_utils import get_item_attributes
-from .other_utils import auto_round_down, auto_round_up, round_up
-from .sales_utils import get_pending_so_qty_from_soitem
-from .stock_utils import get_quantities_for_item
+from ...utils.item_utils import get_item_attributes
+from ...utils.other_utils import auto_round_down, auto_round_up, round_up
+from ...utils.sales_utils import get_pending_so_qty_from_soitem
+from ...utils.stock_utils import get_quantities_for_item
 
 
 def get_planned_qty(item_name):

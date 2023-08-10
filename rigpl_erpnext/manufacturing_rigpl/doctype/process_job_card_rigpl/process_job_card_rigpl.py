@@ -3,13 +3,20 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+
 from frappe.model.document import Document
-from ....utils.job_card_utils import *
+
 from ....utils.stock_utils import get_quantities_for_item
-from ....utils.manufacturing_utils import update_produced_qty, update_planned_qty, \
-    update_pro_sheet_rm_from_jc, check_warehouse_in_child_tables, find_item_quantities, \
-    calculated_value_from_formula
-from ....utils.process_sheet_utils import update_process_sheet_operations
+from ...utils.job_card_utils import *
+from ...utils.manufacturing_utils import (
+    calculated_value_from_formula,
+    check_warehouse_in_child_tables,
+    find_item_quantities,
+    update_planned_qty,
+    update_pro_sheet_rm_from_jc,
+    update_produced_qty,
+)
+from ...utils.process_sheet_utils import update_process_sheet_operations
 
 
 class ProcessJobCardRIGPL(Document):
@@ -22,8 +29,10 @@ class ProcessJobCardRIGPL(Document):
         update_job_card_status(self)
         self.validate_rm_qty_consumed()
         update_produced_qty(self)
-        update_planned_qty(self.production_item, frappe.get_value("Process Sheet",
-            self.process_sheet, "fg_warehouse"))
+        update_planned_qty(
+            self.production_item,
+            frappe.get_value("Process Sheet", self.process_sheet, "fg_warehouse"),
+        )
         create_submit_ste_from_job_card(self)
         update_pro_sheet_rm_from_jc(self)
         self.update_next_jc_status()
@@ -34,7 +43,9 @@ class ProcessJobCardRIGPL(Document):
         Things done after submission of JCR and update
         """
         update_job_card_qty_available(self)
-        update_process_sheet_operations(ps_name=self.process_sheet, op_name=self.operation_id)
+        update_process_sheet_operations(
+            ps_name=self.process_sheet, op_name=self.operation_id
+        )
 
     def on_cancel(self):
         """
@@ -43,11 +54,15 @@ class ProcessJobCardRIGPL(Document):
         update_job_card_status(self)
         cancel_delete_ste(self)
         update_produced_qty(self, status="Cancel")
-        update_planned_qty(self.production_item, frappe.get_value("Process Sheet",
-            self.process_sheet, "fg_warehouse"))
+        update_planned_qty(
+            self.production_item,
+            frappe.get_value("Process Sheet", self.process_sheet, "fg_warehouse"),
+        )
         update_pro_sheet_rm_from_jc(self, status="Cancel")
         self.update_next_jc_status()
-        update_process_sheet_operations(ps_name=self.process_sheet, op_name=self.operation_id)
+        update_process_sheet_operations(
+            ps_name=self.process_sheet, op_name=self.operation_id
+        )
 
     def validate(self):
         """
@@ -63,21 +78,27 @@ class ProcessJobCardRIGPL(Document):
         if self.s_warehouse == self.t_warehouse:
             self.no_stock_entry = 1
         if not self.flags.ignore_mandatory:
-            check_warehouse_in_child_tables(self, table_name="rm_consumed", type_of_table="Consume")
-            check_warehouse_in_child_tables(self, table_name="item_manufactured", type_of_table="Production")
+            check_warehouse_in_child_tables(
+                self, table_name="rm_consumed", type_of_table="Consume"
+            )
+            check_warehouse_in_child_tables(
+                self, table_name="item_manufactured", type_of_table="Production"
+            )
             validate_qty_decimal(self, "rm_consumed")
             validate_qty_decimal(self, "item_manufactured")
-            pro_doc = frappe.get_doc('Process Sheet', self.process_sheet)
+            pro_doc = frappe.get_doc("Process Sheet", self.process_sheet)
             for row in pro_doc.operations:
                 if row.name == self.operation_id:
                     self.operation = row.operation
                     self.allow_consumption_of_rm = row.allow_consumption_of_rm
-                    self.allow_production_of_wip_materials = row.allow_production_of_wip_materials
+                    self.allow_production_of_wip_materials = (
+                        row.allow_production_of_wip_materials
+                    )
 
             if self.allow_consumption_of_rm != 1:
                 self.set("rm_consumed", [])
             else:
-                self.s_warehouse = ''
+                self.s_warehouse = ""
                 if not self.rm_consumed:
                     get_items_from_process_sheet_for_job_card(self, "rm_consumed")
 
@@ -90,18 +111,31 @@ class ProcessJobCardRIGPL(Document):
                     self.transfer_entry = op_doc.transfer_entry
 
             if self.rm_consumed:
-                rm_item_dict = frappe.get_all("Process Sheet Items", fields=["item_code"],
-                                              filters={'parenttype': 'Process Job Card RIGPL', 'parent': self.name,
-                                                       'parentfield': 'rm_consumed'})
+                rm_item_dict = frappe.get_all(
+                    "Process Sheet Items",
+                    fields=["item_code"],
+                    filters={
+                        "parenttype": "Process Job Card RIGPL",
+                        "parent": self.name,
+                        "parentfield": "rm_consumed",
+                    },
+                )
                 self.update_calculated_qty(rm_item_dict)
                 rm_qty_dict = find_item_quantities(rm_item_dict)
 
                 for rm in rm_qty_dict:
                     for d in self.rm_consumed:
-                        if rm.item_code == d.item_code and rm.warehouse == d.source_warehouse:
+                        if (
+                            rm.item_code == d.item_code
+                            and rm.warehouse == d.source_warehouse
+                        ):
                             d.qty_available = rm.actual_qty
-                            d.current_projected_qty = rm.actual_qty - rm.prd_qty - rm.on_so
-                            d.projected_qty = d.current_projected_qty + rm.on_po + rm.planned
+                            d.current_projected_qty = (
+                                rm.actual_qty - rm.prd_qty - rm.on_so
+                            )
+                            d.projected_qty = (
+                                d.current_projected_qty + rm.on_po + rm.planned
+                            )
                             d.uom = rm.stock_uom
 
             if self.allow_production_of_wip_materials != 1:
@@ -110,16 +144,29 @@ class ProcessJobCardRIGPL(Document):
                 if not self.item_manufactured:
                     get_items_from_process_sheet_for_job_card(self, "item_manufactured")
             if self.item_manufactured:
-                wip_item_dict = frappe.get_all("Process Sheet Items", fields=["item_code"],
-                                               filters={'parenttype': 'Process Job Card RIGPL', 'parent': self.name,
-                                                        'parentfield': 'item_manufactured'})
+                wip_item_dict = frappe.get_all(
+                    "Process Sheet Items",
+                    fields=["item_code"],
+                    filters={
+                        "parenttype": "Process Job Card RIGPL",
+                        "parent": self.name,
+                        "parentfield": "item_manufactured",
+                    },
+                )
                 wip_qty_dict = find_item_quantities(wip_item_dict)
                 for wip in wip_qty_dict:
                     for d in self.item_manufactured:
-                        if wip.item_code == d.item_code and wip.warehouse == d.target_warehouse:
+                        if (
+                            wip.item_code == d.item_code
+                            and wip.warehouse == d.target_warehouse
+                        ):
                             d.qty_available = wip.actual_qty
-                            d.current_projected_qty = wip.actual_qty - wip.prd_qty - wip.on_so
-                            d.projected_qty = d.current_projected_qty + wip.on_po + wip.planned
+                            d.current_projected_qty = (
+                                wip.actual_qty - wip.prd_qty - wip.on_so
+                            )
+                            d.projected_qty = (
+                                d.current_projected_qty + wip.on_po + wip.planned
+                            )
                             d.uom = wip.stock_uom
             update_jc_rm_status(self)
 
@@ -131,8 +178,14 @@ class ProcessJobCardRIGPL(Document):
         qdict = get_quantities_for_item(it_doc)
         ready = qdict.finished_qty + qdict.dead_qty
         qty_for_order = qdict.on_so - ready - qdict.on_po
-        min_needed = (qdict.reserved_for_prd + qdict.on_so - qdict.on_po - ready -
-            qdict.dead_qty + qdict.calculated_rol)
+        min_needed = (
+            qdict.reserved_for_prd
+            + qdict.on_so
+            - qdict.on_po
+            - ready
+            - qdict.dead_qty
+            + qdict.calculated_rol
+        )
         qty_text = f"SO = {qdict.on_so} \nPO = {qdict.on_po} \nNeeded for PRD = "
         f"{qdict.reserved_for_prd} \n Finished Stock = {qdict.finished_qty} \nDead Stock = "
         f"{qdict.dead_qty} \n Work In Progress = {qdict.wip_qty} \nReal ROL = "
@@ -151,17 +204,26 @@ class ProcessJobCardRIGPL(Document):
             fg_rm_qty = self.for_quantity
         pro_sheet_doc = frappe.get_doc("Process Sheet", self.process_sheet)
         for wip in self.item_manufactured:
-            wip_calc_qty_dict = calculated_value_from_formula(rm_item_dict, wip.item_code,
-                fg_qty=wip.qty, bom_template_name=pro_sheet_doc.bom_template,
-                process_sheet_name=self.process_sheet, is_wip=1)
+            wip_calc_qty_dict = calculated_value_from_formula(
+                rm_item_dict,
+                wip.item_code,
+                fg_qty=wip.qty,
+                bom_template_name=pro_sheet_doc.bom_template,
+                process_sheet_name=self.process_sheet,
+                is_wip=1,
+            )
             for wip_it in wip_calc_qty_dict:
                 if wip.item_code == wip_it.fg_item_code:
                     wip_rm_consume += wip_it.qty
                     if wip.calculated_qty != wip_it.qty:
                         wip.calculated_qty = int(wip_it.qty)
-        rm_calc_qty_dict = calculated_value_from_formula(rm_item_dict, self.production_item,
-            fg_qty=fg_rm_qty, bom_template_name=pro_sheet_doc.bom_template,
-            process_sheet_name=self.process_sheet)
+        rm_calc_qty_dict = calculated_value_from_formula(
+            rm_item_dict,
+            self.production_item,
+            fg_qty=fg_rm_qty,
+            bom_template_name=pro_sheet_doc.bom_template,
+            process_sheet_name=self.process_sheet,
+        )
         for rmr in self.rm_consumed:
             for rm_it in rm_calc_qty_dict:
                 if rmr.item_code == rm_it.rm_item_code:
@@ -183,11 +245,15 @@ class ProcessJobCardRIGPL(Document):
         """
         for row in self.rm_consumed:
             if flt(row.qty) > flt(row.qty_available):
-                frappe.throw(f"Available Qty = {row.qty_available} but Qty Needed = {row.qty} "
+                frappe.throw(
+                    f"Available Qty = {row.qty_available} but Qty Needed = {row.qty} "
                     f"for Row# {row.idx} and Item Code: {row.item_code} in Warehouse "
-                    f"{row.source_warehouse}", title="Warehouse Shortage")
-            check_qty_job_card(self, row, row.calculated_qty, row.qty, row.uom,
-                row.bypass_qty_check)
+                    f"{row.source_warehouse}",
+                    title="Warehouse Shortage",
+                )
+            check_qty_job_card(
+                self, row, row.calculated_qty, row.qty, row.uom, row.bypass_qty_check
+            )
 
     def update_next_jc_status(self):
         nxt_jc_list = get_next_job_card(self.name)
@@ -206,14 +272,22 @@ class ProcessJobCardRIGPL(Document):
         jc_data["source_warehouse"] = self.s_warehouse
         jc_data["target_warehouse"] = self.t_warehouse
         jc_data["allow_consumption_of_rm"] = self.allow_consumption_of_rm
-        jc_data["allow_production_of_wip_materials"] = self.allow_production_of_wip_materials
+        jc_data[
+            "allow_production_of_wip_materials"
+        ] = self.allow_production_of_wip_materials
         jc_data["name"] = self.operation_id
-        new_jc_qty = (self.for_quantity - self.total_completed_qty)
+        new_jc_qty = self.for_quantity - self.total_completed_qty
         if self.check_if_new_jc_needed() == 1:
-            existing_jcr = check_existing_job_card(item_name=self.production_item, operation=self.operation,
-                                                   so_detail=self.sales_order_item, ps_doc=ps_doc)
+            existing_jcr = check_existing_job_card(
+                item_name=self.production_item,
+                operation=self.operation,
+                so_detail=self.sales_order_item,
+                ps_doc=ps_doc,
+            )
             if not existing_jcr:
-                create_job_card(pro_sheet=ps_doc, row=jc_data, quantity=new_jc_qty, auto_create=True)
+                create_job_card(
+                    pro_sheet=ps_doc, row=jc_data, quantity=new_jc_qty, auto_create=True
+                )
             else:
                 frappe.msgprint(f"Already JCR there {existing_jcr}")
         else:
@@ -222,9 +296,16 @@ class ProcessJobCardRIGPL(Document):
     def check_if_new_jc_needed(self):
         if self.short_close_operation == 1:
             return 0
-        allowance = flt(frappe.get_value("Manufacturing Settings", "Manufacturing Settings",
-                                     "overproduction_percentage_for_work_order"))
-        per_diff = abs(self.for_quantity - self.total_completed_qty - self.total_rejected_qty)
+        allowance = flt(
+            frappe.get_value(
+                "Manufacturing Settings",
+                "Manufacturing Settings",
+                "overproduction_percentage_for_work_order",
+            )
+        )
+        per_diff = abs(
+            self.for_quantity - self.total_completed_qty - self.total_rejected_qty
+        )
         # Returns 0 or 1: 0= No JC Needed and 1= New JC is needed
         # Checks if new JC is needed for an existing JC if its transfer entry and for Stock Items
         if self.for_quantity > self.total_completed_qty:
