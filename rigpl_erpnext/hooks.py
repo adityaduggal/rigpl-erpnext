@@ -240,7 +240,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.warehouse.validate"
     },
     "Workstation": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.workstation.validate"
+        "validate": "rigpl_erpnext.manufacturing_rigpl.validations.workstation.validate"
     },
 }
 
