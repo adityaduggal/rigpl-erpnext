@@ -2,9 +2,11 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+
 import frappe
 from frappe.utils import flt, getdate
-from ....utils.job_card_utils import get_last_jc_for_so
+
+from ....manufacturing_rigpl.utils.job_card_utils import get_last_jc_for_so
 
 
 def execute(filters=None):
@@ -16,10 +18,17 @@ def execute(filters=None):
 def get_columns(filters):
     if filters.get("summary") == 1:
         return [
-            "Employee Name::150", "Workstation:Link/Workstation:150",
-            "Item Code:Link/Item:100", "Description::300", "Planned Qty:Float:100", "Completed Qty:Float:100",
-            "Rejected Qty:Float:100", "Operation::200", "Total Time (mins):Float:80", "Time Per Pc:Float:80",
-            "JC#:Link/Process Job Card RIGPL:100"
+            "Employee Name::150",
+            "Workstation:Link/Workstation:150",
+            "Item Code:Link/Item:100",
+            "Description::300",
+            "Planned Qty:Float:100",
+            "Completed Qty:Float:100",
+            "Rejected Qty:Float:100",
+            "Operation::200",
+            "Total Time (mins):Float:80",
+            "Time Per Pc:Float:80",
+            "JC#:Link/Process Job Card RIGPL:100",
         ]
     elif filters.get("production_planning") == 1:
         return [
@@ -29,43 +38,91 @@ def get_columns(filters):
                 "fieldtype": "Link",
                 "options": "Process Job Card RIGPL",
                 "hidden": 0,
-                "width": 100
+                "width": 100,
             },
-            "Status::60", "RM Status:Percent:50", "RM Shortage:Int:80",
-            "SO#:Link/Sales Order:150", "Item:Link/Item:120", "Priority:Int:50", "Remarks::100",
-            "BM::60", "TT::60", "SPL::60", "Series::60", "D1:Float:50", "W1:Float:50", "L1:Float:50", "D2:Float:50",
-            "L2:Float:50", "Description::400",
-            "Operation:Link/Operation:100", "Allocated Machine:Link/Workstation:150",
-            "Total Planned:Float:80", "Planned Qty:Float:80", "Qty Avail:Float:80",
-            "Creation:Datetime:120"
+            "Status::60",
+            "RM Status:Percent:50",
+            "RM Shortage:Int:80",
+            "SO#:Link/Sales Order:150",
+            "Item:Link/Item:120",
+            "Priority:Int:50",
+            "Remarks::100",
+            "BM::60",
+            "TT::60",
+            "SPL::60",
+            "Series::60",
+            "D1:Float:50",
+            "W1:Float:50",
+            "L1:Float:50",
+            "D2:Float:50",
+            "L2:Float:50",
+            "Description::400",
+            "Operation:Link/Operation:100",
+            "Allocated Machine:Link/Workstation:150",
+            "Total Planned:Float:80",
+            "Planned Qty:Float:80",
+            "Qty Avail:Float:80",
+            "Creation:Datetime:120",
         ]
     elif filters.get("order_wise_summary") == 1:
         return [
-            "SO#:Link/Sales Order:150", "SO Date:Date:80", "Item:Link/Item:120", "Description::450",
-            "Pending:Float:60", "Ordered:Float:60", "JC#:Link/Process Job Card RIGPL:80", "PS#::150",
-            "Status::60", "Operation:Link/Operation:100", "Priority:Int:50", "Planned Qty:Float:80",
-            "Qty Avail:Float:80", "Remarks::400"
+            "SO#:Link/Sales Order:150",
+            "SO Date:Date:80",
+            "Item:Link/Item:120",
+            "Description::450",
+            "Pending:Float:60",
+            "Ordered:Float:60",
+            "JC#:Link/Process Job Card RIGPL:80",
+            "PS#::150",
+            "Status::60",
+            "Operation:Link/Operation:100",
+            "Priority:Int:50",
+            "Planned Qty:Float:80",
+            "Qty Avail:Float:80",
+            "Remarks::400",
         ]
     elif filters.get("op_time_analysis") == 1:
         return [
-            "Posting Date:Date:80", "Employee Name::150", "Workstation:Link/Workstation:150",
-            "Item Code:Link/Item:100", "BM::60", "TT::60", "Series::60", "D1:Float:50",
-            "W1:Float:50", "L1:Float:50", "D2:Float:50", "L2:Float:50",
-            "Planned Qty:Float:100", "Completed Qty:Float:100",
-            "Rejected Qty:Float:100", "Operation::200", "Total Time (mins):Float:80", "Time Per Pc:Float:80",
-            "Cost Per Pc:Currency:100", "JC#:Link/Process Job Card RIGPL:100", "Description::300"
+            "Posting Date:Date:80",
+            "Employee Name::150",
+            "Workstation:Link/Workstation:150",
+            "Item Code:Link/Item:100",
+            "BM::60",
+            "TT::60",
+            "Series::60",
+            "D1:Float:50",
+            "W1:Float:50",
+            "L1:Float:50",
+            "D2:Float:50",
+            "L2:Float:50",
+            "Planned Qty:Float:100",
+            "Completed Qty:Float:100",
+            "Rejected Qty:Float:100",
+            "Operation::200",
+            "Total Time (mins):Float:80",
+            "Time Per Pc:Float:80",
+            "Cost Per Pc:Currency:100",
+            "JC#:Link/Process Job Card RIGPL:100",
+            "Description::300",
         ]
     elif filters.get("mach_eff") == 1:
         if filters.get("mach_eff_type") == "Total":
             return [
-                "Workstation:Link/Workstation:150", "Total Days:Int:80", "Total Hours:Int:100",
-                "Hours Worked:Float:100", "Efficiency:Percent:100", "Disabled:Int:50"
+                "Workstation:Link/Workstation:150",
+                "Total Days:Int:80",
+                "Total Hours:Int:100",
+                "Hours Worked:Float:100",
+                "Efficiency:Percent:100",
+                "Disabled:Int:50",
             ]
         else:
             return [
-                "Workstation:Link/Workstation:150", "Date:Date:80",
-                "Total Hours:Int:100", "Hours Worked:Float:100", "Efficiency:Percent:100",
-                "Disabled:Int:50"
+                "Workstation:Link/Workstation:150",
+                "Date:Date:80",
+                "Total Hours:Int:100",
+                "Hours Worked:Float:100",
+                "Efficiency:Percent:100",
+                "Disabled:Int:50",
             ]
     else:
         frappe.throw("Select one of the Check Boxes.")
@@ -75,11 +132,14 @@ def get_data(filters):
     data = []
     cond_jc, cond_it, cond_so = get_conditions(filters)
     if filters.get("summary") == 1:
-        query = """SELECT jc.employee_name, jc.workstation, jc.production_item, jc.description,
+        query = (
+            """SELECT jc.employee_name, jc.workstation, jc.production_item, jc.description,
         jc.for_quantity, jc.total_completed_qty, jc.total_rejected_qty, jc.operation, jc.total_time_in_mins,
         ROUND((jc.total_time_in_mins/ (jc.total_completed_qty + jc.total_rejected_qty)),2), jc.name
         FROM `tabProcess Job Card RIGPL` jc WHERE jc.docstatus = 1 %s
-        ORDER BY jc.workstation, jc.production_item""" % cond_jc
+        ORDER BY jc.workstation, jc.production_item"""
+            % cond_jc
+        )
         data = frappe.db.sql(query, as_list=1)
     elif filters.get("production_planning") == 1:
         query = """SELECT jc.name, jc.status, jc.rm_status, jc.rm_shortage,
@@ -112,25 +172,51 @@ def get_data(filters):
         WHERE jc.docstatus = 0 AND it.name = jc.production_item AND jc.status != 'Completed'
             AND jc.status != 'Cancelled' %s %s
         ORDER BY jc.priority, jc.operation_serial_no, bm.attribute_value, tt.attribute_value, spl.attribute_value,
-        ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value""" % (cond_jc, cond_it)
+        ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value""" % (
+            cond_jc,
+            cond_it,
+        )
         tmp_data = frappe.db.sql(query, as_dict=1)
         for row in tmp_data:
-            tmp_row = [row.name, row.status, row.rm_status, row.rm_shortage,
-                       'X' if not row.so_no else row.so_no, row.item,
-                       row.priority, 'X' if not row.remarks else row.remarks, row.bm, row.tt, row.spl, row.series,
-                       row.d1, row.w1, row.l1, row.d2, row.l2,
-                       row.description, row.operation, row.workstation,
-                       row.total_qty, row.for_quantity, row.qty_available, row.creation]
+            tmp_row = [
+                row.name,
+                row.status,
+                row.rm_status,
+                row.rm_shortage,
+                "X" if not row.so_no else row.so_no,
+                row.item,
+                row.priority,
+                "X" if not row.remarks else row.remarks,
+                row.bm,
+                row.tt,
+                row.spl,
+                row.series,
+                row.d1,
+                row.w1,
+                row.l1,
+                row.d2,
+                row.l2,
+                row.description,
+                row.operation,
+                row.workstation,
+                row.total_qty,
+                row.for_quantity,
+                row.qty_available,
+                row.creation,
+            ]
             data.append(tmp_row)
     elif filters.get("order_wise_summary") == 1:
-        query = """SELECT so.name, so.transaction_date, soi.item_code, soi.description,
+        query = (
+            """SELECT so.name, so.transaction_date, soi.item_code, soi.description,
         (soi.qty - ifnull(soi.delivered_qty, 0)) as pend_qty, soi.qty, "" as jc_name, "NO JC" as jc_status,
         "" as jc_operation, 0 as jc_priority, 0 as planned_qty, 0 as qty_avail, "Not in Production" as remarks,
         soi.name as so_item
         FROM `tabSales Order` so, `tabSales Order Item` soi, `tabItem` it
         WHERE soi.parent = so.name AND so.docstatus = 1 AND (soi.qty - ifnull(soi.delivered_qty, 0)) > 0
         AND so.status != "Closed" AND so.transaction_date <= curdate() AND soi.item_code = it.name
-        AND it.made_to_order = 1 %s ORDER BY so.transaction_date, so.name, soi.item_code, soi.description""" % cond_so
+        AND it.made_to_order = 1 %s ORDER BY so.transaction_date, so.name, soi.item_code, soi.description"""
+            % cond_so
+        )
         so_data = frappe.db.sql(query, as_dict=1)
         data = update_so_data_with_job_card(so_data)
     elif filters.get("op_time_analysis") == 1:
@@ -163,19 +249,28 @@ def get_data(filters):
         WHERE jc.docstatus = 1 AND tlog.parent = jc.name AND jc.production_item = it.name
         AND tlog.parenttype = 'Process Job Card RIGPL' AND ws.name = jc.workstation
         AND tlog.from_time IS NOT NULL AND tlog.to_time IS NOT NULL %s %s
-        ORDER BY jc.posting_date, jc.workstation, jc.production_item""" % (cond_jc, cond_it)
+        ORDER BY jc.posting_date, jc.workstation, jc.production_item""" % (
+            cond_jc,
+            cond_it,
+        )
         data = frappe.db.sql(query, as_list=1)
     elif filters.get("mach_eff") == 1:
-        days = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days + 1
+        days = (
+            getdate(filters.get("to_date")) - getdate(filters.get("from_date"))
+        ).days + 1
         tot_hrs = days * 24
         if days < 1:
-            frappe.throw(f"Difference Between From and To Date should be Minimum 1 \
-                days for Machine Efficiency")
+            frappe.throw(
+                f"Difference Between From and To Date should be Minimum 1 \
+                days for Machine Efficiency"
+            )
         if filters.get("mach_eff_type") == "Total":
             group_by = ""
         else:
             group_by = ", jc.posting_date"
-        machines = frappe.db.sql("""SELECT name, disabled FROM `tabWorkstation`""", as_dict=1)
+        machines = frappe.db.sql(
+            """SELECT name, disabled FROM `tabWorkstation`""", as_dict=1
+        )
         query = f"""SELECT jc.workstation, SUM(jc.total_time_in_mins) as tot_mins, jc.posting_date
         FROM `tabProcess Job Card RIGPL` jc, `tabJob Card Time Log` tlog, `tabWorkstation` ws
         WHERE ws.name = jc.workstation AND jc.docstatus = 1 AND tlog.parent = jc.name
@@ -187,12 +282,26 @@ def get_data(filters):
             mc_found = 0
             for d in dt:
                 if d.workstation == mc.name:
-                    worked_hrs = d.tot_mins/60
-                    eff = worked_hrs/tot_hrs * 100
+                    worked_hrs = d.tot_mins / 60
+                    eff = worked_hrs / tot_hrs * 100
                     if group_by == "":
-                        row = [d.workstation, days, tot_hrs, worked_hrs, eff, mc.disabled]
+                        row = [
+                            d.workstation,
+                            days,
+                            tot_hrs,
+                            worked_hrs,
+                            eff,
+                            mc.disabled,
+                        ]
                     else:
-                        row = [d.workstation, d.posting_date, 24, worked_hrs, worked_hrs/24*100, mc.disabled]
+                        row = [
+                            d.workstation,
+                            d.posting_date,
+                            24,
+                            worked_hrs,
+                            worked_hrs / 24 * 100,
+                            mc.disabled,
+                        ]
                     data.append(row)
                     mc_found = 1
                     if group_by == "":
@@ -212,11 +321,18 @@ def update_so_data_with_job_card(so_dict):
     data = []
     for so in so_dict:
         line_data = []
-        ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet`
-        WHERE docstatus != 2 AND sales_order_item = '%s' ORDER BY creation""" % so.so_item, as_dict=1)
+        ps_dict = frappe.db.sql(
+            """SELECT name FROM `tabProcess Sheet`
+        WHERE docstatus != 2 AND sales_order_item = '%s' ORDER BY creation"""
+            % so.so_item,
+            as_dict=1,
+        )
         so["ps_name"] = ""
         for ps in ps_dict:
-            ps_link = """<a href="#Form/Process Sheet/%s" target="_blank">%s</a>""" % (ps.name, ps.name)
+            ps_link = """<a href="#Form/Process Sheet/%s" target="_blank">%s</a>""" % (
+                ps.name,
+                ps.name,
+            )
             so["ps_name"] += ps_link + "\n"
         so_jc = get_last_jc_for_so(so.so_item)
         if so_jc:
@@ -227,9 +343,22 @@ def update_so_data_with_job_card(so_dict):
             so["planned_qty"] = so_jc.for_quantity
             so["qty_avail"] = so_jc.qty_available
             so["remarks"] = so_jc.remarks
-        line_data = [so.name, so.transaction_date, so.item_code, so.description, so.pend_qty, so.qty, so.jc_name,
-                     so.ps_name, so.jc_status, so.jc_operation, so.jc_priority, so.planned_qty, so.qty_avail,
-                     so.remarks]
+        line_data = [
+            so.name,
+            so.transaction_date,
+            so.item_code,
+            so.description,
+            so.pend_qty,
+            so.qty,
+            so.jc_name,
+            so.ps_name,
+            so.jc_status,
+            so.jc_operation,
+            so.jc_priority,
+            so.planned_qty,
+            so.qty_avail,
+            so.remarks,
+        ]
         data.append(line_data)
     return data
 
@@ -256,21 +385,33 @@ def get_conditions(filters):
     elif no_of_checks > 1:
         frappe.throw("Only 1 checkbox should be checked")
 
-    if filters.get("from_date") and (filters.get("summary") == 1 or
-            filters.get("op_time_analysis") == 1 or filters.get("mach_eff") == 1):
+    if filters.get("from_date") and (
+        filters.get("summary") == 1
+        or filters.get("op_time_analysis") == 1
+        or filters.get("mach_eff") == 1
+    ):
         cond_jc += " AND jc.posting_date >= '%s'" % filters.get("from_date")
-    if filters.get("to_date") and (filters.get("summary") == 1 or
-            filters.get("op_time_analysis") == 1 or filters.get("mach_eff") == 1):
+    if filters.get("to_date") and (
+        filters.get("summary") == 1
+        or filters.get("op_time_analysis") == 1
+        or filters.get("mach_eff") == 1
+    ):
         cond_jc += " AND jc.posting_date <= '%s'" % filters.get("to_date")
 
     if filters.get("mach_eff"):
         if not filters.get("mach_eff_type"):
-            frappe.throw("For Machine Efficiency Select Total or Daily in Type of Report")
+            frappe.throw(
+                "For Machine Efficiency Select Total or Daily in Type of Report"
+            )
 
     if not filters.get("summary"):
         if filters.get("sales_order") and filters.get("summary") != 1:
             cond_jc += " AND jc.sales_order = '%s'" % filters.get("sales_order")
-        if filters.get("jc_status") and not filters.get("op_time_analysis") and not filters.get("mach_eff"):
+        if (
+            filters.get("jc_status")
+            and not filters.get("op_time_analysis")
+            and not filters.get("mach_eff")
+        ):
             cond_jc += " AND jc.status = '%s'" % filters.get("jc_status")
         if filters.get("operation") and not filters.get("mach_eff"):
             cond_jc += " AND jc.operation = '%s'" % filters.get("operation")
