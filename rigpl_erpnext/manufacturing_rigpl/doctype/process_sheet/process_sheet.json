@@ -176,6 +176,7 @@
   {
    "fieldname": "bom_template",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "BOM Template",
    "options": "BOM Template RIGPL",
@@ -271,8 +272,13 @@
   }
  ],
  "is_submittable": 1,
- "links": [],
- "modified": "2023-08-10 05:51:52.664162",
+ "links": [
+  {
+   "link_doctype": "Process Job Card RIGPL",
+   "link_fieldname": "process_sheet"
+  }
+ ],
+ "modified": "2023-08-10 08:31:36.851427",
  "modified_by": "Administrator",
  "module": "Manufacturing-RIGPL",
  "name": "Process Sheet",
@@ -316,7 +322,7 @@
    "role": "Production Inventory User"
   }
  ],
- "search_fields": "production_item, description, routing",
+ "search_fields": "production_item, bom_template, description, routing",
  "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",

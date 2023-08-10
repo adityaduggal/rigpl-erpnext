@@ -509,7 +509,7 @@ class ProcessSheet(Document):
 
 
 def return_priority_psd(psd, itd):
-    if itd.p_to_order == 1:
+    if itd.made_to_order == 1:
         priority = get_priority_for_so(
             it_name=itd.name,
             prd_qty=psd.quantity,

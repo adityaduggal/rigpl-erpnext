@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_events_in_timeline": 1,
  "allow_import": 1,
  "autoname": "naming_series:",
  "creation": "2020-07-30 22:32:47.987117",
@@ -63,6 +64,7 @@
  "fields": [
   {
    "allow_on_submit": 1,
+   "columns": 1,
    "fieldname": "process_sheet",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -79,6 +81,7 @@
    "reqd": 1
   },
   {
+   "columns": 1,
    "default": "0",
    "fieldname": "allow_consumption_of_rm",
    "fieldtype": "Check",
@@ -154,9 +157,11 @@
    "read_only": 1
   },
   {
+   "columns": 2,
    "fetch_from": "process_sheet.production_item",
    "fieldname": "production_item",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Production Item",
    "options": "Item",
@@ -192,6 +197,7 @@
   },
   {
    "allow_on_submit": 1,
+   "columns": 1,
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -224,7 +230,6 @@
   {
    "fieldname": "total_completed_qty",
    "fieldtype": "Float",
-   "in_list_view": 1,
    "label": "Total Completed Qty",
    "read_only": 1
   },
@@ -247,6 +252,7 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "for_quantity",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -262,6 +268,7 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "operation",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -328,6 +335,7 @@
   },
   {
    "allow_on_submit": 1,
+   "columns": 1,
    "depends_on": "eval:doc.docstatus !== 2",
    "fieldname": "priority",
    "fieldtype": "Int",
@@ -407,6 +415,7 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "total_qty",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -443,7 +452,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2023-08-10 05:47:48.190224",
+ "modified": "2023-08-10 08:26:44.445708",
  "modified_by": "Administrator",
  "module": "Manufacturing-RIGPL",
  "name": "Process Job Card RIGPL",
@@ -515,6 +524,7 @@
    "role": "All"
   }
  ],
+ "search_fields": "production_item, process_sheet, sales_order, sales_order_item",
  "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
