@@ -1,0 +1,20 @@
+{
+  "[python]": {
+    //Python Language Specific Settings
+    "editor.autoClosingComments": "always",
+    "editor.suggest.showVariables": true,
+    "editor.suggest.showFunctions": true
+  },
+  "python.terminal.activateEnvironment": false,
+  "python.envFile": "${workspaceFolder}/.env",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/frappe",
+    "${workspaceFolder}/erpnext",
+    "${workspaceFolder}/rohit_common"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/frappe",
+    "${workspaceFolder}/erpnext",
+    "${workspaceFolder}/rohit_common"
+  ]
+}
