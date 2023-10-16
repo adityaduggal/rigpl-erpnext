@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from rigpl_erpnext.utils.item_utils import *
+
 from datetime import date, datetime
+
 from frappe.utils import getdate
+from rohit_common.utils.rohit_common_utils import fn_check_digit, fn_next_string
+
+from rigpl_erpnext.utils.item_utils import *
+
 from ...utils.lead_time_utils import get_item_lead_time
 from ...utils.stock_utils import get_max_lead_times
-from rohit_common.utils.rohit_common_utils import fn_check_digit, fn_next_string
+
 
 def validate(doc, method):
     if doc.variant_of:
@@ -30,11 +35,14 @@ def validate(doc, method):
     doc.page_name = doc.item_name
     description, long_desc = generate_description(doc)
     doc.description = description
-    #doc.web_long_description = long_desc
+    # doc.web_long_description = long_desc
     doc.item_name = long_desc
     doc.item_code = doc.name
 
-    if getdate(doc.end_of_life) < datetime.strptime('2099-12-31', "%Y-%m-%d").date():
+    if (
+        getdate(doc.end_of_life)
+        < datetime.datetime.strptime("2099-12-31", "%Y-%m-%d").date()
+    ):
         doc.disabled = 1
         doc.pl_item = "No"
         doc.show_variant_in_website = 0
@@ -54,46 +62,57 @@ def validate(doc, method):
         doc.page_name = doc.name
         doc.description = doc.name
     else:
-        set_website_specs(doc,method)
-    make_route(doc)
+        set_website_specs(doc, method)
 
 
-def autoname(doc,method):
+def autoname(doc, method):
     if doc.variant_of:
-        (serial, code) = generate_item_code(doc,method)
+        (serial, code) = generate_item_code(doc, method)
         doc.name = code
         doc.page_name = doc.name
-        nxt_serial = fn_next_string(doc,serial[0][0])
+        nxt_serial = fn_next_string(doc, serial[0][0])
         frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 
-def generate_item_code(doc,method):
+
+def generate_item_code(doc, method):
     if doc.variant_of:
         code = ""
         abbr = []
         for d in doc.attributes:
-            is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
-            use_in_item_code = frappe.db.get_value("Item Attribute", d.attribute,
-                    "use_in_item_code")
+            is_numeric = frappe.db.get_value(
+                "Item Attribute", d.attribute, "numeric_values"
+            )
+            use_in_item_code = frappe.db.get_value(
+                "Item Attribute", d.attribute, "use_in_item_code"
+            )
             if is_numeric != 1 and use_in_item_code == 1:
                 cond1 = d.attribute
                 cond2 = d.attribute_value
                 query = """SELECT iav.abbr from `tabItem Attribute Value` iav,
 				`tabItem Attribute` ia
 				WHERE iav.parent = '%s' AND iav.parent = ia.name
-				AND iav.attribute_value = '%s'""" %(cond1, cond2)
+				AND iav.attribute_value = '%s'""" % (
+                    cond1,
+                    cond2,
+                )
 
-                #Get serial from Tool Type (This is HARDCODED)
-                #TODO: Put 1 custom field in Item Attribute checkbox "Use for Serial Number"
-                #now also add a validation that you cannot use more than 1 attributes which
-                #have use for serial no.
+                # Get serial from Tool Type (This is HARDCODED)
+                # TODO: Put 1 custom field in Item Attribute checkbox "Use for Serial Number"
+                # now also add a validation that you cannot use more than 1 attributes which
+                # have use for serial no.
                 if cond1 == "Tool Type":
-                    query2 = """SELECT iav.serial, iav.name from `tabItem Attribute Value` iav
-						WHERE iav.parent = 'Tool Type' AND iav.attribute_value= '%s'""" %cond2
-                    serial = frappe.db.sql(query2 , as_list=1)
+                    query2 = (
+                        """SELECT iav.serial, iav.name from `tabItem Attribute Value` iav
+						WHERE iav.parent = 'Tool Type' AND iav.attribute_value= '%s'"""
+                        % cond2
+                    )
+                    serial = frappe.db.sql(query2, as_list=1)
 
                 abbr.extend(frappe.db.sql(query, as_list=1))
-                abbr[len(abbr)-1].append(d.idx)
-        abbr.sort(key=lambda x:x[1])  # Sort the abbr as per priority lowest one is taken first
+                abbr[len(abbr) - 1].append(d.idx)
+        abbr.sort(
+            key=lambda x: x[1]
+        )  # Sort the abbr as per priority lowest one is taken first
 
         for i in range(len(abbr)):
             if abbr[i][0] != '""':
@@ -107,9 +126,9 @@ def generate_item_code(doc,method):
         return serial, code
 
 
-#Set the Website Specifications automatically from Template, Attribute and Variant Table
-#This is done only for Variants which are shown on website
-def set_website_specs(doc,method):
+# Set the Website Specifications automatically from Template, Attribute and Variant Table
+# This is done only for Variants which are shown on website
+def set_website_specs(doc, method):
     if doc.show_variant_in_website == 1:
         template = frappe.get_doc("Item", doc.variant_of)
         web_spec = []
@@ -117,21 +136,27 @@ def set_website_specs(doc,method):
             temp = []
             if temp_att.use_in_description == 1:
                 attribute_doc = frappe.get_doc("Item Attribute", temp_att.attribute)
-                att_val = frappe.db.sql("""SELECT attribute_value
+                att_val = frappe.db.sql(
+                    """SELECT attribute_value
 					FROM `tabItem Variant Attribute`
-					WHERE parent = '%s' AND attribute = '%s'"""%
-                        (doc.name, temp_att.attribute), as_list=1)
+					WHERE parent = '%s' AND attribute = '%s'"""
+                    % (doc.name, temp_att.attribute),
+                    as_list=1,
+                )
                 for att in doc.attributes:
                     if att.attribute == attribute_doc.name:
                         if attribute_doc.numeric_values == 1:
                             temp.insert(0, temp_att.field_name)
                             temp.insert(1, str(att.attribute_value))
                         else:
-                            lng_desc = frappe.db.sql("""SELECT long_description FROM `tabItem Attribute Value`
-							WHERE parent = '%s' AND attribute_value = '%s'""" % (attribute_doc.name,
-                                                                                                                                     att.attribute_value), as_list=1)
-                            temp.insert(0,temp_att.field_name)
-                            temp.insert(1,lng_desc[0][0][1:-1])
+                            lng_desc = frappe.db.sql(
+                                """SELECT long_description FROM `tabItem Attribute Value`
+							WHERE parent = '%s' AND attribute_value = '%s'"""
+                                % (attribute_doc.name, att.attribute_value),
+                                as_list=1,
+                            )
+                            temp.insert(0, temp_att.field_name)
+                            temp.insert(1, lng_desc[0][0][1:-1])
                         web_spec.append(temp)
                         break
         doc.set("website_specifications", [])
