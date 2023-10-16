@@ -62,7 +62,7 @@ website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
 #    "favicon": "/assets/app/image/favicon.png"
 # }
 
-update_website_context = "rigpl_erpnext.app.overrides.website_context"
+# update_website_context = "rigpl_erpnext.app.overrides.website_context"
 
 # You can use the update_website_context hook for more complex scenarios as it allows you to manipulate the
 # context dict in a python method. The method is called with one argument, which is the context dict
@@ -71,8 +71,8 @@ update_website_context = "rigpl_erpnext.app.overrides.website_context"
 # ------------
 
 # before_install = "rigpl_erpnext.install.before_install"
-after_install = "rigpl_erpnext.setup.after_install"
-after_migrate = "rigpl_erpnext.setup.after_migrate"
+# after_install = "rigpl_erpnext.setup.after_install"
+# after_migrate = "rigpl_erpnext.setup.after_migrate"
 
 # Desk Notifications
 # ------------------
