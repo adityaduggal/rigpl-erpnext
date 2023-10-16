@@ -3,16 +3,21 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+
 import sys
+
 import frappe
 from frappe.utils import flt
-from .stock_utils import get_quantities_for_item
-from .process_sheet_utils import get_last_operation_for_psheet
-from .purchase_utils import get_detailed_po_lead_time_for_item, get_avg_days_for_po_dict
+
+from ..manufacturing_rigpl.utils.process_sheet_utils import (
+    get_last_operation_for_psheet,
+)
 from .other_utils import auto_round_up, get_base_doc, get_weighted_average
+from .purchase_utils import get_avg_days_for_po_dict, get_detailed_po_lead_time_for_item
+from .stock_utils import get_quantities_for_item
 
 
-def get_item_lead_time(item_name='HR1XRE007Z4', frm_dt=None, to_dt=None):
+def get_item_lead_time(item_name="HR1XRE007Z4", frm_dt=None, to_dt=None):
     """
     This function gets the lead time for an item based on Purchase or Manufacture
     """
@@ -29,7 +34,9 @@ def get_item_lead_time(item_name='HR1XRE007Z4', frm_dt=None, to_dt=None):
         # Check which items are there and device a formula for that as well.
         ldt_dict["avg_days_wt"] = 0
         ldt_dict["based_on"] = "Unknown"
-        print(f"Item {item_name} is neither Sales nor Purchase so Lead Time is Set to 0")
+        print(
+            f"Item {item_name} is neither Sales nor Purchase so Lead Time is Set to 0"
+        )
     return ldt_dict
 
 
@@ -45,8 +52,12 @@ def get_manuf_lead_time(item_name, frm_dt=None, to_dt=None):
     # frappe.throw(str(manf_dict))
     ldt_dict["item_name"] = item_name
     ldt_dict["no_of_trans"] = len(manf_dict)
-    avg_days_wt, tot_qty, wt_key2 = get_weighted_average(list_of_data=manf_dict,
-        avg_key="trans_avg_days", wt_key="trans_qty", wt_key2="trans_wt")
+    avg_days_wt, tot_qty, wt_key2 = get_weighted_average(
+        list_of_data=manf_dict,
+        avg_key="trans_avg_days",
+        wt_key="trans_qty",
+        wt_key2="trans_wt",
+    )
     ldt_dict["based_on"] = "Process Sheet"
     ldt_dict["avg_days_wt"] = avg_days_wt
     ldt_dict["total_qty"] = tot_qty
@@ -58,7 +69,7 @@ def get_manuf_lead_time(item_name, frm_dt=None, to_dt=None):
     return ldt_dict
 
 
-def get_purchase_lead_times(item_name='RHP40XSQ00MG0', frm_dt=None, to_dt=None):
+def get_purchase_lead_times(item_name="RHP40XSQ00MG0", frm_dt=None, to_dt=None):
     """
     Returns a dictionary for an item in date range
     Dictionary consists of PO Data and corresponding GRN and times
@@ -67,8 +78,12 @@ def get_purchase_lead_times(item_name='RHP40XSQ00MG0', frm_dt=None, to_dt=None):
     po_dict = get_detailed_po_lead_time_for_item(item_name, frm_dt, to_dt)
     ldt_dict["item_name"] = item_name
     ldt_dict["no_of_trans"] = len(po_dict)
-    avg_days_wt, tot_qty, wt_key2 = get_weighted_average(list_of_data=po_dict,
-        avg_key="trans_avg_days", wt_key="trans_qty", wt_key2="trans_wt")
+    avg_days_wt, tot_qty, wt_key2 = get_weighted_average(
+        list_of_data=po_dict,
+        avg_key="trans_avg_days",
+        wt_key="trans_qty",
+        wt_key2="trans_wt",
+    )
     ldt_dict["based_on"] = "Purchase Order"
     ldt_dict["avg_days_wt"] = avg_days_wt
     ldt_dict["total_qty"] = tot_qty
@@ -84,8 +99,9 @@ def get_detailed_manuf_lead_time_for_item(item_name, frm_dt=None, to_dt=None):
     """
     Returns a dictionary for an item in date range with details of Process Sheets and JCR
     """
-    max_trans = frappe.get_value("RIGPL Settings", "RIGPL Settings",
-        "max_transactions_for_lead_time_to_consider")
+    max_trans = frappe.get_value(
+        "RIGPL Settings", "RIGPL Settings", "max_transactions_for_lead_time_to_consider"
+    )
     if max_trans == 0:
         max_trans = 10
     cond = ""
@@ -110,7 +126,9 @@ def get_detailed_manuf_lead_time_for_item(item_name, frm_dt=None, to_dt=None):
             for jcr in jcr_dict:
                 jcr["sub_trans_wt"] = sub_trans_wt
                 sub_trans_wt += 1
-                jcr["days_diff"] = max((jcr.sub_trans_date - psn.calc_trans_date).days + 1, 1)
+                jcr["days_diff"] = max(
+                    (jcr.sub_trans_date - psn.calc_trans_date).days + 1, 1
+                )
         psn["sub_trans"] = jcr_dict
         psn = get_avg_days_for_po_dict(psn)
     return ps_dict
@@ -123,13 +141,21 @@ def get_jcr_for_ps(ps_name):
     sub_trans = []
     psd = frappe.get_doc("Process Sheet", ps_name)
     last_op = get_last_operation_for_psheet(psd, no_cons_ld_time=1)
-    tps =flt(frappe.db.sql(f"""SELECT SUM(produced_qty) as tps FROM `tabProcess Sheet`
-        WHERE docstatus=1 AND production_item = '{psd.production_item}'""",as_list=1)[0][0])
+    tps = flt(
+        frappe.db.sql(
+            f"""SELECT SUM(produced_qty) as tps FROM `tabProcess Sheet`
+        WHERE docstatus=1 AND production_item = '{psd.production_item}'""",
+            as_list=1,
+        )[0][0]
+    )
     qty_compl_before_ps = get_total_completed_before_ps(psd)
     ps_comp = frappe.get_value("Process Sheet", ps_name, "produced_qty")
-    jct = frappe.db.sql(f"""SELECT SUM(total_completed_qty) as total_jc
+    jct = frappe.db.sql(
+        f"""SELECT SUM(total_completed_qty) as total_jc
         FROM `tabProcess Job Card RIGPL` WHERE docstatus=1
-        AND production_item = '{psd.production_item}' AND operation = '{last_op}'""",as_list=1)
+        AND production_item = '{psd.production_item}' AND operation = '{last_op}'""",
+        as_list=1,
+    )
     jc_total = flt(jct[0][0])
     if jc_total > tps:
         excess_qty = jc_total - tps
@@ -175,17 +201,20 @@ def get_jcr_for_ps(ps_name):
                 break
     return sub_trans
 
+
 def get_total_completed_before_ps(psdoc):
     """
     Returns the quantity completed before a Process Sheet which is completed for Last Operation
     """
-    ps_comp = frappe.db.sql(f"""SELECT SUM(produced_qty) as ps_qty
+    ps_comp = frappe.db.sql(
+        f"""SELECT SUM(produced_qty) as ps_qty
         FROM `tabProcess Sheet` WHERE docstatus = 1 AND produced_qty > 0
         AND production_item = '{psdoc.production_item}' AND date <= '{psdoc.date}'
-        AND name != '{psdoc.name}'""",as_list=1)
+        AND name != '{psdoc.name}'""",
+        as_list=1,
+    )
     qty_comp = flt(ps_comp[0][0])
     return qty_comp
-
 
 
 def get_start_date_for_psheet(ps_name):
@@ -204,11 +233,14 @@ def get_start_date_for_psheet(ps_name):
         if opr.idx == 1:
             first_op_name = opr.operation
     if first_op_name != last_op:
-        first_jcr = frappe.db.sql(f"""SELECT name, posting_date, total_completed_qty
+        first_jcr = frappe.db.sql(
+            f"""SELECT name, posting_date, total_completed_qty
             FROM `tabProcess Job Card RIGPL`
             WHERE docstatus = 1 AND process_sheet = '{psd.name}' AND total_completed_qty > 0
             AND operation = '{first_op_name}'
-            ORDER BY posting_date, posting_time LIMIT 1""", as_dict=1)
+            ORDER BY posting_date, posting_time LIMIT 1""",
+            as_dict=1,
+        )
         if first_jcr:
             if first_jcr[0].posting_date > psd.date:
                 start_date = first_jcr[0].posting_date
