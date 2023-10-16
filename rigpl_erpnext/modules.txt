@@ -4,5 +4,4 @@ HR-RIGPL
 Management-RIGPL
 Stock-RIGPL
 Selling-RIGPL
-Website-RIGPL
 Manufacturing-RIGPL
