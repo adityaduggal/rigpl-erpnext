@@ -1,0 +1,12 @@
+[project]
+name = "rigpl_erpnext"
+authors = [
+    { name = "Rohit Industries Group Pvt Ltd", email = "aditya@rigpl.com"}
+]
+description = "ERPNext Customizations for RIGPL"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    # Core dependencies
+    "hrms @ git+https://github.com/frappe/hrms.git#version-14",
+]
