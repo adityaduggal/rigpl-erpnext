@@ -21,7 +21,8 @@ def validate(doc, method):
     validate_address_google_update(doc.shipping_address_name)
     add_list = [doc.customer_address, doc.shipping_address_name]
     for add in add_list:
-        check_validated_gstin(add, doc)
+        pass
+        # check_validated_gstin(add, doc)
     dead_stock_order_booking(doc)
     check_dynamic_link(parenttype="Address", parent=doc.customer_address,
                        link_doctype="Customer", link_name=doc.customer)
