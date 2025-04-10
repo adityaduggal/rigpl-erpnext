@@ -16,10 +16,10 @@ def validate(doc, method):
     validate_item_mov(doc, enforce=0)
     if doc.customer_address:
         validate_address_google_update(doc.customer_address)
-        check_validated_gstin(doc.customer_address, doc)
+        # check_validated_gstin(doc.customer_address, doc)
     if doc.shipping_address_name:
         validate_address_google_update(doc.shipping_address_name)
-        check_validated_gstin(doc.shipping_address_name, doc)
+        # check_validated_gstin(doc.shipping_address_name, doc)
     if doc.quotation_to == 'Customer':
         if doc.customer_address:
             check_dynamic_link(parenttype="Address", parent=doc.customer_address, link_doctype="Customer",
