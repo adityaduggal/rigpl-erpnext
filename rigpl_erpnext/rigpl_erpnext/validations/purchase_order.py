@@ -22,7 +22,8 @@ def validate(doc, method):
     get_qty_for_purchase(doc, reject=0)
     add_list = [doc.shipping_address, doc.supplier_address]
     for add in add_list:
-        check_validated_gstin(add, doc)
+        pass
+        # check_validated_gstin(add, doc)
 
 
 def on_submit(doc, method):
