@@ -9,9 +9,8 @@ from ...utils.job_card_utils import get_next_job_card, update_job_card_qty_avail
 
 def validate(doc, method):
     add_list = [doc.shipping_address, doc.supplier_address]
-    for add in add_list:
+    # for add in add_list:
         # check_validated_gstin(add, doc)
-        pass
     update_warehouses_for_job_card_items(doc)
 
     for d in doc.items:
