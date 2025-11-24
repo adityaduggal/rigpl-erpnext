@@ -10,15 +10,17 @@ def validate(doc, method):
     # Operation Table should have atleast one Operation
     allowed_ops = []
     if not doc.workstation_operation:
-        frappe.throw(f"Atleast One Operation is Mandatory for the Workstation")
+        print(f"Atleast One Operation is Mandatory for the Workstation")
+        # frappe.throw(f"Atleast One Operation is Mandatory for the Workstation")
     else:
         for d in doc.workstation_operation:
             if d.allowed_operation not in allowed_ops:
                 allowed_ops.append(d.allowed_operation)
             else:
-                frappe.throw(
-                    f"For Row# {d.idx} and Operation: {d.allowed_operation} is Repeated"
-                )
+                print(f"For Row# {d.idx} and Operation: {d.allowed_operation} is Repeated")
+                # frappe.throw(
+                #     f"For Row# {d.idx} and Operation: {d.allowed_operation} is Repeated"
+                # )
 
 
 @frappe.whitelist()

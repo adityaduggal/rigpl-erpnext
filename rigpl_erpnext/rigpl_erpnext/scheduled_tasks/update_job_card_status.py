@@ -7,7 +7,7 @@ import time
 import datetime
 import frappe
 from frappe.utils.background_jobs import enqueue
-from ...utils.job_card_utils import update_job_card_qty_available, update_job_card_status, update_job_card_priority, \
+from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import update_job_card_qty_available, update_job_card_status, update_job_card_priority, \
     update_job_card_source_warehouse, return_job_card_qty, get_jc_rm_status, update_jc_rm_status
 
 

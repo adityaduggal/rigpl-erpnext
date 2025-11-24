@@ -6,8 +6,8 @@ from __future__ import unicode_literals
 import time
 import frappe
 from frappe.utils.background_jobs import enqueue
-from ...utils.process_sheet_utils import update_process_sheet_operations, get_pend_psop
-from ...utils.job_card_utils import check_existing_job_card, create_job_card, return_job_card_qty
+from rigpl_erpnext.manufacturing_rigpl.utils.process_sheet_utils import update_process_sheet_operations, get_pend_psop
+from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import check_existing_job_card, create_job_card, return_job_card_qty
 
 
 def enqueue_jc():

@@ -46,7 +46,10 @@ fixtures = []
 
 # Home Pages
 # ----------
-website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
+# website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
+website_generators = ["Carrier Tracking"]
+# website_generators = ["Website Item"]
+# website_generators = ["Item Group"]
 # application home page (will override Website Settings)
 # home_page = "login"
 
@@ -69,7 +72,7 @@ website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
 
 # Installation
 # ------------
-
+before_migrate = "rigpl_erpnext.before_migrate_patches.execute"
 # before_install = "rigpl_erpnext.install.before_install"
 # after_install = "rigpl_erpnext.setup.after_install"
 # after_migrate = "rigpl_erpnext.setup.after_migrate"
