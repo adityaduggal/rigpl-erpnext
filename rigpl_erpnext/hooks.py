@@ -46,10 +46,10 @@ fixtures = []
 
 # Home Pages
 # ----------
+
+# website_generators Deprecated (Use Has Web View in DocType instead)
 # website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
-website_generators = ["Carrier Tracking"]
-# website_generators = ["Website Item"]
-# website_generators = ["Item Group"]
+
 # application home page (will override Website Settings)
 # home_page = "login"
 
