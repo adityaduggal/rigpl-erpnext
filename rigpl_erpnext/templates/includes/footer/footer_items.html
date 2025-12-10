@@ -1,0 +1,14 @@
+{% for page in footer_items %}
+{% if not page.parent_label %}
+<div class="col-xs-6 col-sm-2">
+	<h6 class='text-primary'>{{ page.label }}</h6>
+	<ul class="list-unstyled">
+		{%- for child in page.child_items -%}
+		<li class="py-2">
+			<a href="{{ child.url | abs_url }}" {% if child.target %}target="_blank" {% endif %} class="text-light">{{ child.label }}</a>
+		</li>
+		{%- endfor -%}
+	</ul>
+</div>
+{% endif %}
+{% endfor %}

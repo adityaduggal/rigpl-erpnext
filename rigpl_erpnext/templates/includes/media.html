@@ -1,0 +1,22 @@
+{% macro media(title, content, image, when=None) %}
+	<div class='card my-1 text-left'>
+		<div class='card-body'>
+			<div class="media ">
+			  <img class="mr-3 greyscale rounded-circle"
+			  	src="{{ image }}"
+			  	alt="{{ title }}" style='max-width: 100px'>
+			  <div class="media-body">
+					<div class="d-flex align-items-center justify-content-between mb-2">
+						<h5 class="m-0">{{ title }}</h5>
+						{% if when %}
+						<span class="text-muted">
+							{{ when | global_date_format }}
+						</span>
+						{% endif %}
+					</div>
+					{{ content}}
+			  </div>
+			</div>
+		</div>
+	</div>
+{% endmacro %}
