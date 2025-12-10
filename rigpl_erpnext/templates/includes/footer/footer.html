@@ -1,0 +1,30 @@
+<footer class="bg-dark pt-4">
+	<div class="container">
+		<div class="row mt-4 mb-5">
+			<div class='col-sm-12 col-md-6 mb-4' style='display: flex; flex-direction: column; justify-content: space-between;'>
+				<img src="https://www.rigpl.com/files/rohit_cutting_tools_logo_192x192.png" style='height: 200px; width: 200px;'>
+				<!--
+				<form class="form-inline">
+					<label class="sr-only" for="emailInput">Email</label>
+					<input type="text" class="form-control input-dark mb-2 mr-sm-2" id="emailInput" placeholder="john@doe.com">
+					<button type="submit" class="btn btn-primary mb-2">Subscribe</button>
+				</form>
+				-->
+			</div>
+
+			{% include "templates/includes/footer/footer_items.html" %}
+		</div>
+
+		<div class="mt-4 text-muted text-center">
+			<div class="py-4">
+				{% if copyright %}
+					&copy;<span id="year"></span> {{ copyright }}
+				{% endif %}
+				{% if footer_address %}
+					{% if copyright %}<br>{% endif %}
+					{{ footer_address }}
+				{% endif %}
+			</div>
+		</div>
+</footer>
+<!--Javascript-->
