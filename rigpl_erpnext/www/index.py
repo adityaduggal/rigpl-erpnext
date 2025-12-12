@@ -80,5 +80,5 @@ def get_context(context):
 
 
 def get_item_route(item_code):
-    route = frappe.db.get_value("Item", item_code, "route")
+    route = frappe.db.get_value("Item", item_code, "custom_route")
     return route or f"/items/{item_code}"

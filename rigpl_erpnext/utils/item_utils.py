@@ -375,7 +375,7 @@ def validate_variants(it_doc, comm_type=None):
     query = """SELECT role from `tabHas Role` where parent = '%s' """ % user
     roles = frappe.db.sql(query, as_list=1)
 
-    if it_doc.published_in_website == 1:
+    if it_doc.custom_published_in_website == 1:
         if it_doc.image is None:
             frappe.throw(
                 f"For Website Items, Website Image is Mandatory for Item Code {it_doc.name}"
