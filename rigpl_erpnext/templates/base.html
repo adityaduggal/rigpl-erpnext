@@ -53,10 +53,15 @@
 
 	{% block base_scripts %}
 	<!-- js should be loaded in body! -->
+	<script>
+		frappe.boot = {{ frappe.utils.orjson_dumps(boot, default=frappe.json_handler) | safe }}
+		// for backward compatibility of some libs
+		frappe.sys_defaults = frappe.boot.sysdefaults;
+	</script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.slim.js"></script>
 	<script type="text/javascript" src="/assets/frappe/js/lib/jquery/jquery.min.js"></script>
+	{{ include_script('frappe-web.bundle.js') }}
 	<script type="text/javascript" src="/assets/rigpl_erpnext/js/rigpl-theme.js"></script>
-	<script type="text/javascript" src="/assets/frappe/js/frappe-web.min.js"></script>
 	<script type="text/javascript" src="/assets/rigpl_erpnext/js/modal.js"></script>
 	{% endblock %}
 
