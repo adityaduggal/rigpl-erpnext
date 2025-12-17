@@ -1,0 +1,77 @@
+{% extends "rigpl_erpnext/templates/web.html" %}
+
+{% block page_content %}
+<div class="container mt-5">
+	{% if breadcrumbs %}
+	<nav aria-label="breadcrumb">
+		<ol class="breadcrumb">
+			{% for breadcrumb in breadcrumbs %}
+			<li class="breadcrumb-item {% if loop.last %}active{% endif %}">
+				{% if not loop.last %}
+					<a href="{{ breadcrumb.url }}">{{ breadcrumb.label }}</a>
+				{% else %}
+					{{ breadcrumb.label }}
+				{% endif %}
+			</li>
+			{% endfor %}
+		</ol>
+	</nav>
+	{% endif %}
+
+	<!-- Item Group Header -->
+	<div class="row mb-5">
+		<div class="col-lg-12">
+			{% if image %}
+			<img src="{{ image }}" alt="{{ title }}" class="img-fluid mb-3" style="max-height: 300px; object-fit: cover; width: 100%;">
+			{% endif %}
+			
+			<h1>{{ title }}</h1>
+			
+			{% if description %}
+			<p class="lead text-muted">{{ description }}</p>
+			{% endif %}
+		</div>
+	</div>
+	{% if child_item_groups %}
+		{% elif items %}
+	<div class="row">
+		{% for item in items %}
+		<div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+			<div class="card h-100 shadow-sm">
+				<a href="/{{ item.custom_route or item.item_code }}" class="text-decoration-none text-dark">
+					{% if item.image %}
+					<img src="{{ item.image }}" class="card-img-top" alt="{{ item.item_name }}" style="height: 200px; object-fit: cover;">
+					{% else %}
+					<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+						<span class="text-muted">No Image</span>
+					</div>
+					{% endif %}
+				</a>
+				
+				<div class="card-body d-flex flex-column">
+					<h5 class="card-title">
+						<a href="/{{ item.custom_route or item.item_code }}" class="text-dark">{{ item.item_name }}</a>
+					</h5>
+					<p class="card-text text-muted small mb-2">{{ item.item_code }}</p>
+					
+					{% if item.description %}
+					<div class="card-text small text-muted flex-grow-1">
+						{{ item.description | striptags | truncate(80) }}
+					</div>
+					{% endif %}
+				</div>
+				
+				<div class="card-footer bg-white border-top-0">
+					<a href="/{{ item.custom_route or item.item_code }}" class="btn btn-sm btn-primary w-100">View Details</a>
+				</div>
+			</div>
+		</div>
+		{% endfor %}
+	</div>
+	{% else %}
+	<div class="alert alert-info">
+		No products found.
+	</div>
+	{% endif %}
+</div>
+{% endblock %}

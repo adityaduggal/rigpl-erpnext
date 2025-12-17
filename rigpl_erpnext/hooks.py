@@ -70,6 +70,13 @@ fixtures = []
 # You can use the update_website_context hook for more complex scenarios as it allows you to manipulate the
 # context dict in a python method. The method is called with one argument, which is the context dict
 
+from rigpl_erpnext.utils.routing import get_website_route_rules
+
+# Website Route Rules
+# -------------------
+# Route all unknown paths to products handler to check for custom_route matches
+website_route_rules = get_website_route_rules()
+
 # Installation
 # ------------
 before_migrate = "rigpl_erpnext.before_migrate_patches.execute"
