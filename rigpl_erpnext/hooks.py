@@ -188,7 +188,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
     },
     "Pricing Rule": {
-        "validate": "rigpl_erpnext.accounts_rigpl.validations.pricing_rule.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.pricing_rule.validate"
     },
     "Purchase Order": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate",
