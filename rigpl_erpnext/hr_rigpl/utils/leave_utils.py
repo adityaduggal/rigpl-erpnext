@@ -5,7 +5,7 @@
 from datetime import date
 
 import frappe
-from erpnext.hr.doctype.leave_allocation.leave_allocation import (
+from hrms.hr.doctype.leave_allocation.leave_allocation import (
     get_carry_forwarded_leaves,
 )
 from frappe.utils import flt, formatdate
@@ -105,10 +105,11 @@ def get_new_leaves_for_ltyp_in_period(emp, ltyp, lpd):
             # Also need to check if the Earned leaves are applicable or not till date as the no of
             # Days in Earned Leaves are counted from the Date of Joining
             appl_date = get_earned_lvs_applicable_dt(emp=emp, ltype=ltyp)
-            if appl_date:
-                if appl_date > lpd.from_date and appl_date < lpd.to_date:
-                    att_smm = get_earned_att_details(emp_name=emp, frm_date=appl_date, 
-                                                     to_date=lpd.to_date, no_of_days= ltd.)
+            # no method found for please update accordingly for now its commented as this get_earned_att_details methid is not here
+            # if appl_date:
+            #     if appl_date > lpd.from_date and appl_date < lpd.to_date:
+            #         att_smm = get_earned_att_details(emp_name=emp, frm_date=appl_date, 
+            #                                          to_date=lpd.to_date, no_of_days= ltd.)
 
     return new_leaves, calc2dt, used_atts
 

@@ -4,12 +4,12 @@ import frappe
 import erpnext
 import math
 import datetime
-from frappe.utils import money_in_words, flt
+from frappe.utils import formatdate, money_in_words, flt
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_fiscal_years
-from erpnext.hr.doctype.payroll_entry.payroll_entry import get_start_end_dates
-from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
-from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
+from hrms.payroll.doctype.payroll_entry.payroll_entry import get_start_end_dates
+from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
+from hrms.payroll.doctype.salary_slip.salary_slip import SalarySlip
 
 
 def post_gl_entry(doc):
@@ -603,6 +603,12 @@ def get_edc(doc):
 
 def get_from_sal_struct(doc, salary_structure_doc, table_list):
     data = SalarySlip.get_data_for_eval(doc)
+
+    for k, v in list(data.items()):
+        if isinstance(v, (tuple, list)):
+            data[k] = v[0]
+        elif isinstance(v, dict) and "amount" in v:
+            data[k] = v["amount"]
 
     for table_name in table_list:
         for comp in salary_structure_doc.get(table_name):

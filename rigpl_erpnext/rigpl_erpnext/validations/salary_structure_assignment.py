@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.utils import flt, getdate, add_days
-from erpnext.hr.doctype.payroll_entry.payroll_entry import get_start_end_dates
+from hrms.payroll.doctype.payroll_entry.payroll_entry import get_start_end_dates
 
 
 def validate(doc, method):

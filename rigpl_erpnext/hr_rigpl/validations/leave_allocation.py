@@ -4,8 +4,8 @@
 
 
 import frappe
-from erpnext.hr.doctype.leave_allocation.leave_allocation import get_unused_leaves
-from erpnext.hr.utils import get_leave_period
+from hrms.hr.doctype.leave_allocation.leave_allocation import get_unused_leaves
+from hrms.hr.utils import get_leave_period
 from frappe.utils import formatdate
 
 from ...hr_rigpl.utils.leave_utils import (
