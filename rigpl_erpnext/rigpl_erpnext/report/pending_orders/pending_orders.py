@@ -3,7 +3,8 @@
 
 from __future__ import unicode_literals
 import frappe
-from ....utils.job_card_utils import get_last_jc_for_so
+
+from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import get_last_jc_for_so
 
 
 def execute(filters=None):
