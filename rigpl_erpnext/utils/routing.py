@@ -21,8 +21,6 @@ def get_website_route_rules():
                 # Rule for the group page itself (e.g., /category)
                 rules.append({"from_route": f"/{route}", "to_route": "products"})
 
-        frappe.log_error(title="Generated Website Route Rules", message=str(rules))
-
     except (frappe.db.TableMissingError, frappe.exceptions.DoesNotExistError):
         # This can happen during a fresh install/uninstall cycle when the DB is not ready.
         # It's safe to just return no rules in this case.
