@@ -185,13 +185,11 @@ def validate_ec_posting(doc):
     for e in doc.earnings:
         if e.expense_claim:
             # Check if the expense claim is properly posted in  Expenses Payable
-            posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` WHERE voucher_type = 'Expense Claim'
-            AND voucher_no = '%s' AND docstatus = 1""" % (e.expense_claim), as_list=1)
+            posted = frappe.db.sql("""SELECT name FROM `tabGL Entry` WHERE voucher_type = 'Expense Claim'\n            AND voucher_no = '%s' AND docstatus = 1""" % (e.expense_claim), as_list=1)
             if posted:
                 for ec_claim in posted:
                     # Check Credit Entry's account should be Expenses Payable
-                    debit = frappe.db.sql("""SELECT name, credit, account FROM `tabGL Entry`
-                    WHERE name = '%s'""" % (ec_claim[0]), as_list=1)
+                    debit = frappe.db.sql("""SELECT name, credit, account FROM `tabGL Entry`\n                    WHERE name = '%s'""" % (ec_claim[0]), as_list=1)
 
                     if debit[0][1] > 0:
                         if debit[0][2] != comp_doc.default_payroll_payable_account:
@@ -226,18 +224,40 @@ def calculate_net_salary(doc, msd, med):
     doc.posting_date = med
     wd = twd - holidays  # total working days
     doc.total_days_in_month = tdim
-    att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` WHERE employee = '%s'
+    # Overtime hours: prioritize Overtime Slip, fallback to Attendance
+    # Note: Additional Salary stores monetary amount; hours retrieved separately
+    
+    # Primary source: Overtime Slip
+    t_ot = 0
+    overtime_slip = frappe.db.sql("""SELECT total_overtime_duration FROM `tabOvertime Slip` 
+        WHERE employee = '%s' AND start_date >= '%s' AND end_date <= '%s' 
+        AND docstatus = 1""" % (doc.employee, msd, med), as_list=1)
+    
+    if overtime_slip and overtime_slip[0][0]:
+        t_ot = flt(overtime_slip[0][0])
+    else:
+        # Fallback: Query Attendance (supports both legacy and HRMS fields)
+        att_ot = frappe.db.sql("""SELECT sum(
+            COALESCE(actual_overtime_duration, overtime, 0)
+        ) FROM `tabAttendance` 
+        WHERE employee = '%s' AND attendance_date >= '%s' AND attendance_date <= '%s' 
+        AND status = 'Present' AND docstatus=1""" % (doc.employee, msd, med), as_list=1)
+        if att_ot and att_ot[0][0]:
+            t_ot = flt(att_ot[0][0])
+    
+    doc.total_overtime = t_ot
+    
+    # Get attendance count
+    att = frappe.db.sql("""SELECT count(name) FROM `tabAttendance` WHERE employee = '%s'
     AND attendance_date >= '%s' AND attendance_date <= '%s' AND status = 'Present'
     AND docstatus=1""" % (doc.employee, msd, med), as_list=1)
+    tpres = flt(att[0][0])
 
     half_day = frappe.db.sql("""SELECT count(name) FROM `tabAttendance` WHERE employee = '%s'
     AND attendance_date >= '%s' AND attendance_date <= '%s' AND status = 'Half Day'
     AND docstatus=1""" % (doc.employee, msd, med), as_list=1)
 
     t_hd = flt(half_day[0][0])
-    t_ot = flt(att[0][0])
-    doc.total_overtime = t_ot
-    tpres = flt(att[0][1])
 
     ual = twd - tpres - lwp - holidays - plw - (t_hd / 2)
 
@@ -258,11 +278,13 @@ def calculate_net_salary(doc, msd, med):
 
     doc.unauthorized_leaves = ual
 
+    # Custom logic: Deduct overtime hours for unauthorized absences (RIGPL-specific)
     ot_ded = round(8 * ual, 1)
     if ot_ded > t_ot:
         ot_ded = (int(t_ot / 8)) * 8
     doc.overtime_deducted = ot_ded
     d_ual = int(ot_ded / 8)
+
 
     # Calculate Earnings
     chk_ot = 0  # Check if there is an Overtime Rate
@@ -278,11 +300,17 @@ def calculate_net_salary(doc, msd, med):
             d.depends_on_lwp = 0
 
         if earn.based_on_earning:
+            # Overtime payment: HRMS Additional Salary pre-calculates amount for Overtime Rate
             for d2 in doc.earnings:
-                # Calculate Overtime Value
                 if earn.earning == d2.salary_component:
-                    d.default_amount = flt(d2.amount) * t_ot
-                    d.amount = flt(d2.amount) * (t_ot - ot_ded)
+                    if d.additional_salary:  # HRMS overtime
+                        # Amount pre-calculated by HRMS, skip custom logic
+                        pass
+                    else:
+                        # Legacy calculation for non-HRMS overtime
+                        d.default_amount = flt(d2.amount) * t_ot
+                        d.amount = flt(d2.amount) * (t_ot - ot_ded)
+
         else:
             if d.depends_on_lwp == 1 and earn.books == 0:
                 if chk_ot == 1:
