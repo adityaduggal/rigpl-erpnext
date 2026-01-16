@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
-from rigpl_erpnext.rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import get_next_job_card, update_job_card_qty_available
+from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import get_next_job_card, update_job_card_qty_available
 
 
 def validate(doc, method):

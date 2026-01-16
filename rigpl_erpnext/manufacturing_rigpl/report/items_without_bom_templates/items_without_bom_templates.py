@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 
 import frappe
-from rigpl_erpnext.rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
+from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     get_bom_template_from_item,
 )
 
