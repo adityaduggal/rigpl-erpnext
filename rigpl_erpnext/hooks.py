@@ -15,7 +15,7 @@ app_version = "0.0.1"
 hide_in_installer = True
 required_apps = ["frappe/erpnext", "https://github.com/adityaduggal/india_compliance.git@develop","frappe/hrms"]
 # Fixtures help https://frappeframework.com/docs/v13/user/en/python-api/hooks#fixtures
-fixtures = []
+fixtures = ["Custom DocPerm"]
 
 
 # override_whitelisted_methods = {
