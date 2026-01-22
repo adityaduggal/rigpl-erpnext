@@ -460,9 +460,9 @@ def get_loan_deduction(doc, msd, med):
     existing_loan = []
     for d in doc.deductions:
         existing_loan.append(d.employee_loan)
-    # get total loan due for employee
+    # get total loan due for employee from Employee Advance RIGPL
     query = """SELECT el.name, eld.name, eld.emi, el.deduction_type, eld.loan_amount
-    FROM `tabEmployee Advance` el, `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND el.docstatus = 1
+    FROM `tabEmployee Advance RIGPL` el, `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND el.docstatus = 1
     AND el.posting_date <= '%s' AND eld.employee = '%s'""" % (med, doc.employee)
 
     loan_list = frappe.db.sql(query, as_list=1)
@@ -491,7 +491,7 @@ def get_loan_deduction(doc, msd, med):
                     })
     for d in doc.deductions:
         if d.employee_loan:
-            total_given = frappe.db.sql("""SELECT eld.loan_amount FROM `tabEmployee Advance` el,
+            total_given = frappe.db.sql("""SELECT eld.loan_amount FROM `tabEmployee Advance RIGPL` el,
             `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND eld.employee = '%s'
             AND el.name = '%s'""" % (doc.employee, d.employee_loan), as_list=1)
 
