@@ -569,29 +569,6 @@ def get_edc(doc):
     for d in existing_ded:
         doc.append("deductions", d)
 
-    # HRMS v16 populates accrued_benefits for Salary Structure rows with accrual_component=1
-    # additionally check for legacy v12 is_contribution field on Salary Component
-    # To ensure backward compatibility during migration
-    if hasattr(doc, "accrued_benefits"):
-        # Get components already in accrued_benefits (populated by HRMS or from previous save)
-        existing_components = {row.salary_component for row in doc.accrued_benefits}
-        
-        # Add legacy contributions (is_contribution=1) that HRMS didn't add
-        for row in list(doc.earnings) + list(doc.deductions):
-            if row.salary_component in existing_components:
-                continue  # Already added by HRMS
-            
-            sc = frappe.get_doc("Salary Component", row.salary_component)
-            
-            # Check legacy v12 field
-            if sc.get("is_contribution"):
-                doc.append("accrued_benefits", {
-                    "salary_component": row.salary_component,
-                    "default_amount": row.default_amount or row.amount,
-                    "amount": row.amount or row.default_amount
-                })
-                existing_components.add(row.salary_component)
-
 
 def get_from_sal_struct(doc, salary_structure_doc, table_list):
     data = SalarySlip.get_data_for_eval(doc)[0]
