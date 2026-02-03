@@ -21,7 +21,7 @@ def dtdc_get_available_services(ctrack, cod=0):
     pincodes = {}
     pincodes["orgPincode"] = frm_pincode
     pincodes["desPincode"] = to_pincode
-    reply = requests.post(url=url, json=pincodes)
+    reply = requests.post(url=url, json=pincodes,verify=False)
     zip_resp = (reply.json()).get("ZIPCODE_RESP")[0]
     if zip_resp.get("SERVFLAG") == 'N':
         all_service = 0
@@ -65,7 +65,7 @@ def dtdc_get_pdf(awb_no, track_doc):
     awb_dict["reference_number"] = awb_no
     api_key_dict["api-key"] = api_key
     pdf_url = url + "label/multipiece/"
-    pdf_reply = requests.post(url=pdf_url, headers=api_key_dict, json=awb_dict)
+    pdf_reply = requests.post(url=pdf_url, headers=api_key_dict, json=awb_dict,verify=False)
     if (pdf_reply.json()).get("status") == "OK":
         pdf_data = (pdf_reply.json()).get("data")
         for label in pdf_data:
@@ -109,7 +109,7 @@ def post_dtdc_booking_request(booking_json, trans_doc):
     api_key_dict["api-key"] = api_key
     api_key_dict = json.dumps(api_key_dict, indent=4)
     api_key_dict = json.loads(api_key_dict)
-    reply = requests.post(url=booking_url, json=booking_json, headers=api_key_dict)
+    reply = requests.post(url=booking_url, json=booking_json, headers=api_key_dict,verify=False)
     return reply.json()
 
 
@@ -181,7 +181,7 @@ def get_tracking_from_dtdc(track_doc):
 def dtdc_get_tracking_response(track_doc, url, token):
     json_data, header = dtdc_get_track_json(track_doc, token=token)
     json_data = json.loads(json_data)
-    trk_resp = requests.post(url=url, json=json_data, headers=header)
+    trk_resp = requests.post(url=url, json=json_data, headers=header,verify=False)
     return trk_resp.json()
 
 
