@@ -18,9 +18,9 @@ def validate(doc, method):
     doc.department = frappe.get_value("Employee", doc.employee, "department")
     check_employee(doc, method)
     shft = get_shift(doc, method)
-    # Custom overtime calculation disabled - migrated to HRMS v16 Overtime Slip workflow
-    # if doc.status != "On Leave" and shft.in_out_required:
-    #     calculate_overtime(doc, method)
+    # Custom overtime calculation
+    if doc.status != "On Leave" and shft.in_out_required:
+        calculate_overtime(doc, method)
 
 
 
