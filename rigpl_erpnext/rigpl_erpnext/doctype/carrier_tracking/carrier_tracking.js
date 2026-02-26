@@ -14,10 +14,8 @@ frappe.ui.form.on('Carrier Tracking', {
 		frm.set_query("from_address", function(doc) {
 		    if (frm.is_inward !== 1){
                 return {
-                    "filters":{
-                        "is_your_company_address": 1,
-                        "disabled": 0
-                    }
+                    query: "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.carrier_tracking_utils.company_address_query",
+                    filters: {}
                 };
 		    } else {
 		        if (!frm.doc.receiver_document || !frm.doc.receiver_name){
@@ -39,17 +37,15 @@ frappe.ui.form.on('Carrier Tracking', {
 		        }
                 return {
                     query: 'rohit_common.utils.address_utils.rigpl_address_query',
-                    "filters": {
-                        "link_doctype": frm.doc.receiver_document,
-                        "link_name": frm.doc.receiver_name
+                    filters: {
+                        link_doctype: frm.doc.receiver_document,
+                        link_name: frm.doc.receiver_name
                     }
                 };
 		    } else {
                 return {
-                    "filters":{
-                        "is_your_company_address": 1,
-                        "disabled": 0
-                    }
+                    query: "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.carrier_tracking_utils.company_address_query",
+                    filters: {}
                 };
 		    }
 		});
@@ -112,6 +108,22 @@ frappe.ui.form.on("Carrier Tracking", {
         frm.doc.receiver_name = frm.doc.document_name;
         frm.doc.to_address = '';
         frm.doc.contact_person = '';
+        // Auto-fill from_address from tax template for SI/PO
+        if (frm.doc.document_name && !frm.doc.from_address
+            && (frm.doc.document === 'Sales Invoice' || frm.doc.document === 'Purchase Order')) {
+            frappe.call({
+                method: 'rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.carrier_tracking_utils.get_default_from_address',
+                args: {
+                    document: frm.doc.document,
+                    document_name: frm.doc.document_name
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        frm.set_value('from_address', r.message);
+                    }
+                }
+            });
+        }
         frm.refresh_fields();
     }
 })
@@ -136,19 +148,15 @@ frappe.ui.form.on("Carrier Tracking", "is_inward", function(frm) {
 		});
 		frm.set_query("to_address", function(doc) {
 			return {
-				"filters":{
-					"is_your_company_address": 1,
-					"disabled": 0
-				}
+				query: "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.carrier_tracking_utils.company_address_query",
+				filters: {}
 			};
 		});
 	} else {
 		frm.set_query("from_address", function(doc) {
 			return {
-				"filters":{
-					"is_your_company_address": 1,
-					"disabled": 0
-				}
+				query: "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.carrier_tracking_utils.company_address_query",
+				filters: {}
 			};
 		});
 		frm.set_query("to_address", function(doc) {
