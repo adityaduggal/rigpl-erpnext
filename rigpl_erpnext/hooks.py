@@ -108,6 +108,7 @@ doctype_js = {
     "Bank Account": "public/js/bank_account.js",
     "Item": "public/js/stock/item.js",
     "Leave Allocation": "public/js/hr/leave_allocation.js",
+    "Payment Entry": "public/js/payment_entry.js",
 }
 
 # Document Events
@@ -181,6 +182,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
     },
     "Payment Entry": {
+        "before_insert": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.before_insert",
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.on_submit",
     },
