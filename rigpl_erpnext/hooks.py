@@ -107,6 +107,7 @@ before_migrate = "rigpl_erpnext.before_migrate_patches.execute"
 doctype_js = {
     "Bank Account": "public/js/bank_account.js",
     "Item": "public/js/stock/item.js",
+    "Journal Entry": "public/js/journal_entry.js",
     "Leave Allocation": "public/js/hr/leave_allocation.js",
     "Payment Entry": "public/js/payment_entry.js",
 }
@@ -152,6 +153,10 @@ doc_events = {
     },
     "Holiday List": {
         "validate": "rigpl_erpnext.hr_rigpl.validations.holiday_list.validate"
+    },
+    "Journal Entry": {
+        "before_insert": "rigpl_erpnext.rigpl_erpnext.validations.journal_entry.before_insert",
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.journal_entry.validate",
     },
     "Item": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item.validate",
