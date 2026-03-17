@@ -18,12 +18,10 @@ def unpublish_old_ctracks():
     if def_days <= 0:
         def_days = 90
     last_date = date.today() - timedelta(days=def_days)
-    old_published_ctracks = frappe.db.sql(f"""SELECT name, modified, creation, docstatus,
-        status
-    FROM `tabCarrier Tracking` WHERE published = 1  AND creation <= '{last_date}'
-    ORDER BY creation""", as_dict=1)
-    for ctrack in old_published_ctracks:
-        frappe.db.set_value("Carrier Tracking", ctrack.name, "published", 0)
+    # Optimized: Use a single SQL UPDATE instead of a loop with set_value
+    # to avoid N+1 queries.
+    frappe.db.sql("""UPDATE `tabCarrier Tracking` SET published = 0 
+        WHERE published = 1 AND creation <= %s""", (last_date,))
 
 
 def get_shipment_cost(ct_doc):

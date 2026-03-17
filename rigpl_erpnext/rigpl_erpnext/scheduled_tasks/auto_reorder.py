@@ -40,23 +40,25 @@ def execute():
         rol = it.rol_qty
         print(f"{sno}. Processing {it.name} with existing ROL= {rol} and Valuation Rate = "
             f"{fmt_money(it.valuation_rate)} and Total Value = {fmt_money(rol*it.valuation_rate)}")
-        itd = frappe.get_doc("Item", it.name)
-        def_wh = frappe.db.sql("""SELECT default_warehouse FROM `tabItem Default`
-            WHERE parenttype = 'Item' AND parentfield = 'item_defaults'
-            AND parent = '%s'""" % itd.name, as_dict=1)
-        ex_rol = get_existing_rol_for_item(it.name)
-        new_rol, period, ch_type = auto_compute_rol_for_item(itd)
+        it_cached = frappe.get_cached_doc("Item", it.name)
+        
+        ex_rol = it.rol_qty
+        
+        new_rol, period, ch_type = auto_compute_rol_for_item(it_cached)
+        
         if new_rol != ex_rol:
             print(f"Changing ROL for {it.name} from {ex_rol} to New ROL= {new_rol} with Value "
-                f"Difference = {fmt_money(int(new_rol - ex_rol) * itd.valuation_rate)} "
+                f"Difference = {fmt_money(int(new_rol - ex_rol) * it.valuation_rate)} "
                 f"with {ch_type} Type Change Based on {period} months Data")
             changes += 1
             try:
+                # Only load the full doc for saving to prevent triggering hooks for skipped items
+                itd = frappe.get_doc("Item", it.name)
                 update_item_rol(itd, new_rol)
                 itd.save()
             except Exception as excp:
                 print(f"Error Occured while Saving Item {it.name} with Error = {excp}")
-                error_items.append(itd.name)
+                error_items.append(it.name)
         # Commit changes to the Database after every 50 item changes
         if changes % 50 == 0 and changes > 0 and changes != old_changes:
             old_changes = changes

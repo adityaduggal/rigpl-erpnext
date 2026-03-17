@@ -21,6 +21,8 @@ def execute():
     st_time = time.time()
     get_wrong_projected()
     error_items = []
+    
+    # 1. Fetch items that actually have bin numbers worth checking
     it_list = frappe.db.sql("""SELECT it.name, bn.reserved_qty, bn.planned_qty,
         bn.reserved_qty_for_production, bn.indented_qty, bn.ordered_qty
         FROM `tabItem` it, `tabBin` bn
@@ -31,19 +33,66 @@ def execute():
         GROUP BY it.name
         ORDER BY bn.reserved_qty DESC, bn.planned_qty DESC, bn.reserved_qty_for_production DESC,
         it.name ASC""", as_dict=1)
+        
+    # Optimizations: Load bulk maps
+    bin_agg = frappe.db.sql("""SELECT item_code, SUM(reserved_qty) as on_so,
+        SUM(ordered_qty) as on_po, SUM(indented_qty) as on_indent,
+        SUM(planned_qty) as planned, SUM(reserved_qty_for_production) as for_prd
+        FROM `tabBin` GROUP BY item_code""", as_dict=1)
+    bin_map = {d.item_code: d for d in bin_agg}
+
+    so_agg = frappe.db.sql("""SELECT sod.item_code, SUM(sod.qty - sod.delivered_qty) as pending_qty
+        FROM `tabSales Order` so, `tabSales Order Item` sod
+        WHERE so.name = sod.parent AND so.docstatus = 1 AND so.status != 'Closed'
+        AND sod.qty > sod.delivered_qty GROUP BY sod.item_code""", as_dict=1)
+    so_map = {d.item_code: flt(d.pending_qty) for d in so_agg}
+
+    po_agg = frappe.db.sql("""SELECT pod.item_code, SUM(pod.qty - pod.received_qty) as poq
+        FROM `tabPurchase Order` po, `tabPurchase Order Item` pod
+        WHERE po.docstatus = 1 AND po.status != 'Closed' AND pod.received_qty < pod.qty
+        AND pod.parent = po.name GROUP BY pod.item_code""", as_dict=1)
+    po_map = {d.item_code: flt(d.poq) for d in po_agg}
+
+    ind_agg = frappe.db.sql("""SELECT mri.item_code, SUM(mri.qty - mri.ordered_qty) as ind_qty
+        FROM `tabMaterial Request` mr, `tabMaterial Request Item` mri
+        WHERE mri.parent = mr.name AND mr.docstatus = 1 AND mr.status != 'Stopped'
+        AND mri.qty > mri.ordered_qty GROUP BY mri.item_code""", as_dict=1)
+    ind_map = {d.item_code: flt(d.ind_qty) for d in ind_agg}
+
+    wo_agg = frappe.db.sql("""SELECT production_item, SUM(qty - produced_qty) as wo_plan 
+        FROM `tabWork Order`
+        WHERE docstatus = 1 AND status != 'Stopped' GROUP BY production_item""", as_dict=1)
+    ps_agg = frappe.db.sql("""SELECT production_item, SUM(quantity - produced_qty) as ps_plan
+        FROM `tabProcess Sheet` WHERE docstatus = 1 AND status NOT IN ('Short Closed', 'Stopped', 'Completed') 
+        GROUP BY production_item""", as_dict=1)
+    plan_map = {}
+    for d in wo_agg:
+        plan_map[d.production_item] = plan_map.get(d.production_item, 0) + flt(d.wo_plan)
+    for d in ps_agg:
+        plan_map[d.production_item] = plan_map.get(d.production_item, 0) + flt(d.ps_plan)
+
+    prd_agg = frappe.db.sql("""SELECT psi.item_code, SUM(psi.calculated_qty - psi.qty) as qty_prod
+        FROM `tabProcess Sheet Items` psi, `tabProcess Sheet` ps
+        WHERE ps.name = psi.parent AND psi.parenttype = 'Process Sheet' AND ps.docstatus = 1
+        AND psi.parentfield = 'rm_consumed' AND ps.status NOT IN ("Stopped", "Completed", "Short Closed")
+        AND psi.donot_consider_rm_for_production != 1
+        GROUP BY psi.item_code""", as_dict=1)
+    prd_map = {d.item_code: flt(d.qty_prod) for d in prd_agg}
+    
     sno, wrong_bin = 0, 0
     print(f"Total Items to be Checked = {len(it_list)}")
     time.sleep(1)
     for itm in it_list:
         sno += 1
-        bin_d = get_consolidate_bin(itm.name)
-        b_so, b_po, b_ind, b_plan, b_prd = bin_d[0].on_so, bin_d[0].on_po, bin_d[0].on_indent, \
-            bin_d[0].planned, bin_d[0].for_prd
-        act_soq = flt(get_total_pending_so_item(itm.name)[0].pending_qty)
-        act_planq = flt(get_planned_qty(itm.name).planned)
-        act_prdq = get_qty_for_prod_for_item(itm.name)
-        act_indq = get_indented_qty(itm.name)
-        act_poq = get_po_pend_qty(itm.name)
+        bd = bin_map.get(itm.name, {})
+        b_so, b_po, b_ind, b_plan, b_prd = bd.get('on_so', 0), bd.get('on_po', 0), bd.get('on_indent', 0), bd.get('planned', 0), bd.get('for_prd', 0)
+        
+        act_soq = so_map.get(itm.name, 0.0)
+        act_planq = plan_map.get(itm.name, 0.0)
+        act_prdq = prd_map.get(itm.name, 0.0)
+        act_indq = ind_map.get(itm.name, 0.0)
+        act_poq = po_map.get(itm.name, 0.0)
+        
         if b_so != act_soq:
             wrong_bin += 1
             error_items = update_bin_data(itm.name, "reserved_qty", b_so, act_soq, error_items)

@@ -264,49 +264,49 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-#     "cron": {
-#         "*/30 * * * *": [
-#             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.indiamart.execute"
-#             # Runs Every 30 mins
-#         ],
-#         "10 2 * * *": [
-#             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.enqueue_check_wrong_variants",
-#             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.check_update_bin_values.enqueue_ex"
-#             # Runs everyday at 2:10 AM
-#         ],
-#         "10 3 * * 0": [
-#             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.enqueue_set_valuation_rate"
-#             # Runs weekly at 3:10 AM on Sunday
-#         ],
-#         "15 3 01 */3 *": [
-#             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute",
-#             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.enqueue_rol_job",
-#             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_calculate_lead_times.enqueue_job"
-#             # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:15 AM
-#         ],
-#     },
-#     "all": [
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.update_rm_status_unmodified",
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute",
-#     ],
-#     "daily": [
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
-#         "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks",
-#     ],
-#     "hourly": [
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.enqueue_get_ship_data",
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.enqueue_jc_status_update",
-#         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update",
-#     ]
-#     #   "monthly": [
-#     #       "rigpl_erpnext.tasks.monthly"
-#     #   ]
-# }
+scheduler_events = {
+    "cron": {
+        "*/30 * * * *": [
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.indiamart.execute"
+            # Runs Every 30 mins
+        ],
+        "10 2 * * *": [
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.enqueue_check_wrong_variants",
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.check_update_bin_values.enqueue_ex"
+            # Runs everyday at 2:10 AM
+        ],
+        "10 3 * * 0": [
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.enqueue_set_valuation_rate"
+            # Runs weekly at 3:10 AM on Sunday
+        ],
+        "15 3 01 */3 *": [
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute",
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.enqueue_rol_job",
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_calculate_lead_times.enqueue_job"
+            # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:15 AM
+        ],
+    },
+    "all": [
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.update_rm_status_unmodified",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute",
+    ],
+    "daily": [
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
+        "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks",
+    ],
+    "hourly": [
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.enqueue_get_ship_data",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.enqueue_jc_status_update",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update",
+    ]
+    #   "monthly": [
+    #       "rigpl_erpnext.tasks.monthly"
+    #   ]
+}
 
 # Testing
 # -------

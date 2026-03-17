@@ -1,9 +1,11 @@
 {
+ "actions": [],
  "creation": "2019-08-19 15:54:19.639307",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "send_follow_up_email",
   "sb0",
   "indiamart_api_key",
   "max_leads",
@@ -221,10 +223,17 @@
    "fieldname": "published_ctrack_days",
    "fieldtype": "Int",
    "label": "Published Ctrack Days"
+  },
+  {
+   "default": "1",
+   "fieldname": "send_follow_up_email",
+   "fieldtype": "Check",
+   "label": "Send Follow Up Email"
   }
  ],
  "issingle": 1,
- "modified": "2022-05-26 05:32:35.175318",
+ "links": [],
+ "modified": "2026-03-17 09:22:13.878025",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
@@ -242,7 +251,9 @@
   }
  ],
  "quick_entry": 1,
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
