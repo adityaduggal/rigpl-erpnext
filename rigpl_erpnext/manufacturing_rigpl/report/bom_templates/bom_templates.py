@@ -1,152 +1,153 @@
 # Copyright (c) 2013, Rohit Industries Group Private Limited and contributors
 # For license information, please see license.txt
 
-from __future__ import unicode_literals
 import frappe
-from operator import itemgetter
-
 
 def execute(filters=None):
-    cond_rest = get_conditions(filters)
-    bm = filters.get("bm")
-    columns, rest_details, restrictions = get_columns(filters)
+    if not filters:
+        filters = {}
+    
+    # 1. Targeted Fetch - BOM Templates matching conditions
+    conditions, params = get_conditions(filters)
+    bt_data = get_base_templates(conditions, params)
+    
+    if not bt_data:
+        return [], []
 
-    data = get_data(cond_rest, restrictions, rest_details, filters)
+    # 2. Dynamic Column Construction
+    columns, attr_details, attributes = get_columns(bt_data)
+    
+    # 3. Optimized Data Assembly
+    data = get_report_data(bt_data, attributes, attr_details)
+
     return columns, data
 
+def get_columns(bt_data):
+    bt_names = [d.name for d in bt_data]
+    
+    # Unique attributes across all relevant templates
+    attributes = frappe.db.sql_list("""
+        SELECT DISTINCT(ivr.attribute)
+        FROM `tabItem Variant Restrictions` ivr
+        WHERE ivr.parent IN %s AND ivr.parenttype = 'BOM Template RIGPL' AND ivr.parentfield = 'fg_restrictions'
+        AND ivr.is_numeric = 0
+        ORDER BY ivr.attribute
+    """, (tuple(bt_names),))
 
-def get_columns(filters):
-    conds = ""
-    join = ""
-    if filters.get("bm"):
-        conds += " AND bm.allowed_values = '%s'" % (filters.get("bm"))
-        join += " LEFT JOIN `tabItem Variant Restrictions` bm ON ivr.parent = bm.parent " \
-                "AND bm.attribute = 'Base Material'"
-    if filters.get("tt"):
-        conds += " AND tt.allowed_values = '%s'" % (filters.get("tt"))
-        join += " LEFT JOIN `tabItem Variant Restrictions` tt ON ivr.parent = tt.parent " \
-                "AND tt.attribute = 'Tool Type'"
-    columns = [
-        "BT Name:Link/BOM Template RIGPL:100"
+    columns = ["BT Name:Link/BOM Template RIGPL:100"]
+    attr_details = []
+
+    if attributes:
+        # Fetch widths for attributes in bulk
+        widths = frappe.db.sql("""
+            SELECT parent as attribute, MAX(CHAR_LENGTH(attribute_value)) as max_len
+            FROM `tabItem Attribute Value`
+            WHERE parent IN %s
+            GROUP BY parent
+        """, (tuple(attributes),), as_dict=1)
+        width_map = {w.attribute: (w.max_len or 6) for w in widths}
+
+        for attr_name in attributes:
+            max_len = width_map.get(attr_name, 6)
+            width = min(40, max_len) * 8
+            columns.append(f"{attr_name}::{width}")
+            attr_details.append({"name": attr_name})
+
+    columns += [
+        "# of Ops:Int:50", "Routing:Link/Routing:150", 
+        "Remarks::400", "Formula::400"
     ]
-    query = """SELECT DISTINCT(ivr.attribute) AS attribute, ivr.is_numeric AS numeric_val
-    FROM `tabItem Variant Restrictions` ivr %s
-    WHERE ivr.parenttype = 'BOM Template RIGPL' AND ivr.parentfield = 'fg_restrictions' 
-    AND ivr.is_numeric=0 %s""" % (join, conds)
-    restrictions = frappe.db.sql(query, as_dict=1)
-    restrictions = sorted(restrictions, key=itemgetter("numeric_val", "attribute"))
-    rest_details = []
-    for rest in restrictions:
-        temp_dict = {}
-        temp_dict["name"] = rest.attribute
-        temp_dict["is_numeric"] = rest.numeric_val
-        if rest.numeric_val != 1:
-            max_length = frappe.db.sql("""SELECT MAX(CHAR_LENGTH(attribute_value)) FROM `tabItem Attribute Value` WHERE 
-                parent = '%s'""" % (rest.attribute), as_list=1)
-            temp_dict["max_length"] = max_length[0][0]
-        else:
-            temp_dict["max_length"] = 6
-        rest_details.append(temp_dict.copy())
-    for rest in rest_details:
-        col_string = str(rest.get("name")) + '::' + str(rest.get("max_length")*8)
-        columns.append(col_string)
-    columns.append('# of Ops:In:50, ')
-    columns.append('Routing:Link/Routing:150, ')
-    columns.append('Remarks::400, ')
-    columns.append('Formula::400')
-    return columns, rest_details, restrictions
 
+    return columns, attr_details, attributes
 
-def get_data(cond_rest, restrictions, att_details, filters):
-    att_join = ''
-    att_query = ''
-    att_order = ''
-    for att in restrictions:
-        att_trimmed = (att.attribute).replace(" ", "")
-        for i in att_details:
-            if att.attribute == i["name"]:
-                att_query += """, IFNULL(%s.allowed_values, "-")""" % att_trimmed
-                att_order += """%s.allowed_values, """ % att_trimmed
+def get_base_templates(conditions, params):
+    # Fetch core data for BOM Templates
+    query = f"""
+        SELECT 
+            bt.name, bt.routing, bt.remarks, bt.formula
+        FROM `tabBOM Template RIGPL` bt
+        WHERE bt.docstatus = 0 {conditions}
+    """
+    return frappe.db.sql(query, params, as_dict=1)
 
-        att_join += """ LEFT JOIN `tabItem Variant Restrictions` %s ON bt.name = %s.parent
-            AND %s.parentfield = 'fg_restrictions' AND %s.attribute = '%s'""" % \
-                    (att_trimmed, att_trimmed, att_trimmed, att_trimmed, att.attribute)
+def get_report_data(bt_data, attributes, attr_details):
+    bt_names = [d.name for d in bt_data]
+    
+    # 1. Bulk Fetch all Restrictions
+    rest_data = frappe.get_all("Item Variant Restrictions",
+        filters={"parent": ["in", bt_names], "parenttype": "BOM Template RIGPL", "attribute": ["in", [a["name"] for a in attr_details]]},
+        fields=["parent", "attribute", "allowed_values"]
+    )
+    
+    rest_map = {}
+    for r in rest_data:
+        if r.parent not in rest_map:
+            rest_map[r.parent] = {}
+        rest_map[r.parent][r.attribute] = r.allowed_values
 
-    query = """SELECT bt.name %s, (SELECT COUNT(name) FROM `tabBOM Operation` WHERE 
-        parenttype = 'BOM Template RIGPL' AND parent = bt.name),bt.routing, bt.remarks, bt.formula
-        FROM `tabBOM Template RIGPL` bt %s 
-        WHERE bt.docstatus = 0 %s
-        ORDER BY %s bt.name""" % (att_query, att_join, cond_rest, att_order)
-    data = frappe.db.sql(query, as_list=1)
+    # 2. Bulk Fetch Operation Counts (O(1) mapping)
+    ops_data = frappe.db.sql("""
+        SELECT parent, COUNT(name) as op_count
+        FROM `tabBOM Operation`
+        WHERE parenttype = 'BOM Template RIGPL' AND parent IN %s
+        GROUP BY parent
+    """, (tuple(bt_names),), as_dict=1)
+    
+    ops_map = {d.parent: d.op_count for d in ops_data}
+
+    # 3. Assembly
+    data = []
+    for bt in bt_data:
+        bt_rests = rest_map.get(bt.name, {})
+        op_count = ops_map.get(bt.name, 0)
+        
+        row = [bt.name]
+        
+        # Restriction Columns
+        for attr in attr_details:
+            row.append(bt_rests.get(attr["name"], "-"))
+            
+        # Static Columns
+        row += [op_count, bt.routing, bt.remarks, bt.formula]
+        data.append(row)
+
+    # Python Sorting to match original ORDER BY attribute_value logic
+    data.sort(key=lambda r: (tuple(str(r[i+1]) for i in range(len(attr_details))), r[0]))
     return data
 
-
 def get_conditions(filters):
-
-    cond_rest = ""
-
-    if filters.get("bm"):
-        cond_rest += " AND BaseMaterial.allowed_values = '%s'" % filters.get("bm")
+    conditions = ""
+    params = {}
+    
+    attr_filters = {
+        "rm": "Is RM",
+        "bm": "Base Material",
+        "tt": "Tool Type",
+        "spl": "Special Treatment",
+        "series": "Series",
+        "purpose": "Purpose",
+        "type": "Type Selector",
+        "mtm": "Material to Machine"
+    }
 
     if filters.get("quality"):
         if filters.get("bm"):
-            bm = filters.get("bm")
-            cond_rest += " AND %sQuality.allowed_values = '%s'" % (bm, filters.get("quality"))
+            # Dynamic quality attribute name
+            attr_filters["quality"] = f"{filters.get('bm')} Quality"
         else:
             frappe.throw("Select Base Material before Selecting Quality")
 
-    if filters.get("spl"):
-        cond_rest += " AND SpecialTreatment.allowed_values = '%s'" % filters.get("spl")
+    # Secure filtering using EXISTS
+    for f_key, attr_name in attr_filters.items():
+        if filters.get(f_key):
+            p_val = f"f_{f_key}"
+            params[f"{p_val}_attr"] = attr_name
+            params[f"{p_val}_val"] = filters.get(f_key)
+            
+            conditions += f""" AND EXISTS (
+                SELECT 1 FROM `tabItem Variant Restrictions` 
+                WHERE parent = bt.name AND parenttype = 'BOM Template RIGPL' AND parentfield = 'fg_restrictions'
+                AND attribute = %({p_val}_attr)s AND allowed_values = %({p_val}_val)s
+            )"""
 
-    if filters.get("tt"):
-        cond_rest += " AND ToolType.allowed_values = '%s'" % filters.get("tt")
-
-    return cond_rest
-
-
-def define_join(string, table_name, allowed_values):
-    string += """ LEFT JOIN `tabItem Variant Restrictions` %s ON bt.name = %s.parent AND %s.attribute = '%s' AND 
-    %s.parentfield = 'fg_restrictions' AND %s.parenttype = 'BOM Template RIGPL'""" % \
-              (table_name, table_name, table_name, table_name, table_name, allowed_values)
-    return string
-
-
-def get_joins(bm, cond_rest, filters):
-    query_join = ""
-    if filters.get("rm"):
-        tab = 'Is RM'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("bm"):
-        tab = 'Base Material'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("tt"):
-        tab = 'Tool Type'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("quality"):
-        tab = '%s Quality' % (bm)
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("series"):
-        tab = 'Series'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("spl"):
-        tab = 'Special Treatment'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("purpose"):
-        tab = 'Purpose'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("type"):
-        tab = 'Type Selector'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("mtm"):
-        tab = 'Material to Machine'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    return query_join
+    return conditions, params

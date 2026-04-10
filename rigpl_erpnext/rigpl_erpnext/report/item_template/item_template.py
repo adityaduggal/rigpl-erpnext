@@ -5,7 +5,8 @@ from __future__ import unicode_literals
 import frappe
 
 def execute(filters=None):
-	if not filters: filters = {}
+	if not filters: filters = frappe._dict({})
+	else: filters = frappe._dict(filters)
 	columns = get_columns()
 	data = get_items(filters)
 	
@@ -22,88 +23,107 @@ def get_columns():
 	]
 
 def get_items(filters):
-	conditions_it = get_conditions(filters)
-	bm = filters["bm"]
-	#List of fields to be fetched in the report
-	attributes = ['Is RM', 'Base Material', 'Brand', '%Quality', 'Special Treatment',
-		'Tool Type', 'd1_mm', 'd1_inch', 'w1_mm', 'w1_inch', 'l1_mm', 'l1_inch',
-		'CETSH Number']
+	conditions, params = get_conditions(filters)
 	
-	float_fields = ['d1_mm', 'w1_mm', 'l1_mm']
-	linked_fields = ['d1_inch', 'w1_inch', 'l1_inch']
-	
-	data = frappe.db.sql("""SELECT it.name, 
-		(SELECT count(name) FROM `tabItem` WHERE variant_of = it.name),
-		it.variant_limit,
-		IFNULL(rm.allowed_values, "-"), IFNULL(bm.allowed_values, "-"),
-		IFNULL(brand.allowed_values, "-"), IFNULL(quality.allowed_values, "-"), 
-		IFNULL(spl.allowed_values, "-"), IFNULL(tt.allowed_values, "-"),
-		IFNULL(mtm.allowed_values, "-"), IFNULL(purpose.allowed_values, "-"),
-		it.item_group, it.default_warehouse, it.valuation_method,
-		it.tolerance, it.is_purchase_item,
-		it.is_sales_item, it.show_in_website, 
-		(SELECT COUNT(name) FROM `tabItem` WHERE show_variant_in_website = 1 AND variant_of = it.name), 
-		it.pl_item, it.is_pro_applicable,
-		IFNULL(cetsh.allowed_values, "-"), NULL, NULL, NULL, IFNULL(it.image, "-")
-		
+	# 1. Base Item Fetch
+	items = frappe.db.sql(f"""
+		SELECT 
+			it.name, it.variant_limit, it.item_group, it.default_warehouse, 
+			it.valuation_method, it.tolerance, it.is_purchase_item,
+			it.is_sales_item, it.show_in_website, it.pl_item, it.is_pro_applicable,
+			it.image 
 		FROM `tabItem` it
-		LEFT JOIN `tabItem Variant Restrictions` rm ON it.name = rm.parent
-			AND rm.attribute = 'Is RM'
-		LEFT JOIN `tabItem Variant Restrictions` bm ON it.name = bm.parent
-			AND bm.attribute = 'Base Material'
-		LEFT JOIN `tabItem Variant Restrictions` brand ON it.name = brand.parent
-			AND brand.attribute = 'Brand'
-		LEFT JOIN `tabItem Variant Restrictions` quality ON it.name = quality.parent
-			AND quality.attribute = '%s Quality'
-		LEFT JOIN `tabItem Variant Restrictions` spl ON it.name = spl.parent
-			AND spl.attribute = 'Special Treatment'
-		LEFT JOIN `tabItem Variant Restrictions` tt ON it.name = tt.parent
-			AND tt.attribute = 'Tool Type'
-		LEFT JOIN `tabItem Variant Restrictions` mtm ON it.name = mtm.parent
-			AND mtm.attribute = 'Material to Machine'
-		LEFT JOIN `tabItem Variant Restrictions` purpose ON it.name = purpose.parent
-			AND purpose.attribute = 'Purpose'
-		LEFT JOIN `tabItem Variant Restrictions` type ON it.name = type.parent
-			AND type.attribute = 'Type Selector'
-		LEFT JOIN `tabItem Variant Restrictions` cetsh ON it.name = cetsh.parent
-			AND cetsh.attribute = 'CETSH Number'
-			
-			
-		WHERE it.has_variants = 1 %s """ % (bm, conditions_it) , as_list = 1)
+		WHERE it.has_variants = 1
+		{conditions}
+	""", params, as_dict=1)
+	
+	if not items:
+		return []
+
+	item_codes = [d.name for d in items]
+	
+	# 2. Bulk Fetch Variant Counts
+	variant_counts = get_bulk_variant_counts(item_codes)
+	
+	# 3. Bulk Fetch Restrictions
+	restriction_map = get_restriction_map(item_codes, filters.get("bm"))
+	
+	# 4. Assembly
+	data = []
+	for it in items:
+		counts = variant_counts.get(it.name, {"total": 0, "web": 0})
+		res = restriction_map.get(it.name, {})
+		
+		data.append([
+			it.name, counts["total"], it.variant_limit,
+			res.get("Is RM", "-"), res.get("Base Material", "-"),
+			res.get("Brand", "-"), res.get("Quality", "-"),
+			res.get("Special Treatment", "-"), res.get("Tool Type", "-"),
+			res.get("Material to Machine", "-"), res.get("Purpose", "-"),
+			it.item_group, it.default_warehouse, it.valuation_method,
+			it.tolerance, it.is_purchase_item,
+			it.is_sales_item, it.show_in_website, counts["web"],
+			it.pl_item, it.is_pro_applicable,
+			res.get("CETSH Number", "-"), None, None, None, it.image or "-"
+		])
 				
 	return data
+
+def get_bulk_variant_counts(item_codes):
+	# Fetch all variant counts and web variants at once
+	res = {ic: {"total": 0, "web": 0} for ic in item_codes}
 	
+	counts = frappe.db.sql("""
+		SELECT variant_of, COUNT(name) as total, SUM(IF(show_variant_in_website=1, 1, 0)) as web
+		FROM `tabItem` 
+		WHERE variant_of IN %s AND has_variants = 0
+		GROUP BY variant_of
+	""", (tuple(item_codes),), as_dict=1)
+	
+	for c in counts:
+		res[c.variant_of] = {"total": c.total, "web": c.web}
+	return res
+
+def get_restriction_map(item_codes, bm_filter):
+	quality_attr = f"{bm_filter} Quality" if bm_filter else "Quality"
+	attrs_to_fetch = ['Is RM', 'Base Material', 'Brand', quality_attr, 'Special Treatment',
+		'Tool Type', 'Material to Machine', 'Purpose', 'CETSH Number']
+	
+	raw_res = frappe.get_all("Item Variant Restrictions",
+		filters={"parent": ["in", item_codes], "attribute": ["in", attrs_to_fetch]},
+		fields=["parent", "attribute", "allowed_values"]
+	)
+	
+	mapping = {}
+	for r in raw_res:
+		if r.parent not in mapping: mapping[r.parent] = {}
+		key = "Quality" if r.attribute == quality_attr else r.attribute
+		mapping[r.parent][key] = r.allowed_values
+	return mapping
+
 def get_conditions(filters):
-	conditions_it = ""
+	conditions = ""
+	params = {}
+	
+	attr_filters = {
+		"rm": "Is RM", "bm": "Base Material", "brand": "Brand", 
+		"quality": "Quality", "spl": "Special Treatment", "purpose": "Purpose",
+		"type": "Type Selector", "mtm": "Material to Machine", "tt": "Tool Type"
+	}
 
-	if filters.get("rm"):
-		conditions_it += " AND rm.allowed_values = '%s'" % filters["rm"]
+	for f_key, attr_name in attr_filters.items():
+		if filters.get(f_key):
+			actual_attr = attr_name
+			if f_key == "quality" and filters.get("bm"):
+				actual_attr = f"{filters.get('bm')} Quality"
+			
+			p_val = f"f_{f_key}"
+			params[f"{p_val}_attr"] = actual_attr
+			params[f"{p_val}_val"] = filters.get(f_key)
+			conditions += f" AND EXISTS (SELECT 1 FROM `tabItem Variant Restrictions` WHERE parent = it.name AND attribute = %({p_val}_attr)s AND allowed_values = %({p_val}_val)s)"
 
-	if filters.get("bm"):
-		conditions_it += " AND bm.allowed_values = '%s'" % filters["bm"]
-
-	if filters.get("brand"):
-		conditions_it += " AND brand.allowed_values = '%s'" % filters["brand"]
-
-	if filters.get("quality"):
-		conditions_it += " AND quality.allowed_values = '%s'" % filters["quality"]
-
-	if filters.get("spl"):
-		conditions_it += " AND spl.allowed_values = '%s'" % filters["spl"]
-
-	if filters.get("purpose"):
-		conditions_it += " AND purpose.allowed_values = '%s'" % filters["purpose"]
-		
-	if filters.get("type"):
-		conditions_it += " AND type.allowed_values = '%s'" % filters["type"]
-		
-	if filters.get("mtm"):
-		conditions_it += " AND mtm.allowed_values = '%s'" % filters["mtm"]
-		
-	if filters.get("tt"):
-		conditions_it += " AND tt.allowed_values = '%s'" % filters["tt"]
-		
 	if filters.get("template"):
-		conditions_it += " AND it.name = '%s'" % filters["template"]
+		conditions += " AND it.name = %(item)s"
+		params["item"] = filters.get("template")
 
-	return conditions_it
+	return conditions, params

@@ -26,19 +26,13 @@ def get_columns():
 
 def get_data(filters):
     data = []
-    it_conditions = get_conditions(filters)
-    query = (
-        """SELECT it.name, it.description, it.variant_of FROM `tabItem` it 
+    it_conditions, params = get_conditions(filters)
+    query = f"""SELECT it.name, it.description, it.variant_of FROM `tabItem` it 
 	WHERE it.disabled = 0 AND it.include_item_in_manufacturing = 1 AND it.has_variants = 0 
-	AND it.variant_of IS NOT NULL %s
+	AND it.variant_of IS NOT NULL {it_conditions}
 	ORDER BY it.variant_of, it.name"""
-        % it_conditions
-    )
-    it_dict = frappe.db.sql(query, as_dict=1)
+    it_dict = frappe.db.sql(query, params, as_dict=1)
     for d in it_dict:
-        line_data = []
-        line_data.append(d.name)
-        line_data.append(d.description)
         it_doc = frappe.get_doc("Item", d.name)
         bt_name = get_bom_template_from_item(it_doc, no_error=1)
         bt_names_concat = " "
@@ -50,15 +44,16 @@ def get_data(filters):
                     bt_names_concat += bt + ", "
         else:
             bt_names_concat = "No Applicable BOM Templates Found"
-        line_data.append(bt_names_concat)
-        line_data.append(d.variant_of)
-        data.append(line_data)
+        data.append([d.name, d.description, bt_names_concat, d.variant_of])
     return data
 
 
 def get_conditions(filters):
     it_conds = ""
+    params = {}
     if filters.get("template"):
-        it_conds += " AND it.variant_of = '%s'" % (filters.get("template"))
+        it_conds += " AND it.variant_of = %(template)s"
+        params["template"] = filters.get("template")
 
-    return it_conds
+    return it_conds, params
+
