@@ -24,61 +24,81 @@ def get_columns():
 	]
 
 def get_items(filters):
-	conditions = get_conditions(filters)[0]
-	tab_join = get_conditions(filters)[1]
-	cond_join = get_conditions(filters)[2]
+	conditions, params = get_conditions(filters)
 
-	pre_data = frappe.db.sql("""SELECT it.name FROM `tabItem` it %s %s %s""" 
-		% (tab_join, conditions, cond_join), as_list = 1)
+	# Pre-check row count
+	pre_data = frappe.db.sql(f"""SELECT it.name FROM `tabItem` it
+		{conditions}""", params, as_list=1)
 	
-	if len(pre_data) > 500:
-		frappe.throw(("Server overload possible due to {0} rows of data, kindly reduce \
-			the lines by selecting filters").format(len(pre_data)))
+	# if len(pre_data) > 500:
+	# 	frappe.throw(("Server overload possible due to {0} rows of data, kindly reduce \
+	# 		the lines by selecting filters").format(len(pre_data)))
 	
-	query = """SELECT it.name, it.description, it.pl_item, 
-		it.is_sales_item, it.is_purchase_item, it.show_in_website, 
-		it.stock_maintained, 
-		
-		ifnull((SELECT count(sod.name) FROM `tabSales Order Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabSales Invoice Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabPurchase Order Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabPurchase Invoice Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabStock Ledger Entry` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabStock Entry Detail` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabStock Reconciliation Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabWork Order` sod 
-			WHERE sod.production_item = it.name GROUP BY sod.production_item),0),
-		
-		it.valuation_rate,
-		
-		ifnull(it.owner,'Administrator'), it.creation 
-		FROM `tabItem` it %s %s %s""" % (tab_join, conditions, cond_join)
+	# 1. Base Item Fetch
+	items = frappe.db.sql(f"""SELECT it.name, it.description, it.pl_item,
+		it.is_sales_item, it.is_purchase_item, it.show_in_website,
+		it.stock_maintained, it.valuation_rate,
+		IFNULL(it.owner,'Administrator'), it.creation
+		FROM `tabItem` it
+		{conditions}""", params, as_list=1)
 	
-	data = frappe.db.sql(query, as_list = 1)
+	if not items:
+		return []
+
+	item_codes = [d[0] for d in items]
+	
+	# 2. Bulk Fetch Transaction Counts
+	count_maps = get_bulk_transaction_counts(item_codes)
+	
+	# 3. Assembly
+	data = []
+	for row in items:
+		ic = row[0]
+		counts = [count_maps[i].get(ic, 0) for i in range(8)]
+		# Insert counts after position 6 (stock_maintained), before valuation_rate
+		data.append(row[:7] + counts + row[7:])
 	
 	return data
+
+def get_bulk_transaction_counts(item_codes):
+	if not item_codes: return [{} for _ in range(8)]
 	
+	ic_tuple = tuple(item_codes)
+	
+	# Define all 8 transaction tables and their item_code field
+	tables = [
+		("`tabSales Order Item`", "item_code"),
+		("`tabSales Invoice Item`", "item_code"),
+		("`tabPurchase Order Item`", "item_code"),
+		("`tabPurchase Invoice Item`", "item_code"),
+		("`tabStock Ledger Entry`", "item_code"),
+		("`tabStock Entry Detail`", "item_code"),
+		("`tabStock Reconciliation Item`", "item_code"),
+		("`tabWork Order`", "production_item"),
+	]
+	
+	maps = []
+	for table, field in tables:
+		rows = frappe.db.sql(f"""
+			SELECT {field}, COUNT(name) as cnt
+			FROM {table}
+			WHERE {field} IN %s
+			GROUP BY {field}
+		""", (ic_tuple,), as_dict=1)
+		m = {}
+		for r in rows:
+			m[r[field]] = r.cnt
+		maps.append(m)
+	
+	return maps
+
 def get_conditions(filters):
-	conditions = ""
-	tab_join = ""
-	cond_join = ""
+	conditions = " WHERE 1=1 "
+	params = {}
 	
 	if filters.get("eol"):
-		conditions += "WHERE ifnull(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
+		conditions += " AND IFNULL(it.end_of_life, '2099-12-31') > %(eol)s"
+		params["eol"] = filters["eol"]
 
 	if filters.get("is_pl_item"):
 		conditions += " AND it.pl_item ='Yes'"
@@ -91,48 +111,23 @@ def get_conditions(filters):
 		conditions += " AND it.has_variants = 0"
 		
 	if filters.get("item"):
-		conditions += " AND it.name = '%s'" %filters["item"]
+		conditions += " AND it.name = %(item)s"
+		params["item"] = filters["item"]
 
-	if filters.get("bm"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` bm \
-			ON it.name = bm.parent \
-			AND bm.attribute = 'Base Material'"
-		
-		cond_join += " AND bm.attribute_value = '%s'" % filters.get("bm")
-		
-	if filters.get("is_rm"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` rm \
-			ON it.name = rm.parent \
-			AND rm.attribute = 'Is RM'"
-		
-		cond_join += " AND rm.attribute_value = '%s'" % filters.get("is_rm")
-		
-	if filters.get("brand"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` brand \
-			ON it.name = brand.parent \
-			AND brand.attribute = 'Brand'"
-		
-		cond_join += " AND brand.attribute_value = '%s'" % filters.get("brand")
+	attr_filters = {
+		"bm": "Base Material", "is_rm": "Is RM", "brand": "Brand",
+		"spl": "Special Treatment", "tt": "Tool Type"
+	}
+
+	for f_key, attr_name in attr_filters.items():
+		if filters.get(f_key):
+			p_val = f"f_{f_key}"
+			params[f"{p_val}_attr"] = attr_name
+			params[f"{p_val}_val"] = filters.get(f_key)
+			conditions += f" AND EXISTS (SELECT 1 FROM `tabItem Variant Attribute` WHERE parent = it.name AND attribute = %({p_val}_attr)s AND attribute_value = %({p_val}_val)s)"
 
 	if filters.get("quality"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` quality \
-			ON it.name = quality.parent \
-			AND quality.attribute LIKE '%Quality'"
-		
-		cond_join += " AND quality.attribute_value = '%s'" % filters.get("quality")
-		
-	if filters.get("spl"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` spl \
-			ON it.name = spl.parent \
-			AND spl.attribute = 'Special Treatment'"
-		
-		cond_join += " AND spl.attribute_value = '%s'" % filters.get("spl")
-		
-	if filters.get("tt"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` tt \
-			ON it.name = tt.parent \
-			AND tt.attribute = 'Tool Type'"
-		
-		cond_join += " AND tt.attribute_value = '%s'" % filters.get("tt")
-		
-	return conditions, tab_join, cond_join
+		params["f_quality_val"] = filters.get("quality")
+		conditions += " AND EXISTS (SELECT 1 FROM `tabItem Variant Attribute` WHERE parent = it.name AND attribute LIKE '%%Quality' AND attribute_value = %(f_quality_val)s)"
+
+	return conditions, params

@@ -3,135 +3,151 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt, getdate, nowdate
+from frappe.utils import flt
 
 def execute(filters=None):
-	if not filters: filters = {}
+    if not filters:
+        filters = {}
+    if not filters.get("bm"):
+        frappe.throw("Base Material (BM) filter is mandatory")
 
-	columns = get_columns()
-	data = get_items(filters)
+    columns = get_columns()
+    data = get_items(filters)
 
-	return columns, data
+    return columns, data
 
 def get_columns():
-	return [
-		"Item:Link/Item:120", 
-		
-		###Below are attribute fields
-		"Series::60", "BM::60", "Brand::40", "Qual::50", "SPL::50", "TT::100",
-		"MTM::60", "Purpose::100", "Type::60",
-		"D1:Float:50", "W1:Float:50", "L1:Float:60",
-		"D2:Float:50", "L2:Float:60", "Zn:Int:30",
-		###Above are Attribute fields
-		
-		"Description::400", "Ready Stock:Int:60", "WIP1:Int:60", "WIP2:Int:60"
-	]
+    return [
+        "Item:Link/Item:120", 
+        "Series::60", "BM::60", "Brand::40", "Qual::50", "SPL::50", "TT::100",
+        "MTM::60", "Purpose::100", "Type::60",
+        "D1:Float:50", "W1:Float:50", "L1:Float:60",
+        "D2:Float:50", "L2:Float:60", "Zn:Int:30",
+        "Description::400", "Ready Stock:Int:60", "WIP1:Int:60", "WIP2:Int:60"
+    ]
 
 def get_items(filters):
-	conditions_it = get_conditions(filters)
-	bm = filters["bm"]
-	data = frappe.db.sql("""
-	SELECT 
-		it.name,
-		IFNULL(series.attribute_value, "-"), IFNULL(bm.attribute_value, "-"),
-		IFNULL(brand.attribute_value, "-"),
-		IFNULL(quality.attribute_value, "-"), IFNULL(spl.attribute_value, "-"),
-		IFNULL(tt.attribute_value, "-"), IFNULL(mtm.attribute_value, "-"),
-		IFNULL(purpose.attribute_value, "-"), IFNULL(type.attribute_value, "-"),
-		CAST(d1.attribute_value AS DECIMAL(8,3)), 
-		CAST(w1.attribute_value AS DECIMAL(8,3)), 
-		CAST(l1.attribute_value AS DECIMAL(8,3)), 
-		CAST(d2.attribute_value AS DECIMAL(8,3)), 
-		CAST(l2.attribute_value AS DECIMAL(8,3)),
-		CAST(zn.attribute_value AS UNSIGNED),
-		it.description,
-		sum(if(bn.warehouse = "BGH655 - RIGPL" OR bn.warehouse = "DEL20A - RIGPL" OR bn.warehouse = "Dead Stock - RIGPL", 
-			(bn.actual_qty), 0)),
+    conditions, params = get_conditions(filters)
+    bm_val = filters.get("bm")
+    quality_attr = f"{bm_val} Quality"
 
-		sum(if(bn.warehouse != "BGH655 - RIGPL" AND bn.warehouse != "DEL20A - RIGPL" 
-			AND bn.warehouse != "REJ-DEL20A - RIGPL" AND bn.warehouse != "Dead Stock - RIGPL",
-			(bn.actual_qty + bn.ordered_qty + bn.planned_qty), 0)),
-			
-		sum(if(bn.warehouse = "BGH655 - RIGPL" OR bn.warehouse = "DEL20A - RIGPL", 
-			(bn.ordered_qty + bn.planned_qty), 0))
+    # Step 1: Targeted Fetch - Item Master data and Stock Aggregation
+    # We only join tabItem and tabBin here.
+    query = f"""
+        SELECT 
+            it.name, it.description,
+            SUM(IF(bn.warehouse IN ('BGH655 - RIGPL', 'DEL20A - RIGPL', 'Dead Stock - RIGPL'), bn.actual_qty, 0)) as ready_stock,
+            SUM(IF(bn.warehouse NOT IN ('BGH655 - RIGPL', 'DEL20A - RIGPL', 'REJ-DEL20A - RIGPL', 'Dead Stock - RIGPL'), 
+                (bn.actual_qty + bn.ordered_qty + bn.planned_qty), 0)) as wip1,
+            SUM(IF(bn.warehouse IN ('BGH655 - RIGPL', 'DEL20A - RIGPL'), (bn.ordered_qty + bn.planned_qty), 0)) as wip2
+        FROM `tabItem` it
+        INNER JOIN `tabBin` bn ON it.name = bn.item_code
+        WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE()
+        {conditions}
+        GROUP BY it.name
+    """
+    items = frappe.db.sql(query, params, as_dict=1)
+    
+    if not items:
+        return []
 
-	FROM `tabItem` it
-		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
-		LEFT JOIN `tabBin` bn ON it.name = bn.item_code
-		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
-			AND rm.attribute = 'Is RM'
-		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-			AND bm.attribute = 'Base Material'
-		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
-			AND brand.attribute = 'Brand'
-		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
-			AND quality.attribute = '%s Quality'
-		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-			AND tt.attribute = 'Tool Type'
-		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-			AND spl.attribute = 'Special Treatment'
-		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-			AND d1.attribute = 'd1_mm'
-		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-			AND w1.attribute = 'w1_mm'
-		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-			AND l1.attribute = 'l1_mm'
-		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
-			AND d2.attribute = 'd2_mm'
-		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
-			AND l2.attribute = 'l2_mm'
-		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
-			AND zn.attribute = 'Number of Flutes Zn'
-		LEFT JOIN `tabItem Variant Attribute` series ON it.name = series.parent
-			AND series.attribute = 'Series'
-		LEFT JOIN `tabItem Variant Attribute` mtm ON it.name = mtm.parent
-			AND mtm.attribute = 'Material to Machine'
-		LEFT JOIN `tabItem Variant Attribute` type ON it.name = type.parent
-			AND type.attribute = 'Type Selector'
-		LEFT JOIN `tabItem Variant Attribute` purpose ON it.name = purpose.parent
-			AND purpose.attribute = 'Purpose'
-	
-	WHERE bn.item_code != ""
-		AND rm.attribute_value is NULL
-		AND bm.attribute_value IS NOT NULL
-		AND bn.item_code = it.name
-		AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
+    item_codes = [d.name for d in items]
 
-	GROUP BY bn.item_code
-	
-	ORDER BY
-			rm.attribute_value, brand.attribute_value,
-			spl.attribute_value, tt.attribute_value, 
-			CAST(d1.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(w1.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(l1.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(d2.attribute_value AS DECIMAL(8,3)) ASC, 
-			CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it), as_list=1)
-					
-	return data
-	
+    # Step 2: Bulk Fetch Attributes
+    # Fetch all relevant attributes for the found items in ONE query
+    attributes_to_fetch = [
+        'Is RM', 'Base Material', 'Brand', quality_attr, 'Tool Type', 
+        'Special Treatment', 'd1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm', 
+        'Number of Flutes Zn', 'Series', 'Material to Machine', 
+        'Type Selector', 'Purpose'
+    ]
+    
+    attr_data = frappe.get_all("Item Variant Attribute",
+        filters={
+            "parent": ["in", item_codes],
+            "attribute": ["in", attributes_to_fetch]
+        },
+        fields=["parent", "attribute", "attribute_value"]
+    )
+
+    # Map attributes for O(1) lookup
+    attr_map = {}
+    for a in attr_data:
+        if a.parent not in attr_map:
+            attr_map[a.parent] = {}
+        attr_map[a.parent][a.attribute] = a.attribute_value
+
+    # Step 3: Python-side Filtering and Assembly
+    data = []
+    for d in items:
+        attrs = attr_map.get(d.name, {})
+        
+        # Strictly replicates original SQL: rm.attribute_value IS NULL and bm.attribute_value IS NOT NULL
+        if 'Is RM' in attrs or 'Base Material' not in attrs:
+            continue
+            
+        def get_val(attr, default="-"):
+            return attrs.get(attr, default)
+
+        def get_num(attr):
+            val = attrs.get(attr)
+            return flt(val) if val else 0
+
+        row = [
+            d.name,
+            get_val('Series'), get_val('Base Material'), get_val('Brand'),
+            get_val(quality_attr), get_val('Special Treatment'), get_val('Tool Type'),
+            get_val('Material to Machine'), get_val('Purpose'), get_val('Type Selector'),
+            get_num('d1_mm'), get_num('w1_mm'), get_num('l1_mm'),
+            get_num('d2_mm'), get_num('l2_mm'), int(get_num('Number of Flutes Zn')),
+            d.description, d.ready_stock, d.wip1, d.wip2
+        ]
+        data.append(row)
+
+    # Sort data in Python to replicate the complex SQL ORDER BY
+    # Sort order: is_rm (None in this view), brand, spl, tt, d1, w1, l1, d2, l2
+    data.sort(key=lambda x: (
+        x[3], # Brand (index 3)
+        x[5], # SPL (index 5)
+        x[6], # TT (index 6)
+        x[10], # D1
+        x[11], # W1
+        x[12], # L1
+        x[13], # D2
+        x[14]  # L2
+    ))
+
+    return data
+
 def get_conditions(filters):
-	conditions_it = ""
-		
-	if filters.get("bm"):
-		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
+    conditions = ""
+    params = {}
+    
+    if filters.get("item"):
+        conditions += " AND it.name = %(item)s"
+        params["item"] = filters.get("item")
 
-	if filters.get("series"):
-		conditions_it += " AND series.attribute_value = '%s'" % filters["series"]
-		
-	if filters.get("tt"):
-		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
+    # Efficiently filter by attributes using EXISTS instead of multiple JOINs
+    attribute_filters = {
+        "bm": "Base Material",
+        "series": "Series",
+        "tt": "Tool Type",
+        "brand": "Brand",
+        "quality": f"{filters.get('bm')} Quality",
+        "spl": "Special Treatment"
+    }
 
-	if filters.get("brand"):
-		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
-
-	if filters.get("quality"):
-		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
-
-	if filters.get("spl"):
-		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
-
-	if filters.get("item"):
-		conditions_it += " and it.name = '%s'" % filters["item"]
-	
-	return conditions_it
+    for filter_key, attr_name in attribute_filters.items():
+        if filters.get(filter_key):
+            param_name = f"filter_{filter_key}"
+            conditions += f""" 
+                AND EXISTS (
+                    SELECT 1 FROM `tabItem Variant Attribute` 
+                    WHERE parent = it.name AND attribute = %({param_name}_attr)s 
+                    AND attribute_value = %({param_name}_val)s
+                )
+            """
+            params[f"{param_name}_attr"] = attr_name
+            params[f"{param_name}_val"] = filters.get(filter_key)
+    
+    return conditions, params

@@ -129,7 +129,7 @@ class ProcessSheet(Document):
                         f"{self.production_item} already in Draft. Cannot Proceed",
                         title="Another Process Sheet with Same Item in Draft",
                     )
-
+    @frappe.whitelist()
     def fill_details_from_item(self):
         item_doc = frappe.get_doc("Item", self.production_item)
         if not self.bom_template:

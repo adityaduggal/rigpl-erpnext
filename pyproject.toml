@@ -8,5 +8,12 @@ readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # Core dependencies
-    "hrms @ git+https://github.com/frappe/hrms.git#version-14",
+    "fedex @ git+https://github.com/python-fedex-devs/python-fedex.git",
+    "html2text==2025.4.15",
 ]
+
+[tool.setuptools]
+packages = ["rigpl_erpnext"]
+
+[tool.setuptools.package-data]
+rigpl_erpnext = ["/*.html", "/*.js", "/*.json", "/*.md", "/*.css", "/*.txt"]

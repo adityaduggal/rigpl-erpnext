@@ -4,8 +4,7 @@ import frappe
 import datetime as dt
 from frappe.utils import getdate, get_time
 from erpnext.stock.doctype.stock_entry.stock_entry import StockEntry
-from ...utils.manufacturing_utils import get_bom_template_from_item
-
+from ...manufacturing_rigpl.utils.manufacturing_utils import get_bom_template_from_item
 
 def validate(doc, method):
     """

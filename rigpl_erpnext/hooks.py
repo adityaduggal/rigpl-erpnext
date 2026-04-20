@@ -13,9 +13,9 @@ app_email = "aditya@rigpl.com"
 app_url = "https://github.com/adityaduggal/rigpl-erpnext"
 app_version = "0.0.1"
 hide_in_installer = True
-
+required_apps = ["frappe/erpnext", "https://github.com/adityaduggal/india_compliance.git@develop","frappe/hrms"]
 # Fixtures help https://frappeframework.com/docs/v13/user/en/python-api/hooks#fixtures
-fixtures = []
+fixtures = ["Custom DocPerm","Client Script"]
 
 
 # override_whitelisted_methods = {
@@ -46,7 +46,10 @@ fixtures = []
 
 # Home Pages
 # ----------
-website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
+
+# website_generators Deprecated (Use Has Web View in DocType instead)
+# website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
+
 # application home page (will override Website Settings)
 # home_page = "login"
 
@@ -67,9 +70,17 @@ website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
 # You can use the update_website_context hook for more complex scenarios as it allows you to manipulate the
 # context dict in a python method. The method is called with one argument, which is the context dict
 
+# from rigpl_erpnext.utils.routing import get_website_route_rules
+
+# Website Route Rules
+# -------------------
+# Route all unknown paths to products handler to check for custom_route matches
+# website_route_rules = get_website_route_rules()
+# website_route_rules = "rigpl_erpnext.utils.routing.get_website_route_rules"
+
 # Installation
 # ------------
-
+before_migrate = "rigpl_erpnext.before_migrate_patches.execute"
 # before_install = "rigpl_erpnext.install.before_install"
 # after_install = "rigpl_erpnext.setup.after_install"
 # after_migrate = "rigpl_erpnext.setup.after_migrate"
@@ -97,7 +108,9 @@ website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
 doctype_js = {
     "Bank Account": "public/js/bank_account.js",
     "Item": "public/js/stock/item.js",
+    "Journal Entry": "public/js/journal_entry.js",
     "Leave Allocation": "public/js/hr/leave_allocation.js",
+    "Payment Entry": "public/js/payment_entry.js",
 }
 
 # Document Events
@@ -142,6 +155,10 @@ doc_events = {
     "Holiday List": {
         "validate": "rigpl_erpnext.hr_rigpl.validations.holiday_list.validate"
     },
+    "Journal Entry": {
+        "before_insert": "rigpl_erpnext.rigpl_erpnext.validations.journal_entry.before_insert",
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.journal_entry.validate",
+    },
     "Item": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item.validate",
         "autoname": "rigpl_erpnext.rigpl_erpnext.validations.item.autoname",
@@ -171,6 +188,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
     },
     "Payment Entry": {
+        "before_insert": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.before_insert",
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.on_submit",
     },
@@ -178,7 +196,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
     },
     "Pricing Rule": {
-        "validate": "rigpl_erpnext.accounts_rigpl.validations.pricing_rule.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.pricing_rule.validate"
     },
     "Purchase Order": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate",

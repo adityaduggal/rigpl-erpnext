@@ -45,13 +45,13 @@ def check_items_as_per_sorting_for_website():
         v_count = 0
         check = 1
         sno = 0
+        temp_doc = frappe.get_doc("Item", temp[0])
         for it in item_dict:
             sno += 1
             all_items += 1
             print(f"{sno}. Checking for Item Code {it.name}")
             it_doc = frappe.get_doc("Item", it.name)
-            temp_doc = frappe.get_doc("Item", temp[0])
-            validate_variants(it_doc, comm_type="backend")
+            validate_variants(it_doc, comm_type="backend", template=temp_doc)
             check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
             if all_items % 100 == 0 and all_items > 0:
                 print(f"Committing Changes after making {all_items} Changes")
@@ -113,7 +113,7 @@ def copy_from_template():
                     check = 0
                     print("Checking Item = " + item[0])
                     it_doc = frappe.get_doc("Item", item[0])
-                    validate_variants(it_doc, comm_type="backend")
+                    validate_variants(it_doc, comm_type="backend", template=temp_doc)
                     check += check_and_copy_attributes_to_variant(temp_doc, it_doc)
                     fields_edited += check
             else:

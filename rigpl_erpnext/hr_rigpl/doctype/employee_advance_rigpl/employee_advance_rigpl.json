@@ -1,0 +1,137 @@
+{
+    "actions": [],
+    "allow_copy": 0,
+    "allow_guest_to_view": 0,
+    "allow_import": 1,
+    "allow_rename": 0,
+    "autoname": "EAR.####",
+    "creation": "2017-04-15 11:25:42.641057",
+    "doctype": "DocType",
+    "document_type": "Document",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "fields": [
+        {
+            "fieldname": "posting_date",
+            "fieldtype": "Date",
+            "in_list_view": 1,
+            "label": "Posting Date",
+            "no_copy": 1,
+            "reqd": 1
+        },
+        {
+            "fieldname": "total_loan",
+            "fieldtype": "Currency",
+            "in_list_view": 1,
+            "label": "Total Loan",
+            "no_copy": 1,
+            "read_only": 1
+        },
+        {
+            "fieldname": "cb",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "Advances to Employees - RIGPL",
+            "fieldname": "debit_account",
+            "fieldtype": "Link",
+            "ignore_user_permissions": 1,
+            "in_list_view": 1,
+            "label": "Debit Account",
+            "options": "Account",
+            "permlevel": 1,
+            "reqd": 1
+        },
+        {
+            "default": "Loan Deduction",
+            "fieldname": "deduction_type",
+            "fieldtype": "Link",
+            "ignore_user_permissions": 1,
+            "label": "Deduction Type",
+            "options": "Salary Component",
+            "permlevel": 1,
+            "reqd": 1
+        },
+        {
+            "fieldname": "credit_account",
+            "fieldtype": "Link",
+            "ignore_user_permissions": 1,
+            "in_list_view": 1,
+            "label": "Credit Account or Payment Account",
+            "options": "Account",
+            "reqd": 1
+        },
+        {
+            "fieldname": "employees",
+            "fieldtype": "Section Break",
+            "label": "Employees"
+        },
+        {
+            "fieldname": "employee_loan_detail",
+            "fieldtype": "Table",
+            "label": "Employee Loan Detail",
+            "options": "Employee Loan Detail"
+        },
+        {
+            "fieldname": "amended_from",
+            "fieldtype": "Link",
+            "label": "Amended From",
+            "no_copy": 1,
+            "options": "Employee Advance RIGPL",
+            "print_hide": 1,
+            "read_only": 1
+        }
+    ],
+    "is_submittable": 1,
+    "links": [],
+    "modified": "2026-01-21 17:40:00.000000",
+    "modified_by": "Administrator",
+    "module": "HR-RIGPL",
+    "name": "Employee Advance RIGPL",
+    "naming_rule": "Expression (old style)",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "HR User",
+            "submit": 1,
+            "write": 1
+        },
+        {
+            "amend": 1,
+            "cancel": 1,
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "import": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "submit": 1,
+            "write": 1
+        },
+        {
+            "permlevel": 1,
+            "read": 1,
+            "role": "System Manager",
+            "write": 1
+        },
+        {
+            "permlevel": 1,
+            "read": 1,
+            "role": "HR User"
+        }
+    ],
+    "search_fields": "posting_date",
+    "sort_field": "creation",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1
+}

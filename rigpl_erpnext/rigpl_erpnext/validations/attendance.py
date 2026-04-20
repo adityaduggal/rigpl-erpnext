@@ -18,8 +18,10 @@ def validate(doc, method):
     doc.department = frappe.get_value("Employee", doc.employee, "department")
     check_employee(doc, method)
     shft = get_shift(doc, method)
+    # Custom overtime calculation
     if doc.status != "On Leave" and shft.in_out_required:
         calculate_overtime(doc, method)
+
 
 
 # Function to check if the attendance is not for a NON-WORKING employee
@@ -122,6 +124,11 @@ def validate_time_with_shift(doc, method):
                 frappe.throw("For Shift " + shft.name + " In and Out Punch are required")
 
 
+
+# DEPRECATED: Replaced by HRMS v16 overtime workflow
+# Overtime calculation flow:
+#   Shift Type (Allow Overtime) -> Overtime Type -> Overtime Slip -> Additional Salary
+# Retained for reference during migration period
 def calculate_overtime(doc, method):
     doc.overtime = 0
     tt_in = 0
@@ -143,6 +150,7 @@ def calculate_overtime(doc, method):
             tt_out += time_diff_in_seconds(pu_data[i + 1][2], pu_data[i][2])
 
     doc.overtime = ((tt_in - shft_hrs + shft_marg) - ((tt_in + shft_marg - shft_hrs) % shft_rounding)) / 3600
+
 
 
 def check_punch_data(doc, method):

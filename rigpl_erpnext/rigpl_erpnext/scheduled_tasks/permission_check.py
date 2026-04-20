@@ -24,37 +24,53 @@ def check_permission_exist():
     for user in inactive_users:
         delete_permission(user=user[0])
     active_users = get_users(active=1)
-    for user in active_users:
-        print("Checking for User " + user[0])
-        check_sys = check_system_manager(user=user[0])
-        # Check permission for Company if does not exists create
-        # Check permission for Customers if does not exists create
-        # Check permission for Address if does not exists then check in deleted_docs if yes restore, else create
-        # Check permission for Contact if does not exists then check in deleted_docs if yes restore
-        if check_sys == 1:
-            print("User: " + user[0] + " is a System Manager")
-            delete_permission(user[0])
+    
+    # Optimization: Pre-fetch roles and settings in bulk to avoid recursive SQL calls inside loops.
+    all_user_roles = frappe.get_all("Has Role", fields=["parent", "role"], filters={"parenttype": "User"})
+    user_role_map = {}
+    for r in all_user_roles:
+        user_role_map.setdefault(r.parent, []).append((r.role,))
+    
+    sys_managers = {r.parent for r in all_user_roles if r.role == "System Manager"}
+    
+    all_rules = frappe.db.sql("""SELECT role, allow_doctype, allow_doctype_value, 
+        applicable_for_doctype, apply_to_all_doctypes, apply_to_all_roles, apply_to_all_values
+        FROM `tabUser Permission Rules` WHERE parent = 'User Permission Settings' 
+        AND parentfield = 'rules'""", as_dict=1)
+
+    rules_by_role_val = {}
+    for r in all_rules:
+        if not r.apply_to_all_roles and not r.apply_to_all_values and r.apply_to_all_doctypes == 'None':
+             rules_by_role_val.setdefault(r.role, []).append(r)
+    
+    all_role_rules = [r for r in all_rules if r.apply_to_all_roles and r.apply_to_all_doctypes == 1]
+
+    for user_record in active_users:
+        user = user_record[0]
+        print("Checking for User " + user)
+        is_sys_manager = user in sys_managers
+        
+        if is_sys_manager:
+            print("User: " + user + " is a System Manager")
+            delete_permission(user)
         else:
-            # Get User Roles
-            role_list = get_user_roles(user[0])
+            # Match original role list format (list of tuples) for downstream compatibility
+            role_list = user_role_map.get(user, [])
             # Get Settings for Role with Values in it
-            for role in role_list:
-                settings_with_values = get_user_perm_settings(role=role[0], \
-                                                              apply_to_all_values=0, apply_to_all_doctypes="None")
-                for setting in settings_with_values:
-                    create_new_user_perm(allow=setting[1], \
-                                         for_value=setting[2], user=user[0], \
-                                         applicable_for=setting[3], \
-                                         apply_to_all_doctypes=setting[4])
+            for role_tuple in role_list:
+                role = role_tuple[0]
+                for setting in rules_by_role_val.get(role, []):
+                    create_new_user_perm(allow=setting.allow_doctype, 
+                                         for_value=setting.allow_doctype_value, user=user, 
+                                         applicable_for=setting.applicable_for_doctype, 
+                                         apply_to_all_doctypes=setting.apply_to_all_doctypes)
+
             # Get Settings applying to all roles
-            all_role_settings = get_user_perm_settings(apply_to_all_roles=1, \
-                                                       apply_to_all_doctypes=1)
-            for setting in all_role_settings:
-                # print(setting)
-                create_new_user_perm(allow=setting[1], \
-                                     for_value=setting[2], user=user[0], \
-                                     applicable_for=setting[3], \
-                                     apply_to_all_doctypes=setting[4])
+            for setting in all_role_rules:
+                create_new_user_perm(allow=setting.allow_doctype, 
+                                     for_value=setting.allow_doctype_value, user=user, 
+                                     applicable_for=setting.applicable_for_doctype, 
+                                     apply_to_all_doctypes=setting.apply_to_all_doctypes)
 
             # Check if user in LEAD and if so then check perm or else add perm
             # for lead and address

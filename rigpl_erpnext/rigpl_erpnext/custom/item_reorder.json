@@ -1,0 +1,35 @@
+{
+ "custom_fields": [],
+ "custom_perms": [],
+ "doctype": "Item Reorder",
+ "links": [],
+ "property_setters": [
+  {
+   "_assign": null,
+   "_comments": null,
+   "_liked_by": null,
+   "_user_tags": null,
+   "creation": "2021-04-22 23:10:27.633038",
+   "default_value": "1",
+   "doc_type": "Item Reorder",
+   "docstatus": 0,
+   "doctype_or_field": "DocField",
+   "field_name": "warehouse_reorder_level",
+   "idx": 0,
+   "is_system_generated": 0,
+   "modified": "2021-04-22 23:10:27.633038",
+   "modified_by": "aditya@rigpl.com",
+   "module": null,
+   "name": "Item Reorder-warehouse_reorder_level-reqd",
+   "owner": "aditya@rigpl.com",
+   "parent": null,
+   "parentfield": null,
+   "parenttype": null,
+   "property": "reqd",
+   "property_type": "Check",
+   "row_name": null,
+   "value": "0"
+  }
+ ],
+ "sync_on_migrate": 1
+}

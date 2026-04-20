@@ -38,39 +38,42 @@ def get_entries(filters):
     Gets entries for the set filters
     """
     data = []
-    conditions_emp = get_conditions(filters)[0]
+    conditions_emp, params = get_conditions(filters)
 
     from_date = getdate(filters.get("from_date"))
     to_date = getdate(filters.get("to_date"))
-    total_days = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days + 1
+    total_days = (to_date - from_date).days + 1
+
+    params["from_date"] = str(from_date)
+    params["to_date"] = str(to_date)
 
     query = f"""SELECT emp.name, emp.employee_name, emp.date_of_joining,
         IFNULL(emp.relieving_date,'2099-12-31') as relieving_date, emp.branch, emp.department,
-        emp.designation, (DATEDIFF('{to_date}', '{from_date}')+1) as t_days,
+        emp.designation, (DATEDIFF(%(to_date)s, %(from_date)s)+1) as t_days,
 
         (SELECT count(hol.name) FROM `tabHoliday` hol , `tabHoliday List` hdl
             WHERE hdl.base_holiday_list = emp.holiday_list AND hol.parent = hdl.name
-            AND hdl.is_base_list = 0 AND hol.holiday_date <= '{to_date}'
-            AND hol.holiday_date >= '{from_date}') as holidays,
+            AND hdl.is_base_list = 0 AND hol.holiday_date <= %(to_date)s
+            AND hol.holiday_date >= %(from_date)s) as holidays,
 
         (SELECT count(name) FROM `tabAttendance`
             WHERE employee = emp.name AND docstatus = 1 AND status = 'Present'
-            AND attendance_date <= '{to_date}' AND attendance_date >= '{from_date}') as presents,
+            AND attendance_date <= %(to_date)s AND attendance_date >= %(from_date)s) as presents,
 
         (SELECT sum(overtime) FROM `tabAttendance`
-            WHERE employee = emp.name AND docstatus = 1 AND attendance_date <= '{to_date}'
-            AND attendance_date >= '{from_date}') as overtime,
+            WHERE employee = emp.name AND docstatus = 1 AND attendance_date <= %(to_date)s
+            AND attendance_date >= %(from_date)s) as overtime,
 
         (SELECT SUM(total_leave_days) FROM `tabLeave Application`
             WHERE employee = emp.name AND docstatus = 1 AND status = 'Approved'
-            AND to_date <= '{to_date}' AND from_date >= '{from_date}') as auth_leaves
+            AND to_date <= %(to_date)s AND from_date >= %(from_date)s) as auth_leaves
         FROM
             `tabEmployee` emp
         WHERE
-            IFNULL(emp.relieving_date,'2099-12-31') >= '{from_date}' {conditions_emp}"""
+            IFNULL(emp.relieving_date,'2099-12-31') >= %(from_date)s {conditions_emp}"""
 
     data_dict = {}
-    data_dict = frappe.db.sql(query, as_dict=1)
+    data_dict = frappe.db.sql(query, params, as_dict=1)
     row = []
     for row in data_dict:
         # frappe.throw(str(row))
@@ -115,29 +118,29 @@ def get_conditions(filters):
     Gets conditions as per the filters
     """
     conditions_emp = ""
-    conditions_att = ""
+    params = {}
 
     if filters.get("branch"):
-        conditions_emp += " AND emp.branch = '%s'" % filters["branch"]
+        conditions_emp += " AND emp.branch = %(branch)s"
+        params["branch"] = filters["branch"]
 
     if filters.get("department"):
-        conditions_emp += " AND emp.department = '%s'" % filters["department"]
+        conditions_emp += " AND emp.department = %(department)s"
+        params["department"] = filters["department"]
 
     if filters.get("employee"):
-        conditions_emp += " AND emp.name = '%s'" % filters["employee"]
+        conditions_emp += " AND emp.name = %(employee)s"
+        params["employee"] = filters["employee"]
 
     if filters.get("from_date"):
         if filters.get("to_date"):
             if filters.get("from_date") >= filters.get("to_date"):
                 frappe.throw("From Date Cannot be Greater than or Equal to To Date")
-            else:
-                conditions_att += " AND att.attendance_date >='%s'" % filters["from_date"]
 
     if filters.get("to_date"):
         if filters.get("from_date"):
             if filters.get("from_date") >= filters.get("to_date"):
                 frappe.throw("From Date Cannot be Greater than or Equal to To Date")
-            else:
-                conditions_att += " AND att.attendance_date <='%s'" % filters["to_date"]
 
-    return conditions_emp, conditions_att
+    return conditions_emp, params
+

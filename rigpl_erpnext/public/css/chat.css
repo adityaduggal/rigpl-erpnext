@@ -1,0 +1,384 @@
+.flex {
+    display: flex
+}
+
+.flex-column {
+    display: flex;
+    flex-direction: column
+}
+
+.justify-center {
+    justify-content: center
+}
+
+.align-center {
+    align-items: center
+}
+
+.align-flex-end {
+    align-items: flex-end
+}
+
+.justify-between {
+    justify-content: space-between
+}
+
+.justify-flex-end {
+    justify-content: flex-end
+}
+
+.justify-flex-start {
+    justify-content: flex-start
+}
+
+.flex-wrap {
+    flex-wrap: wrap
+}
+
+.flush-top {
+    align-items: end
+}
+
+.flush-top,
+.level {
+    display: flex;
+    justify-content: space-between
+}
+
+.level {
+    align-items: center
+}
+
+.level-left,
+.level-right {
+    display: flex;
+    flex-basis: auto;
+    flex-grow: 0;
+    flex-shrink: 0;
+    align-items: center
+}
+
+.level-left.is-flexible,
+.level-right.is-flexible {
+    flex-grow: 0;
+    flex-shrink: 1
+}
+
+.level-left {
+    justify-content: flex-start
+}
+
+.level-right {
+    justify-content: flex-end
+}
+
+.level-item {
+    align-items: center;
+    display: flex;
+    flex-basis: auto;
+    flex-grow: 0;
+    flex-shrink: 0;
+    justify-content: center
+}
+
+.fill-width {
+    flex: 1
+}
+
+.font-bold {
+    font-weight: 700
+}
+
+.font-heavy {
+    font-weight: 900
+}
+
+.cursor-pointer {
+    cursor: pointer
+}
+
+.avatar {
+    padding: 2px
+}
+
+.frappe-fab {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    border-radius: 50%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, .25);
+    margin: 20px;
+    width: 48px;
+    height: 48px
+}
+
+.frappe-fab.frappe-fab-lg {
+    width: 56px;
+    height: 56px
+}
+
+.navbar .frappe-chat-toggle {
+    height: 40px;
+    text-align: center
+}
+
+.navbar .octicon {
+    margin-top: 3px
+}
+
+.frappe-chat>.frappe-chat-popper {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    margin: 20px;
+    z-index: 1035
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 350px;
+    height: 500px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, .25)
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .vcenter {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%)
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .panel-heading .panel-title .media-heading {
+    font-size: 12px;
+    margin: 0;
+    padding: 0
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .panel-heading .panel-title .media-left {
+    padding-right: 10px
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .panel-heading .panel-title .media-subtitle {
+    font-size: 12px
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .panel-heading .frappe-chat-action-bar form {
+    width: 100%
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .panel-heading .frappe-chat-action-bar .btn-action {
+    margin-left: 5px !important
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .frappe-chat-room-list {
+    height: 100%;
+    overflow-y: auto;
+    padding: 0 1px
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .frappe-chat-room-list>li>a {
+    border-radius: 0 !important
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .frappe-chat-room-list .media .media-heading,
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel .frappe-chat-room-list .media .media-subtitle {
+    max-width: 180px
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel.panel-bg {
+    background-size: 350px 500px;
+    background-image: url(/assets/frappe/images/chat/wallpaper-default.jpg)
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel.panel-span {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    overflow: auto;
+    border-radius: 0
+}
+
+.frappe-chat>.frappe-chat-popper>.frappe-chat-popper-collapse>.panel.panel-span .panel-heading {
+    border-radius: 0
+}
+
+.frappe-chat .panel {
+    margin-bottom: 0 !important
+}
+
+.frappe-chat .panel .chat-form .form-control {
+    font-size: 12px
+}
+
+.frappe-chat .panel .chat-form .dropdown-menu {
+    border-radius: 4px
+}
+
+.frappe-chat .panel .chat-form .hint-list.list-group {
+    margin: 0;
+    max-height: 150px;
+    overflow-y: auto
+}
+
+.frappe-chat .panel .chat-form .hint-list.list-group .hint-list-item.list-group-item:first-child,
+.frappe-chat .panel .chat-form .hint-list.list-group .hint-list-item.list-group-item:last-child {
+    border-radius: 0 !important
+}
+
+.frappe-chat .panel .chat-form .hint-list.list-group .hint-list-item.list-group-item:first-child a,
+.frappe-chat .panel .chat-form .hint-list.list-group .hint-list-item.list-group-item:last-child a {
+    text-decoration: none
+}
+
+.frappe-chat-popper-collapse>.panel>.panel-heading {
+    padding: 5px 10px
+}
+
+.frappe-chat-popper-collapse>.panel>.panel-heading .btn-back {
+    margin-right: 5px
+}
+
+.frappe-chat-popper-collapse>.panel>.panel-heading .avatar {
+    width: 32px;
+    height: 32px
+}
+
+.chat-room-footer .chat-form {
+    border-top: 1px solid #d1d8dd
+}
+
+.chat-room-footer .chat-form .input-group-btn .btn {
+    background: #fff;
+    border-radius: 0
+}
+
+.chat-room-footer .chat-form .form-control {
+    line-height: 27px;
+    border: none;
+    box-shadow: none;
+    resize: none;
+    padding-left: 0;
+    padding-right: 0;
+    overflow: hidden
+}
+
+.chat-room-footer .chat-form .fa {
+    font-size: 14px;
+    transition: color .5s
+}
+
+.chat-list {
+    height: 100%;
+    overflow-y: scroll
+}
+
+.chat-list .chat-list-item {
+    cursor: pointer;
+    border: none !important;
+    padding: 5px 10px;
+    background: transparent
+}
+
+.chat-list .chat-list-item .avatar {
+    vertical-align: top
+}
+
+.chat-list .chat-list-item .avatar .standard-image {
+    background-color: #fff
+}
+
+.chat-list .chat-list-item .chat-bubble {
+    max-width: 75%;
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    -webkit-box-shadow: 0 .1px .5px 0 rgba(0, 0, 0, .5);
+    -moz-box-shadow: 0 .1px .5px 0 rgba(0, 0, 0, .5);
+    box-shadow: 0 .1px .5px 0 rgba(0, 0, 0, .5)
+}
+
+@media (max-width:768px) {
+    .chat-list .chat-list-item .chat-bubble {
+        min-width: 25%
+    }
+}
+
+.chat-list .chat-list-item .chat-bubble.chat-bubble-l {
+    background-color: #fff
+}
+
+.chat-list .chat-list-item .chat-bubble.chat-bubble-l.chat-groupable {
+    margin-left: 40px
+}
+
+.chat-list .chat-list-item .chat-bubble.chat-bubble-l .chat-bubble-meta>.chat-bubble-check i,
+.chat-list .chat-list-item .chat-bubble.chat-bubble-l .chat-bubble-meta>.chat-bubble-creation {
+    color: #577287 !important
+}
+
+.chat-list .chat-list-item .chat-bubble.chat-bubble-r {
+    text-align: right;
+    background-color: #ebf7cf
+}
+
+.chat-list .chat-list-item .chat-bubble.chat-bubble-r .chat-bubble-meta>.chat-bubble-check i,
+.chat-list .chat-list-item .chat-bubble.chat-bubble-r .chat-bubble-meta>.chat-bubble-creation {
+    color: #80ab1c !important
+}
+
+.chat-list .chat-list-item .chat-bubble .chat-bubble-author {
+    font-size: 12px
+}
+
+.chat-list .chat-list-item .chat-bubble .chat-bubble-author a {
+    font-weight: 700;
+    text-decoration: none !important
+}
+
+.chat-list .chat-list-item .chat-bubble .chat-bubble-content {
+    margin-bottom: 5px;
+    word-wrap: break-word
+}
+
+.chat-list .chat-list-item .chat-bubble .chat-bubble-meta {
+    font-size: 10px
+}
+
+.chat-list .chat-list-item .chat-bubble .chat-bubble-meta>.chat-bubble-check {
+    margin-left: 5px
+}
+
+.chat-list .chat-list-item .chat-bubble .chat-bubble-meta>.chat-bubble-check i {
+    font-size: 12px
+}
+
+.chat-list-notification {
+    text-align: center
+}
+
+.chat-list-notification-content {
+    color: #fff;
+    background-color: #8d99a6;
+    display: inline-block;
+    border-radius: 20px;
+    opacity: .5;
+    font-size: 10px;
+    padding: 5px
+}
+
+.panel-default>.panel-heading {
+    background-color: #f7fafc;
+    border-color: #ced5db;
+    display: flex
+}
+
+textarea.form-control {
+    resize: none;
+    height: 3.2em
+}

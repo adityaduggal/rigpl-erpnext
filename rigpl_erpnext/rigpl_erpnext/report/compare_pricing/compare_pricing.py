@@ -4,10 +4,15 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 
 def execute(filters=None):
 	if not filters: filters = {}
+	else: filters = frappe._dict(filters)
+
+	if not filters.pl1 or not filters.pl2 or not filters.pl3:
+		frappe.throw(_("Please select all three Price Lists for comparison."))
 
 	columns = get_columns(filters)
 	data = get_item_data(filters)
@@ -49,7 +54,7 @@ def get_columns(filters):
 		{
 			"fieldname": "pl2_diff",
 			"label": _(filters.pl1) + "-" + _(filters.pl2),
-			"options": "Float",
+			"fieldtype": "Float",
 			"width": 80
 		},
 		{
@@ -66,7 +71,7 @@ def get_columns(filters):
 		{
 			"fieldname": "pl3_diff",
 			"label": _(filters.pl1) + "-" + _(filters.pl3),
-			"options": "Float",
+			"fieldtype": "Float",
 			"width": 80
 		},
 		{
@@ -150,116 +155,128 @@ def get_columns(filters):
 
 
 def get_item_data(filters):
-	conditions_it = get_conditions(filters)
-	bm = filters["bm"]
-	pl1 = " AND itp1.price_list = '%s'" % filters.get("pl1")
-	pl2 = " AND itp2.price_list = '%s'" % filters.get("pl2")
-	pl3 = " AND itp3.price_list = '%s'" % filters.get("pl3")
-	query = """SELECT
-		it.name, itp1.price_list_rate, IFNULL(itp1.currency, "-"),
-		itp2.price_list_rate, IFNULL(itp2.currency, "-"), IF(itp1.price_list_rate > 0, 
-		((itp2.price_list_rate-itp1.price_list_rate)/itp1.price_list_rate)*100,0),
-		itp3.price_list_rate, IFNULL(itp3.currency, "-"),
-		IF(itp1.price_list_rate > 0, ((itp3.price_list_rate-itp1.price_list_rate)/itp1.price_list_rate)*100,0),
-		it.description,
-		IFNULL(bm.attribute_value, "-"), IFNULL(brand.attribute_value, "-"),
-		IFNULL(quality.attribute_value, "-"), IFNULL(spl.attribute_value, "-"),
-		IFNULL(tt.attribute_value, "-"),
-		CAST(d1.attribute_value AS DECIMAL(8,3)),
-		CAST(w1.attribute_value AS DECIMAL(8,3)),
-		CAST(l1.attribute_value AS DECIMAL(8,3)),
-		CAST(zn.attribute_value AS UNSIGNED),
-		CAST(d2.attribute_value AS DECIMAL(8,3)),
-		CAST(l2.attribute_value AS DECIMAL(8,3)),
-		CAST(a1.attribute_value AS DECIMAL(8,3)), it.pl_item
+	conditions, params = get_conditions(filters)
+	
+	# 1. Base Item Fetch
+	items = frappe.db.sql(f"""
+		SELECT it.name, it.description, it.pl_item
+		FROM `tabItem` it
+		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE()
+		{conditions}
+	""", params, as_dict=1)
+	
+	if not items:
+		return []
+
+	item_codes = [d.name for d in items]
+	
+	# 2. Bulk Fetch Attributes (O(1) Memory Mapping)
+	attr_map = get_attribute_map(item_codes, filters.bm)
+	
+	# 3. Bulk Fetch Prices (Single query for all 3 price lists)
+	price_map = get_price_map(item_codes, [filters.pl1, filters.pl2, filters.pl3])
+
+	# 4. Assembly
+	data = []
+	for it in items:
+		attrs = attr_map.get(it.name, {})
+		prices = price_map.get(it.name, {})
 		
-	FROM `tabItem` it
-	
-		LEFT JOIN `tabItem Price` itp1 ON it.name = itp1.item_code %s
-		LEFT JOIN `tabItem Price` itp2 ON it.name = itp2.item_code %s
-		LEFT JOIN `tabItem Price` itp3 ON it.name = itp3.item_code %s
-		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-			AND bm.attribute = 'Base Material'
-		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
-			AND quality.attribute = '%s Quality'
-		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
-			AND brand.attribute = 'Brand'
-		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-			AND tt.attribute = 'Tool Type'
-		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-			AND spl.attribute = 'Special Treatment'
-		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-			AND d1.attribute = 'd1_mm'
-		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-			AND w1.attribute = 'w1_mm'
-		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-			AND l1.attribute = 'l1_mm'
-		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
-			AND d2.attribute = 'd2_mm'
-		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
-			AND l2.attribute = 'l2_mm'
-		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
-			AND zn.attribute = 'Number of Flutes (Zn)'
-		LEFT JOIN `tabItem Variant Attribute` a1 ON it.name = a1.parent
-			AND a1.attribute = 'a1_deg'
-		LEFT JOIN `tabItem Variant Attribute` purpose ON it.name = purpose.parent
-			AND purpose.attribute = 'Purpose'
-		LEFT JOIN `tabItem Variant Attribute` type ON it.name = type.parent
-			AND type.attribute = 'Type Selector'
-		LEFT JOIN `tabItem Variant Attribute` mtm ON it.name = mtm.parent
-			AND mtm.attribute = 'Material to Machine'
-	
-	WHERE
-		IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
-	
-	ORDER BY bm.attribute_value, brand.attribute_value,
-		quality.attribute_value, tt.attribute_value,
-		CAST(d1.attribute_value AS DECIMAL(8,3)) ASC,
-		CAST(w1.attribute_value AS DECIMAL(8,3)) ASC,
-		CAST(l1.attribute_value AS DECIMAL(8,3)) ASC,
-		CAST(zn.attribute_value AS UNSIGNED) ASC,
-		CAST(d2.attribute_value AS DECIMAL(8,3)) ASC,
-		CAST(l2.attribute_value AS DECIMAL(8,3)) ASC,
-		spl.attribute_value""" % (pl1, pl2, pl3, bm, conditions_it)
+		p1 = prices.get(filters.pl1, frappe._dict({"rate": 0, "cur": "-"}))
+		p2 = prices.get(filters.pl2, frappe._dict({"rate": 0, "cur": "-"}))
+		p3 = prices.get(filters.pl3, frappe._dict({"rate": 0, "cur": "-"}))
+		
+		# Calculate Percentage Diffs
+		diff2 = ((flt(p2.rate) - flt(p1.rate)) / flt(p1.rate)) * 100 if flt(p1.rate) > 0 else 0
+		diff3 = ((flt(p3.rate) - flt(p1.rate)) / flt(p1.rate)) * 100 if flt(p1.rate) > 0 else 0
+		
+		data.append([
+			it.name, p1.rate, p1.cur, p2.rate, p2.cur, diff2, p3.rate, p3.cur, diff3,
+			it.description, attrs.get("Base Material", "-"), attrs.get("Brand", "-"),
+			attrs.get("Quality", "-"), attrs.get("Special Treatment", "-"),
+			attrs.get("Tool Type", "-"), flt(attrs.get("d1_mm")), flt(attrs.get("w1_mm")),
+			flt(attrs.get("l1_mm")), flt(attrs.get("Number of Flutes (Zn)")),
+			flt(attrs.get("d2_mm")), flt(attrs.get("l2_mm")), flt(attrs.get("a1_deg")),
+			it.pl_item
+		])
 
-	data = frappe.db.sql(query, as_list=1)
-
+	# sort order in Python
+	data.sort(key=lambda x: (
+		str(x[10]), str(x[11]), str(x[12]), str(x[14]),
+		flt(x[15]), flt(x[16]), flt(x[17]), flt(x[18]),
+		flt(x[19]), flt(x[20]), str(x[13])
+	))
+	
 	return data
 
 
+def get_attribute_map(item_codes, bm_filter):
+	if not item_codes: return {}
+	quality_attr = f"{bm_filter} Quality" if bm_filter else "Quality"
+	attrs_to_fetch = [
+		"Base Material", "Brand", "Tool Type", "Special Treatment", 
+		"d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm", "a1_deg",
+		"Number of Flutes (Zn)", quality_attr
+	]
+	
+	raw_attrs = frappe.get_all("Item Variant Attribute",
+		filters={"parent": ["in", item_codes], "attribute": ["in", attrs_to_fetch]},
+		fields=["parent", "attribute", "attribute_value"]
+	)
+	
+	res = {}
+	for a in raw_attrs:
+		if a.parent not in res: res[a.parent] = {}
+		key = "Quality" if a.attribute == quality_attr else a.attribute
+		res[a.parent][key] = a.attribute_value
+	return res
+
+
+def get_price_map(item_codes, price_lists):
+	# Fetch all prices for all 3 price lists in a single indexed query
+	price_data = frappe.db.sql("""
+		SELECT item_code, price_list, price_list_rate as rate, IFNULL(currency, "-") as cur
+		FROM `tabItem Price`
+		WHERE item_code IN %s AND price_list IN %s
+	""", (tuple(item_codes), tuple(price_lists)), as_dict=1)
+	
+	res = {}
+	for p in price_data:
+		if p.item_code not in res: res[p.item_code] = {}
+		res[p.item_code][p.price_list] = p
+	return res
+
+
 def get_conditions(filters):
-	conditions_it = ""
+	conditions = ""
+	params = {}
+	
+	attr_filters = {
+		"bm": "Base Material", "brand": "Brand", "quality": "Quality",
+		"spl": "Special Treatment", "purpose": "Purpose", "type": "Type Selector",
+		"mtm": "Material to Machine", "tt": "Tool Type"
+	}
 
-	if filters.get("bm"):
-		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
-
-	if filters.get("brand"):
-		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
-
-	if filters.get("quality"):
-		conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
-
-	if filters.get("spl"):
-		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
-
-	if filters.get("purpose"):
-		conditions_it += " AND purpose.attribute_value = '%s'" % filters["purpose"]
-
-	if filters.get("type"):
-		conditions_it += " AND type.attribute_value = '%s'" % filters["type"]
-
-	if filters.get("mtm"):
-		conditions_it += " AND mtm.attribute_value = '%s'" % filters["mtm"]
-
-	if filters.get("tt"):
-		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
+	for f_key, attr_name in attr_filters.items():
+		if filters.get(f_key):
+			actual_attr = attr_name
+			if f_key == "quality" and filters.get("bm"):
+				actual_attr = f"{filters.get('bm')} Quality"
+			
+			p_val = f"f_{f_key}"
+			params[f"{p_val}_attr"] = actual_attr
+			params[f"{p_val}_val"] = filters.get(f_key)
+			conditions += f" AND EXISTS (SELECT 1 FROM `tabItem Variant Attribute` WHERE parent = it.name AND attribute = %({p_val}_attr)s AND attribute_value = %({p_val}_val)s)"
 
 	if filters.get("item"):
-		conditions_it += " AND it.name = '%s'" % filters["item"]
+		conditions += " AND it.name = %(item)s"
+		params["item"] = filters.get("item")
 
 	if filters.get("template"):
-		conditions_it += " AND it.variant_of = '%s'" % filters["template"]
+		conditions += " AND it.variant_of = %(template)s"
+		params["template"] = filters.get("template")
 
 	if filters.get("is_pl") == 1:
-		conditions_it += " AND it.pl_item = 'Yes'"
-	return conditions_it
+		conditions += " AND it.pl_item = 'Yes'"
+
+	return conditions, params

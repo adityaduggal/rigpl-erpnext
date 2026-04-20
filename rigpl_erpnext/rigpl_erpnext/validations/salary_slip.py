@@ -4,12 +4,12 @@ import frappe
 import erpnext
 import math
 import datetime
-from frappe.utils import money_in_words, flt
+from frappe.utils import formatdate, money_in_words, flt
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_fiscal_years
-from erpnext.hr.doctype.payroll_entry.payroll_entry import get_start_end_dates
-from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
-from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
+from hrms.payroll.doctype.payroll_entry.payroll_entry import get_start_end_dates
+from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
+from hrms.payroll.doctype.salary_slip.salary_slip import SalarySlip
 
 
 def post_gl_entry(doc):
@@ -137,35 +137,67 @@ def post_gl_entry(doc):
         })
         gl_map.append(gl_dict)
 
-    for cont in doc.contributions:
-        if cont.amount > 0:
-            cont_doc = frappe.get_doc(
-                "Salary Component", cont.salary_component)
-            gl_dict = frappe._dict({
-                'company': doc.company,
-                'posting_date': doc.posting_date,
-                'fiscal_year': fiscal_year,
-                'voucher_type': 'Salary Slip',
-                'voucher_no': doc.name,
-                'account': cont_doc.account,
-                'cost_center': comp_doc.cost_center,
-                'debit': flt(cont.amount),
-                'debit_in_account_currency': flt(cont.amount),
-                'against': cont_doc.liability_account
-            })
-            gl_map.append(gl_dict)
-            gl_dict = frappe._dict({
-                'company': doc.company,
-                'posting_date': doc.posting_date,
-                'fiscal_year': fiscal_year,
-                'voucher_type': 'Salary Slip',
-                'voucher_no': doc.name,
-                'account': cont_doc.liability_account,
-                'credit': flt(cont.amount),
-                'credit_in_account_currency': flt(cont.amount),
-                'against': cont_doc.account
-            })
-            gl_map.append(gl_dict)
+    # 5. Accrued Benefits
+    if hasattr(doc, "accrued_benefits"):
+        for cont in doc.accrued_benefits:
+            if cont.amount > 0:
+                cont_doc = frappe.get_doc(
+                    "Salary Component", cont.salary_component)
+                gl_dict = frappe._dict({
+                    'company': doc.company,
+                    'posting_date': doc.posting_date,
+                    'fiscal_year': fiscal_year,
+                    'voucher_type': 'Salary Slip',
+                    'voucher_no': doc.name,
+                    'account': cont_doc.account,
+                    'cost_center': comp_doc.cost_center,
+                    'debit': flt(cont.amount),
+                    'debit_in_account_currency': flt(cont.amount),
+                    'against': cont_doc.liability_account
+                })
+                gl_map.append(gl_dict)
+                gl_dict = frappe._dict({
+                    'company': doc.company,
+                    'posting_date': doc.posting_date,
+                    'fiscal_year': fiscal_year,
+                    'voucher_type': 'Salary Slip',
+                    'voucher_no': doc.name,
+                    'account': cont_doc.liability_account,
+                    'credit': flt(cont.amount),
+                    'credit_in_account_currency': flt(cont.amount),
+                    'against': cont_doc.account
+                })
+                gl_map.append(gl_dict)
+    elif hasattr(doc, "contributions"): # Fallback for v14
+        for cont in doc.contributions:
+            if cont.amount > 0:
+                cont_doc = frappe.get_doc(
+                    "Salary Component", cont.salary_component)
+                gl_dict = frappe._dict({
+                    'company': doc.company,
+                    'posting_date': doc.posting_date,
+                    'fiscal_year': fiscal_year,
+                    'voucher_type': 'Salary Slip',
+                    'voucher_no': doc.name,
+                    'account': cont_doc.account,
+                    'cost_center': comp_doc.cost_center,
+                    'debit': flt(cont.amount),
+                    'debit_in_account_currency': flt(cont.amount),
+                    'against': cont_doc.liability_account
+                })
+                gl_map.append(gl_dict)
+                gl_dict = frappe._dict({
+                    'company': doc.company,
+                    'posting_date': doc.posting_date,
+                    'fiscal_year': fiscal_year,
+                    'voucher_type': 'Salary Slip',
+                    'voucher_no': doc.name,
+                    'account': cont_doc.liability_account,
+                    'credit': flt(cont.amount),
+                    'credit_in_account_currency': flt(cont.amount),
+                    'against': cont_doc.account
+                })
+                gl_map.append(gl_dict)
     make_gl_entries(gl_map, cancel=0, adv_adj=0)
 
 
@@ -198,6 +230,9 @@ def on_submit(doc, method):
 
 
 def on_cancel(doc, method):
+    # Ignore Payment Ledger Entry and GL Entry linkage validation as make_reverse_gl_entries handles its reversal
+    doc.ignore_linked_doctypes = ['Payment Ledger Entry', 'GL Entry']
+
     # Update the expense claim amount cleared so that no new JV can be made
     for i in doc.earnings:
         if i.expense_claim:
@@ -212,19 +247,21 @@ def on_cancel(doc, method):
 def validate(doc, method):
     get_edc(doc)
     update_fields(doc)
+
     msd, med = get_month_dates(doc)
+
     get_loan_deduction(doc, msd, med)
     get_expense_claim(doc, med)
+
     calculate_net_salary(doc, msd, med)
-    table = ['earnings', 'deductions', 'contributions']
-    recalculate_formula(doc, table)
+
     validate_ec_posting(doc)
 
 
 def update_fields(doc):
     sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
     doc.letter_head = sstr.letter_head
-    doc.deparment = frappe.get_value("Employee", doc.employee, "department")
+    doc.department = frappe.get_value("Employee", doc.employee, "department")
 
 
 def validate_ec_posting(doc):
@@ -365,11 +402,12 @@ def calculate_net_salary(doc, msd, med):
                         flt(d.default_amount) * flt(doc.payment_days_for_deductions) / tdim, 0)
         tot_ded += flt(d.amount)
 
-    # Calculate Contributions
-    for c in doc.contributions:
-        c.amount = round(
-            (flt(c.default_amount) * flt(doc.payment_days_for_deductions) / tdim), 0)
-        tot_cont += c.amount
+    # Calculate Accrued Benefits (formerly Contributions)
+    if hasattr(doc, "accrued_benefits"):
+        for c in doc.accrued_benefits:
+            c.amount = round(
+                (flt(c.default_amount) * flt(doc.payment_days_for_deductions) / tdim), 0)
+            tot_cont += c.amount
 
     doc.gross_pay = gross_pay
     doc.total_deduction = tot_ded
@@ -536,81 +574,102 @@ def get_edc(doc):
     # 3. If a user deletes and adds a type of another earning
     # Function to get the Earnings, Deductions and Contributions (E,D,C)
     doj = frappe.get_value("Employee", doc.employee, "date_of_joining")
+
     if doj > datetime.datetime.strptime(doc.start_date, '%Y-%m-%d').date():
         date_for_sstra = doj
     else:
         date_for_sstra = doc.start_date
 
-    appl_sstr = frappe.db.sql(f"""SELECT sstra.salary_structure
-        FROM `tabSalary Structure Assignment` sstra
-    WHERE sstra.employee = '{doc.employee}'  AND sstra.from_date <= '{date_for_sstra}'
-    AND sstra.docstatus = 1
-    ORDER BY sstra.from_date DESC LIMIT 1""", as_list=1)
-    if appl_sstr:
-        doc.salary_structure = appl_sstr[0][0]
-    else:
-        frappe.throw(
-            "No Salary Structure Found for Employee {}".format(doc.employee))
+    appl_sstr = frappe.db.sql(f"""
+        SELECT salary_structure
+        FROM `tabSalary Structure Assignment`
+        WHERE employee = '{doc.employee}'
+        AND from_date <= '{date_for_sstra}'
+        AND docstatus = 1
+        ORDER BY from_date DESC
+        LIMIT 1
+    """, as_list=1)
+
+    if not appl_sstr:
+        frappe.throw(f"No Salary Structure Found for Employee {doc.employee}")
+
+    doc.salary_structure = appl_sstr[0][0]
     sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
-    existing_ded = []
-    manual_earn = []
 
-    earn_dict = {}
-    for comp in doc.earnings:
-        earn_doc = frappe.get_doc("Salary Component", comp.salary_component)
-        if earn_doc.manual == 1:
-            earn_dict['salary_component'] = comp.salary_component
-            earn_dict['idx'] = comp.idx
-            earn_dict['default_amount'] = comp.amount
-            earn_dict['amount'] = comp.amount
-            manual_earn.append(earn_dict.copy())
-    # Only Loan Deduction is Not Overwritten so that Loan Deduction can be Changed Later by user
-    sal_comp_dict = {}
-    for comp in doc.deductions:
-        if comp.salary_component == 'Loan Deduction':
-            sal_comp_dict['salary_component'] = comp.salary_component
-            sal_comp_dict['idx'] = comp.idx
-            sal_comp_dict['default_amount'] = comp.default_amount
-            sal_comp_dict['amount'] = comp.amount
-            sal_comp_dict['employee_loan'] = comp.employee_loan
-            existing_ded.append(sal_comp_dict.copy())
+    manual_earnings = []
+    loan_deductions = []
 
-    table_list = ["earnings", "deductions", "contributions"]
-    doc.earnings = []
-    doc.deductions = []
-    doc.contributions = []
-    get_from_sal_struct(doc, sstr, table_list)
-
-    # Add Changed Manual Earning Amount to the Table
-    if manual_earn:
-        for i in range(len(manual_earn)):
-            for comp in doc.earnings:
-                if comp.salary_component == earn_dict['salary_component']:
-                    comp.default_amount = manual_earn[i]['amount']
-                    comp.amount = manual_earn[i]['amount']
-
-    # Add changed loan amount to the table
-    if existing_ded:
-        for i in range(len(existing_ded)):
-            doc.append("deductions", {
-                "salary_component": sal_comp_dict['salary_component'],
-                "default_amount": existing_ded[i]['default_amount'],
-                "amount": existing_ded[i]['amount'],
-                "idx": existing_ded[i]['idx'],
-                "employee_loan": existing_ded[i]['employee_loan']
+    # Preserve manual earnings
+    for e in doc.earnings:
+        comp = frappe.get_doc("Salary Component", e.salary_component)
+        if comp.manual:
+            manual_earnings.append({
+                "salary_component": e.salary_component,
+                "amount": e.amount
             })
 
+    # Preserve loan deductions
+    for d in doc.deductions:
+        if d.salary_component == "Loan Deduction":
+            loan_deductions.append({
+                "salary_component": d.salary_component,
+                "amount": d.amount,
+                "default_amount": d.default_amount,
+                "employee_loan": d.employee_loan,
+                "idx": d.idx
+            })
 
-def get_from_sal_struct(doc, salary_structure_doc, table_list):
-    data = SalarySlip.get_data_for_eval(doc)
+    doc.earnings = []
+    doc.deductions = []
+    
+    # HRMS v16 uses accrued_benefits table instead of deductions for employer contributions
+    if hasattr(doc, "accrued_benefits"):
+        doc.accrued_benefits = []
+        table_list = ["earnings", "deductions", "accrued_benefits"]
+        # Map old table name 'contributions' to new 'accrued_benefits' for structure fetch
+        structure_table_map = {"earnings": "earnings", "deductions": "deductions", "accrued_benefits": "contributions"}
+    else:
+        doc.contributions = []
+        table_list = ["earnings", "deductions", "contributions"]
+        structure_table_map = {"earnings": "earnings", "deductions": "deductions", "contributions": "contributions"}
+
+    get_from_sal_struct(doc, sstr, table_list, structure_table_map=structure_table_map)
+
+    # Restore manual earnings
+    for m in manual_earnings:
+        for e in doc.earnings:
+            if e.salary_component == m["salary_component"]:
+                e.amount = m["amount"]
+                e.default_amount = m["amount"]
+
+    # Restore loan deductions
+    for d in loan_deductions:
+        doc.append("deductions", d)
+
+
+def get_from_sal_struct(doc, salary_structure_doc, table_list, structure_table_map=None):
+    data = SalarySlip.get_data_for_eval(doc)[0]
 
     for table_name in table_list:
-        for comp in salary_structure_doc.get(table_name):
-            amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
+        # Resolve source table name in Salary Structure (e.g., accrued_benefits -> contributions)
+        struct_table_name = structure_table_map.get(table_name, table_name) if structure_table_map else table_name
+        
+        for comp in salary_structure_doc.get(struct_table_name):
+            try:
+                amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
+            except Exception as e:
+                frappe.throw(
+                    f"Error in Salary Structure <b>{salary_structure_doc.name}</b><br>"
+                    f"Row: <b>{comp.idx}</b><br>"
+                    f"Component: <b>{comp.salary_component}</b><br><br>"
+                    f"{str(e)}",
+                    title="Salary Structure Formula Error"
+                )
+
             doc.append(table_name, {
                 "salary_component": comp.salary_component,
-                "default_amount": amount,
-                "amount": amount,
+                "default_amount": flt(amount),
+                "amount": flt(amount),
                 "idx": comp.idx,
                 "depends_on_lwp": comp.depends_on_lwp
             })

@@ -22,13 +22,19 @@ from rohit_common.utils.rohit_common_utils import get_email_id
 
 class CarrierTracking(WebsiteGenerator):
     allowed_docs_items = ['Sales Invoice', 'Purchase Order']
-
+    
+    @frappe.whitelist()
     def get_dtdc_pdf(self):
+        if "Fedex" in self.carrier_name or "FEDEX" in self.carrier_name.upper():
+            self.get_sign_proof()
+            return
+            
         dtdc_get_pdf(self.awb_number, self)
 
     def pushdata(self):
         pushOrderData(self)
 
+    @frappe.whitelist()
     def get_status(self):
         trans_doc = frappe.get_doc('Transporters', self.carrier_name)
         if trans_doc.fedex_credentials == 1 or trans_doc.dtdc_credentials == 1:
@@ -45,7 +51,8 @@ class CarrierTracking(WebsiteGenerator):
 
     def get_sign_proof(self):
         get_signature_proof(self)
-
+    
+    @frappe.whitelist()
     def address_validation(self):
         validate_address(self)
 
@@ -318,7 +325,8 @@ class CarrierTracking(WebsiteGenerator):
             pass
         else:
             frappe.throw("Shipment Package Details mandatory for Booking Shipment for {}".format(self.name))
-
+    
+    @frappe.whitelist()
     def available_services(self):
         trans_doc = frappe.get_doc("Transporters", self.carrier_name)
         if trans_doc.fedex_credentials == 1:
@@ -326,6 +334,7 @@ class CarrierTracking(WebsiteGenerator):
         elif trans_doc.dtdc_credentials == 1:
             dtdc_get_available_services(self)
 
+    @frappe.whitelist()
     def get_rates(self):
         tpt_doc = frappe.get_doc("Transporters", self.carrier_name)
         self.validate()
@@ -335,7 +344,7 @@ class CarrierTracking(WebsiteGenerator):
             self.save()
         else:
             get_rates_from_fedex(self)
-
+    @frappe.whitelist()
     def book_shipment(self):
         trans_doc = frappe.get_doc('Transporters', self.carrier_name)
         self.validate()
@@ -348,7 +357,12 @@ class CarrierTracking(WebsiteGenerator):
                     if self.get("__islocal") != 1:
                         if packages.idx == 1:
                             if trans_doc.fedex_credentials == 1:
-                                shipment_booking(self)
+                                awb = shipment_booking(self)
+                                if awb:
+                                    self.awb_number = awb
+                                    self.status = "Booked"
+                                else:
+                                     frappe.throw("FedEx booking failed to generate AWB Number")
                             elif trans_doc.dtdc_credentials == 1:
                                 self.get_rates()
                                 dtdc_shipment_booking(self)
@@ -364,7 +378,7 @@ class CarrierTracking(WebsiteGenerator):
                         frappe.throw('Save the Transaction before Booking Shipment')
         else:
             frappe.throw("To Book Shipment, Package Details is Mandatory")
-
+    @frappe.whitelist()
     def delete_shipment(self):
         if self.status == "Booked":
             tpt_doc = frappe.get_doc("Transporters", self.carrier_name)
@@ -391,6 +405,23 @@ class CarrierTracking(WebsiteGenerator):
             remove_all(self.doctype, self.name)
         else:
             frappe.throw("Only Booked Shipments Can be Deleted, {} is in {} Stage".format(self.name, self.status))
+
+    @frappe.whitelist()
+    def track_shipment(self):
+        """
+        Track shipment manually
+        """
+        if self.awb_number and self.awb_number != "NA" and self.status not in ["Delivered", "Cancelled"]:
+            tpt_doc = frappe.get_doc("Transporters", self.carrier_name)
+            
+            if tpt_doc.fedex_credentials == 1:
+                from rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.fedex_rest_api import track_shipment_rest
+                track_shipment_rest(self, tpt_doc)
+            elif tpt_doc.dtdc_credentials == 1:
+                from rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.dtdc_functions import get_tracking_from_dtdc
+                get_tracking_from_dtdc(self)
+            else:
+                frappe.msgprint("Tracking not available for this carrier")
 
     def set_recipient_email(self, to_address_doc, contact_doc):
         to_add_email = get_email_id(to_address_doc.email_id)

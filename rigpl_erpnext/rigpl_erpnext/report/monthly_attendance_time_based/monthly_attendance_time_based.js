@@ -46,7 +46,7 @@ frappe.query_reports["Monthly Attendance Time Based"] = {
 	],
 	"onload": function(me) {
 		return  frappe.call({
-			method: "erpnext.hr.report.monthly_attendance_sheet.monthly_attendance_sheet.get_attendance_years",
+			method: "hrms.hr.report.monthly_attendance_sheet.monthly_attendance_sheet.get_attendance_years",
 			callback: function(r) {
 				var year_filter = frappe.query_report.get_filter('year');
 				year_filter.df.options = r.message;

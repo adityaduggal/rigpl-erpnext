@@ -1,0 +1,11 @@
+{
+    "css/rigpl-theme.css": [
+        "public/scss/index.scss"
+    ],
+    "css/chat.css": [
+        "public/scss/chat.less"
+    ],
+    "js/rigpl-theme.js": [
+        "public/js/index.js"
+    ]
+}

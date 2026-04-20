@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import re
 import frappe
 import time
-from rohit_common.rohit_common.validations.file import delete_file_dt
+from rohit_common.core.file import delete_file_dt
 
 
 def execute():

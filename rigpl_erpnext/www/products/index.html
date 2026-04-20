@@ -1,0 +1,78 @@
+{% extends "rigpl_erpnext/templates/web.html" %}
+
+{% block page_content %}
+<div class="container mt-5">
+	<!-- Breadcrumbs -->
+	{% if breadcrumbs %}
+	<nav aria-label="breadcrumb">
+		<ol class="breadcrumb">
+			{% for breadcrumb in breadcrumbs %}
+			<li class="breadcrumb-item {% if loop.last %}active{% endif %}">
+				{% if not loop.last %}
+					<a href="{{ breadcrumb.url }}">{{ breadcrumb.label }}</a>
+				{% else %}
+					{{ breadcrumb.label }}
+				{% endif %}
+			</li>
+			{% endfor %}
+		</ol>
+	</nav>
+	{% endif %}
+
+	<!-- Product Category Header -->
+	<div class="row mb-5">
+		<div class="col-lg-12">
+			{% if image %}
+			<img src="{{ image }}" alt="{{ title }}" class="img-fluid mb-3" style="max-height: 300px; object-fit: cover; width: 100%;">
+			{% endif %}
+			
+			<h1>{{ title }}</h1>
+			
+			{% if description %}
+			<p class="lead text-muted">{{ description }}</p>
+			{% endif %}
+		</div>
+	</div>
+
+	<!-- Products Grid -->
+	{% if items %}
+	<div class="row">
+		{% for item in items %}
+		<div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+			<div class="card h-100 shadow-sm">
+				{% if item.image %}
+				<img src="{{ item.image }}" class="card-img-top" alt="{{ item.item_name }}" style="height: 200px; object-fit: cover;">
+				{% else %}
+				<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+					<span class="text-muted">No Image</span>
+				</div>
+				{% endif %}
+				
+				<div class="card-body">
+					<h5 class="card-title">{{ item.item_name }}</h5>
+					<p class="card-text text-muted small">{{ item.item_code }}</p>
+					
+					{% if item.description %}
+					<p class="card-text small">{{ item.description[:100] }}{% if item.description|length > 100 %}...{% endif %}</p>
+					{% endif %}
+				</div>
+				
+				<div class="card-footer bg-transparent">
+					<a href="/item/{{ item.name }}" class="btn btn-sm btn-primary w-100">View Details</a>
+				</div>
+			</div>
+		</div>
+		{% endfor %}
+	</div>
+	{% else %}
+	<div class="alert alert-info">
+		No products found in this category.
+	</div>
+	{% endif %}
+
+	<!-- Back Button -->
+	<div class="mt-5 mb-4">
+		<a href="/" class="btn btn-secondary">← Back to Home</a>
+	</div>
+</div>
+{% endblock %}

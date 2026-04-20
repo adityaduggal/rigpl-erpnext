@@ -312,10 +312,18 @@ def check_account_perm(acc_doc):
 
 
 def check_all_account_perm():
-    acc_list = frappe.db.sql("""SELECT name
-        FROM `tabAccount`""", as_list=1)
-    for acc in acc_list:
-        acc_doc = frappe.get_doc("Account", acc[0])
+    # Optimization: Only process accounts that actually have user permissions
+    # or child Account User entries to avoid N+1 over the entire tabAccount table.
+    affected_accounts = frappe.db.sql("""
+        SELECT DISTINCT parent FROM `tabAccount User` WHERE parenttype = 'Account'
+        UNION
+        SELECT DISTINCT for_value FROM `tabUser Permission` WHERE allow = 'Account'
+    """, as_list=1)
+
+    for acc_res in affected_accounts:
+        acc_name = acc_res[0]
+        # Use cached doc for faster access
+        acc_doc = frappe.get_cached_doc("Account", acc_name)
         if acc_doc.users:
             create_account_perms(acc_doc, acc_doc.users)
         delete_extra_account_perms(acc_doc, acc_doc.users)

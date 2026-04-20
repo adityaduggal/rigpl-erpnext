@@ -3,7 +3,7 @@ import frappe
 from datetime import datetime
 from frappe.utils import flt, date_diff
 from six import iteritems
-from ....utils.job_card_utils import get_bin
+from ....manufacturing_rigpl.utils.job_card_utils import get_bin
 
 def execute(filters=None):
     if not filters:

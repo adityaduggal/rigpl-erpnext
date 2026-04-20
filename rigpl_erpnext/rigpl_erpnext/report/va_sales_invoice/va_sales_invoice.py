@@ -22,63 +22,89 @@ def get_columns():
 	]
 
 def get_va_entries(filters):
-	conditions = get_conditions(filters)
+	conditions, params = get_conditions(filters)
 
-	si = frappe.db.sql(""" SELECT 
+	# 1. Base Query: Fetch SI and SID
+	si_items = frappe.db.sql(f""" 
+		SELECT 
 			si.posting_date, si.name, si.customer,
 			sid.item_code, sid.description, sid.qty, sid.base_price_list_rate, 
-			sid.base_rate, sid.base_amount, 
-			IFNULL(bm.attribute_value, "-"),
-			IFNULL(tt.attribute_value, "-"),
-			IFNULL(hss_qual.attribute_value, "-"),
-			IFNULL(car_qual.attribute_value, "-"),
-			CAST(d1.attribute_value AS DECIMAL(8,3)), 
-			CAST(w1.attribute_value AS DECIMAL(8,3)), 
-			CAST(l1.attribute_value AS DECIMAL(8,3)), 
-			CAST(d2.attribute_value AS DECIMAL(8,3)), 
-			CAST(l2.attribute_value AS DECIMAL(8,3)),
-			IFNULL(spl.attribute_value, "-")
-			
-		FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
-			LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-				AND bm.attribute = 'Base Material'
-			LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-				AND tt.attribute = 'Tool Type'
-			LEFT JOIN `tabItem Variant Attribute` hss_qual ON it.name = hss_qual.parent
-				AND hss_qual.attribute = 'HSS Quality'
-			LEFT JOIN `tabItem Variant Attribute` car_qual ON it.name = car_qual.parent
-				AND car_qual.attribute = 'Carbide Quality'
-			LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-				AND spl.attribute = 'Special Treatment'
-			LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-				AND d1.attribute = 'd1_mm'
-			LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-				AND w1.attribute = 'w1_mm'
-			LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-				AND l1.attribute = 'l1_mm'
-			LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
-				AND d2.attribute = 'd2_mm'
-			LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
-				AND l2.attribute = 'l2_mm'				
-		WHERE
-			si.docstatus = 1 AND
-			sid.parent = si.name AND
-			si.docstatus = 1 AND it.name = sid.item_code %s
-		ORDER BY si.posting_date ASC, si.name ASC, sid.item_code ASC,
-			sid.description ASC""" % conditions, as_list=1)
+			sid.base_rate, sid.base_amount
+		FROM `tabSales Invoice` si
+		JOIN `tabSales Invoice Item` sid ON sid.parent = si.name
+		JOIN `tabItem` it ON it.name = sid.item_code
+		WHERE si.docstatus = 1 {conditions}
+		ORDER BY si.posting_date ASC, si.name ASC, sid.item_code ASC, sid.description ASC
+	""", params, as_dict=1)
 
+	if not si_items:
+		return []
 
+	# Get unique item codes
+	item_codes = list(set([d.item_code for d in si_items if d.item_code]))
 
-	return si
+	# 2. Bulk Fetch Attributes (O(1) mapping)
+	attr_map = get_attribute_map(item_codes)
+
+	res = []
+	for row in si_items:
+		attrs = attr_map.get(row.item_code, {})
+		
+		# Map attributes with fallback to "-"
+		base_metal = attrs.get("Base Material", "-")
+		tool_type = attrs.get("Tool Type", "-")
+		hss_qual = attrs.get("HSS Quality", "-")
+		car_qual = attrs.get("Carbide Quality", "-")
+		spl = attrs.get("Special Treatment", "-")
+		
+		# Decimal conversions for dimensions
+		d1 = flt(attrs.get("d1_mm")) if "d1_mm" in attrs else None
+		w1 = flt(attrs.get("w1_mm")) if "w1_mm" in attrs else None
+		l1 = flt(attrs.get("l1_mm")) if "l1_mm" in attrs else None
+		d2 = flt(attrs.get("d2_mm")) if "d2_mm" in attrs else None
+		l2 = flt(attrs.get("l2_mm")) if "l2_mm" in attrs else None
+
+		res.append([
+			row.posting_date, row.name, row.customer,
+			row.item_code, row.description, row.qty, row.base_price_list_rate,
+			row.base_rate, row.base_amount,
+			base_metal, tool_type, hss_qual, car_qual,
+			d1, w1, l1, d2, l2, spl
+		])
+
+	return res
+
+def get_attribute_map(item_codes):
+	if not item_codes: return {}
+	
+	attrs_to_fetch = [
+		'Base Material', 'Tool Type', 'HSS Quality', 'Carbide Quality',
+		'Special Treatment', 'd1_mm', 'w1_mm', 'l1_mm', 'd2_mm', 'l2_mm'
+	]
+	
+	# Fetch all attributes in one go
+	raw_attrs = frappe.get_all("Item Variant Attribute",
+		filters={"parent": ["in", item_codes], "attribute": ["in", attrs_to_fetch]},
+		fields=["parent", "attribute", "attribute_value"]
+	)
+	
+	res = {}
+	for a in raw_attrs:
+		res.setdefault(a.parent, {})[a.attribute] = a.attribute_value
+	return res
 
 def get_conditions(filters):
 	conditions = ""
+	params = {}
+	
 	if filters.get("from_date"):
-		conditions += "and si.posting_date >= '%s'" % filters["from_date"]
+		conditions += " AND si.posting_date >= %(from_date)s"
+		params["from_date"] = filters["from_date"]
 	else:
 		frappe.msgprint("Please Select a From Date first", raise_exception=1)
 
 	if filters.get("to_date"):
-		conditions += "and si.posting_date <= '%s'" % filters["to_date"]
+		conditions += " AND si.posting_date <= %(to_date)s"
+		params["to_date"] = filters["to_date"]
 
-	return conditions
+	return conditions, params

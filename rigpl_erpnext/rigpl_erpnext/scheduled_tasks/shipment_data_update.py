@@ -28,123 +28,168 @@ def update_delivery_date_time():
         print(str(sno) + ". " + ct.name + " is being Updated")
         sno +=1
         get_tracking_from_fedex(ct_doc)
-        frappe.db.commit()
+        # Only commit after a batch or at the end
+        if sno % 50 == 0:
+            frappe.db.commit()
+    frappe.db.commit()
 
 def update_costing_bypass():
     """
     This function updates the costing bypass check for old carrier trackings where cost is over
     desired %age value of the Sales Invoice
     """
-    bypass_ct = frappe.db.sql("""SELECT ct.name FROM `tabCarrier Tracking` ct WHERE ct.docstatus<2
-        AND ct.document = 'Sales Invoice' ORDER BY ct.creation DESC""")
+    bypass_ct = frappe.db.sql("""SELECT ct.name, ct.carrier_name, ct.bypass_courier_charged_check, ct.status 
+        FROM `tabCarrier Tracking` ct WHERE ct.docstatus<2
+        AND ct.document = 'Sales Invoice' ORDER BY ct.creation DESC""", as_dict=1)
+    
+    if not bypass_ct:
+        return
+
+    # Pre-fetch transporters
+    carrier_names = list(set([t.carrier_name for t in bypass_ct]))
+    transporters = frappe.get_all("Transporters", filters={"name": ["in", carrier_names]}, 
+        fields=["name", "max_percent_of_invoice_value"])
+    trans_map = {t.name: t for t in transporters}
+
     sno = 0
     for ct in bypass_ct:
-        ctrack_doc = frappe.get_doc("Carrier Tracking", ct[0])
-        trans_doc = frappe.get_doc('Transporters', ctrack_doc.carrier_name)
-        cost_high = courier_charges_validation(ctrack_doc, trans_doc, backend=1)
-        if cost_high == 1 and ctrack_doc.bypass_courier_charged_check==0 and \
-                ctrack_doc.status != "" and ctrack_doc.status != "Not Booked":
-            print('{}. Setting Bypass Courier Charges Check for {}'.format(str(sno+1), ct[0]))
-            ctrack_doc.bypass_courier_charged_check = 1
-            ctrack_doc.save()
+        trans_doc = trans_map.get(ct.carrier_name)
+        if not trans_doc:
+            continue
+            
+        # We still need ctrack_doc for amount/shipment_cost if not in SQL
+        # Let's add them to SQL instead
+        ct_data = frappe.db.get_value("Carrier Tracking", ct.name, ["amount", "shipment_cost", "purpose", "document", "courier_charged", "document_name"], as_dict=1)
+        
+        # Merge data for validation
+        ct.update(ct_data)
+
+        cost_high = courier_charges_validation(ct, trans_doc, backend=1)
+        if cost_high == 1 and ct.bypass_courier_charged_check==0 and \
+                ct.status != "" and ct.status != "Not Booked":
+            print('{}. Setting Bypass Courier Charges Check for {}'.format(str(sno+1), ct.name))
+            frappe.db.set_value("Carrier Tracking", ct.name, "bypass_courier_charged_check", 1)
             sno += 1
+        
+        if sno > 0 and sno % 100 == 0:
+            frappe.db.commit()
+    frappe.db.commit()
 
 
 def update_ctrack_from_invoice():
     """
-    Updates the AWB no of Ctrack linked to Sales Invocies if not same or missing
+    Updates the AWB no of Ctrack linked to Sales Invoices if not same or missing
     Applicable for old Ctracks
     """
-    ct_list = frappe.db.sql("""SELECT ct.name, ct.document_name FROM `tabCarrier Tracking` ct
+    ct_list = frappe.db.sql("""SELECT ct.name, ct.document_name, ct.awb_number, ct.carrier_name, ct.docstatus, ct.invoice_integrity
+        FROM `tabCarrier Tracking` ct
         WHERE ct.docstatus !=2 AND ct.document = 'Sales Invoice' AND ct.invoice_integrity = 0
-        ORDER BY ct.creation DESC""", as_list=1)
-    #AND DATEDIFF(CURDATE(),ct.creation) < 180
-    ct_sno = 0
-    si_sno = 0
-    man_sno = 0
-    for ct in ct_list:
-        ctrack_doc = frappe.get_doc('Carrier Tracking', ct[0])
-        trans_doc = frappe.get_doc('Transporters', ctrack_doc.carrier_name)
+        ORDER BY ct.creation DESC""", as_dict=1)
+    
+    if not ct_list:
+        return
 
-        si_doc = frappe.get_doc('Sales Invoice', ct[1])
-        if ctrack_doc.awb_number == si_doc.lr_no:
-            print("Updating {} and making Invoice Integrity = 1".format(ctrack_doc.name))
-            ctrack_doc.invoice_integrity = 1
-            ctrack_doc.save()
+    # Bulk fetch transporters
+    carrier_names = list(set([t.carrier_name for t in ct_list]))
+    transporters = frappe.get_all("Transporters", filters={"name": ["in", carrier_names]}, 
+        fields=["name", "max_percent_of_invoice_value"])
+    trans_map = {t.name: t for t in transporters}
+
+    # Bulk fetch Sales Invoices
+    si_names = [ct.document_name for ct in ct_list]
+    sales_invoices = frappe.get_all("Sales Invoice", filters={"name": ["in", si_names]}, fields=["name", "lr_no"])
+    si_map = {si.name: si for si in sales_invoices}
+
+    ct_sno, si_sno, man_sno = 0, 0, 0
+    
+    for ct in ct_list:
+        trans_doc = trans_map.get(ct.carrier_name)
+        si_doc = si_map.get(ct.document_name)
+        
+        if not trans_doc or not si_doc:
+            continue
+
+        if ct.awb_number == si_doc.lr_no:
+            print("Updating {} and making Invoice Integrity = 1".format(ct.name))
+            frappe.db.set_value("Carrier Tracking", ct.name, "invoice_integrity", 1)
         else:
-            # If the data is not same in Ctrack and Sales Invoice
-            # then we need to check if Ctrack = NA or "" or it could be SI is NA or ""
-            # if both have value then do the change manually.
-            if ctrack_doc.awb_number == "NA" or ctrack_doc.awb_number == "" or \
-                    ctrack_doc.awb_number is None:
-                ctrack_awb = 0
-            else:
-                ctrack_awb = 1
-            if si_doc.lr_no == "NA" or si_doc.lr_no == "" or si_doc.lr_no is None:
-                si_awb = 0
-            else:
-                si_awb = 1
+            ctrack_awb = 1 if ct.awb_number not in ("NA", "", None) else 0
+            si_awb = 1 if si_doc.lr_no not in ("NA", "", None) else 0
+
             if ctrack_awb == 0 and si_awb == 1:
-                if ctrack_doc.docstatus == 0:
-                    ctrack_doc.awb_number = si_doc.lr_no
-                else:
-                    frappe.db.set_value('Carrier Tracking', ctrack_doc.name, 'awb_number',
-                        si_doc.lr_no)
-                print(f"{str(si_sno + 1)}. Update from SI. SI AWB= {si_doc.lr_no} but CTrack AWB = "
-                    f"{str(ctrack_doc.awb_number)}")
-                cost_high = courier_charges_validation(ctrack_doc, trans_doc, backend=1)
+                frappe.db.set_value('Carrier Tracking', ct.name, 'awb_number', si_doc.lr_no)
+                print(f"{str(si_sno + 1)}. Update from SI. SI AWB= {si_doc.lr_no} but CTrack AWB = {ct.awb_number}")
+                
+                # We need to re-fetch some fields for courier_charges_validation since it expects a dict-like object
+                full_ct_data = frappe.db.get_value("Carrier Tracking", ct.name, ["amount", "shipment_cost", "purpose", "document", "courier_charged", "document_name", "bypass_courier_charged_check"], as_dict=1)
+                full_ct_data.update(ct)
+                full_ct_data.awb_number = si_doc.lr_no # Update with new value for validation
+                
+                cost_high = courier_charges_validation(full_ct_data, trans_doc, backend=1)
                 if cost_high == 1:
-                    ctrack_doc.bypass_courier_charged_check = 1
-                if ctrack_doc.docstatus == 0:
-                    ctrack_doc.save()
+                    frappe.db.set_value("Carrier Tracking", ct.name, "bypass_courier_charged_check", 1)
+                
                 si_sno += 1
             elif ctrack_awb == 1 and si_awb == 0:
-                print(f"{str(ct_sno+1)}. Update from CTrack. CTrack AWB= {ctrack_doc.awb_number} "
-                    f"but SI AWB= {str(si_doc.lr_no)} SI# {si_doc.name}")
-                si_doc.lr_no = ctrack_doc.awb_number
-                si_doc.save()
+                print(f"{str(ct_sno+1)}. Update from CTrack. CTrack AWB= {ct.awb_number} but SI AWB= {si_doc.lr_no} SI# {si_doc.name}")
+                frappe.db.set_value("Sales Invoice", si_doc.name, "lr_no", ct.awb_number)
                 ct_sno += 1
             elif ctrack_awb == 1 and si_awb == 1:
-                #Both CTRACK and SI have different AWB now check if the AWB is same without SPACES.
-                if re.sub('[^A-Za-z0-9]+', '', str(ctrack_doc.awb_number)) == \
+                if re.sub('[^A-Za-z0-9]+', '', str(ct.awb_number)) == \
                         re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no)):
-                    print(f"Updated SI# {si_doc.name} from CTrack# {ctrack_doc.name} as both"
-                        f" were same without spaces")
-                    si_doc.lr_no = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
-                    si_doc.save()
+                    print(f"Updated SI# {si_doc.name} from CTrack# {ct.name} as both were same without spaces")
+                    frappe.db.set_value("Sales Invoice", si_doc.name, "lr_no", re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no)))
                 else:
-                    print(f"{str(man_sno+1)}. SI# {si_doc.name} and CTrack# {ctrack_doc.naem} "
-                        f"have different AWB")
+                    print(f"{str(man_sno+1)}. SI# {si_doc.name} and CTrack# {ct.name} have different AWB")
                     man_sno += 1
+        
+        if (ct_sno + si_sno + man_sno) % 100 == 0:
+            frappe.db.commit()
+    frappe.db.commit()
 
 
 def send_bulk_tracks():
     """
     Sends CTracks in Bulk to Shipway for Carriers where there is no direct API Access
     """
-    unposted = frappe.db.sql("""SELECT ct.name FROM `tabCarrier Tracking` ct, `tabTransporters` tpt
+    unposted = frappe.db.sql("""SELECT ct.name, ct.carrier_name, ct.modified, ct.creation, ct.awb_number 
+        FROM `tabCarrier Tracking` ct, `tabTransporters` tpt
         WHERE ct.posted_to_shipway = 0 AND ct.docstatus != 2 AND ct.awb_number <> "NA"
         AND ct.awb_number != "" AND tpt.track_on_shipway = 1 AND ct.carrier_name = tpt.name
-        ORDER BY ct.creation DESC """, as_list=1)
+        ORDER BY ct.creation DESC """, as_dict=1)
+    
+    if not unposted:
+        return
+
+    # Bulk fetch transporters to avoid multiple get_doc calls
+    carrier_names = list(set([t.carrier_name for t in unposted]))
+    transporters = frappe.get_all("Transporters", filters={"name": ["in", carrier_names]}, 
+        fields=["name", "fedex_credentials", "fedex_tracking_only", "dtdc_tracking_only", "dtdc_credentials", "track_on_shipway", "shipway_id"])
+    trans_map = {t.name: t for t in transporters}
+
     for tracks in unposted:
-        track_doc = frappe.get_doc("Carrier Tracking", tracks[0])
-        trans_doc = frappe.get_doc("Transporters", track_doc.carrier_name)
+        trans_doc = trans_map.get(tracks.carrier_name)
+        if not trans_doc:
+            continue
+            
         if trans_doc.fedex_credentials == 1 or trans_doc.fedex_tracking_only == 1 or \
                 trans_doc.dtdc_tracking_only == 1 or trans_doc.dtdc_credentials == 1:
-            print(("Direct Fedex Booking for {}. Not Posting to Shipway").format(track_doc.name))
+            print(("Direct Fedex/DTDC Booking for {}. Not Posting to Shipway").format(tracks.name))
         else:
-            days_diff = (datetime.today().date() - track_doc.modified.date()).days
+            days_diff = (datetime.today().date() - tracks.modified.date()).days
             if 1 < days_diff < 20:
-                print(f"Pushed {track_doc.name} Older than 1 Days. Total Days Old = "
-                    f"{str(days_diff)}")
-                pushOrderData(track_doc)
+                print(f"Pushed {tracks.name} Older than 1 Days. Total Days Old = {str(days_diff)}")
+                
+                # Manual doc created from dict to avoid get_doc if possible
+                # But pushOrderData does its own get_doc, let's optimize that too if needed
+                track_doc = frappe.get_doc("Carrier Tracking", tracks.name)
+                pushOrderData(track_doc, trans_doc)
                 frappe.db.commit()
             elif days_diff >= 20:
-                print(f"Not Posting {track_doc.name} since Data is now STALE with "
-                    f"{str(days_diff)} Days Old")
+                print(f"Not Posting {tracks.name} since Data is now STALE with {str(days_diff)} Days Old")
             else:
-                print(f"Not Posting {track_doc.name} Created On: {str(track_doc.creation)} "
-                    f"since its Not Old Enough")
+                print(f"Not Posting {tracks.name} Created On: {str(tracks.creation)} since its Not Old Enough")
+
 
 
 def enqueue_get_ship_data():
@@ -162,7 +207,8 @@ def get_all_ship_data():
     """
     pending_ships = frappe.db.sql("""SELECT ctrack.name as name, tpt.fedex_credentials as fed_cred,
         tpt.dtdc_credentials as dtdc_cred, tpt.dtdc_tracking_only as dtdc_track,
-        ctrack.creation as creation, tpt.fedex_tracking_only as fed_track, ctrack.modified as modified
+        ctrack.creation as creation, tpt.fedex_tracking_only as fed_track, ctrack.modified as modified,
+        ctrack.carrier_name
         FROM `tabCarrier Tracking` ctrack, `tabTransporters` tpt
         WHERE (ctrack.posted_to_shipway = 1 OR tpt.fedex_credentials = 1 or tpt.fedex_tracking_only = 1
         OR tpt.dtdc_credentials = 1 OR tpt.dtdc_tracking_only = 1)
@@ -170,63 +216,76 @@ def get_all_ship_data():
         AND ctrack.status != "Delivered"
         AND ctrack.awb_number != "NA" AND ctrack.awb_number != ""
         ORDER BY ctrack.creation ASC """, as_dict=1)
+    
+    if not pending_ships:
+        return
+
+    # Bulk fetch transporters
+    carrier_names = list(set([t.carrier_name for t in pending_ships]))
+    transporters = frappe.get_all("Transporters", filters={"name": ["in", carrier_names]}, 
+        fields=["name", "fedex_credentials", "fedex_tracking_only", "dtdc_tracking_only", "dtdc_credentials", "track_on_shipway"])
+    trans_map = {t.name: t for t in transporters}
+
     sno = 0
+    now_dt = datetime.now()
+    today_date = now_dt.date()
+
     for tracks in pending_ships:
-        days_diff = (datetime.today().date() - tracks.creation.date()).days
-        last_update_hrs = (datetime.now() - tracks.modified).total_seconds()/3600
+        days_diff = (today_date - tracks.creation.date()).days
+        last_update_hrs = (now_dt - tracks.modified).total_seconds()/3600
+        
         fedex = tracks.fed_track or tracks.fed_cred
         dtdc = tracks.dtdc_track or tracks.dtdc_cred
-        if fedex == 1:
-            track_name = "Fedex"
-        elif dtdc == 1:
-            track_name = "DTDC"
+        
+        track_name = "Fedex" if fedex else ("DTDC" if dtdc else "Shipway")
+        
+        should_update = False
         if (tracks.fed_cred == 1 or tracks.fed_track == 1 or tracks.dtdc_cred == 1 or
                 tracks.dtdc_track == 1) and 150 > days_diff > 1:
-            # Get from Fedex or DTDC only if less than 150 days old
             if last_update_hrs > 6:
-                print(f"{str(sno+1)}. Getting Tracking for {tracks.name} from {track_name}")
-                track_doc = frappe.get_doc("Carrier Tracking", tracks.name)
-                try:
-                    getOrderShipmentDetails(track_doc)
-                except Exception as e:
-                    print(f"Some Error Encountered while getting Tracking for {track_doc.name}\n"
-                        f"Error is {e}")
-            else:
-                print(f"{str(sno+1)}. {track_name} Tracking Was Updated less than 6 hrs ago hence "
-                    f"skipping {tracks.name}")
+                should_update = True
         elif (tracks.fed_cred == 0 and tracks.fed_track == 0 and tracks.dtdc_cred == 0 and
                 tracks.dtdc_track == 0) and 2 < days_diff < 60:
-            # Get from Shipway only less than 60 days old shipments
             if last_update_hrs > 6:
-                print("{}. Getting Tracking for {} from Shipway".format(str(sno+1), tracks.name))
-                track_doc = frappe.get_doc("Carrier Tracking", tracks.name)
-                try:
-                    getOrderShipmentDetails(track_doc)
-                except Exception as e:
-                    print(f"Encountered some error for {tracks.name} \n Error is {e}")
-            else:
-                print("{}. Shipway Tracking was updated less than 6 hrs ago hence skipping {}".
-                      format(str(sno + 1), tracks.name))
-        sno += 1
-        frappe.db.commit()
+                should_update = True
+        
+        if should_update:
+            print(f"{str(sno+1)}. Getting Tracking for {tracks.name} from {track_name}")
+            track_doc = frappe.get_doc("Carrier Tracking", tracks.name)
+            trans_doc = trans_map.get(tracks.carrier_name)
+            try:
+                # Passing trans_doc to avoid another get_doc inside getOrderShipmentDetails
+                getOrderShipmentDetails(track_doc, trans_doc)
+            except Exception as e:
+                print(f"Error for {tracks.name}: {e}")
+            
+            sno += 1
+            if sno % 20 == 0:
+                frappe.db.commit()
+    
+    frappe.db.commit()
 
 
-def pushOrderData(track_doc):
+def pushOrderData(track_doc, trans_doc=None):
     """
     Purshes a Carrier Tracking to Shipway for all non direct API
     """
-    trans_doc = frappe.get_doc('Transporters', track_doc.carrier_name)
+    if not trans_doc:
+        trans_doc = frappe.get_doc('Transporters', track_doc.carrier_name)
+
     if track_doc.get("__islocal") != 1 and track_doc.posted_to_shipway == 0 and \
             trans_doc.track_on_shipway == 1:
-        check_upload = post_to_shipway(track_doc)
+        
+        # Optimization: Fetch Shipway settings only once if needed, or use cached value
         username, license_key = get_shipway_pass()
+        
+        check_upload = post_to_shipway(track_doc)
         if check_upload.get("status") != "Success":
             url = get_shipway_url() + "pushOrderData"
             post_data = {
                 "username": username,
                 "password": license_key,
-                "carrier_id": frappe.get_value("Transporters", track_doc.carrier_name,
-                                               "shipway_id"),  # from transporters doc
+                "carrier_id": trans_doc.shipway_id,
                 "awb": track_doc.awb_number,
                 "order_id": track_doc.name,
                 "first_name": "Rohit",
@@ -239,30 +298,31 @@ def pushOrderData(track_doc):
                                       data=json.dumps(post_data))
             post_response = json.loads(p_response.text)
             if post_response.get("status") == "Success":
-                track_doc.status = "Shipment Data Uploaded"
-                track_doc.posted_to_shipway = 1
-                track_doc.save()
+                frappe.db.set_value("Carrier Tracking", track_doc.name, {
+                    "status": "Shipment Data Uploaded",
+                    "posted_to_shipway": 1
+                })
             else:
-                track_doc.status = "Posting Issues"
-                frappe.msgprint(("Some Issues in posting {0}").format(track_doc.name))
+                frappe.db.set_value("Carrier Tracking", track_doc.name, "status", "Posting Issues")
+                # frappe.msgprint(("Some Issues in posting {0}").format(track_doc.name))
         else:
-            track_doc.posted_to_shipway = 1
-            track_doc.status = "Shipment Data Uploaded"
-            track_doc.save()
+            frappe.db.set_value("Carrier Tracking", track_doc.name, {
+                "status": "Shipment Data Uploaded",
+                "posted_to_shipway": 1
+            })
     elif track_doc.posted_to_shipway == 1:
-        frappe.msgprint("Already Posted to Shipway")
+        print(f"Already Posted to Shipway: {track_doc.name}")
     elif trans_doc.track_on_shipway != 1:
-        frappe.throw('{} for {} is Not Tracked on Shipway'.format(
-            frappe.get_desk_link(track_doc.doctype, track_doc.name),
-            frappe.get_desk_link(trans_doc.doctype, trans_doc.name)))
+        print(f"Transporter {trans_doc.name} not tracked on Shipway")
 
 
-def getOrderShipmentDetails(track_doc):
+def getOrderShipmentDetails(track_doc, trans_doc=None):
     """
     Gets tracking for a Particular Carrier Tracking from respecting Carrier
     """
     print("Processing Carrier Tracking #: " + track_doc.name)
-    trans_doc = frappe.get_doc('Transporters', track_doc.carrier_name)
+    if not trans_doc:
+        trans_doc = frappe.get_doc('Transporters', track_doc.carrier_name)
     shipway = 0
     fedex = 0
     dtdc = 0
@@ -336,7 +396,7 @@ def get_shipway_url():
 
 
 def get_shipway_pass():
-    shipway_settings = frappe.get_doc("Shipway Settings")
+    shipway_settings = frappe.get_cached_doc("Shipway Settings")
     username = shipway_settings.username
     license_key = shipway_settings.license_key
 

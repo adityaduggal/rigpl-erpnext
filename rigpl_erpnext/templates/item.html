@@ -1,0 +1,207 @@
+{% extends "rigpl_erpnext/templates/web.html" %}
+
+{% block page_content %}
+<div class="container mt-5 item-content" itemscope itemtype="http://schema.org/Product">
+	{% if breadcrumbs %}
+	<nav aria-label="breadcrumb">
+		<ol class="breadcrumb bg-light p-2 rounded">
+			{% for breadcrumb in breadcrumbs %}
+			<li class="breadcrumb-item {% if loop.last %}active{% endif %}">
+				{% if not loop.last %}
+					<a href="{{ breadcrumb.url }}">{{ breadcrumb.label }}</a>
+				{% else %}
+					{{ breadcrumb.label }}
+				{% endif %}
+			</li>
+			{% endfor %}
+		</ol>
+	</nav>
+	{% endif %}
+
+	<div class="row mb-5">
+		<div class="col-md-6">
+			<div class="border text-center rounded h-100 border" style="overflow: hidden; min-height: 300px;">
+				{% if item.image %}
+				<img itemprop="image" src="{{ item.image }}" alt="{{ item.item_name }}" class="img-fluid" style="max-height: 400px; object-fit: contain;">
+				{% else %}
+				<div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted">No Image</div>
+				{% endif %}
+			</div>
+		</div>
+		<div class="col-sm-6">
+			<h1 itemprop="name">{{ item.item_name }}</h1>
+			
+			<div>
+				<h6 class="text-uppercase text-muted">Description</h6>
+				<div itemprop="description" class="item-desc">
+					{{ item.description }}
+				</div>
+
+				{% if not variants %}
+				<div class="item-cart row mt-3">
+					<div class="col-md-8">
+						<div itemprop="offers" itemscope itemtype="http://schema.org/Offer">
+							{% if current_price_info.price_list_rate %}
+							<h4 class="item-price" itemprop="price">
+								{{ current_price_info.currency }} {{ "{:,.2f}".format(current_price_info.price_list_rate) }}
+								<div style="font-size: small">
+									({{ current_price_info.currency }} {{ "{:,.2f}".format(current_price_info.price_list_rate) }} / {{ current_price_info.uom }})
+								</div>
+							</h4>
+							{% endif %}
+							
+							<div class="item-stock" itemprop="availability">
+								{% if in_stock %}
+								<div style="color: green"><i class="fa fa-check"></i> In stock</div>
+								{% else %}
+								<div style="color: red"><i class="fa fa-close"></i> Not in stock</div>
+								{% endif %}
+							</div>
+						</div>
+						
+						<div class="mt-3">
+							<button data-item-code="{{ item.name }}" 
+									class="btn btn-outline-primary item-add-to-cart"
+									{% if not in_stock %}disabled{% endif %}>
+								Add to Cart
+							</button>
+						</div>
+					</div>
+				</div>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+
+	{% if item_attributes and not variants %}
+	<div class="row item-website-specification mt-5">
+		<div class="col-md-12">
+			<h6 class="text-uppercase text-muted">Specifications</h6>
+			<table class="table table-bordered">
+				<tbody>
+					{% for attr in item_attributes %}
+					<tr>
+						<td class="text-muted" style="width: 30%;">{{ attr.attribute }}</td>
+						<td>{{ attr.attribute_value }}</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+	{% endif %}
+
+	{% if variants %}
+	<div id="variants-section" class="mt-5">
+		<h3 class="mb-3">Item List</h3>
+		<div class="table-responsive">
+			<table class="table table-bordered table-hover">
+				{% set desired_headers = [
+					('d1_mm', 'Flute Dia (mm)'), 
+					('l1_mm', 'Flute Length (mm)'), 
+					('d2_mm', 'Shank Dia (mm)'), 
+					('l2_mm', 'Overall Length (mm)')
+				] %}
+				<thead class="thead-light">
+					<tr>
+						<th>Item</th>
+						{% for _, header_text in desired_headers %}
+						<th style="white-space: nowrap;">{{ header_text }}</th>
+						{% endfor %}
+						<th>Price / Stock</th>
+						<th width="120">Action</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for variant in variants %}
+					<tr data-variant-item-code="{{ variant.name }}">
+						<td>
+    					    <a href="{{ variant.url }}" class="no-underline">
+    					        <strong>{{ variant.item_code }}</strong>
+    					    </a>
+    					</td>
+						{% for attr_name, _ in desired_headers %}
+						<td>{{ variant.attributes.get(attr_name, '-') }}</td>
+						{% endfor %}
+						<td>
+							<div class="d-flex flex-column">
+								<span class="font-weight-bold">
+									{{ variant.currency }} {{ "{:,.2f}".format(variant.price) }}
+								</span>
+								<small class="text-muted"> / {{ variant.uom }}</small>
+								<div class="mt-1">
+									{% if variant.in_stock %}
+									<span class="text-success small"><i class="fa fa-check"></i> In stock</span>
+									{% else %}
+									<span class="text-danger small"><i class="fa fa-close"></i> Not in stock</span>
+									{% endif %}
+								</div>
+							</div>
+						</td>
+						<td class="align-middle text-center">
+							<button class="btn btn-outline-primary btn-sm item-variant-add-to-cart w-100" 
+									data-item-code="{{ variant.name }}"
+									{% if not variant.in_stock %}disabled{% endif %}>
+								Add to Cart
+							</button>
+						</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+	{% endif %}
+
+</div>
+
+<script>
+frappe.ready(function () {
+
+	$('.page_content').on(
+		'click',
+		'.item-add-to-cart, .item-variant-add-to-cart',
+		function (e) {
+			e.preventDefault();
+
+			if (frappe.session.user === "Guest") {
+				window.location.href = "/login?redirect-to=" + encodeURIComponent(window.location.pathname);
+				return;
+			}
+
+			const $btn = $(this);
+			const item_code = $btn.data('item-code');
+			if (!item_code) return;
+
+			$btn.prop('disabled', true);
+
+			frappe.call({
+				method: "webshop.webshop.shopping_cart.cart.update_cart",
+				args: {
+					item_code: item_code,
+					qty: 1
+				},
+				callback: function (r) {
+					$btn.prop('disabled', false);
+
+					if (!r.exc) {
+						frappe.show_alert({
+							message: __('Item added to cart'),
+							indicator: 'green'
+						});
+					}
+				}
+			});
+		}
+	);
+
+});
+</script>
+<style>
+	.item-desc ul { padding-left: 20px; }
+	.table th { vertical-align: middle; }
+	.table td { vertical-align: middle; }
+	.no-underline { text-decoration: none; color: inherit; }
+	.no-underline:hover { text-decoration: underline; }
+</style>
+{% endblock %}

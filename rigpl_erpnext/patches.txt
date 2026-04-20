@@ -56,3 +56,4 @@ execute:frappe.delete_doc("DocType", "Sales Call Tool")
 execute:frappe.delete_doc("DocType", "Schedule Pickup")
 execute:frappe.delete_doc("Report", "AR-Accounts Receivable-RIGPL")
 execute:frappe.delete_doc("Report", "Value Addition")
+rigpl_erpnext.patches.migrate_employee_advance_to_rigpl

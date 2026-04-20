@@ -172,7 +172,7 @@ def get_rol_based_on_all_periods(all_pd_rol):
     base_pd = 0
     for prd in all_pd_rol:
         base_pd += 1
-        itd = frappe.get_doc("Item", prd.item_name)
+        itd = frappe.get_cached_doc("Item", prd.item_name)
         if base_pd == 1:
             base_period = prd.months
             min_rol_qty = prd.min_allowed_rol_qty
@@ -406,7 +406,7 @@ def get_rol_for_item(item_name, period=1, to_date=date.today()):
     """
     Returns a dictionary for ROL and various other values for an Item for a given period
     """
-    itd = frappe.get_doc("Item", item_name)
+    itd = frappe.get_cached_doc("Item", item_name)
     from_date = add_months(to_date, period * (-1))
     rol_dict = frappe._dict({})
     rol_dict["item_name"] = item_name
