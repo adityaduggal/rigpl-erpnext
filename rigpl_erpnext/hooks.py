@@ -72,6 +72,7 @@ update_website_context = "rigpl_erpnext.app.overrides.website_context"
 
 # before_install = "rigpl_erpnext.install.before_install"
 after_install = "rigpl_erpnext.setup.after_install"
+before_migrate = ["rigpl_erpnext.patches.v13.fix_long_item_names.execute"]
 after_migrate = "rigpl_erpnext.setup.after_migrate"
 
 # Desk Notifications
