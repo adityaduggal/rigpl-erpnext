@@ -73,6 +73,10 @@ website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
 # before_install = "rigpl_erpnext.install.before_install"
 # after_install = "rigpl_erpnext.setup.after_install"
 before_migrate = ["rigpl_erpnext.patches.v13.fix_long_item_names.execute"]
+
+# v13 only: backport of v14 pricing rule "Has Priority". Remove at the v14 upgrade.
+before_request = ["rigpl_erpnext.overrides.pricing_rule_utils.apply_overrides"]
+before_job = ["rigpl_erpnext.overrides.pricing_rule_utils.apply_overrides"]
 # after_migrate = "rigpl_erpnext.setup.after_migrate"
 
 # Desk Notifications
@@ -179,7 +183,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
     },
     "Pricing Rule": {
-        "validate": "rigpl_erpnext.accounts_rigpl.validations.pricing_rule.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.pricing_rule.validate"
     },
     "Purchase Order": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.purchase_order.validate",

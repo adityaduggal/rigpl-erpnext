@@ -6,6 +6,8 @@ import frappe
 def validate(doc, method):
     if not doc.priority:
         doc.priority = 1
+    # Same as v14 PricingRule.validate_mandatory; used by overrides.pricing_rule_utils
+    doc.has_priority = 1
     if doc.apply_on == 'Attributes':
         doc.items = []
         doc.item_groups = []

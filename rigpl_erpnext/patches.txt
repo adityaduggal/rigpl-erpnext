@@ -57,3 +57,5 @@ execute:frappe.delete_doc("DocType", "Schedule Pickup")
 execute:frappe.delete_doc("Report", "AR-Accounts Receivable-RIGPL")
 execute:frappe.delete_doc("Report", "Value Addition")
 rigpl_erpnext.patches.v13.remove_lead_designation_custom_field
+rigpl_erpnext.patches.v13.add_has_priority_to_pricing_rule
+rigpl_erpnext.patches.v13.unset_apply_multiple_on_guard_pricing_rules
