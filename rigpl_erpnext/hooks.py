@@ -13,6 +13,8 @@ app_email = "aditya@rigpl.com"
 app_url = "https://github.com/adityaduggal/rigpl-erpnext"
 app_version = "0.0.1"
 hide_in_installer = True
+# rohit_common defines doctypes (e.g. State) that rigpl customizations link to
+required_apps = ["erpnext", "rohit_common"]
 
 # Fixtures help https://frappeframework.com/docs/v13/user/en/python-api/hooks#fixtures
 fixtures = []
