@@ -1,10 +1,14 @@
 import frappe
 from frappe.query_builder import DocType
 
-# Renamed by erpnext.patches.v12_0.rename_account_type_doctype
 RENAMED_DOCTYPES = [
+    # Renamed by erpnext.patches.v12_0.rename_account_type_doctype
     ("Account Type", "Bank Account Type"),
     ("Account Subtype", "Bank Account Subtype"),
+    # Renamed by erpnext.patches.v12_0.rename_pos_closing_doctype
+    ("POS Closing Voucher", "POS Closing Entry"),
+    ("POS Closing Voucher Taxes", "POS Closing Entry Taxes"),
+    ("POS Closing Voucher Details", "POS Closing Entry Detail"),
 ]
 
 
@@ -27,14 +31,14 @@ def execute():
         else:
             frappe.throw(
                 f"Tables tab{old} and tab{new} both exist, but neither DocType exists",
-                title="Cannot Fix Duplicate Bank Account Type Tables",
+                title="Cannot Fix Duplicate Renamed DocType Tables",
             )
 
         missing = get_names(stale) - get_names(source)
         if missing:
             frappe.throw(
                 f"Table tab{stale} has rows not in tab{source}: {', '.join(sorted(missing))}",
-                title="Cannot Fix Duplicate Bank Account Type Tables",
+                title="Cannot Fix Duplicate Renamed DocType Tables",
             )
 
         frappe.db.sql_ddl(f"DROP TABLE `tab{stale}`")

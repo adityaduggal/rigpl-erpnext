@@ -74,7 +74,7 @@ website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
 # after_install = "rigpl_erpnext.setup.after_install"
 before_migrate = [
     "rigpl_erpnext.patches.v13.fix_long_item_names.execute",
-    "rigpl_erpnext.patches.v13.fix_duplicate_bank_account_type_tables.execute",
+    "rigpl_erpnext.patches.v13.fix_duplicate_renamed_doctype_tables.execute",
 ]
 
 # v13 only: backport of v14 pricing rule "Has Priority". Remove at the v14 upgrade.
