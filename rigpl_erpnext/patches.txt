@@ -60,3 +60,4 @@ rigpl_erpnext.patches.v13.remove_lead_designation_custom_field
 rigpl_erpnext.patches.v13.add_has_priority_to_pricing_rule
 rigpl_erpnext.patches.v13.unset_apply_multiple_on_guard_pricing_rules
 rigpl_erpnext.patches.v13.remove_pos_closing_voucher_doctypes
+rigpl_erpnext.patches.v13.remove_homepage_section_content
