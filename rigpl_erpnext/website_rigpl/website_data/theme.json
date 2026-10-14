@@ -1,0 +1,22 @@
+{
+	"colors": {
+		"rigpl-v12-green": "#8BBF46",
+		"rigpl-v12-dark-purple": "#191B69",
+		"rigpl-v12-midnight-blue": "#18427B",
+		"rigpl-v12-light-grey": "#E2DBD4",
+		"rigpl-v12-slate-grey": "#7F8487"
+	},
+	"theme": {
+		"theme": "rigpl-v12",
+		"custom": 1,
+		"google_font": "Poppins",
+		"font_properties": "wght@300;400;700",
+		"font_size": "16px",
+		"primary_color": "rigpl-v12-green",
+		"dark_color": "rigpl-v12-dark-purple",
+		"button_rounded_corners": 1,
+		"button_shadows": 0,
+		"button_gradients": 0
+	},
+	"custom_scss_file": "rigpl_v12_theme.scss"
+}

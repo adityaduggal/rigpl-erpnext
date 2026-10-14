@@ -1,0 +1,28 @@
+{%- set blogs = frappe.get_all("Blog Post",
+	fields=["title", "blogger", "blog_intro", "route"],
+	filters={"published": 1},
+	order_by="modified desc",
+	limit=[[(blog_count or 3) | int, 1] | max, 12] | min) -%}
+
+<div class="rigpl-latest-blogs">
+	{%- if title -%}
+	<h2 class="section-title">{{ title | e }}</h2>
+	{%- endif -%}
+
+	<div class="row">
+		{%- for blog in blogs -%}
+		<div class="col-md-4 mt-4">
+			<div class="card h-100">
+				<div class="card-body">
+					<h5 class="card-title">{{ blog.title | e }}</h5>
+					{%- if blog.blogger -%}
+					<p class="card-subtitle mb-2 text-muted">By {{ blog.blogger | e }}</p>
+					{%- endif -%}
+					<p class="card-text">{{ (blog.blog_intro or "") | striptags | e }}</p>
+					<a href="/{{ blog.route | e }}" class="card-link">Read blog</a>
+				</div>
+			</div>
+		</div>
+		{%- endfor -%}
+	</div>
+</div>

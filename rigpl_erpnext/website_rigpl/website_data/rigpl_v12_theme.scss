@@ -1,0 +1,73 @@
+// The v12 rigpl.com theme (v12 branch: public/scss/index.scss), for the v13 navbar and footer.
+// The import copies this file into Website Theme "rigpl-v12" > Custom SCSS. Edit it there after the import.
+
+// Navbar: dark, with a green line at the top
+.navbar {
+    background-color: $dark;
+    border-top: 5px solid $primary;
+
+    .navbar-brand,
+    .nav-link {
+        color: $light !important;
+        white-space: nowrap;
+
+        &:hover {
+            color: $primary !important;
+        }
+    }
+
+    .navbar-toggler-icon {
+        filter: invert(1);
+    }
+
+    .dropdown-menu {
+        font-size: 0.75rem;
+        background-color: $dark;
+        border-radius: 0;
+    }
+
+    .dropdown-item {
+        color: $light;
+
+        &:hover {
+            background-color: $dark;
+            color: $primary;
+        }
+    }
+}
+
+// Footer: dark, with light links and green headings
+.web-footer {
+    background-color: $dark;
+    color: $light;
+
+    a,
+    .footer-link {
+        color: $light;
+
+        &:hover {
+            color: $primary;
+        }
+    }
+
+    .footer-group-label {
+        color: $primary;
+    }
+
+    .footer-logo {
+        height: 200px;
+        width: 200px;
+    }
+}
+
+.btn-primary {
+    color: $white;
+}
+
+.text-underline {
+    text-decoration: underline;
+}
+
+img {
+    max-width: 100%;
+}

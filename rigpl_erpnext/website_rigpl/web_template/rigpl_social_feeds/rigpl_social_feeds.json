@@ -1,0 +1,50 @@
+{
+ "creation": "2026-10-14 12:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Web Template",
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 0
+  },
+  {
+   "description": "Without the @, for example rigpl1",
+   "fieldname": "twitter_handle",
+   "fieldtype": "Data",
+   "label": "Twitter Handle",
+   "reqd": 0
+  },
+  {
+   "description": "The page name in facebook.com/<page name>",
+   "fieldname": "facebook_id",
+   "fieldtype": "Data",
+   "label": "Facebook Page",
+   "reqd": 0
+  },
+  {
+   "description": "The id in youtube.com/channel/<id>",
+   "fieldname": "youtube_channel_id",
+   "fieldtype": "Data",
+   "label": "YouTube Channel ID",
+   "reqd": 0
+  },
+  {
+   "description": "The id in youtube.com/watch?v=<id>",
+   "fieldname": "youtube_video_id",
+   "fieldtype": "Data",
+   "label": "YouTube Video ID",
+   "reqd": 0
+  }
+ ],
+ "idx": 0,
+ "modified": "2026-10-14 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Website-RIGPL",
+ "name": "RIGPL Social Feeds",
+ "owner": "Administrator",
+ "standard": 1,
+ "template": "",
+ "type": "Section"
+}

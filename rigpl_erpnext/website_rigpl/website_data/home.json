@@ -1,0 +1,23 @@
+{
+	"name": "home",
+	"route": "rohit-cutting-tools",
+	"products": {
+		"title": "Products"
+	},
+	"blogs": {
+		"title": "Publications",
+		"blog_count": 3
+	},
+	"social": {
+		"title": "Social",
+		"twitter_handle": "rigpl1",
+		"facebook_id": "RohitCuttingTools",
+		"youtube_channel_id": "UCrVTlU5g3SeNSZDc1MQV8GA",
+		"youtube_video_id": "8cER4UUPxK8"
+	},
+	"contact": {
+		"title": "Have more questions?",
+		"cta_label": "Send us a message",
+		"cta_url": "/contact"
+	}
+}

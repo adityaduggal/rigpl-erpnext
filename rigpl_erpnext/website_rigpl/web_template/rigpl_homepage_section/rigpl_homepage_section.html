@@ -1,0 +1,29 @@
+{%- if homepage_section and frappe.db.exists("Homepage Section", homepage_section) -%}
+{%- set section = frappe.get_doc("Homepage Section", homepage_section) -%}
+<div class="rigpl-homepage-section">
+	<h3>{{ section.name | e }}</h3>
+
+	{%- if section.section_based_on == "Custom HTML" -%}
+	{{ section.section_html or "" }}
+	{%- else -%}
+	<div class="row">
+		{%- for card in section.section_cards -%}
+		<div class="col-md-4 h-100 mt-4">
+			<div class="card">
+				<div class="card-body">
+					<h5 class="card-title">{{ card.title | e }}</h5>
+					<p class="card-subtitle mb-2 text-muted">{{ (card.subtitle or "") | e }}</p>
+					<p class="card-text">{{ (card.content or "") | striptags | truncate(140, True) | e }}</p>
+				</div>
+				{%- if card.route -%}
+				<div class="card-body">
+					<a href="{{ card.route | e }}" class="card-link">More details</a>
+				</div>
+				{%- endif -%}
+			</div>
+		</div>
+		{%- endfor -%}
+	</div>
+	{%- endif -%}
+</div>
+{%- endif -%}

@@ -1,0 +1,24 @@
+{
+ "creation": "2026-10-14 12:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Web Template",
+ "fields": [
+  {
+   "description": "Edit the cards or the HTML in the Homepage Section document",
+   "fieldname": "homepage_section",
+   "fieldtype": "Link",
+   "label": "Homepage Section",
+   "options": "Homepage Section",
+   "reqd": 1
+  }
+ ],
+ "idx": 0,
+ "modified": "2026-10-14 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Website-RIGPL",
+ "name": "RIGPL Homepage Section",
+ "owner": "Administrator",
+ "standard": 1,
+ "template": "",
+ "type": "Section"
+}

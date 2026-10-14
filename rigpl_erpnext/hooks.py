@@ -82,7 +82,7 @@ before_migrate = [
 # v13 only: backport of v14 pricing rule "Has Priority". Remove at the v14 upgrade.
 before_request = ["rigpl_erpnext.overrides.pricing_rule_utils.apply_overrides"]
 before_job = ["rigpl_erpnext.overrides.pricing_rule_utils.apply_overrides"]
-# after_migrate = "rigpl_erpnext.setup.after_migrate"
+after_migrate = ["rigpl_erpnext.website_rigpl.website_data.importer.notify_pending_website_import"]
 
 # Desk Notifications
 # ------------------
@@ -124,6 +124,10 @@ doc_events = {
     "Bank Account": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.validate",
         "autoname": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.autoname",
+    },
+    "Blog Post": {
+        "on_update": "rigpl_erpnext.website_rigpl.website_data.importer.clear_cache_on_blog_change",
+        "on_trash": "rigpl_erpnext.website_rigpl.website_data.importer.clear_cache_on_blog_change",
     },
     "Communication": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.communication.validate"

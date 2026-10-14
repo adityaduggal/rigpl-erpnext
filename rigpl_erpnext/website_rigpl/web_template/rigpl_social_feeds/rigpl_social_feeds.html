@@ -1,0 +1,42 @@
+<div class="rigpl-social-feeds">
+	{%- if title -%}
+	<h2 class="section-title">{{ title | e }}</h2>
+	{%- endif -%}
+
+	<div class="row">
+		{%- if twitter_handle -%}
+		<div class="col-md-4 mt-4">
+			<div class="border rounded" style="max-height: 500px; overflow: auto;">
+				<a class="twitter-timeline" href="https://twitter.com/{{ twitter_handle | e }}?ref_src=twsrc%5Etfw">Tweets by {{ twitter_handle | e }}</a>
+				<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+			</div>
+		</div>
+		{%- endif -%}
+
+		{%- if facebook_id -%}
+		<div class="col-md-4 mt-4">
+			<div id="fb-root"></div>
+			<script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_GB/sdk.js#xfbml=1&version=v3.1"></script>
+			<div class="fb-page" data-href="https://www.facebook.com/{{ facebook_id | e }}" data-tabs="timeline"
+				data-small-header="true" data-adapt-container-width="true" data-hide-cover="false" data-show-facepile="true">
+				<blockquote cite="https://www.facebook.com/{{ facebook_id | e }}" class="fb-xfbml-parse-ignore">
+					<a href="https://www.facebook.com/{{ facebook_id | e }}"></a>
+				</blockquote>
+			</div>
+		</div>
+		{%- endif -%}
+
+		{%- if youtube_channel_id or youtube_video_id -%}
+		<div class="col-md-4 mt-4">
+			{%- if youtube_channel_id -%}
+			<script src="https://apis.google.com/js/platform.js"></script>
+			<div class="g-ytsubscribe" data-channelid="{{ youtube_channel_id | e }}" data-layout="full" data-count="default"></div>
+			{%- endif -%}
+			{%- if youtube_video_id -%}
+			<iframe width="100%" src="https://www.youtube.com/embed/{{ youtube_video_id | e }}" frameborder="0"
+				allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+			{%- endif -%}
+		</div>
+		{%- endif -%}
+	</div>
+</div>
