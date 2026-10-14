@@ -1,0 +1,30 @@
+{
+ "creation": "2026-10-15 12:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Web Template",
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 0
+  },
+  {
+   "description": "A published template Website Item. The block shows its published variant Website Items.",
+   "fieldname": "website_item",
+   "fieldtype": "Link",
+   "label": "Website Item",
+   "options": "Website Item",
+   "reqd": 1
+  }
+ ],
+ "idx": 0,
+ "modified": "2026-10-15 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Website-RIGPL",
+ "name": "RIGPL Variant Table",
+ "owner": "Administrator",
+ "standard": 1,
+ "template": "",
+ "type": "Section"
+}

@@ -25,7 +25,7 @@ Commit eeb391b removed all of this code. In v13, the website is data in the data
 
 A web template is a reusable section of a page. A Web Page block uses one web template and keeps the values for it. To edit a block, open the Web Page, open the row in **Page Blocks**, and click **Edit Values**.
 
-This app adds four web templates in the module Website-RIGPL. `bench migrate` installs them.
+This app adds five web templates in the module Website-RIGPL. `bench migrate` installs them.
 
 | Web Template | What it shows | Fields |
 |---|---|---|
@@ -33,6 +33,7 @@ This app adds four web templates in the module Website-RIGPL. `bench migrate` in
 | RIGPL Contact Strip | "Have more questions?" with the email, the phone and a button | Title, Email, Phone, Button Label, Button URL |
 | RIGPL Latest Blogs | The latest published Blog Posts as cards | Title, Number of Blog Posts |
 | RIGPL Homepage Section | One Homepage Section with its cards or its HTML | Homepage Section |
+| RIGPL Variant Table | The published variants of a template Website Item, with the item code of each variant (section 6) | Title, Website Item |
 
 The home page also uses two standard templates:
 
@@ -43,7 +44,7 @@ Notes:
 
 - RIGPL Latest Blogs reads the Blog Posts each time the page is built. When you publish, change or delete a Blog Post, the app clears the website cache, so the home page shows the change.
 - RIGPL Homepage Section reads the Homepage Section document. To change the cards, edit the Homepage Section document, not the block.
-- Do not edit these four web templates in Desk. They are standard templates, and the next update replaces your changes. If you need a different layout, ask a developer to change the template files in `website_rigpl/web_template/`.
+- Do not edit these five web templates in Desk. They are standard templates, and the next update replaces your changes. If you need a different layout, ask a developer to change the template files in `website_rigpl/web_template/`.
 
 ## 3. Import the v12 website
 
@@ -221,7 +222,75 @@ Known differences:
 - The product cards show the image of the Website Item. v12 showed the image from the Homepage product row. To change a card image, change the Website Item image.
 - The `/home` URL shows the ERPNext home page template, not the Web Page `home`. Use the site root `/`. The Web Page `home` is also at `/rohit-cutting-tools`.
 
-## 6. Open items
+## 6. Template pages
+
+A template page is the page of a Website Item whose item has variants. For example, the home page product cards open template pages. GitHub issue #95 tracks this work.
+
+The app changes each template page automatically. You do not need to set anything for each item. The page shows:
+
+1. The image, the name, the template item code and the long description of the Website Item.
+2. The common specifications table: each attribute that has the same value for all variants, shown one time above the variant table. For example, Material and Brand. The table has three name–value pairs in each row. On a phone, each pair is on its own row.
+3. A table with one row for each published variant Website Item. The first column is the item code, with a link to the variant page. The other columns are the attributes that are different between the variants.
+4. The tabs and the Website Content of the Website Item, if they have content.
+
+The page does not show the ERPNext variant selector or the add-to-cart button. A variant Website Item and an item without variants show the standard ERPNext page.
+
+The website shows only what is published as a Website Item. Website Item links to Item with **Item Code** and to Item Group with **Item Group**:
+
+- The rows are the variant Website Items with **Variant Of** set to the template item and **Published** set. When you disable an Item, ERPNext unpublishes its Website Item, so the variant does not show.
+- If the template Website Item is not published, the table is empty.
+- Website Item has no attributes. The attribute values come from the **Variant Attributes** table of each Item. The columns are the rows of the template Item that have **Use in Description** set, in the order of the table.
+- The column headings and the common specification names come from the **Field Name** column of the template Item's **Variant Attributes** table. For example, `d1_mm` shows as "Flute Dia (mm)". If **Field Name** is empty, the page shows the attribute name. To change a heading, edit **Field Name** in the template Item.
+- The breadcrumbs come from the Item Group of the Website Item.
+- The rows are sorted from small to large by each column, in the order of the template table. For example, they sort by `d1_mm` first, then by `l1_mm`. An attribute with **Numeric Values** set in Item Attribute sorts as a number, so 9 comes before 10. An empty value sorts last. Issue #90 adds a sort order that you can set for each template.
+- The website cache can show an old table for some time after a change. Issue #85 covers this.
+
+The item code links to the page of the variant Website Item. Its route is `<template route>/<item code>`. Before the patch `fix_shared_website_item_routes` (issue #99), variants used the route of their template, so some template pages showed a variant. The patch gives each Website Item a route of its own, and it adds a redirect from each old route that only variants used to the template page.
+
+Each row has the item code as its anchor. To link to one variant, add `#<item code>` to the page URL. The browser scrolls to the row and highlights it.
+
+### 6.1 Filter, sort and phones
+
+Above the variant table, a toolbar has a filter box and the item count:
+
+- Type in the filter box to show only the rows that contain all the words. For example, `6 50` shows the rows with 6 and 50 in any column. The count shows "12 of 46 items".
+- Click a column heading to sort by that column, from small to large. Click it again to sort from large to small. An arrow shows the sorted column. Number columns sort as numbers. Empty cells always go last.
+- The table box has a maximum height and scrolls inside, so the heading row and the item code column stay in view on a long list.
+- On a phone, each row shows as a card: the item code at the top, then one line for each column with its heading. The toolbar shows a **Sort by** list, because the heading row is not shown.
+
+The filter and the sort run in the browser. The page from the server always has all rows in the default order (section 6), so search engines see all items.
+
+### 6.2 The look of the tables
+
+The styles are in the Website Theme `rigpl-v12`, in **Custom SCSS**, in the section from `// RIGPL tables v2 (#95)` to `// End of RIGPL tables`. Frappe uses one Website Theme for each site, so the table styles are part of the site theme and use its colors and font. The page script only shows or hides rows and marks the sorted column. It does not set colors or sizes.
+
+The variables at the start of the section control the look. For example:
+
+| Variable | Default | What it changes |
+|---|---|---|
+| `$rigpl-variant-head-bg` | `$dark` | Heading row color |
+| `$rigpl-variant-sorted-color` | `$primary` | Heading text of the sorted column |
+| `$rigpl-variant-hover-bg` | 12% primary | Row color under the mouse |
+| `$rigpl-variant-max-height` | `75vh` | Height of the table box before it scrolls inside |
+| `$rigpl-variant-card-breakpoint` | `sm` | Width at which rows show as cards (`xs`, `sm`, `md`) |
+| `$rigpl-spec-accent` | `$primary` | Line on the left of the common specifications table |
+
+To change the look:
+
+1. Open Website Theme `rigpl-v12` in Desk.
+2. In **Custom SCSS**, change the variables or the rules in the RIGPL tables section.
+3. Save. Frappe compiles the theme.
+
+The reference copy of the section is in `website_data/rigpl_v12_theme.scss`. A new import (section 3) adds it with the rest of the theme. On a site that has the theme already:
+
+- The patch `add_table_styles_to_website_theme` adds the section if it is not there.
+- The patch `update_table_styles_in_website_theme` replaces the first version of the section with v2, but only if nobody edited it. If somebody edited it, the patch prints a message, and you copy the v2 section into Custom SCSS by hand.
+
+After that, the theme in the database is the source. A change to the file does not change a site.
+
+To show a variant table on a Web Page, add a block with the web template **RIGPL Variant Table** and set **Website Item** to a published template Website Item.
+
+## 7. Open items
 
 - 16 Web Pages are not published (for example drilling-tools, lathe-tools and services). Decide for each page: publish it, redirect it to an Item Group page, or delete it. Issue #88 has the list.
 - To add a new page, make a new Web Page with Content Type "Page Builder". Do not add page HTML to this app.

@@ -1,0 +1,171 @@
+{#- Styles: Website Theme rigpl-v12 > Custom SCSS, section "RIGPL tables" (website_data/rigpl_v12_theme.scss).
+    The script only changes attributes (hidden, aria-sort) and row order. It sets no styles. -#}
+{%- set table = rigpl_variant_table(website_item) -%}
+
+<div class="rigpl-variant-table-section">
+	{%- if title -%}
+	<h2 class="section-title">{{ title | e }}</h2>
+	{%- endif -%}
+
+	{%- if table.common -%}
+	<table class="rigpl-spec-table">
+		<caption class="sr-only">Common specifications</caption>
+		<tbody>
+			{%- for pairs in table.common | batch(3) -%}
+			<tr>
+				{%- for label, value in pairs -%}
+				<th scope="row">{{ label | e }}</th>
+				<td>{{ value | e }}</td>
+				{%- endfor -%}
+			</tr>
+			{%- endfor -%}
+		</tbody>
+	</table>
+	{%- endif -%}
+
+	{%- if table.rows -%}
+	<div class="rigpl-variant-toolbar">
+		<label class="rigpl-variant-filter">
+			<span class="sr-only">Filter items</span>
+			<input type="search" placeholder="Filter by item code or size" autocomplete="off" data-rigpl-filter>
+		</label>
+		<label class="rigpl-variant-sort">
+			<span>Sort by</span>
+			<select data-rigpl-sort>
+				<option value="">Default</option>
+				<option value="0:asc">Item Code ↑</option>
+				<option value="0:desc">Item Code ↓</option>
+				{%- for column in table.columns -%}
+				<option value="{{ loop.index }}:asc">{{ column.label | e }} ↑</option>
+				<option value="{{ loop.index }}:desc">{{ column.label | e }} ↓</option>
+				{%- endfor -%}
+			</select>
+		</label>
+		<p class="rigpl-variant-count" aria-live="polite" data-rigpl-count>{{ table.rows | length }} items</p>
+	</div>
+
+	<div class="rigpl-variant-table">
+		<table>
+			<thead>
+				<tr>
+					<th scope="col" data-type="text">
+						<button type="button" data-rigpl-sort-column="0">Item Code</button>
+					</th>
+					{%- for column in table.columns -%}
+					<th scope="col" data-type="{{ 'number' if column.numeric else 'text' }}">
+						<button type="button" data-rigpl-sort-column="{{ loop.index }}">{{ column.label | e }}</button>
+					</th>
+					{%- endfor -%}
+				</tr>
+			</thead>
+			<tbody>
+				{%- for row in table.rows -%}
+				<tr id="{{ row.item_code | e }}">
+					<th scope="row" data-label="Item Code">
+						{%- if row.route -%}
+						<a href="/{{ row.route | e }}">{{ row.item_code | e }}</a>
+						{%- else -%}
+						{{ row.item_code | e }}
+						{%- endif -%}
+					</th>
+					{%- for column in table.columns -%}
+					<td data-label="{{ column.label | e }}">{{ row["values"][column.attribute] | e }}</td>
+					{%- endfor -%}
+				</tr>
+				{%- endfor -%}
+			</tbody>
+		</table>
+		<p class="rigpl-variant-empty" hidden data-rigpl-empty>No items match the filter.</p>
+	</div>
+	{%- else -%}
+	<p class="rigpl-variant-count">No items are available now. Contact us for this product.</p>
+	{%- endif -%}
+</div>
+
+<script>
+(function () {
+	function cellText(row, column) {
+		return (row.cells[column].textContent || "").trim();
+	}
+
+	function compare(a, b, type) {
+		// Empty values always go last, in both directions (handled by the caller).
+		if (type === "number") {
+			var x = parseFloat(a), y = parseFloat(b);
+			if (!isNaN(x) && !isNaN(y)) return x - y;
+			if (!isNaN(x)) return -1;
+			if (!isNaN(y)) return 1;
+		}
+		return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+	}
+
+	function setup(section) {
+		var table = section.querySelector(".rigpl-variant-table table");
+		if (!table || section.dataset.rigplReady) return;
+		section.dataset.rigplReady = "1";
+
+		var tbody = table.tBodies[0];
+		var headers = table.tHead.rows[0].cells;
+		var rows = Array.prototype.slice.call(tbody.rows);
+		var defaultOrder = rows.slice();
+		var filter = section.querySelector("[data-rigpl-filter]");
+		var sortSelect = section.querySelector("[data-rigpl-sort]");
+		var count = section.querySelector("[data-rigpl-count]");
+		var empty = section.querySelector("[data-rigpl-empty]");
+		var texts = rows.map(function (row) { return (row.textContent || "").toLowerCase(); });
+
+		function applyFilter() {
+			var words = filter.value.toLowerCase().split(/\s+/).filter(Boolean);
+			var shown = 0;
+			rows.forEach(function (row, i) {
+				var match = words.every(function (word) { return texts[i].indexOf(word) !== -1; });
+				row.hidden = !match;
+				if (match) shown += 1;
+			});
+			count.textContent = words.length ? shown + " of " + rows.length + " items" : rows.length + " items";
+			empty.hidden = shown !== 0;
+		}
+
+		function sortBy(column, direction) {
+			var order;
+			if (column === null) {
+				order = defaultOrder.slice();
+			} else {
+				var type = headers[column].dataset.type;
+				var sign = direction === "desc" ? -1 : 1;
+				order = defaultOrder.slice().sort(function (a, b) {
+					var x = cellText(a, column), y = cellText(b, column);
+					if (!x || !y) return (x ? 0 : 1) - (y ? 0 : 1);
+					return sign * compare(x, y, type);
+				});
+			}
+			order.forEach(function (row) { tbody.appendChild(row); });
+
+			Array.prototype.forEach.call(headers, function (th, i) {
+				if (i === column) th.setAttribute("aria-sort", direction === "desc" ? "descending" : "ascending");
+				else th.removeAttribute("aria-sort");
+			});
+			sortSelect.value = column === null ? "" : column + ":" + direction;
+		}
+
+		Array.prototype.forEach.call(headers, function (th, i) {
+			th.querySelector("button").addEventListener("click", function () {
+				sortBy(i, th.getAttribute("aria-sort") === "ascending" ? "desc" : "asc");
+			});
+		});
+		sortSelect.addEventListener("change", function () {
+			if (!sortSelect.value) return sortBy(null);
+			var parts = sortSelect.value.split(":");
+			sortBy(parseInt(parts[0], 10), parts[1]);
+		});
+		filter.addEventListener("input", applyFilter);
+	}
+
+	function setupAll() {
+		Array.prototype.forEach.call(document.querySelectorAll(".rigpl-variant-table-section"), setup);
+	}
+
+	if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setupAll);
+	else setupAll();
+})();
+</script>

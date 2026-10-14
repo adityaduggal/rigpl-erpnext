@@ -64,7 +64,9 @@ website_generators = ["Carrier Tracking", "Website Item", "Item Group"]
 #    "favicon": "/assets/app/image/favicon.png"
 # }
 
-# update_website_context = "rigpl_erpnext.app.overrides.website_context"
+update_website_context = ["rigpl_erpnext.website_rigpl.item_page.update_website_context"]
+
+jenv = {"methods": ["rigpl_variant_table:rigpl_erpnext.website_rigpl.catalog.get_variant_table"]}
 
 # You can use the update_website_context hook for more complex scenarios as it allows you to manipulate the
 # context dict in a python method. The method is called with one argument, which is the context dict

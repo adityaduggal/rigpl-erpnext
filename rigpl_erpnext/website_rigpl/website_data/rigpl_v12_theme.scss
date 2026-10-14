@@ -71,3 +71,294 @@
 img {
     max-width: 100%;
 }
+
+// RIGPL tables v2 (#95): the common specifications table and the variant table on template pages.
+// Edit the look here, in Website Theme > Custom SCSS. The variables use the theme colors ($primary,
+// $dark) and the Bootstrap greys. The page script only sets attributes (hidden, aria-sort), no styles.
+
+// Common specifications table
+$rigpl-spec-label-color: $gray-600;
+$rigpl-spec-label-bg: $gray-100;
+$rigpl-spec-value-color: $body-color;
+$rigpl-spec-border-color: $border-color;
+$rigpl-spec-accent: $primary;
+
+// Variant table
+$rigpl-variant-head-bg: $dark;
+$rigpl-variant-head-color: $white;
+$rigpl-variant-border-color: $border-color;
+$rigpl-variant-stripe-bg: $gray-100;
+$rigpl-variant-row-bg: $white;
+$rigpl-variant-hover-bg: mix($primary, $white, 12%);
+$rigpl-variant-target-bg: mix($primary, $white, 25%);
+$rigpl-variant-sorted-color: $primary;
+$rigpl-variant-code-color: $dark;
+$rigpl-variant-meta-color: $gray-600;
+$rigpl-variant-max-height: 75vh;        // the box scrolls inside, so the header row stays in view
+$rigpl-variant-card-breakpoint: sm;     // at this width and below, each row shows as a card
+
+.rigpl-spec-table {
+    width: 100%;
+    margin: 1rem 0 1.5rem;
+    border-collapse: collapse;
+    border-left: 3px solid $rigpl-spec-accent;
+    font-size: 0.875rem;
+
+    th,
+    td {
+        padding: 0.35rem 0.75rem;
+        border-bottom: 1px solid $rigpl-spec-border-color;
+        vertical-align: top;
+    }
+
+    th {
+        width: 1%;
+        white-space: nowrap;
+        font-weight: 400;
+        color: $rigpl-spec-label-color;
+        background: $rigpl-spec-label-bg;
+    }
+
+    td {
+        font-weight: 600;
+        color: $rigpl-spec-value-color;
+    }
+
+    @include media-breakpoint-down(sm) {
+        tr {
+            display: grid;
+            grid-template-columns: auto 1fr;
+        }
+
+        th {
+            width: auto;
+        }
+    }
+}
+
+// Toolbar: filter, sort list (phones only) and item count
+.rigpl-variant-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+
+    input,
+    select {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        border: 1px solid $rigpl-variant-border-color;
+        border-radius: $border-radius;
+        background: $white;
+    }
+
+    input:focus,
+    select:focus {
+        outline: none;
+        border-color: $primary;
+        box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
+    }
+
+    label {
+        margin: 0;
+    }
+}
+
+.rigpl-variant-filter {
+    flex: 1 1 16rem;
+
+    input {
+        width: 100%;
+    }
+}
+
+.rigpl-variant-sort {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: $rigpl-variant-meta-color;
+}
+
+.rigpl-variant-count,
+.rigpl-variant-empty {
+    margin: 0;
+    font-size: 0.875rem;
+    color: $rigpl-variant-meta-color;
+}
+
+.rigpl-variant-empty {
+    padding: 1rem;
+}
+
+.rigpl-variant-table {
+    max-width: 100%;
+    max-height: $rigpl-variant-max-height;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid $rigpl-variant-border-color;
+
+    table {
+        width: 100%;
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.875rem;
+    }
+
+    th,
+    td {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid $rigpl-variant-border-color;
+        white-space: nowrap;
+        text-align: left;
+    }
+
+    // Header row floats at the top of the box
+    thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 0;
+        background: $rigpl-variant-head-bg;
+    }
+
+    thead button {
+        display: block;
+        width: 100%;
+        padding: 0.5rem 1.5rem 0.5rem 0.75rem;
+        border: 0;
+        background: transparent;
+        color: $rigpl-variant-head-color;
+        font: inherit;
+        font-weight: 600;
+        text-align: left;
+        position: relative;
+        cursor: pointer;
+
+        &::after {
+            content: "\2195";
+            position: absolute;
+            right: 0.5rem;
+            opacity: 0.4;
+        }
+    }
+
+    th[aria-sort] button {
+        color: $rigpl-variant-sorted-color;
+    }
+
+    th[aria-sort="ascending"] button::after {
+        content: "\2191";
+        opacity: 1;
+    }
+
+    th[aria-sort="descending"] button::after {
+        content: "\2193";
+        opacity: 1;
+    }
+
+    tbody tr > * {
+        background: $rigpl-variant-row-bg;
+    }
+
+    tbody tr:nth-child(even) > * {
+        background: $rigpl-variant-stripe-bg;
+    }
+
+    tbody tr:hover > * {
+        background: $rigpl-variant-hover-bg;
+    }
+
+    tbody tr:target > * {
+        background: $rigpl-variant-target-bg;
+    }
+
+    tbody tr[hidden] {
+        display: none;
+    }
+
+    // Item code column stays on the left when the table scrolls sideways
+    tr > th:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        border-right: 1px solid $rigpl-variant-border-color;
+    }
+
+    thead tr > th:first-child {
+        z-index: 3;
+    }
+
+    tbody th a {
+        font-weight: 600;
+        color: $rigpl-variant-code-color;
+    }
+}
+
+// Phones: each row is a card with "label: value" lines. The header row is hidden,
+// so the toolbar shows the sort list instead.
+@include media-breakpoint-down($rigpl-variant-card-breakpoint) {
+    .rigpl-variant-sort {
+        display: flex;
+    }
+
+    .rigpl-variant-table {
+        max-height: none;
+        overflow: visible;
+        border: 0;
+
+        thead {
+            display: none;
+        }
+
+        table,
+        tbody,
+        tr,
+        th,
+        td {
+            display: block;
+            width: 100%;
+        }
+
+        tbody tr {
+            margin-bottom: 0.75rem;
+            border: 1px solid $rigpl-variant-border-color;
+            border-radius: $border-radius;
+            overflow: hidden;
+        }
+
+        tbody tr[hidden] {
+            display: none;
+        }
+
+        tbody tr > *,
+        tbody tr:nth-child(even) > * {
+            background: $rigpl-variant-row-bg;
+        }
+
+        tr > th:first-child {
+            position: static;
+            border-right: 0;
+            background: $rigpl-variant-stripe-bg;
+        }
+
+        td {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            white-space: normal;
+
+            &::before {
+                content: attr(data-label);
+                color: $rigpl-variant-meta-color;
+            }
+        }
+
+        td:last-child {
+            border-bottom: 0;
+        }
+    }
+}
+// End of RIGPL tables

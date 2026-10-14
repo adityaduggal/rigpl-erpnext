@@ -1,0 +1,51 @@
+{#- Page for a template Website Item: the variant table replaces ERPNext's variant picker (#95). -#}
+{% extends "templates/web.html" %}
+{% from "erpnext/templates/includes/macros.html" import product_image %}
+
+{% block title %} {{ title }} {% endblock %}
+
+{% block breadcrumbs %}
+<div class="item-breadcrumbs small text-muted">
+	{% include "templates/includes/breadcrumbs.html" %}
+</div>
+{% endblock %}
+
+{% block page_content %}
+<div class="product-container item-main">
+	<div class="item-content">
+		<div class="product-page-content" itemscope itemtype="http://schema.org/Product">
+			<div class="row mb-5">
+				{% include "templates/generators/item/item_image.html" %}
+				<div class="col-md-7 h-100">
+					<h1 class="product-title" itemprop="name">{{ doc.web_item_name | e }}</h1>
+					<p class="product-code">Template: <span itemprop="productID">{{ doc.item_code | e }}</span></p>
+					{%- if doc.web_long_description or doc.description -%}
+					<div class="product-description" itemprop="description">
+						{{ doc.web_long_description or doc.description }}
+					</div>
+					{%- endif -%}
+				</div>
+			</div>
+		</div>
+
+		{{ web_block("RIGPL Variant Table", values={"website_item": doc.name},
+			add_container=0, add_top_padding=0, add_bottom_padding=0) }}
+	</div>
+</div>
+
+{%- if (show_tabs and tabs) or doc.website_content -%}
+<div class="product-container mt-4">
+	<div class="item-content">
+		<div class="product-page-content">
+			{%- if show_tabs and tabs -%}
+			<div class="category-tabs">
+				{{ web_block("Section with Tabs", values=tabs, add_container=0,
+					add_top_padding=0, add_bottom_padding=0) }}
+			</div>
+			{%- endif -%}
+			{{ doc.website_content or '' }}
+		</div>
+	</div>
+</div>
+{%- endif -%}
+{% endblock %}
