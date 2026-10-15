@@ -287,11 +287,9 @@ To change the look:
 
 The reference copy of the section is in `website_data/rigpl_v12_theme.scss`. A new import (section 3) adds it with the rest of the theme. On a site that has the theme already:
 
-- The patch `add_table_styles_to_website_theme` adds the section if it is not there.
-- The patch `update_table_styles_in_website_theme` replaces the first version of the section with the newest version, but only if nobody edited it.
-- The patch `update_table_styles_v3_in_website_theme` replaces v2 with v3, but only if nobody edited it.
-
-If somebody edited the section, the patch prints a message, and you copy the newest section into Custom SCSS by hand. Saving the theme compiles the SCSS with `node-sass`, which needs Node 14 (the bench Node version).
+- The patch `update_table_styles_in_website_theme` adds the section if it is not there. If the theme has an earlier version that nobody edited, the patch replaces it with the newest version. If somebody edited it, the patch prints a message, and you copy the newest section into Custom SCSS by hand.
+- The patch saves the SCSS in the theme, so you can change it in Desk. Saving a Website Theme compiles the SCSS with `node-sass`, which needs Node 14. If node-sass cannot run, the patch saves only the SCSS and the site keeps its old CSS. Then use Node 14, open the Website Theme in Desk and save it.
+- For a new version of the section, add the hash of the old version to `UNEDITED_SHA256` in the patch, and change the `#date` after the patch in `patches.txt`, so it runs again.
 
 After that, the theme in the database is the source. A change to the file does not change a site.
 
