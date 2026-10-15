@@ -39,9 +39,11 @@
   "published_ctrack_days",
   "sb_website",
   "website_stock_cap",
+  "website_route_max_length",
   "cb_website",
   "website_stock_cap_label",
-  "website_zero_stock_label"
+  "website_zero_stock_label",
+  "website_route_max_depth"
  ],
  "fields": [
   {
@@ -257,10 +259,26 @@
    "fieldname": "website_zero_stock_label",
    "fieldtype": "Data",
    "label": "Website Zero Stock Label"
+  },
+  {
+   "default": "75",
+   "description": "The maximum number of characters in a website route, for example carbide/jobber-drills/c0gj-jobber-solid-carbide-drills-metric/cr0agbe00md1. Empty: 75. A template name in the route is cut to fit. A change applies on the next save of an Item Group.",
+   "fieldname": "website_route_max_length",
+   "fieldtype": "Int",
+   "label": "Website Route Max Length",
+   "non_negative": 1
+  },
+  {
+   "default": "2",
+   "description": "The maximum number of Item Groups in a category route, for example 2 for carbide/jobber-drills. Empty: 2. Item Group > Include in URL selects the groups.",
+   "fieldname": "website_route_max_depth",
+   "fieldtype": "Int",
+   "label": "Website Route Max Depth",
+   "non_negative": 1
   }
  ],
  "issingle": 1,
- "modified": "2026-10-15 16:00:00.000000",
+ "modified": "2026-10-15 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

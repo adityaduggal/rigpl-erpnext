@@ -1,0 +1,222 @@
+{
+ "HSS Tools": {
+  "website_slug": "hss",
+  "include_in_url": 1
+ },
+ "Solid Carbide Tools": {
+  "website_slug": "carbide",
+  "include_in_url": 1
+ },
+ "HSS Block Punches": {
+  "website_slug": "block-punches",
+  "include_in_url": 0
+ },
+ "HSS Center Drill": {
+  "website_slug": "center-drills",
+  "include_in_url": 0
+ },
+ "HSS Center Drill Type A": {
+  "website_slug": "center-drill-type-a",
+  "include_in_url": 0
+ },
+ "HSS Center Drill Type B": {
+  "website_slug": "center-drill-type-b",
+  "include_in_url": 0
+ },
+ "HSS Die Buttons": {
+  "website_slug": "die-buttons",
+  "include_in_url": 0
+ },
+ "HSS Drill Bits": {
+  "website_slug": "drills",
+  "include_in_url": 0
+ },
+ "HSS General Purpose Drills": {
+  "website_slug": "jobber-drills",
+  "include_in_url": 0
+ },
+ "HSS Flat End Mills": {
+  "website_slug": "flat-end-mills",
+  "include_in_url": 0
+ },
+ "HSS Mandrel": {
+  "website_slug": "mandrels",
+  "include_in_url": 0
+ },
+ "HSS Mini Straight Punches": {
+  "website_slug": "mini-straight-punches",
+  "include_in_url": 0
+ },
+ "HSS Parting Tool Bits": {
+  "website_slug": "parting-tool-bits",
+  "include_in_url": 0
+ },
+ "HSS Punches": {
+  "website_slug": "punches",
+  "include_in_url": 0
+ },
+ "HSS Rectangular Tool Bits": {
+  "website_slug": "rectangular-tool-bits",
+  "include_in_url": 0
+ },
+ "HSS Round Tool Bits": {
+  "website_slug": "round-tool-bits",
+  "include_in_url": 0
+ },
+ "HSS Shoulder Punches": {
+  "website_slug": "shoulder-punches",
+  "include_in_url": 0
+ },
+ "HSS Square Tool Bits": {
+  "website_slug": "square-tool-bits",
+  "include_in_url": 0
+ },
+ "HSS Tapered Head Punches": {
+  "website_slug": "tapered-head-punches",
+  "include_in_url": 0
+ },
+ "HSS Tapped Punches": {
+  "website_slug": "tapped-punches",
+  "include_in_url": 0
+ },
+ "Services": {
+  "website_slug": "job-work",
+  "include_in_url": 0
+ },
+ "Carbide Ball Nose": {
+  "website_slug": "ball-nose",
+  "include_in_url": 0
+ },
+ "Solid Carbide Ball Nose 0X": {
+  "website_slug": "ball-nose-0x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Ball Nose 1X": {
+  "website_slug": "ball-nose-1x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Ball Nose 3X": {
+  "website_slug": "ball-nose-3x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Ball Nose 4X": {
+  "website_slug": "ball-nose-4x",
+  "include_in_url": 0
+ },
+ "Carbide Drills": {
+  "website_slug": "drills",
+  "include_in_url": 0
+ },
+ "Carbide Center Drill": {
+  "website_slug": "center-drills",
+  "include_in_url": 0
+ },
+ "Coolant Fed Carbide Drills": {
+  "website_slug": "coolant-fed-drills",
+  "include_in_url": 0
+ },
+ "Solid Carbide Jobber Drills": {
+  "website_slug": "jobber-drills",
+  "include_in_url": 0
+ },
+ "Solid Carbide Stub Drills": {
+  "website_slug": "stub-drills",
+  "include_in_url": 0
+ },
+ "Solid Carbide Jobber Drills 0X": {
+  "website_slug": "jobber-drills-0x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Stub Drills 0X": {
+  "website_slug": "stub-drills-0x",
+  "include_in_url": 0
+ },
+ "High Performance Carbide Drills": {
+  "website_slug": "high-performance-drills",
+  "include_in_url": 0
+ },
+ "Carbide Engraving Bits": {
+  "website_slug": "engraving-bits",
+  "include_in_url": 0
+ },
+ "Carbide Flat End Mills": {
+  "website_slug": "flat-end-mills",
+  "include_in_url": 0
+ },
+ "Solid Carbide Flat Endmill 0X": {
+  "website_slug": "flat-end-mills-0x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Flat End Mill 1X": {
+  "website_slug": "flat-end-mills-1x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Flat End Mill 3X": {
+  "website_slug": "flat-end-mills-3x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Flat End Mill 4X": {
+  "website_slug": "flat-end-mills-4x",
+  "include_in_url": 0
+ },
+ "Carbide Radius End Mills": {
+  "website_slug": "radius-end-mills",
+  "include_in_url": 0
+ },
+ "Solid Carbide Radius End Mills 0X": {
+  "website_slug": "radius-end-mills-0x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Radius End Mills 3X": {
+  "website_slug": "radius-end-mills-3x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Radius End Mills 4X": {
+  "website_slug": "radius-end-mills-4x",
+  "include_in_url": 0
+ },
+ "Carbide Reamer": {
+  "website_slug": "reamers",
+  "include_in_url": 0
+ },
+ "Solid Carbide Reamer 1X": {
+  "website_slug": "reamers-1x",
+  "include_in_url": 0
+ },
+ "Carbide Round Tool Bits": {
+  "website_slug": "round-tool-bits",
+  "include_in_url": 0
+ },
+ "Solid Carbide Round Tool Bits 0X": {
+  "website_slug": "round-tool-bits-0x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Round Tool Bits 1X": {
+  "website_slug": "round-tool-bits-1x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Round Tool Bits 3X": {
+  "website_slug": "round-tool-bits-3x",
+  "include_in_url": 0
+ },
+ "Carbide Router Bits": {
+  "website_slug": "router-bits",
+  "include_in_url": 0
+ },
+ "Solid Carbide Router Bits 0X": {
+  "website_slug": "router-bits-0x",
+  "include_in_url": 0
+ },
+ "Solid Carbide Square Tool Bits": {
+  "website_slug": "square-tool-bits",
+  "include_in_url": 0
+ },
+ "Carbide Taper Ball Nose": {
+  "website_slug": "taper-ball-nose",
+  "include_in_url": 0
+ },
+ "Carbide Taper End Mills": {
+  "website_slug": "taper-end-mills",
+  "include_in_url": 0
+ }
+}

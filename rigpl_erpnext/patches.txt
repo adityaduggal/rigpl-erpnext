@@ -64,3 +64,4 @@ rigpl_erpnext.patches.v13.remove_homepage_section_content
 rigpl_erpnext.patches.v13.add_website_rigpl_module_def
 rigpl_erpnext.patches.v13.fix_shared_website_item_routes
 rigpl_erpnext.patches.v13.update_table_styles_in_website_theme #2026-10-15-2
+rigpl_erpnext.patches.v13.rebuild_website_routes

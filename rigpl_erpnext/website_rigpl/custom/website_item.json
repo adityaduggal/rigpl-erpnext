@@ -1,0 +1,31 @@
+{
+ "custom_fields": [
+  {
+   "creation": "2026-10-15 12:00:00",
+   "default": null,
+   "description": "Name of this item in the URL. Empty: made from the item code, cut to fit the route length. Set it for a better search engine name. The route changes on save, and the old route redirects to the new one.",
+   "docstatus": 0,
+   "doctype": "Custom Field",
+   "dt": "Website Item",
+   "fieldname": "website_slug",
+   "fieldtype": "Data",
+   "hidden": 0,
+   "idx": 4,
+   "insert_after": "route",
+   "label": "Website Slug",
+   "modified": "2026-10-15 12:00:00",
+   "modified_by": "Administrator",
+   "name": "Website Item-website_slug",
+   "no_copy": 1,
+   "options": null,
+   "owner": "Administrator",
+   "read_only": 0,
+   "reqd": 0,
+   "translatable": 0
+  }
+ ],
+ "custom_perms": [],
+ "doctype": "Website Item",
+ "property_setters": [],
+ "sync_on_migrate": 1
+}

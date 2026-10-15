@@ -164,7 +164,8 @@ doc_events = {
         "on_update": "rigpl_erpnext.website_rigpl.item_sync.on_item_update",
     },
     "Item Group": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate",
+        "on_update": "rigpl_erpnext.rigpl_erpnext.validations.item_group.on_update",
     },
     "Item Price": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_price.validate",
@@ -255,6 +256,11 @@ doc_events = {
     "ToDo": {"validate": "rigpl_erpnext.rigpl_erpnext.validations.todo.validate"},
     "Warehouse": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.warehouse.validate"
+    },
+    "Web Page": {"validate": "rigpl_erpnext.website_rigpl.route_sync.web_page_validate"},
+    "Website Item": {
+        "validate": "rigpl_erpnext.website_rigpl.route_sync.website_item_validate",
+        "on_update": "rigpl_erpnext.website_rigpl.route_sync.website_item_on_update",
     },
     "Workstation": {
         "validate": "rigpl_erpnext.manufacturing_rigpl.validations.workstation.validate"

@@ -1,10 +1,9 @@
-import re
-
 import frappe
 from frappe.query_builder.functions import Coalesce
 from frappe.website.render import clear_cache
 
 from rigpl_erpnext.website_rigpl.item_sync import sync_web_items
+from rigpl_erpnext.website_rigpl.route_sync import add_redirects
 from rigpl_erpnext.website_rigpl.routes import plan_shared_route_fixes
 
 # Web fields that v13 Item does not have. Their v12 values are still in the Item table.
@@ -45,35 +44,6 @@ def fix_shared_routes():
 
     added = add_redirects(redirects)
     print(f"Website Item routes changed: {len(new_routes)}. Route redirects added: {added}.")
-
-
-def add_redirects(redirects):
-    """Website Route Redirect sources are regular expressions, so each route is escaped.
-
-    Rows go in directly: saving Website Settings would also run its unrelated validations.
-    """
-    existing = set(frappe.get_all("Website Route Redirect", pluck="source"))
-    idx = len(existing)
-    added = 0
-    for route, target in redirects:
-        source = re.escape(route)
-        if source in existing:
-            continue
-        idx += 1
-        frappe.get_doc(
-            {
-                "doctype": "Website Route Redirect",
-                "parent": "Website Settings",
-                "parenttype": "Website Settings",
-                "parentfield": "route_redirects",
-                "idx": idx,
-                "source": source,
-                "target": "/" + target,
-            }
-        ).db_insert()
-        existing.add(source)
-        added += 1
-    return added
 
 
 def publish_templates_of_published_variants():

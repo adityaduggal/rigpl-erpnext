@@ -337,6 +337,43 @@ The Add to Cart button shows only for a variant that has a price and stock. A va
 
 The shop columns use two queries for the page (Bin and Item Price), for any number of variants. Click the Stock or Price heading to sort by it.
 
+### 6.5 Routes
+
+A route is the part of the URL after the site name. GitHub issues #97, #100 and #102 track this work. The app makes the routes of Item Groups and Website Items. Do not edit the **Route** field of these documents. Edit the **Website Slug** instead.
+
+| Page | Route | Example |
+|---|---|---|
+| Category (Item Group) | The Website Slug of each ancestor with **Include in URL** set, then the Website Slug of the group | `carbide/jobber-drills` |
+| Template, or item without variants | `<category route>/<slug>` | `carbide/jobber-drills/c0gj-jobber-solid-carbide-drills-metric` |
+| Variant | `<template route>/<item code>` | `carbide/jobber-drills/c0gj-jobber-solid-carbide-drills-metric/cr0agbe00md1` |
+
+Rules:
+
+1. A route uses only `a-z`, `0-9` and `-`. A part of a route does not start or end with `-`.
+2. A route has at most **Website Route Max Length** characters (RIGPL Settings, default 75).
+3. A category route has at most **Website Route Max Depth** groups (RIGPL Settings, default 2).
+4. A category route must leave 30 characters for a template slug, so that the variant routes also fit.
+5. A slug never gets a random suffix. If a Website Item has no Website Slug, the app makes the slug from the item code. If the item code is too long, the app keeps the first word (the series, for example `122`) and the last words (for example `metric-less-than-3mm`), and removes words from the middle.
+6. A route that changes gets a Website Route Redirect (301) from the old route.
+
+The Item Group and Website Item fields:
+
+| Field | Doctype | Use |
+|---|---|---|
+| **Website Slug** | Item Group | The short name of the group in the URL. Empty: made from the Item Group name. |
+| **Include in URL** | Item Group | Put the Website Slug of this group in the route of each descendant group. Set it on the top groups (`carbide`, `hss`). |
+| **Website Slug** | Website Item | The name of the item in the URL. Empty: made from the item code. Set it for a better search engine name, for example `ss-flat-end-mill-under-3mm`. |
+
+When you save:
+
+- **Item Group**: the app checks the rules and sets the route. If a rule fails, the save stops and tells you the rule. Then a background job changes the routes of the descendant groups and of their Website Items. The new routes show after some seconds.
+- **Website Item**: the app checks the rules and sets the route. If another page has the same route, the save stops. Set a different Website Slug. A template change also starts the background job, so its variants follow.
+- **Web Page**: the app checks rules 1 and 2. It does not change the route.
+
+The redirects are rows in Website Settings, table **Route Redirects**. The app adds them. For a template, one row redirects the template and all its variants, for example `old-template(/.*)?` to `/new-template\1`. When a route changes again, the app changes the target of the earlier rows, so a visitor gets one redirect, not a chain. The app deletes a redirect whose source is the route of a live page, because Frappe reads the redirects before the pages. If the job cannot change a route (for example, it is too long), it keeps the old route and writes an Error Log "RIGPL website routes not changed".
+
+The patch `rebuild_website_routes` made the first short routes. It set the Website Slug of 55 groups from `website_data/route_slugs.json`, only where the Website Slug was empty. To change a slug after the patch, edit the Item Group in Desk.
+
 ## 7. Open items
 
 - 16 Web Pages are not published (for example drilling-tools, lathe-tools and services). Decide for each page: publish it, redirect it to an Item Group page, or delete it. Issue #88 has the list.
