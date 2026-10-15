@@ -4,6 +4,7 @@ import frappe
 
 from rigpl_erpnext.website_rigpl.website_data.importer import load_json, read_data_file
 
+SECTION_MARKER = "// RIGPL tables"  # prefix of every version of the section
 V1_MARKER = "// RIGPL tables (#95)"
 V2_MARKER = "// RIGPL tables v2 (#95)"
 # sha256 of the v1 section exactly as add_table_styles_to_website_theme appended it
@@ -36,6 +37,7 @@ def execute():
         return
 
     scss = read_data_file(seed["custom_scss_file"])
-    theme.custom_scss = current[:start] + scss[scss.index(V2_MARKER):]
+    # the seed file has the newest version of the section, which can be later than v2
+    theme.custom_scss = current[:start] + scss[scss.index(SECTION_MARKER):]
     theme.save()  # validate() compiles the SCSS and throws on an error
     print(f"Website Theme {theme_name}: the RIGPL tables styles were updated to v2.")

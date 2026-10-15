@@ -10,6 +10,9 @@ TEMPLATE_WEB_ITEM = "_Test RIGPL WEB-TEMPLATE"
 D1 = "_Test RIGPL d1_mm"  # a numeric Item Attribute that the test makes
 L1 = "_Test RIGPL l1_mm"
 LABELS = {"Brand": "Brand Name", D1: "Flute Dia (mm)", L1: ""}
+WAREHOUSE = "_Test RIGPL Web WH"
+OTHER_WAREHOUSE = "_Test RIGPL Other WH"
+PRICE_LIST = "_Test RIGPL Web Price List"
 
 
 def insert_item(name, variant_of=None, disabled=0, attributes=None):
@@ -54,7 +57,48 @@ def column(attribute, label, numeric=True):
     return {"attribute": attribute, "label": label, "numeric": numeric}
 
 
-def insert_website_item(name, item_code, variant_of=None, published=1):
+def insert_bin(item_code, warehouse, actual_qty, reserved_qty=0):
+    frappe.get_doc(
+        {
+            "doctype": "Bin",
+            "name": frappe.generate_hash(length=10),
+            "item_code": item_code,
+            "warehouse": warehouse,
+            "actual_qty": actual_qty,
+            "reserved_qty": reserved_qty,
+        }
+    ).db_insert()
+
+
+def insert_item_price(item_code, rate, price_list=PRICE_LIST, customer=None):
+    frappe.get_doc(
+        {
+            "doctype": "Item Price",
+            "name": frappe.generate_hash(length=10),
+            "item_code": item_code,
+            "price_list": price_list,
+            "price_list_rate": rate,
+            "currency": "INR",
+            "customer": customer,
+        }
+    ).db_insert()
+
+
+def cart_settings(**values):
+    settings = dict(
+        enabled=1,
+        show_price=1,
+        show_stock_availability=1,
+        show_quantity_in_website=1,
+        hide_price_for_guest=0,
+        allow_items_not_in_stock=0,
+        price_list=PRICE_LIST,
+    )
+    settings.update(values)
+    return frappe._dict(settings)
+
+
+def insert_website_item(name, item_code, variant_of=None, published=1, warehouse=None):
     frappe.get_doc(
         {
             "doctype": "Website Item",
@@ -66,12 +110,19 @@ def insert_website_item(name, item_code, variant_of=None, published=1):
             "has_variants": 0 if variant_of else 1,
             "variant_of": variant_of,
             "published": published,
+            "website_warehouse": warehouse,
         }
     ).db_insert()
 
 
 class TestVariantTable(unittest.TestCase):
+    def setUp(self):
+        # get_shopping_cart_settings() reads this request cache first
+        frappe.local.shopping_cart_settings = cart_settings()
+
     def tearDown(self):
+        frappe.local.shopping_cart_settings = None
+        frappe.set_user("Administrator")
         frappe.db.rollback()
 
     def test_pivot_keeps_variant_order_and_fills_missing_values(self):
@@ -135,7 +186,8 @@ class TestVariantTable(unittest.TestCase):
         insert_numeric_attribute(D1)
         insert_numeric_attribute(L1)
         insert_item(TEMPLATE, attributes=[("Brand", ""), (D1, ""), (L1, ""), ("CETSH Number", "")])
-        insert_website_item(TEMPLATE_WEB_ITEM, TEMPLATE, published=template_published)
+        # the variants have no website warehouse, so they use the template's
+        insert_website_item(TEMPLATE_WEB_ITEM, TEMPLATE, published=template_published, warehouse=WAREHOUSE)
         variants = {
             "_Test RIGPL V1": ([("Brand", "RIGPL"), (D1, "10"), (L1, "50")], 1),
             "_Test RIGPL V2": ([("Brand", "RIGPL"), (D1, "8"), (L1, "50")], 1),
@@ -145,14 +197,25 @@ class TestVariantTable(unittest.TestCase):
             insert_item(item_code, TEMPLATE, attributes=attributes)
             insert_website_item("_Test WEB " + item_code, item_code, TEMPLATE, published)
 
-    def test_variant_table_lists_published_variants_in_fixed_queries(self):
-        self.make_template_with_variants()
-
+    def count_queries(self):
         real_sql = frappe.db.sql
         with patch.object(frappe.db, "sql", side_effect=real_sql) as sql:
             table = catalog.get_variant_table(TEMPLATE_WEB_ITEM)
+        return table, sql.call_count
 
-        self.assertEqual(sql.call_count, 4)
+    def test_variant_table_lists_published_variants_in_fixed_queries(self):
+        self.make_template_with_variants()
+        frappe.set_user("Guest")
+        catalog.get_variant_table(TEMPLATE_WEB_ITEM)  # fills the settings caches
+
+        table, queries = self.count_queries()
+        insert_item("_Test RIGPL V4", TEMPLATE, attributes=[("Brand", "RIGPL"), (D1, "12"), (L1, "50")])
+        insert_website_item("_Test WEB _Test RIGPL V4", "_Test RIGPL V4", TEMPLATE)
+        _, queries_with_one_more = self.count_queries()
+
+        # 4 for the table, 1 Bin, 1 Item Price; one more variant adds no query
+        self.assertEqual(queries, 6)
+        self.assertEqual(queries_with_one_more, queries)
         # d1 8 sorts before d1 10: numeric, not text order
         self.assertEqual([r["item_code"] for r in table["rows"]], ["_Test RIGPL V2", "_Test RIGPL V1"])
         self.assertEqual(table["rows"][1]["route"], "-test-rigpl-v1")
@@ -183,3 +246,89 @@ class TestVariantTable(unittest.TestCase):
 
     def test_page_template_exists(self):
         self.assertTrue(frappe.get_jenv().get_template(item_page.ITEM_TEMPLATE_PAGE))
+
+    def test_cap_stock_hides_the_quantity_above_the_cap(self):
+        self.assertEqual(catalog.cap_stock(0, 100, "{cap}+", "On request"), "On request")
+        self.assertEqual(catalog.cap_stock(-3, 100, "{cap}+", "On request"), "On request")
+        self.assertEqual(catalog.cap_stock(37, 100, "{cap}+", "On request"), "37")
+        self.assertEqual(catalog.cap_stock(2.5, 100, "{cap}+", "On request"), "2.5")
+        self.assertEqual(catalog.cap_stock(100, 100, "{cap}+", "On request"), "100")
+        self.assertEqual(catalog.cap_stock(2500, 100, "{cap}+", "On request"), "100+")
+        self.assertEqual(catalog.cap_stock(2500, 50, "More than {cap}", "-"), "More than 50")
+        self.assertEqual(catalog.cap_stock(37, 100, "{cap}+", "On request", show_qty=False), "In stock")
+
+    def test_add_shop_info_returns_new_rows(self):
+        rows = [{"item_code": "A", "values": {}}, {"item_code": "B", "values": {}}]
+        shop_rows = {"A": {"stock": "5", "price": "₹ 10.00", "price_value": 10.0, "can_add": True}}
+        result = catalog.add_shop_info(rows, shop_rows)
+
+        self.assertEqual(result[0]["shop"], shop_rows["A"])
+        self.assertEqual(result[1]["shop"]["can_add"], False)
+        self.assertNotIn("shop", rows[0])
+
+    def make_shop_data(self):
+        self.make_template_with_variants()
+        insert_bin("_Test RIGPL V1", WAREHOUSE, 2500)
+        insert_bin("_Test RIGPL V1", OTHER_WAREHOUSE, 7)  # not the website warehouse
+        insert_bin("_Test RIGPL V2", WAREHOUSE, 40, reserved_qty=43)
+        insert_bin("_Test RIGPL V2", OTHER_WAREHOUSE, 900)
+        insert_item_price("_Test RIGPL V1", 627)
+        insert_item_price(TEMPLATE, 500)  # V2 has no price of its own
+        insert_item_price("_Test RIGPL V2", 1, customer="_Test RIGPL Customer")
+
+    def shop_by_item(self, table):
+        return {row["item_code"]: row["shop"] for row in table["rows"]}
+
+    def test_shop_columns_show_capped_stock_and_list_price(self):
+        self.make_shop_data()
+        frappe.set_user("Guest")
+        table = catalog.get_variant_table(TEMPLATE_WEB_ITEM)
+        shop = self.shop_by_item(table)
+
+        self.assertEqual(table["shop"], {"show_stock": True, "show_price": True, "show_cart": True})
+        # only the website warehouse counts, and the reserved qty is free stock no more
+        self.assertEqual(shop["_Test RIGPL V1"]["stock"], "100+")
+        self.assertEqual(shop["_Test RIGPL V2"]["stock"], "On request")
+        self.assertEqual(shop["_Test RIGPL V1"]["price_value"], 627)
+        # a variant with no price uses the template price; a customer price is skipped
+        self.assertEqual(shop["_Test RIGPL V2"]["price_value"], 500)
+        self.assertTrue(shop["_Test RIGPL V1"]["can_add"])
+        self.assertFalse(shop["_Test RIGPL V2"]["can_add"])  # no stock
+
+    def test_items_not_in_stock_can_be_added_when_allowed(self):
+        self.make_shop_data()
+        frappe.local.shopping_cart_settings = cart_settings(allow_items_not_in_stock=1)
+        frappe.set_user("Guest")
+        shop = self.shop_by_item(catalog.get_variant_table(TEMPLATE_WEB_ITEM))
+
+        self.assertTrue(shop["_Test RIGPL V2"]["can_add"])
+
+    def test_price_hidden_for_guest_also_blocks_add_to_cart(self):
+        self.make_shop_data()
+        frappe.local.shopping_cart_settings = cart_settings(hide_price_for_guest=1)
+        frappe.set_user("Guest")
+        table = catalog.get_variant_table(TEMPLATE_WEB_ITEM)
+
+        self.assertFalse(table["shop"]["show_price"])
+        self.assertEqual({s["price"] for s in self.shop_by_item(table).values()}, {""})
+        self.assertFalse(any(s["can_add"] for s in self.shop_by_item(table).values()))
+
+    def test_disabled_cart_shows_no_shop_columns(self):
+        self.make_shop_data()
+        frappe.local.shopping_cart_settings = cart_settings(enabled=0)
+        table = catalog.get_variant_table(TEMPLATE_WEB_ITEM)
+
+        self.assertEqual(table["shop"], catalog.no_shop())
+
+    def test_page_never_contains_the_quantity_above_the_cap(self):
+        self.make_shop_data()
+        frappe.set_user("Guest")
+        html = frappe.render_template(
+            "rigpl_erpnext/website_rigpl/web_template/rigpl_variant_table/rigpl_variant_table.html",
+            {"website_item": TEMPLATE_WEB_ITEM},
+        )
+
+        self.assertIn("100+", html)
+        self.assertNotIn("2500", html)
+        self.assertIn('data-rigpl-add="_Test RIGPL V1"', html)
+        self.assertNotIn('data-rigpl-add="_Test RIGPL V2"', html)

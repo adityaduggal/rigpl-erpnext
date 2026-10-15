@@ -5,37 +5,52 @@ Only the attribute values come from the Item, because Website Item has none.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import frappe
+from frappe.utils import cint, flt, fmt_money, nowdate
+
+DEFAULT_STOCK_CAP = 100
+DEFAULT_CAP_LABEL = "{cap}+"
+DEFAULT_ZERO_LABEL = "On request"
 
 
 def empty_table() -> dict:
-    return {"common": [], "columns": [], "rows": []}
+    return {"common": [], "columns": [], "rows": [], "shop": no_shop()}
+
+
+def no_shop() -> dict:
+    return {"show_stock": False, "show_price": False, "show_cart": False}
 
 
 def get_variant_table(website_item: str) -> dict:
     """The published variants of a template Website Item, for the RIGPL Variant Table block.
 
-    Four indexed queries, whatever the number of variants: the template Website Item,
-    its attributes, the variant Website Items (`variant_of`) and their attribute values.
+    The number of queries does not depend on the number of variants: the template Website
+    Item, its attributes, the variant Website Items (`variant_of`), their attribute values,
+    and for the shop columns their stock (Bin) and list price (Item Price).
     """
     if not isinstance(website_item, str) or not website_item:
         return empty_table()
 
     template = frappe.db.get_value(
-        "Website Item", {"name": website_item, "published": 1, "has_variants": 1}, "item_code"
+        "Website Item",
+        {"name": website_item, "published": 1, "has_variants": 1},
+        ["item_code", "website_warehouse"],
+        as_dict=True,
     )
     if not template:
         return empty_table()
 
-    attributes = get_template_attributes(template)
+    attributes = get_template_attributes(template.item_code)
     names = [a["attribute"] for a in attributes]
-    variants = get_published_variants(template)
+    variants = get_published_variants(template.item_code)
     values = get_attribute_values([v.item_code for v in variants], names)
     rows = pivot_variant_rows(variants, values, names)
     common, columns = split_columns(rows, attributes)
-    return {"common": common, "columns": columns, "rows": sort_variant_rows(rows, columns)}
+    shop, shop_rows = get_shop_info(template, variants)
+    rows = add_shop_info(sort_variant_rows(rows, columns), shop_rows)
+    return {"common": common, "columns": columns, "rows": rows, "shop": shop}
 
 
 def get_template_attributes(template: str) -> List[dict]:
@@ -69,7 +84,7 @@ def get_published_variants(template: str) -> list:
     web_item = frappe.qb.DocType("Website Item")
     return (
         frappe.qb.from_(web_item)
-        .select(web_item.item_code, web_item.route)
+        .select(web_item.item_code, web_item.route, web_item.website_warehouse, web_item.on_backorder)
         .where((web_item.variant_of == template) & (web_item.published == 1))
         .orderby(web_item.item_code)
     ).run(as_dict=True)
@@ -152,3 +167,154 @@ def sort_key(value: str, numeric: bool) -> tuple:
         except ValueError:
             pass
     return (1, 0.0, value.lower())
+
+
+def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]]:
+    """Stock, price and add-to-cart for each variant, as E Commerce Settings allow.
+
+    Returns the column flags and {item_code: {"stock", "price", "price_value", "can_add"}}.
+    Only the stock label leaves this function, so a quantity above the cap never
+    reaches the page.
+    """
+    from erpnext.e_commerce.doctype.e_commerce_settings.e_commerce_settings import (
+        get_shopping_cart_settings,
+    )
+
+    cart = get_shopping_cart_settings()
+    if not variants or not cart.enabled:
+        return no_shop(), {}
+
+    is_guest = frappe.session.user == "Guest"
+    shop = {
+        "show_stock": bool(cart.show_stock_availability),
+        "show_price": bool(cart.show_price and not (is_guest and cart.hide_price_for_guest)),
+        "show_cart": True,
+    }
+
+    item_codes = [v.item_code for v in variants]
+    warehouses = {v.item_code: v.website_warehouse or template.website_warehouse for v in variants}
+    stock = get_stock_qty(warehouses)
+    prices = {}
+    if shop["show_price"]:
+        prices = get_list_prices(item_codes, template.item_code, get_selling_price_list(cart))
+
+    settings = frappe.get_cached_doc("RIGPL Settings")
+    cap = cint(settings.get("website_stock_cap")) or DEFAULT_STOCK_CAP
+    cap_label = settings.get("website_stock_cap_label") or DEFAULT_CAP_LABEL
+    zero_label = settings.get("website_zero_stock_label") or DEFAULT_ZERO_LABEL
+
+    shop_rows = {}
+    for variant in variants:
+        qty = stock.get(variant.item_code, 0.0)
+        price = prices.get(variant.item_code) or prices.get(template.item_code)
+        in_stock = qty > 0 or variant.on_backorder or cart.allow_items_not_in_stock
+        shop_rows[variant.item_code] = {
+            "stock": cap_stock(qty, cap, cap_label, zero_label, cart.show_quantity_in_website),
+            "price": fmt_money(price.price_list_rate, currency=price.currency) if price else "",
+            "price_value": flt(price.price_list_rate) if price else "",
+            "can_add": bool(price and in_stock),
+        }
+    return shop, shop_rows
+
+
+def add_shop_info(rows: List[dict], shop_rows: Dict[str, dict]) -> List[dict]:
+    """New rows with a `shop` dict. A row with no shop info gets empty values."""
+    empty = {"stock": "", "price": "", "price_value": "", "can_add": False}
+    return [dict(row, shop=shop_rows.get(row["item_code"], empty)) for row in rows]
+
+
+def get_stock_qty(warehouses: Dict[str, Optional[str]]) -> Dict[str, float]:
+    """Free quantity of each item in its website warehouse, as ERPNext counts it:
+    actual minus the reserved quantities. One query on the Bin (item_code, warehouse) index.
+    """
+    pairs = {(code, wh) for code, wh in warehouses.items() if wh}
+    if not pairs:
+        return {}
+
+    bin_ = frappe.qb.DocType("Bin")
+    rows = (
+        frappe.qb.from_(bin_)
+        .select(
+            bin_.item_code,
+            bin_.warehouse,
+            (
+                bin_.actual_qty
+                - bin_.reserved_qty
+                - bin_.reserved_qty_for_production
+                - bin_.reserved_qty_for_sub_contract
+            ).as_("free_qty"),
+        )
+        .where(
+            bin_.item_code.isin([code for code, _ in pairs])
+            & bin_.warehouse.isin(list({wh for _, wh in pairs}))
+        )
+    ).run(as_dict=True)
+    return {
+        row.item_code: max(flt(row.free_qty), 0.0) for row in rows if (row.item_code, row.warehouse) in pairs
+    }
+
+
+def cap_stock(qty: float, cap: int, cap_label: str, zero_label: str, show_qty: bool = True) -> str:
+    """The stock text for the website. Above the cap it is the label (for example 100+),
+    so the real quantity stays private.
+    """
+    if qty <= 0:
+        return zero_label
+    if not show_qty:
+        return "In stock"
+    if qty > cap:
+        return cap_label.replace("{cap}", str(cap))
+    return "{:g}".format(qty)
+
+
+def get_selling_price_list(cart) -> Optional[str]:
+    """The customer's default price list for a logged-in user, else the E Commerce price list.
+
+    Read only: ERPNext `get_party` inserts a Customer for a user that has none, which a
+    page view must not do.
+    """
+    if frappe.session.user != "Guest":
+        from frappe.contacts.doctype.contact.contact import get_contact_name
+
+        contact = get_contact_name(frappe.session.user)
+        customer = contact and frappe.db.get_value(
+            "Dynamic Link",
+            {"parenttype": "Contact", "parent": contact, "link_doctype": "Customer"},
+            "link_name",
+        )
+        if customer:
+            price_list, group = frappe.db.get_value(
+                "Customer", customer, ["default_price_list", "customer_group"]
+            ) or (None, None)
+            price_list = price_list or frappe.db.get_value("Customer Group", group, "default_price_list")
+            if price_list:
+                return price_list
+    return cart.price_list
+
+
+def get_list_prices(item_codes: List[str], template: str, price_list: Optional[str]) -> Dict[str, dict]:
+    """Selling Item Price of the variants and the template in one query. Pricing rules are
+    not applied (#77). A price for one customer only, or out of its valid dates, is skipped.
+    """
+    if not price_list or not item_codes:
+        return {}
+
+    today = nowdate()
+    item_price = frappe.qb.DocType("Item Price")
+    rows = (
+        frappe.qb.from_(item_price)
+        .select(item_price.item_code, item_price.price_list_rate, item_price.currency)
+        .where(
+            (item_price.price_list == price_list)
+            & item_price.item_code.isin(item_codes + [template])
+            & (item_price.customer.isnull() | (item_price.customer == ""))
+            & (item_price.valid_from.isnull() | (item_price.valid_from <= today))
+            & (item_price.valid_upto.isnull() | (item_price.valid_upto >= today))
+        )
+        .orderby(item_price.valid_from, order=frappe.qb.desc)
+    ).run(as_dict=True)
+
+    prices = {}
+    for row in rows:
+        prices.setdefault(row.item_code, row)  # the latest valid_from wins
+    return prices

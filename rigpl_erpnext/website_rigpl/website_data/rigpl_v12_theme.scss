@@ -72,18 +72,12 @@ img {
     max-width: 100%;
 }
 
-// RIGPL tables v2 (#95): the common specifications table and the variant table on template pages.
-// Edit the look here, in Website Theme > Custom SCSS. The variables use the theme colors ($primary,
-// $dark) and the Bootstrap greys. The page script only sets attributes (hidden, aria-sort), no styles.
+// RIGPL tables v3 (#108): the common specifications table and the variant table on template pages,
+// and the product description font. Edit the look here, in Website Theme > Custom SCSS. The variables
+// use the theme colors ($primary, $dark) and the Bootstrap greys. The page script only sets
+// attributes (hidden, disabled, aria-sort), no styles.
 
-// Common specifications table
-$rigpl-spec-label-color: $gray-600;
-$rigpl-spec-label-bg: $gray-100;
-$rigpl-spec-value-color: $body-color;
-$rigpl-spec-border-color: $border-color;
-$rigpl-spec-accent: $primary;
-
-// Variant table
+// Variant table and common specifications table
 $rigpl-variant-head-bg: $dark;
 $rigpl-variant-head-color: $white;
 $rigpl-variant-border-color: $border-color;
@@ -96,43 +90,29 @@ $rigpl-variant-code-color: $dark;
 $rigpl-variant-meta-color: $gray-600;
 $rigpl-variant-max-height: 75vh;        // the box scrolls inside, so the header row stays in view
 $rigpl-variant-card-breakpoint: sm;     // at this width and below, each row shows as a card
+$rigpl-variant-head-min-width: 4.5rem;  // a heading wraps to 2 or 3 lines down to this width
 
-.rigpl-spec-table {
-    width: 100%;
-    margin: 1rem 0 1.5rem;
-    border-collapse: collapse;
-    border-left: 3px solid $rigpl-spec-accent;
-    font-size: 0.875rem;
-
-    th,
-    td {
-        padding: 0.35rem 0.75rem;
-        border-bottom: 1px solid $rigpl-spec-border-color;
-        vertical-align: top;
+// The description HTML comes from v12 with its own fonts (font tags, inline styles). The theme font
+// applies instead. !important is needed to win over inline style attributes.
+.product-description {
+    * {
+        font-family: inherit !important;
+        line-height: inherit !important;
+        color: inherit !important;
     }
 
-    th {
-        width: 1%;
-        white-space: nowrap;
-        font-weight: 400;
-        color: $rigpl-spec-label-color;
-        background: $rigpl-spec-label-bg;
+    span,
+    font,
+    p,
+    li,
+    div {
+        font-size: inherit !important;
     }
 
-    td {
-        font-weight: 600;
-        color: $rigpl-spec-value-color;
-    }
-
-    @include media-breakpoint-down(sm) {
-        tr {
-            display: grid;
-            grid-template-columns: auto 1fr;
-        }
-
-        th {
-            width: auto;
-        }
+    i,
+    em,
+    font {
+        font-style: normal;
     }
 }
 
@@ -215,26 +195,46 @@ $rigpl-variant-card-breakpoint: sm;     // at this width and below, each row sho
         text-align: left;
     }
 
-    // Header row floats at the top of the box
+    // Header row floats at the top of the box. The data sets the column width: the heading has
+    // no width of its own (width 0, min-width 100%), so it wraps inside the column.
     thead th {
         position: sticky;
         top: 0;
         z-index: 2;
+        min-width: $rigpl-variant-head-min-width;
         padding: 0;
+        vertical-align: bottom;
+        white-space: normal;
         background: $rigpl-variant-head-bg;
     }
 
-    thead button {
+    thead button,
+    thead th > span {
         display: block;
-        width: 100%;
+        width: 0;
+        min-width: 100%;
         padding: 0.5rem 1.5rem 0.5rem 0.75rem;
         border: 0;
         background: transparent;
         color: $rigpl-variant-head-color;
         font: inherit;
         font-weight: 600;
+        line-height: 1.25;
         text-align: left;
+        overflow-wrap: break-word;
         position: relative;
+    }
+
+    thead th > span {
+        padding-right: 0.75rem;
+    }
+
+    // The item code heading is short, and its column stays as wide as the codes
+    thead tr > th:first-child button {
+        width: auto;
+    }
+
+    thead button {
         cursor: pointer;
 
         &::after {
@@ -294,6 +294,74 @@ $rigpl-variant-card-breakpoint: sm;     // at this width and below, each row sho
     tbody th a {
         font-weight: 600;
         color: $rigpl-variant-code-color;
+    }
+
+    // Stock and price
+    td.rigpl-variant-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    thead th.rigpl-variant-num button {
+        text-align: right;
+    }
+
+    // Add to cart
+    th.rigpl-variant-cart {
+        min-width: 0;
+    }
+
+    td.rigpl-variant-cart {
+        text-align: center;
+    }
+
+    .rigpl-add-to-cart {
+        padding: 0.2rem 0.6rem;
+        border: 1px solid $primary;
+        border-radius: $border-radius;
+        background: $primary;
+        color: color-yiq($primary);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+
+        &:hover,
+        &:focus {
+            background: darken($primary, 7.5%);
+        }
+
+        &:disabled {
+            opacity: 0.65;
+            cursor: wait;
+        }
+    }
+
+    .rigpl-go-to-cart,
+    .rigpl-enquire {
+        font-size: 0.8125rem;
+        font-weight: 600;
+    }
+
+    .rigpl-enquire {
+        color: $rigpl-variant-meta-color;
+    }
+}
+
+// Common specifications: one row of values under a row of labels, in the variant table look
+.rigpl-variant-table.rigpl-spec-table {
+    max-height: none;
+    margin: 1rem 0 1.5rem;
+
+    tbody td {
+        font-weight: 600;
+        background: $rigpl-variant-row-bg;
+    }
+
+    // Only the item code column of the variant table stays on the left
+    thead tr > th:first-child {
+        left: auto;
+        z-index: 2;
+        border-right: 0;
     }
 }
 

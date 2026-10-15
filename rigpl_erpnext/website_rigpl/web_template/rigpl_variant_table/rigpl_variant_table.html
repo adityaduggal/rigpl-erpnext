@@ -1,6 +1,7 @@
 {#- Styles: Website Theme rigpl-v12 > Custom SCSS, section "RIGPL tables" (website_data/rigpl_v12_theme.scss).
-    The script only changes attributes (hidden, aria-sort) and row order. It sets no styles. -#}
+    The script only changes attributes (hidden, disabled, aria-sort) and row order. It sets no styles. -#}
 {%- set table = rigpl_variant_table(website_item) -%}
+{%- set shop = table.shop -%}
 
 <div class="rigpl-variant-table-section">
 	{%- if title -%}
@@ -8,19 +9,25 @@
 	{%- endif -%}
 
 	{%- if table.common -%}
-	<table class="rigpl-spec-table">
-		<caption class="sr-only">Common specifications</caption>
-		<tbody>
-			{%- for pairs in table.common | batch(3) -%}
-			<tr>
-				{%- for label, value in pairs -%}
-				<th scope="row">{{ label | e }}</th>
-				<td>{{ value | e }}</td>
-				{%- endfor -%}
-			</tr>
-			{%- endfor -%}
-		</tbody>
-	</table>
+	<div class="rigpl-variant-table rigpl-spec-table">
+		<table>
+			<caption class="sr-only">Common specifications</caption>
+			<thead>
+				<tr>
+					{%- for label, value in table.common -%}
+					<th scope="col"><span>{{ label | e }}</span></th>
+					{%- endfor -%}
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					{%- for label, value in table.common -%}
+					<td data-label="{{ label | e }}">{{ value | e }}</td>
+					{%- endfor -%}
+				</tr>
+			</tbody>
+		</table>
+	</div>
 	{%- endif -%}
 
 	{%- if table.rows -%}
@@ -39,12 +46,21 @@
 				<option value="{{ loop.index }}:asc">{{ column.label | e }} ↑</option>
 				<option value="{{ loop.index }}:desc">{{ column.label | e }} ↓</option>
 				{%- endfor -%}
+				{%- set shop_index = table.columns | length + 1 -%}
+				{%- if shop.show_stock -%}
+				<option value="{{ shop_index }}:desc">Stock ↓</option>
+				{%- endif -%}
+				{%- if shop.show_price -%}
+				{%- set price_index = shop_index + (1 if shop.show_stock else 0) -%}
+				<option value="{{ price_index }}:asc">Price ↑</option>
+				<option value="{{ price_index }}:desc">Price ↓</option>
+				{%- endif -%}
 			</select>
 		</label>
 		<p class="rigpl-variant-count" aria-live="polite" data-rigpl-count>{{ table.rows | length }} items</p>
 	</div>
 
-	<div class="rigpl-variant-table">
+	<div class="rigpl-variant-table" data-rigpl-variants>
 		<table>
 			<thead>
 				<tr>
@@ -56,6 +72,19 @@
 						<button type="button" data-rigpl-sort-column="{{ loop.index }}">{{ column.label | e }}</button>
 					</th>
 					{%- endfor -%}
+					{%- if shop.show_stock -%}
+					<th scope="col" data-type="number" class="rigpl-variant-num">
+						<button type="button">Stock</button>
+					</th>
+					{%- endif -%}
+					{%- if shop.show_price -%}
+					<th scope="col" data-type="number" class="rigpl-variant-num">
+						<button type="button">Price</button>
+					</th>
+					{%- endif -%}
+					{%- if shop.show_cart -%}
+					<th scope="col" class="rigpl-variant-cart"><span class="sr-only">Add to Cart</span></th>
+					{%- endif -%}
 				</tr>
 			</thead>
 			<tbody>
@@ -71,6 +100,22 @@
 					{%- for column in table.columns -%}
 					<td data-label="{{ column.label | e }}">{{ row["values"][column.attribute] | e }}</td>
 					{%- endfor -%}
+					{%- if shop.show_stock -%}
+					<td data-label="Stock" class="rigpl-variant-num">{{ row.shop.stock | e }}</td>
+					{%- endif -%}
+					{%- if shop.show_price -%}
+					<td data-label="Price" class="rigpl-variant-num" data-sort="{{ row.shop.price_value }}">{{ row.shop.price | e }}</td>
+					{%- endif -%}
+					{%- if shop.show_cart -%}
+					<td data-label="Cart" class="rigpl-variant-cart" data-no-filter>
+						{%- if row.shop.can_add -%}
+						<button type="button" class="rigpl-add-to-cart" data-rigpl-add="{{ row.item_code | e }}">Add to Cart</button>
+						<a class="rigpl-go-to-cart" href="/cart" hidden>In Cart ✓</a>
+						{%- else -%}
+						<a class="rigpl-enquire" href="/contact">Enquire</a>
+						{%- endif -%}
+					</td>
+					{%- endif -%}
 				</tr>
 				{%- endfor -%}
 			</tbody>
@@ -85,7 +130,13 @@
 <script>
 (function () {
 	function cellText(row, column) {
-		return (row.cells[column].textContent || "").trim();
+		var cell = row.cells[column];
+		return (cell.dataset.sort || cell.textContent || "").trim();
+	}
+
+	function rowText(row) {
+		return Array.prototype.filter.call(row.cells, function (cell) { return !cell.hasAttribute("data-no-filter"); })
+			.map(function (cell) { return cell.textContent; }).join(" ").toLowerCase();
 	}
 
 	function compare(a, b, type) {
@@ -100,7 +151,7 @@
 	}
 
 	function setup(section) {
-		var table = section.querySelector(".rigpl-variant-table table");
+		var table = section.querySelector("[data-rigpl-variants] table");
 		if (!table || section.dataset.rigplReady) return;
 		section.dataset.rigplReady = "1";
 
@@ -112,7 +163,7 @@
 		var sortSelect = section.querySelector("[data-rigpl-sort]");
 		var count = section.querySelector("[data-rigpl-count]");
 		var empty = section.querySelector("[data-rigpl-empty]");
-		var texts = rows.map(function (row) { return (row.textContent || "").toLowerCase(); });
+		var texts = rows.map(rowText);
 
 		function applyFilter() {
 			var words = filter.value.toLowerCase().split(/\s+/).filter(Boolean);
@@ -149,7 +200,9 @@
 		}
 
 		Array.prototype.forEach.call(headers, function (th, i) {
-			th.querySelector("button").addEventListener("click", function () {
+			var button = th.querySelector("button");
+			if (!button) return;
+			button.addEventListener("click", function () {
 				sortBy(i, th.getAttribute("aria-sort") === "ascending" ? "desc" : "asc");
 			});
 		});
@@ -159,6 +212,32 @@
 			sortBy(parseInt(parts[0], 10), parts[1]);
 		});
 		filter.addEventListener("input", applyFilter);
+		tbody.addEventListener("click", function (event) {
+			var button = event.target.closest("[data-rigpl-add]");
+			if (button) addToCart(button);
+		});
+	}
+
+	// ERPNext's cart (erpnext-web.min.js) sends a guest to the login page.
+	function addToCart(button) {
+		var cart = window.erpnext && erpnext.e_commerce && erpnext.e_commerce.shopping_cart;
+		if (!cart) {
+			window.location.href = "/cart";
+			return;
+		}
+		button.disabled = true;
+		cart.update_cart({
+			item_code: button.dataset.rigplAdd,
+			qty: 1,
+			callback: function (r) {
+				if (r && r.exc) {
+					button.disabled = false;
+					return;
+				}
+				button.hidden = true;
+				button.parentNode.querySelector(".rigpl-go-to-cart").hidden = false;
+			}
+		});
 	}
 
 	function setupAll() {

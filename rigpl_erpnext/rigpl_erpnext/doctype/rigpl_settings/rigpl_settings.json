@@ -36,7 +36,12 @@
   "sales_weightage",
   "payment_weightage",
   "age_weightage",
-  "published_ctrack_days"
+  "published_ctrack_days",
+  "sb_website",
+  "website_stock_cap",
+  "cb_website",
+  "website_stock_cap_label",
+  "website_zero_stock_label"
  ],
  "fields": [
   {
@@ -221,10 +226,41 @@
    "fieldname": "published_ctrack_days",
    "fieldtype": "Int",
    "label": "Published Ctrack Days"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sb_website",
+   "fieldtype": "Section Break",
+   "label": "Website Settings"
+  },
+  {
+   "default": "100",
+   "description": "A stock quantity above this number shows as the Stock Cap Label. The website never shows the real quantity above the cap. Stock shows only when E Commerce Settings > Show Stock Availability is on, from the Website Warehouse of the Website Item.",
+   "fieldname": "website_stock_cap",
+   "fieldtype": "Int",
+   "label": "Website Stock Cap",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "cb_website",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "{cap}+",
+   "description": "{cap} is replaced with the Website Stock Cap, for example 100+.",
+   "fieldname": "website_stock_cap_label",
+   "fieldtype": "Data",
+   "label": "Website Stock Cap Label"
+  },
+  {
+   "default": "On request",
+   "fieldname": "website_zero_stock_label",
+   "fieldtype": "Data",
+   "label": "Website Zero Stock Label"
   }
  ],
  "issingle": 1,
- "modified": "2022-05-26 05:32:35.175318",
+ "modified": "2026-10-15 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

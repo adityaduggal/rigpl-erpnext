@@ -224,16 +224,16 @@ Known differences:
 
 ## 6. Template pages
 
-A template page is the page of a Website Item whose item has variants. For example, the home page product cards open template pages. GitHub issue #95 tracks this work.
+A template page is the page of a Website Item whose item has variants. For example, the home page product cards open template pages. GitHub issues #95 and #108 track this work.
 
 The app changes each template page automatically. You do not need to set anything for each item. The page shows:
 
-1. The image, the name, the template item code and the long description of the Website Item.
-2. The common specifications table: each attribute that has the same value for all variants, shown one time above the variant table. For example, Material and Brand. The table has three name–value pairs in each row. On a phone, each pair is on its own row.
-3. A table with one row for each published variant Website Item. The first column is the item code, with a link to the variant page. The other columns are the attributes that are different between the variants.
+1. The image, the name, the template item code and the long description of the Website Item. The description uses the font of the theme, not the fonts in its stored HTML (section 6.2).
+2. The common specifications table: each attribute that has the same value for all variants, shown one time above the variant table. For example, Material and Brand. It looks like the variant table: a heading row with the names and one row with the values. On a phone, it shows as one card.
+3. A table with one row for each published variant Website Item. The first column is the item code, with a link to the variant page. The next columns are the attributes that are different between the variants. The last columns are Stock, Price and Add to Cart (section 6.4).
 4. The tabs and the Website Content of the Website Item, if they have content.
 
-The page does not show the ERPNext variant selector or the add-to-cart button. A variant Website Item and an item without variants show the standard ERPNext page.
+The page does not show the ERPNext variant selector. A variant Website Item and an item without variants show the standard ERPNext page.
 
 The website shows only what is published as a Website Item. Website Item links to Item with **Item Code** and to Item Group with **Item Group**:
 
@@ -262,7 +262,7 @@ The filter and the sort run in the browser. The page from the server always has 
 
 ### 6.2 The look of the tables
 
-The styles are in the Website Theme `rigpl-v12`, in **Custom SCSS**, in the section from `// RIGPL tables v2 (#95)` to `// End of RIGPL tables`. Frappe uses one Website Theme for each site, so the table styles are part of the site theme and use its colors and font. The page script only shows or hides rows and marks the sorted column. It does not set colors or sizes.
+The styles are in the Website Theme `rigpl-v12`, in **Custom SCSS**, in the section from `// RIGPL tables v3 (#108)` to `// End of RIGPL tables`. Frappe uses one Website Theme for each site, so the table styles are part of the site theme and use its colors and font. The page script only shows or hides rows and marks the sorted column. It does not set colors or sizes.
 
 The variables at the start of the section control the look. For example:
 
@@ -273,7 +273,11 @@ The variables at the start of the section control the look. For example:
 | `$rigpl-variant-hover-bg` | 12% primary | Row color under the mouse |
 | `$rigpl-variant-max-height` | `75vh` | Height of the table box before it scrolls inside |
 | `$rigpl-variant-card-breakpoint` | `sm` | Width at which rows show as cards (`xs`, `sm`, `md`) |
-| `$rigpl-spec-accent` | `$primary` | Line on the left of the common specifications table |
+| `$rigpl-variant-head-min-width` | `4.5rem` | Minimum column width. A longer heading wraps to 2 or 3 lines |
+
+The data in the cells sets the width of each column. A heading does not make its column wider: it wraps inside the column.
+
+The section also sets the font of the product description. The long description HTML from v12 has its own fonts and colors (`<font>` tags and inline styles). The section makes all text in `.product-description` use the font, size and color of the theme, and shows italic text as normal text. Lists and bold text stay. The stored HTML does not change.
 
 To change the look:
 
@@ -284,7 +288,10 @@ To change the look:
 The reference copy of the section is in `website_data/rigpl_v12_theme.scss`. A new import (section 3) adds it with the rest of the theme. On a site that has the theme already:
 
 - The patch `add_table_styles_to_website_theme` adds the section if it is not there.
-- The patch `update_table_styles_in_website_theme` replaces the first version of the section with v2, but only if nobody edited it. If somebody edited it, the patch prints a message, and you copy the v2 section into Custom SCSS by hand.
+- The patch `update_table_styles_in_website_theme` replaces the first version of the section with the newest version, but only if nobody edited it.
+- The patch `update_table_styles_v3_in_website_theme` replaces v2 with v3, but only if nobody edited it.
+
+If somebody edited the section, the patch prints a message, and you copy the newest section into Custom SCSS by hand. Saving the theme compiles the SCSS with `node-sass`, which needs Node 14 (the bench Node version).
 
 After that, the theme in the database is the source. A change to the file does not change a site.
 
@@ -305,6 +312,32 @@ The long description of a template is not made from attributes. Edit it in the t
 Each day at 02:10, the job `variant_copy` applies the same rules to all Items. It also corrects a change made in a Website Item by hand.
 
 The patch `fix_shared_website_item_routes` repaired the Website Items that the v13 migration made. It copied the image and the empty web fields from Item, set **PL Item** to "Yes" on the published templates that had published variants, and moved the v12 **Website Item Group** rows from Item to Website Item.
+
+### 6.4 Stock, price and add to cart
+
+The variant table shows these columns only when **E Commerce Settings** > **Enable Shopping Cart** is set:
+
+| Column | Shows when | Value |
+|---|---|---|
+| Stock | **Show Stock Availability** is set | The free quantity in the **Website Warehouse** of the variant Website Item, or of the template Website Item if the variant has none. Free quantity is the actual quantity minus the reserved quantities, as ERPNext counts it. |
+| Price | **Show Price** is set, and the visitor is logged in or **Hide Price for Guest** is not set | The list price from the **Item Price** of the variant. If the variant has no price, the price of the template. |
+| Add to Cart | Always | A button that adds 1 of the variant to the cart. A guest goes to the login page. |
+
+The stock text comes from **RIGPL Settings** > **Website Settings**:
+
+| Field | Default | Use |
+|---|---|---|
+| **Website Stock Cap** | 100 | A quantity above this number shows as the cap label. |
+| **Website Stock Cap Label** | `{cap}+` | The text above the cap. `{cap}` changes to the cap, for example `100+`. |
+| **Website Zero Stock Label** | `On request` | The text when the free quantity is 0. |
+
+An empty field uses its default. The page never contains a quantity above the cap. If **Show Quantity in Website** is not set, the column shows "In stock" or the zero stock label.
+
+The price list is the **Default Price List** of the customer of the logged-in user, or of the customer's group. For a guest, or if there is none, it is the **Price List** of E Commerce Settings. An Item Price for one customer only, or out of its valid dates, is not used. The page does not apply Pricing Rules (#77). The cart applies them when it makes the quotation.
+
+The Add to Cart button shows only for a variant that has a price and stock. A variant with **On Backorder** set, or all variants if **Allow items not in stock to be added to cart** is set, can also be added. For any other variant, the column shows a link to the contact page.
+
+The shop columns use two queries for the page (Bin and Item Price), for any number of variants. Click the Stock or Price heading to sort by it.
 
 ## 7. Open items
 

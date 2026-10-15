@@ -65,3 +65,4 @@ rigpl_erpnext.patches.v13.add_website_rigpl_module_def
 rigpl_erpnext.patches.v13.fix_shared_website_item_routes
 rigpl_erpnext.patches.v13.add_table_styles_to_website_theme
 rigpl_erpnext.patches.v13.update_table_styles_in_website_theme
+rigpl_erpnext.patches.v13.update_table_styles_v3_in_website_theme
