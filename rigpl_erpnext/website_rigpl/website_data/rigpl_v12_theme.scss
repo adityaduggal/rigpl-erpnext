@@ -72,7 +72,7 @@ img {
     max-width: 100%;
 }
 
-// RIGPL tables v3 (#108): the common specifications table and the variant table on template pages,
+// RIGPL tables v4 (#108): the common specifications table and the variant table on template pages,
 // and the product description font. Edit the look here, in Website Theme > Custom SCSS. The variables
 // use the theme colors ($primary, $dark) and the Bootstrap greys. The page script only sets
 // attributes (hidden, disabled, aria-sort), no styles.
@@ -195,6 +195,11 @@ $rigpl-variant-head-min-width: 4.5rem;  // a heading wraps to 2 or 3 lines down 
         text-align: left;
     }
 
+    // Attribute values are centred under their heading
+    td {
+        text-align: center;
+    }
+
     // Header row floats at the top of the box. The data sets the column width: the heading has
     // no width of its own (width 0, min-width 100%), so it wraps inside the column.
     thead th {
@@ -203,7 +208,7 @@ $rigpl-variant-head-min-width: 4.5rem;  // a heading wraps to 2 or 3 lines down 
         z-index: 2;
         min-width: $rigpl-variant-head-min-width;
         padding: 0;
-        vertical-align: bottom;
+        vertical-align: middle;
         white-space: normal;
         background: $rigpl-variant-head-bg;
     }
@@ -220,18 +225,20 @@ $rigpl-variant-head-min-width: 4.5rem;  // a heading wraps to 2 or 3 lines down 
         font: inherit;
         font-weight: 600;
         line-height: 1.25;
-        text-align: left;
+        text-align: center;
         overflow-wrap: break-word;
         position: relative;
     }
 
     thead th > span {
+        padding-left: 0.75rem;
         padding-right: 0.75rem;
     }
 
     // The item code heading is short, and its column stays as wide as the codes
     thead tr > th:first-child button {
         width: auto;
+        text-align: left;
     }
 
     thead button {

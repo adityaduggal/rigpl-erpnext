@@ -10,6 +10,7 @@ SECTION_MARKER = "// RIGPL tables"  # prefix of every version of the section
 UNEDITED_SHA256 = {
     "v1 (#95)": "aecc76bec82bcbe3225c38b58524aed877ea08916c0472b67723a1789c594af3",
     "v2 (#95)": "23909344b100c9d3ec90949c601c9940f38947b9a18b603fe2412b9255f4e919",
+    "v3 (#108)": "36fd9bd3f89ff2b5d57c46c291237c4cb14be41c180d40108a270fd9450fab47",
 }
 
 

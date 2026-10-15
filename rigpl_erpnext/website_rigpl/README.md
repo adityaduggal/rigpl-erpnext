@@ -262,7 +262,7 @@ The filter and the sort run in the browser. The page from the server always has 
 
 ### 6.2 The look of the tables
 
-The styles are in the Website Theme `rigpl-v12`, in **Custom SCSS**, in the section from `// RIGPL tables v3 (#108)` to `// End of RIGPL tables`. Frappe uses one Website Theme for each site, so the table styles are part of the site theme and use its colors and font. The page script only shows or hides rows and marks the sorted column. It does not set colors or sizes.
+The styles are in the Website Theme `rigpl-v12`, in **Custom SCSS**, in the section from `// RIGPL tables v4 (#108)` to `// End of RIGPL tables`. Frappe uses one Website Theme for each site, so the table styles are part of the site theme and use its colors and font. The page script only shows or hides rows and marks the sorted column. It does not set colors or sizes.
 
 The variables at the start of the section control the look. For example:
 
@@ -275,7 +275,7 @@ The variables at the start of the section control the look. For example:
 | `$rigpl-variant-card-breakpoint` | `sm` | Width at which rows show as cards (`xs`, `sm`, `md`) |
 | `$rigpl-variant-head-min-width` | `4.5rem` | Minimum column width. A longer heading wraps to 2 or 3 lines |
 
-The data in the cells sets the width of each column. A heading does not make its column wider: it wraps inside the column.
+The data in the cells sets the width of each column. A heading does not make its column wider: it wraps inside the column, and is centred vertically in the heading row. Attribute values and their headings are centred. The item code is on the left, and Stock and Price are on the right.
 
 The section also sets the font of the product description. The long description HTML from v12 has its own fonts and colors (`<font>` tags and inline styles). The section makes all text in `.product-description` use the font, size and color of the theme, and shows italic text as normal text. Lists and bold text stay. The stored HTML does not change.
 
