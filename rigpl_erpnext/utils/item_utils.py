@@ -11,6 +11,8 @@ import frappe
 from frappe import scrub
 from frappe.utils import flt
 
+from rigpl_erpnext.website_rigpl.item_sync import set_web_long_description
+
 
 def delete_web_item(item_code):
     """
@@ -99,15 +101,15 @@ def check_and_copy_attributes_to_variant(template, variant, insert_type=None):
                 check += 1
         elif field.fieldname == "description":
             description, long_desc = generate_description(variant)
+            if insert_type != "frontend":
+                # The frontend save writes it in the Item on_update hook.
+                set_web_long_description(variant.name, long_desc)
             if variant.get(field.fieldname) != description:
                 if insert_type == "frontend":
                     variant.set(field.fieldname, template.get(field.fieldname))
                 else:
                     frappe.db.set_value(
                         "Item", variant.name, field.fieldname, description
-                    )
-                    frappe.db.set_value(
-                        "Item", variant.name, "web_long_description", long_desc
                     )
                     frappe.db.set_value("Item", variant.name, "item_name", long_desc)
                     print(

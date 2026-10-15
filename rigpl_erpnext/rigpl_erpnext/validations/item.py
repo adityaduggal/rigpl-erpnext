@@ -30,7 +30,8 @@ def validate(doc, method):
     doc.page_name = doc.item_name
     description, long_desc = generate_description(doc)
     doc.description = description
-    #doc.web_long_description = long_desc
+    # v13 Item has no web_long_description field. on_update writes it to the Website Item.
+    doc.flags.web_long_description = long_desc
     doc.item_name = long_desc
     doc.item_code = doc.name
 

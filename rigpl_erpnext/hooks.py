@@ -161,6 +161,7 @@ doc_events = {
     "Item": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item.validate",
         "autoname": "rigpl_erpnext.rigpl_erpnext.validations.item.autoname",
+        "on_update": "rigpl_erpnext.website_rigpl.item_sync.on_item_update",
     },
     "Item Group": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate"

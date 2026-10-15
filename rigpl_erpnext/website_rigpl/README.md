@@ -237,7 +237,7 @@ The page does not show the ERPNext variant selector or the add-to-cart button. A
 
 The website shows only what is published as a Website Item. Website Item links to Item with **Item Code** and to Item Group with **Item Group**:
 
-- The rows are the variant Website Items with **Variant Of** set to the template item and **Published** set. When you disable an Item, ERPNext unpublishes its Website Item, so the variant does not show.
+- The rows are the variant Website Items with **Variant Of** set to the template item and **Published** set. Section 6.3 tells you when a Website Item is published.
 - If the template Website Item is not published, the table is empty.
 - Website Item has no attributes. The attribute values come from the **Variant Attributes** table of each Item. The columns are the rows of the template Item that have **Use in Description** set, in the order of the table.
 - The column headings and the common specification names come from the **Field Name** column of the template Item's **Variant Attributes** table. For example, `d1_mm` shows as "Flute Dia (mm)". If **Field Name** is empty, the page shows the attribute name. To change a heading, edit **Field Name** in the template Item.
@@ -289,6 +289,22 @@ The reference copy of the section is in `website_data/rigpl_v12_theme.scss`. A n
 After that, the theme in the database is the source. A change to the file does not change a site.
 
 To show a variant table on a Web Page, add a block with the web template **RIGPL Variant Table** and set **Website Item** to a published template Website Item.
+
+### 6.3 The Item controls its Website Item
+
+Edit these values in the Item, not in the Website Item. When you save the Item, the app changes its Website Item (issue #105):
+
+| Website Item field | Value |
+|---|---|
+| **Website Image** and **Thumbnail** | The **Image** of the Item |
+| **Published** | Set if the Item is enabled and **PL Item** is "Yes". Else clear. The app does not delete the Website Item, so its route and redirects stay. |
+| **Web Long Description** (variant) | The long description that the app makes from the variant attributes |
+
+The long description of a template is not made from attributes. Edit it in the template Website Item.
+
+Each day at 02:10, the job `variant_copy` applies the same rules to all Items. It also corrects a change made in a Website Item by hand.
+
+The patch `fix_shared_website_item_routes` repaired the Website Items that the v13 migration made. It copied the image and the empty web fields from Item, set **PL Item** to "Yes" on the published templates that had published variants, and moved the v12 **Website Item Group** rows from Item to Website Item.
 
 ## 7. Open items
 

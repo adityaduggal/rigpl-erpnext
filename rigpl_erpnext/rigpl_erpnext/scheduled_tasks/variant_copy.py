@@ -7,6 +7,8 @@ from rigpl_erpnext.utils.item_utils import *
 from operator import itemgetter
 from time import time
 from frappe.utils.background_jobs import enqueue
+from frappe.website.render import clear_cache
+from rigpl_erpnext.website_rigpl.item_sync import sync_web_items
 
 
 def enqueue_check_wrong_variants():
@@ -18,6 +20,7 @@ def check_wrong_variants():
     st_time = time()
     check_expired_items()
     check_items_as_per_sorting_for_website()
+    check_web_items()
     tot_time = int(time() - st_time)
     print(f"Total Time Taken = {tot_time} seconds")
 
@@ -29,6 +32,14 @@ def check_expired_items():
         frappe.db.set_value("Item", it.name, "disabled", 1)
         print("Item Code: " + it.name + " is Expired and hence Disabled")
     print("Total Items = " + str(len(it_expired)))
+    frappe.db.commit()
+
+
+def check_web_items():
+    # check_items_as_per_sorting_for_website changes long descriptions and clears no cache.
+    changed = sync_web_items()
+    clear_cache()
+    print(f"Website Items changed as per Item = {changed}")
     frappe.db.commit()
 
 
