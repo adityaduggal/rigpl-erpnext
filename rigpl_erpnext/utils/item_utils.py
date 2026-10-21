@@ -9,6 +9,7 @@ import datetime
 import frappe
 from frappe.utils import cint, flt
 
+from rigpl_erpnext.utils.item_attribute_utils import get_attribute_rows
 from rigpl_erpnext.website_rigpl.item_sync import set_web_long_description
 
 
@@ -704,14 +705,6 @@ def get_template_restrictions(temp_name):
 
 def get_item_attributes(item_name):
     """
-    Returns a dictionary for all Attributes for an Item Name
+    Returns a list of all Attribute rows for an Item Name, by idx
     """
-    att_dict = frappe.db.sql(
-        """SELECT name, idx, attribute, attribute_value, prefix,
-        use_in_description, field_name, from_range, to_range, increment, numeric_values
-        FROM `tabItem Variant Attribute` WHERE parenttype = 'Item'
-        AND parent = '%s' ORDER BY idx"""
-        % item_name,
-        as_dict=1,
-    )
-    return att_dict
+    return get_attribute_rows([item_name]).get(item_name, [])
