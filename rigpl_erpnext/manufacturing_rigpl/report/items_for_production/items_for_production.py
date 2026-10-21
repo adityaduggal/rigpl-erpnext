@@ -3,8 +3,27 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt
-from ....utils.stock_utils import get_wh_wise_qty
+from frappe.query_builder.functions import IfNull, Max
+from frappe.utils import cint, flt, nowdate
+from ....utils.item_attribute_utils import (
+    attribute_filters,
+    attribute_sort_key,
+    chunks,
+    get_attribute_map,
+)
+from ....utils.stock_utils import get_wh_wise_qty_for_items
+
+TEXT_COLUMNS = [
+    ("is_rm", "Is RM"),
+    ("brand", "Brand"),
+    ("series", "Series"),
+    ("spl", "Special Treatment"),
+    ("tt", "Tool Type"),
+]
+NUMERIC_COLUMNS = ["d1", "w1", "l1", "d2", "l2"]
+NUMERIC_ATTS = ["d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm"]
+ZN_ATT = "Number of Flutes Zn"
+SORT_ATTS = ["Is RM", "Brand", "Special Treatment", "Tool Type"] + NUMERIC_ATTS
 
 
 def execute(filters=None):
@@ -47,42 +66,27 @@ def get_columns(wh_dict):
 
 def get_items(filters, wh_dict):
     actual_data = []
-    conditions_it = get_conditions(filters)
-    bm = filters["bm"]
-    query = """SELECT it.name as name, IFNULL(rm.attribute_value, "-") as is_rm, it.description,
-        IFNULL(brand.attribute_value, "-") as brand, IFNULL(series.attribute_value, "-") as series,
-        IFNULL(quality.attribute_value, "-") as qual, IFNULL(spl.attribute_value, "-") as spl,
-        IFNULL(tt.attribute_value, "-") as tt, CAST(d1.attribute_value AS DECIMAL(8,3)) as d1,
-        CAST(w1.attribute_value AS DECIMAL(8,3)) as w1, CAST(l1.attribute_value AS DECIMAL(8,3)) as l1,
-        CAST(d2.attribute_value AS DECIMAL(8,3)) as d2, CAST(l2.attribute_value AS DECIMAL(8,3)) as l2,
-        CAST(zn.attribute_value AS UNSIGNED) as zn, 
-        IF(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level) AS rol,
-        it.is_job_work as jw, it.is_purchase_item as pur, it.is_sales_item as sale, it.valuation_rate as vr
-        FROM `tabItem` it
-        LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
-        LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent AND rm.attribute = 'Is RM'
-        LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent AND bm.attribute = 'Base Material'
-        LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent AND brand.attribute = 'Brand'
-        LEFT JOIN `tabItem Variant Attribute` series ON it.name = series.parent AND series.attribute = 'Series'
-        LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent AND quality.attribute = '%s Quality'
-        LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent AND tt.attribute = 'Tool Type'
-        LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent AND spl.attribute = 'Special Treatment'
-        LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent AND d1.attribute = 'd1_mm'
-        LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent AND w1.attribute = 'w1_mm'
-        LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent AND l1.attribute = 'l1_mm'
-        LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent AND d2.attribute = 'd2_mm'
-        LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent AND l2.attribute = 'l2_mm'
-        LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent AND zn.attribute = 'Number of Flutes Zn'
-        WHERE ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
-        ORDER BY rm.attribute_value, brand.attribute_value, spl.attribute_value, tt.attribute_value,
-            CAST(d1.attribute_value AS DECIMAL(8,3)) ASC, CAST(w1.attribute_value AS DECIMAL(8,3)) ASC,
-            CAST(l1.attribute_value AS DECIMAL(8,3)) ASC, CAST(d2.attribute_value AS DECIMAL(8,3)) ASC,
-            CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it)
-    items = frappe.db.sql(query, as_dict=1)
+    items = get_item_list(filters)
+    names = [d.name for d in items]
+    quality = "%s Quality" % filters["bm"]
+    attributes = [att for _, att in TEXT_COLUMNS] + [quality, ZN_ATT] + NUMERIC_ATTS
+    att_map = get_attribute_map(names, attributes)
+    rol_dict = get_reorder_levels(names)
+    qty_dicts = get_wh_wise_qty_for_items(names, non_zero=True)
+    numeric = set(NUMERIC_ATTS)
+    items.sort(key=lambda d: (attribute_sort_key(att_map.get(d.name, {}), SORT_ATTS, numeric), d.name))
     for d in items:
+        values = att_map.get(d.name, {})
+        for column, attribute in TEXT_COLUMNS + [("qual", quality)]:
+            d[column] = values[attribute] if values.get(attribute) is not None else "-"
+        for column, attribute in zip(NUMERIC_COLUMNS, NUMERIC_ATTS):
+            value = values.get(attribute)
+            d[column] = None if value is None else round(flt(value), 3)
+        zn = values.get(ZN_ATT)
+        d.zn = None if zn is None else cint(zn)
+        d.rol = rol_dict.get(d.name) or None
         d.update({"on_so":0, "on_po":0, "plan":0, "prd":0, "total": 0})
-        qty_dict = get_wh_wise_qty(item_name=d.name)
-        for q in qty_dict:
+        for q in qty_dicts.get(d.name, []):
             if q.subcon == 1:
                 d["on_po"] += flt(q.actual)
             else:
@@ -111,6 +115,52 @@ def get_items(filters, wh_dict):
         row += [d.jw if d.jw > 0 else None, d.pur if d.pur > 0 else None, d.sale if d.sale > 0 else None]
         actual_data.append(row)
     return actual_data
+
+
+def get_item_list(filters):
+    """
+    Returns the Items that are not End of Life and match the filters
+    """
+    it = frappe.qb.DocType("Item")
+    query = (
+        frappe.qb.from_(it)
+        .select(
+            it.name,
+            it.description,
+            it.is_job_work.as_("jw"),
+            it.is_purchase_item.as_("pur"),
+            it.is_sales_item.as_("sale"),
+            it.valuation_rate.as_("vr"),
+        )
+        .where(IfNull(it.end_of_life, "2099-12-31") > nowdate())
+        .where(attribute_filters(it.name, get_attribute_values(filters)))
+    )
+    if filters.get("show_in_website") == 1:
+        query = query.where(it.show_in_website == 1)
+    if filters.get("item"):
+        query = query.where(it.name == filters["item"])
+    if filters.get("variant_of"):
+        query = query.where(it.variant_of == filters["variant_of"])
+    return query.run(as_dict=True)
+
+
+def get_reorder_levels(items):
+    """
+    Returns {item: highest warehouse reorder level}
+    """
+    ro = frappe.qb.DocType("Item Reorder")
+    rol_dict = {}
+    for chunk in chunks(items):
+        rows = (
+            frappe.qb.from_(ro)
+            .select(ro.parent, Max(ro.warehouse_reorder_level))
+            .where(ro.parent.isin(chunk) & (ro.parenttype == "Item"))
+            .groupby(ro.parent)
+            .run()
+        )
+        rol_dict.update(dict(rows))
+    return rol_dict
+
 
 def get_urgency(itd, whd):
     ROL = flt(itd.rol)
@@ -220,34 +270,15 @@ def get_urgency(itd, whd):
     return itd
 
 
-def get_conditions(filters):
-    conditions_it = ""
-
-    if filters.get("rm"):
-        conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
-
-    if filters.get("bm"):
-        conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
-
-    if filters.get("series"):
-        conditions_it += " AND series.attribute_value = '%s'" % filters["series"]
-
-    if filters.get("quality"):
-        conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
-
-    if filters.get("spl"):
-        conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
-
-    if filters.get("tt"):
-        conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
-
-    if filters.get("show_in_website") == 1:
-        conditions_it += " and it.show_in_website =%s" % filters["show_in_website"]
-
-    if filters.get("item"):
-        conditions_it += " and it.name = '%s'" % filters["item"]
-
-    if filters.get("variant_of"):
-        conditions_it += " and it.variant_of = '%s'" % filters["variant_of"]
-
-    return conditions_it
+def get_attribute_values(filters):
+    """
+    Returns {attribute: value} for the attribute filters
+    """
+    return {
+        "Is RM": filters.get("rm"),
+        "Base Material": filters.get("bm"),
+        "Series": filters.get("series"),
+        "%s Quality" % filters.get("bm"): filters.get("quality"),
+        "Special Treatment": filters.get("spl"),
+        "Tool Type": filters.get("tt"),
+    }

@@ -6,6 +6,8 @@ from __future__ import unicode_literals
 from datetime import date
 import frappe
 from frappe.utils import nowdate, nowtime, add_months, flt
+from pypika.terms import Criterion
+from .item_attribute_utils import chunks
 from .other_utils import auto_round_down, auto_round_up, round_up
 
 
@@ -618,13 +620,47 @@ def get_wh_wise_qty(item_name):
     """
     Returns a dictionary for quantities for Item in Various Warehouses
     """
-    query = """SELECT bn.item_code, bn.reserved_qty as on_so, bn.actual_qty as actual, bn.warehouse,
-        bn.ordered_qty as on_po, bn.planned_qty as plan, bn.projected_qty as proj,
-        bn.reserved_qty_for_production as prd, wh.is_subcontracting_warehouse as subcon,
-        wh.short_code as scode
-        FROM `tabBin` bn, `tabWarehouse` wh
-        WHERE wh.name = bn.warehouse AND bn.item_code = '%s'""" % item_name
-    qty_dict = frappe.db.sql(query, as_dict=1)
+    return get_wh_wise_qty_for_items([item_name]).get(item_name, [])
+
+
+def get_wh_wise_qty_for_items(items, non_zero=False):
+    """
+    Returns {item_code: [Bin quantities per Warehouse]} for many items, one query per chunk.
+    With non_zero, leave out the Bins where all quantities are 0 (most Bins are).
+    """
+    bin_tab = frappe.qb.DocType("Bin")
+    wh_tab = frappe.qb.DocType("Warehouse")
+    qty_dict = {}
+    qty_fields = (
+        bin_tab.actual_qty,
+        bin_tab.reserved_qty,
+        bin_tab.ordered_qty,
+        bin_tab.planned_qty,
+        bin_tab.reserved_qty_for_production,
+    )
+    for chunk in chunks(items):
+        query = (
+            frappe.qb.from_(bin_tab)
+            .join(wh_tab)
+            .on(wh_tab.name == bin_tab.warehouse)
+            .select(
+                bin_tab.item_code,
+                bin_tab.reserved_qty.as_("on_so"),
+                bin_tab.actual_qty.as_("actual"),
+                bin_tab.warehouse,
+                bin_tab.ordered_qty.as_("on_po"),
+                bin_tab.planned_qty.as_("plan"),
+                bin_tab.projected_qty.as_("proj"),
+                bin_tab.reserved_qty_for_production.as_("prd"),
+                wh_tab.is_subcontracting_warehouse.as_("subcon"),
+                wh_tab.short_code.as_("scode"),
+            )
+            .where(bin_tab.item_code.isin(chunk))
+        )
+        if non_zero:
+            query = query.where(Criterion.any([field != 0 for field in qty_fields]))
+        for row in query.run(as_dict=True):
+            qty_dict.setdefault(row.item_code, []).append(row)
     return qty_dict
 
 
