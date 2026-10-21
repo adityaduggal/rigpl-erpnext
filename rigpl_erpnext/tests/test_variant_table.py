@@ -494,3 +494,28 @@ class TestVariantTable(unittest.TestCase):
         cart.check_cart_stock(frappe._dict(items=[frappe._dict(item_code="_Test RIGPL V1", qty=5)]))
         frappe.local.shopping_cart_settings = cart_settings(allow_items_not_in_stock=1)
         cart.check_cart_stock(quotation)
+
+    def variant_page_context(self):
+        return frappe._dict(
+            doc=frappe._dict(doctype="Website Item", has_variants=0, variant_of=TEMPLATE),
+            parents=[{"name": "Home", "route": "/"}, {"name": "HSS Tools", "route": "hss"}],
+        )
+
+    def test_variant_breadcrumb_ends_with_its_template(self):
+        self.make_template_with_variants()
+        context = self.variant_page_context()
+        values = item_page.update_website_context(context)
+
+        self.assertEqual(
+            values["parents"],
+            [
+                {"name": "Home", "route": "/"},
+                {"name": "HSS Tools", "route": "hss"},
+                {"name": TEMPLATE, "route": "-test-rigpl-variant-template"},
+            ],
+        )
+        self.assertEqual(len(context.parents), 2)  # ERPNext's list is not changed
+
+    def test_variant_of_an_unpublished_template_keeps_erpnext_breadcrumb(self):
+        self.make_template_with_variants(template_published=0)
+        self.assertIsNone(item_page.update_website_context(self.variant_page_context()))
