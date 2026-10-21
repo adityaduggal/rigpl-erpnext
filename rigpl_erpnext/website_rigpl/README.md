@@ -389,6 +389,20 @@ The rigpl.com (v12) URLs of items do not have redirect rows. Frappe tries every 
 
 The patch `rebuild_website_routes` made the first short routes. It set the Website Slug of 55 groups from `website_data/route_slugs.json`, only where the Website Slug was empty. To change a slug after the patch, edit the Item Group in Desk.
 
+### 6.6 Sales rank
+
+The products and categories that make the most revenue show first (issue #101). The job `website_rigpl/sales_rank.py` runs each quarter, with the reorder level job, on the `long` queue. It uses standard fields only:
+
+| Field | Value |
+|---|---|
+| Website Item **Ranking** (a product: a template, or an item without variants) | The position by revenue. The product with the most revenue gets the highest number. ERPNext lists the products of a category by **Ranking**, highest first. |
+| Item Group **Weightage** | The revenue of the products in the group and its descendants, divided by a power of 10 and rounded: a whole number from 1 to 1000, or 0 for no revenue. The divisor is the smallest power of 10 that makes the largest group 1000 or less, so **Weightage** × divisor is about the revenue. The job prints the divisor. |
+
+- Revenue is the total **Net Amount (Company Currency)** of the submitted Sales Invoice Items of the product and its variants in the last N months. N is the shortest period in RIGPL Settings **ROL Calculation** (12 months). Credit notes reduce it.
+- Products with the same revenue, for example with no sales, are in the order of their usage: the stock consumed in submitted Material Issue, Repack and Manufacture entries. Then by item code.
+- The job writes only the values that change. It replaces a **Ranking** or **Weightage** set by hand. It uses one query for the revenue and one for the usage.
+- To run it now: `bench --site <site> execute rigpl_erpnext.website_rigpl.sales_rank.update_sales_rank`.
+
 ## 7. Open items
 
 - 16 Web Pages are not published (for example drilling-tools, lathe-tools and services). Decide for each page: publish it, redirect it to an Item Group page, or delete it. Issue #88 has the list.
