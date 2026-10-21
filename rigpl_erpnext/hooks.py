@@ -70,6 +70,8 @@ update_website_context = ["rigpl_erpnext.website_rigpl.item_page.update_website_
 override_whitelisted_methods = {
     "erpnext.e_commerce.shopping_cart.product_info.get_product_info_for_website": "rigpl_erpnext.website_rigpl.product_info.get_product_info_for_website",
     "erpnext.e_commerce.shopping_cart.cart.place_order": "rigpl_erpnext.website_rigpl.cart.place_order",
+    # Category pages show their sub-categories in sales order (#103)
+    "erpnext.e_commerce.api.get_product_filter_data": "rigpl_erpnext.website_rigpl.product_listing.get_product_filter_data",
 }
 
 jenv = {"methods": ["rigpl_variant_table:rigpl_erpnext.website_rigpl.catalog.get_variant_table"]}

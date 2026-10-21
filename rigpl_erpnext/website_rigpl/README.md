@@ -389,14 +389,25 @@ The rigpl.com (v12) URLs of items do not have redirect rows. Frappe tries every 
 
 The patch `rebuild_website_routes` made the first short routes. It set the Website Slug of 55 groups from `website_data/route_slugs.json`, only where the Website Slug was empty. To change a slug after the patch, edit the Item Group in Desk.
 
-### 6.6 Sales rank
+### 6.6 Category pages
+
+An Item Group page is the ERPNext page (issue #103). The app sets ERPNext's own settings, so the page lists templates, not variants:
+
+- E Commerce Settings **Hide Variants** is on. A category page, All Products and the product search show templates and items without variants. A buyer finds a variant in the table of its template (section 6).
+- E Commerce Settings **Enable Attribute Filters** is off, because ERPNext turns **Hide Variants** off while attribute filters are on, and a template has no attribute values. The filter rows stay in the settings. The Item Group field filter stays.
+- **Include Descendants** is on for each shown parent Item Group, so a parent group lists the templates of its sub-categories and is not empty.
+- The products of a category show by Website Item **Ranking**, highest first (ERPNext), and the sub-category links by Item Group **Weightage**, highest first. The sales rank job sets both (section 6.7). `override_whitelisted_methods` sends ERPNext's `get_product_filter_data` to `website_rigpl/product_listing.py`, which changes only the order of the sub-categories. ERPNext orders them by name.
+
+The patch `website_item_group_listing` sets the settings and the groups. A new parent group needs **Include Descendants** set by hand.
+
+### 6.7 Sales rank
 
 The products and categories that make the most revenue show first (issue #101). The job `website_rigpl/sales_rank.py` runs each quarter, with the reorder level job, on the `long` queue. It uses standard fields only:
 
 | Field | Value |
 |---|---|
-| Website Item **Ranking** (a product: a template, or an item without variants) | The position by revenue. The product with the most revenue gets the highest number. ERPNext lists the products of a category by **Ranking**, highest first. |
-| Item Group **Weightage** | The revenue of the products in the group and its descendants, divided by a power of 10 and rounded: a whole number from 1 to 1000, or 0 for no revenue. The divisor is the smallest power of 10 that makes the largest group 1000 or less, so **Weightage** × divisor is about the revenue. The job prints the divisor. |
+| Website Item **Ranking** (a product: a template, or an item without variants) | The position by revenue. The product with the most revenue gets the highest number. ERPNext lists the products of a category by **Ranking**, highest first (section 6.6). |
+| Item Group **Weightage** | The revenue of the products in the group and its descendants, divided by a power of 10 and rounded: a whole number from 1 to 1000, or 0 for no revenue. The divisor is the smallest power of 10 that makes the largest group 1000 or less, so **Weightage** × divisor is about the revenue. The job prints the divisor. Sub-categories show by **Weightage**, highest first. |
 
 - Revenue is the total **Net Amount (Company Currency)** of the submitted Sales Invoice Items of the product and its variants in the last N months. N is the shortest period in RIGPL Settings **ROL Calculation** (12 months). Credit notes reduce it.
 - Products with the same revenue, for example with no sales, are in the order of their usage: the stock consumed in submitted Material Issue, Repack and Manufacture entries. Then by item code.

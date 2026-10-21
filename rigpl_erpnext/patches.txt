@@ -66,3 +66,4 @@ rigpl_erpnext.patches.v13.fix_shared_website_item_routes
 rigpl_erpnext.patches.v13.update_table_styles_in_website_theme #2026-10-21
 rigpl_erpnext.patches.v13.rebuild_website_routes
 rigpl_erpnext.patches.v13.convert_item_yes_no_to_check
+rigpl_erpnext.patches.v13.website_item_group_listing
