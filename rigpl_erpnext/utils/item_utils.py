@@ -5,10 +5,8 @@
 from __future__ import unicode_literals
 
 import datetime
-import re
 
 import frappe
-from frappe import scrub
 from frappe.utils import cint, flt
 
 from rigpl_erpnext.website_rigpl.item_sync import set_web_long_description
@@ -329,23 +327,6 @@ def generate_description(it_doc):
         description = it_doc.name
         long_desc = it_doc.name
     return description, long_desc
-
-
-def make_route(it_doc):
-    route_name = re.sub("[^A-Za-z0-9]+", " ", it_doc.item_name)
-    if it_doc.has_variants == 1:
-        it_doc.route = (
-            frappe.db.get_value("Item Group", it_doc.item_group, "route")
-            + "/"
-            + scrub(it_doc.route_name)
-        )
-    else:
-        if it_doc.variant_of:
-            it_doc.route = (
-                frappe.db.get_value("Item", it_doc.variant_of, "route")
-                + "/"
-                + scrub(it_doc.route_name)
-            )
 
 
 def validate_reoder(it_doc):

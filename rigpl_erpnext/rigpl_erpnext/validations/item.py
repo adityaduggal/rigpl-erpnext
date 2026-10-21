@@ -52,7 +52,6 @@ def validate(doc, method):
         doc.description = doc.name
     else:
         set_website_specs(doc,method)
-    make_route(doc)
 
 
 def autoname(doc,method):
