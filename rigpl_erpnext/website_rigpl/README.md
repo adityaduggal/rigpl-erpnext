@@ -230,7 +230,7 @@ The app changes each template page automatically. You do not need to set anythin
 
 1. The image, the name, the template item code and the long description of the Website Item. The description uses the font of the theme, not the fonts in its stored HTML (section 6.2).
 2. The common specifications table: each attribute that has the same value for all variants, shown one time above the variant table. For example, Material and Brand. It looks like the variant table: a heading row with the names and one row with the values. On a phone, it shows as one card.
-3. A table with one row for each published variant Website Item. The first column is the item code, with a link to the variant page. The next columns are the attributes that are different between the variants. The last columns are Stock, Price and Add to Cart (section 6.4).
+3. A table with one row for each published variant Website Item. The first column is the item code, with a link to the variant page. The next columns are the attributes that are different between the variants. The last column is Price: the price, the stock and the Add to Cart button of the variant (section 6.4).
 4. The tabs and the Website Content of the Website Item, if they have content.
 
 The page does not show the ERPNext variant selector. A variant Website Item and an item without variants show the standard ERPNext page.
@@ -255,14 +255,14 @@ Above the variant table, a toolbar has a filter box and the item count:
 
 - Type in the filter box to show only the rows that contain all the words. For example, `6 50` shows the rows with 6 and 50 in any column. The count shows "12 of 46 items".
 - Click a column heading to sort by that column, from small to large. Click it again to sort from large to small. An arrow shows the sorted column. Number columns sort as numbers. Empty cells always go last.
-- The table box has a maximum height and scrolls inside, so the heading row and the item code column stay in view on a long list.
-- On a phone, each row shows as a card: the item code at the top, then one line for each column with its heading. The toolbar shows a **Sort by** list, because the heading row is not shown.
+- The table box has a maximum height and scrolls inside, so the heading row and the item code column stay in view on a long list. When the table is wider than the page, the Price column stays on the right and the attribute columns scroll under it.
+- On a phone, each row shows as a card: the item code at the top, then one line for each column with its heading, and a price bar at the bottom with the price, the stock and the button. The toolbar shows a **Sort by** list, because the heading row is not shown.
 
 The filter and the sort run in the browser. The page from the server always has all rows in the default order (section 6), so search engines see all items.
 
 ### 6.2 The look of the tables
 
-The styles are in the Website Theme `rigpl-v12`, in **Custom SCSS**, in the section from `// RIGPL tables v4 (#108)` to `// End of RIGPL tables`. Frappe uses one Website Theme for each site, so the table styles are part of the site theme and use its colors and font. The page script only shows or hides rows and marks the sorted column. It does not set colors or sizes.
+The styles are in the Website Theme `rigpl-v12`, in **Custom SCSS**, in the section from `// RIGPL tables v5 (#126)` to `// End of RIGPL tables`. Frappe uses one Website Theme for each site, so the table styles are part of the site theme and use its colors and font. The page script only shows or hides rows and marks the sorted column. It does not set colors or sizes.
 
 The variables at the start of the section control the look. For example:
 
@@ -274,8 +274,11 @@ The variables at the start of the section control the look. For example:
 | `$rigpl-variant-max-height` | `75vh` | Height of the table box before it scrolls inside |
 | `$rigpl-variant-card-breakpoint` | `sm` | Width at which rows show as cards (`xs`, `sm`, `md`) |
 | `$rigpl-variant-head-min-width` | `4.5rem` | Minimum column width. A longer heading wraps to 2 or 3 lines |
+| `$rigpl-variant-stock-color` | 25% darker primary | Stock text when the variant is in stock |
+| `$rigpl-variant-cart-bg` / `$rigpl-variant-enquire-bg` | `$primary` / `$dark` | Add to Cart and Enquire button colors |
+| `$rigpl-variant-button-min-width` | `7.5rem` | Width of the Add to Cart and Enquire buttons, so they line up |
 
-The data in the cells sets the width of each column. A heading does not make its column wider: it wraps inside the column, and is centred vertically in the heading row. Attribute values and their headings are centred. The item code is on the left, and Stock and Price are on the right.
+The data in the cells sets the width of each column. A heading does not make its column wider: it wraps inside the column, and is centred vertically in the heading row. Attribute values and their headings are centred. The item code is on the left. The Price column is on the right and its text is right-aligned.
 
 The section also sets the font of the product description. The long description HTML from v12 has its own fonts and colors (`<font>` tags and inline styles). The section makes all text in `.product-description` use the font, size and color of the theme, and shows italic text as normal text. Lists and bold text stay. The stored HTML does not change.
 
@@ -313,13 +316,13 @@ The patch `fix_shared_website_item_routes` repaired the Website Items that the v
 
 ### 6.4 Stock, price and add to cart
 
-The variant table shows these columns only when **E Commerce Settings** > **Enable Shopping Cart** is set:
+The variant table shows the Price column only when **E Commerce Settings** > **Enable Shopping Cart** is set (issue #126). Each cell has up to 3 lines, from top to bottom:
 
-| Column | Shows when | Value |
+| Line | Shows when | Value |
 |---|---|---|
-| Stock | **Show Stock Availability** is set | The free quantity in the **Website Warehouse** of the variant Website Item, or of the template Website Item if the variant has none. Free quantity is the actual quantity minus the reserved quantities, as ERPNext counts it. |
-| Price | **Show Price** is set, and the visitor is logged in or **Hide Price for Guest** is not set | The list price from the **Item Price** of the variant. If the variant has no price, the price of the template. |
-| Add to Cart | Always | A button that adds 1 of the variant to the cart. A guest goes to the login page. |
+| Price | **Show Price** is set, and the visitor is logged in or **Hide Price for Guest** is not set | The list price and its unit, for example `₹ 245.00 / Nos`. The list price comes from the **Item Price** of the variant. If the variant has no price, the price of the template. The unit is the **Stock UOM** of the variant Website Item. Issue #127 adds the sales UOM. |
+| Stock | **Show Stock Availability** is set | `In stock: 100+ Nos`, or `Stock: On request` when there is no stock. The value is the free quantity in the **Website Warehouse** of the variant Website Item, or of the template Website Item if the variant has none. Free quantity is the actual quantity minus the reserved quantities, as ERPNext counts it. |
+| Button | Always | **Add to Cart** adds 1 of the variant to the cart. A guest goes to the login page. After the add, the button changes to **In Cart ✓**, a link to the cart. **Enquire** (a dark button of the same size) opens the contact page. |
 
 The stock text comes from **RIGPL Settings** > **Website Settings**:
 
@@ -329,13 +332,13 @@ The stock text comes from **RIGPL Settings** > **Website Settings**:
 | **Website Stock Cap Label** | `{cap}+` | The text above the cap. `{cap}` changes to the cap, for example `100+`. |
 | **Website Zero Stock Label** | `On request` | The text when the free quantity is 0. |
 
-An empty field uses its default. The page never contains a quantity above the cap. If **Show Quantity in Website** is not set, the column shows "In stock" or the zero stock label.
+An empty field uses its default. The page never contains a quantity above the cap. If **Show Quantity in Website** is not set, the stock line shows "In stock" or the zero stock label.
 
 The price list is the **Default Price List** of the customer of the logged-in user, or of the customer's group. For a guest, or if there is none, it is the **Price List** of E Commerce Settings. An Item Price for one customer only, or out of its valid dates, is not used. The page does not apply Pricing Rules (#77). The cart applies them when it makes the quotation.
 
-The Add to Cart button shows only for a variant that has a price and stock. A variant with **On Backorder** set, or all variants if **Allow items not in stock to be added to cart** is set, can also be added. For any other variant, the column shows a link to the contact page.
+The Add to Cart button shows only for a variant that has a price and stock. A variant with **On Backorder** set, or all variants if **Allow items not in stock to be added to cart** is set, can also be added. For any other variant, the cell shows the Enquire button.
 
-The shop columns use two queries for the page (Bin and Item Price), for any number of variants. Click the Stock or Price heading to sort by it.
+The shop columns use two queries for the page (Bin and Item Price), for any number of variants. Click the Price heading to sort by price. If prices are not shown, the heading is Stock and sorts by stock. On a phone, the **Sort by** list also has "Stock ↓". The stock sort uses the capped number, so the page source does not contain a quantity above the cap either.
 
 ### 6.5 Routes
 

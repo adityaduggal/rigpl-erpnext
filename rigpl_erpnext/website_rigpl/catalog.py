@@ -20,7 +20,7 @@ def empty_table() -> dict:
 
 
 def no_shop() -> dict:
-    return {"show_stock": False, "show_price": False, "show_cart": False}
+    return {"show_stock": False, "show_qty": False, "show_price": False, "show_cart": False}
 
 
 def get_variant_table(website_item: str) -> dict:
@@ -84,7 +84,13 @@ def get_published_variants(template: str) -> list:
     web_item = frappe.qb.DocType("Website Item")
     return (
         frappe.qb.from_(web_item)
-        .select(web_item.item_code, web_item.route, web_item.website_warehouse, web_item.on_backorder)
+        .select(
+            web_item.item_code,
+            web_item.route,
+            web_item.website_warehouse,
+            web_item.on_backorder,
+            web_item.stock_uom,
+        )
         .where((web_item.variant_of == template) & (web_item.published == 1))
         .orderby(web_item.item_code)
     ).run(as_dict=True)
@@ -172,9 +178,10 @@ def sort_key(value: str, numeric: bool) -> tuple:
 def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]]:
     """Stock, price and add-to-cart for each variant, as E Commerce Settings allow.
 
-    Returns the column flags and {item_code: {"stock", "price", "price_value", "can_add"}}.
-    Only the stock label leaves this function, so a quantity above the cap never
-    reaches the page.
+    Returns the column flags and
+    {item_code: {"stock", "stock_value", "uom", "price", "price_value", "can_add"}}.
+    Only the stock label and the capped sort value leave this function, so a quantity above
+    the cap never reaches the page. Price and stock are in the stock UOM (#127 adds the sales UOM).
     """
     from erpnext.e_commerce.doctype.e_commerce_settings.e_commerce_settings import (
         get_shopping_cart_settings,
@@ -187,6 +194,7 @@ def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]
     is_guest = frappe.session.user == "Guest"
     shop = {
         "show_stock": bool(cart.show_stock_availability),
+        "show_qty": bool(cart.show_quantity_in_website),
         "show_price": bool(cart.show_price and not (is_guest and cart.hide_price_for_guest)),
         "show_cart": True,
     }
@@ -209,7 +217,9 @@ def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]
         price = prices.get(variant.item_code) or prices.get(template.item_code)
         in_stock = qty > 0 or variant.on_backorder or cart.allow_items_not_in_stock
         shop_rows[variant.item_code] = {
-            "stock": cap_stock(qty, cap, cap_label, zero_label, cart.show_quantity_in_website),
+            "stock": cap_stock(qty, cap, cap_label, zero_label, shop["show_qty"]),
+            "stock_value": stock_sort_value(qty, cap, shop["show_qty"]),
+            "uom": variant.stock_uom or "",
             "price": fmt_money(price.price_list_rate, currency=price.currency) if price else "",
             "price_value": flt(price.price_list_rate) if price else "",
             "can_add": bool(price and in_stock),
@@ -219,7 +229,7 @@ def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]
 
 def add_shop_info(rows: List[dict], shop_rows: Dict[str, dict]) -> List[dict]:
     """New rows with a `shop` dict. A row with no shop info gets empty values."""
-    empty = {"stock": "", "price": "", "price_value": "", "can_add": False}
+    empty = {"stock": "", "stock_value": "", "uom": "", "price": "", "price_value": "", "can_add": False}
     return [dict(row, shop=shop_rows.get(row["item_code"], empty)) for row in rows]
 
 
@@ -265,6 +275,17 @@ def cap_stock(qty: float, cap: int, cap_label: str, zero_label: str, show_qty: b
     if qty > cap:
         return cap_label.replace("{cap}", str(cap))
     return "{:g}".format(qty)
+
+
+def stock_sort_value(qty: float, cap: int, show_qty: bool = True) -> float:
+    """The number the page sorts the stock by. It is never above the cap, so the page
+    source does not show the real quantity either.
+    """
+    if qty <= 0:
+        return 0
+    if not show_qty:
+        return 1
+    return min(qty, cap)
 
 
 def get_selling_price_list(cart) -> Optional[str]:

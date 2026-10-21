@@ -46,14 +46,13 @@
 				<option value="{{ loop.index }}:asc">{{ column.label | e }} ↑</option>
 				<option value="{{ loop.index }}:desc">{{ column.label | e }} ↓</option>
 				{%- endfor -%}
-				{%- set shop_index = table.columns | length + 1 -%}
-				{%- if shop.show_stock -%}
-				<option value="{{ shop_index }}:desc">Stock ↓</option>
-				{%- endif -%}
+				{%- set buy_index = table.columns | length + 1 -%}
 				{%- if shop.show_price -%}
-				{%- set price_index = shop_index + (1 if shop.show_stock else 0) -%}
-				<option value="{{ price_index }}:asc">Price ↑</option>
-				<option value="{{ price_index }}:desc">Price ↓</option>
+				<option value="{{ buy_index }}:asc">Price ↑</option>
+				<option value="{{ buy_index }}:desc">Price ↓</option>
+				{%- endif -%}
+				{%- if shop.show_stock -%}
+				<option value="{{ buy_index }}:desc:stock">Stock ↓</option>
 				{%- endif -%}
 			</select>
 		</label>
@@ -72,18 +71,13 @@
 						<button type="button" data-rigpl-sort-column="{{ loop.index }}">{{ column.label | e }}</button>
 					</th>
 					{%- endfor -%}
-					{%- if shop.show_stock -%}
-					<th scope="col" data-type="number" class="rigpl-variant-num">
-						<button type="button">Stock</button>
+					{#- Price, stock and cart share one column, pinned on the right (#126) -#}
+					{%- if shop.show_price or shop.show_stock -%}
+					<th scope="col" data-type="number" class="rigpl-variant-buy">
+						<button type="button">{{ "Price" if shop.show_price else "Stock" }}</button>
 					</th>
-					{%- endif -%}
-					{%- if shop.show_price -%}
-					<th scope="col" data-type="number" class="rigpl-variant-num">
-						<button type="button">Price</button>
-					</th>
-					{%- endif -%}
-					{%- if shop.show_cart -%}
-					<th scope="col" class="rigpl-variant-cart"><span class="sr-only">Add to Cart</span></th>
+					{%- elif shop.show_cart -%}
+					<th scope="col" class="rigpl-variant-buy"><span><span class="sr-only">Add to Cart</span></span></th>
 					{%- endif -%}
 				</tr>
 			</thead>
@@ -100,19 +94,34 @@
 					{%- for column in table.columns -%}
 					<td data-label="{{ column.label | e }}">{{ row["values"][column.attribute] | e }}</td>
 					{%- endfor -%}
-					{%- if shop.show_stock -%}
-					<td data-label="Stock" class="rigpl-variant-num">{{ row.shop.stock | e }}</td>
-					{%- endif -%}
-					{%- if shop.show_price -%}
-					<td data-label="Price" class="rigpl-variant-num" data-sort="{{ row.shop.price_value }}">{{ row.shop.price | e }}</td>
-					{%- endif -%}
-					{%- if shop.show_cart -%}
-					<td data-label="Cart" class="rigpl-variant-cart" data-no-filter>
-						{%- if row.shop.can_add -%}
-						<button type="button" class="rigpl-add-to-cart" data-rigpl-add="{{ row.item_code | e }}">Add to Cart</button>
-						<a class="rigpl-go-to-cart" href="/cart" hidden>In Cart ✓</a>
+					{%- if shop.show_price or shop.show_stock or shop.show_cart -%}
+					<td class="rigpl-variant-buy" data-no-filter
+						data-sort="{{ row.shop.price_value if shop.show_price else row.shop.stock_value }}"
+						data-sort-stock="{{ row.shop.stock_value }}">
+						{%- if shop.show_price and row.shop.price -%}
+						<div class="rigpl-buy-price">{{ row.shop.price | e }}
+							{%- if row.shop.uom %} <span class="rigpl-buy-uom">/ {{ row.shop.uom | e }}</span>{% endif -%}
+						</div>
+						{%- endif -%}
+						{%- if shop.show_stock -%}
+						{%- if not row.shop.stock_value -%}
+						<div class="rigpl-buy-stock is-out">Stock: {{ row.shop.stock | e }}</div>
+						{%- elif shop.show_qty -%}
+						<div class="rigpl-buy-stock"><span class="rigpl-buy-stock-label">In stock:</span>
+							{{ row.shop.stock | e }} {{ row.shop.uom | e }}</div>
 						{%- else -%}
-						<a class="rigpl-enquire" href="/contact">Enquire</a>
+						<div class="rigpl-buy-stock">In stock</div>
+						{%- endif -%}
+						{%- endif -%}
+						{%- if shop.show_cart -%}
+						<div class="rigpl-buy-action">
+							{%- if row.shop.can_add -%}
+							<button type="button" class="rigpl-add-to-cart" data-rigpl-add="{{ row.item_code | e }}">Add to Cart</button>
+							<a class="rigpl-go-to-cart" href="/cart" hidden>In Cart ✓</a>
+							{%- else -%}
+							<a class="rigpl-enquire" href="/contact">Enquire</a>
+							{%- endif -%}
+						</div>
 						{%- endif -%}
 					</td>
 					{%- endif -%}
@@ -129,9 +138,11 @@
 
 <script>
 (function () {
-	function cellText(row, column) {
+	// key picks a second sort value of a cell, for example data-sort-stock in the price column
+	function cellText(row, column, key) {
 		var cell = row.cells[column];
-		return (cell.dataset.sort || cell.textContent || "").trim();
+		var value = key ? cell.getAttribute("data-sort-" + key) : cell.getAttribute("data-sort");
+		return (value === null ? cell.textContent : value).trim();
 	}
 
 	function rowText(row) {
@@ -177,15 +188,15 @@
 			empty.hidden = shown !== 0;
 		}
 
-		function sortBy(column, direction) {
+		function sortBy(column, direction, key) {
 			var order;
 			if (column === null) {
 				order = defaultOrder.slice();
 			} else {
-				var type = headers[column].dataset.type;
+				var type = key ? "number" : headers[column].dataset.type;
 				var sign = direction === "desc" ? -1 : 1;
 				order = defaultOrder.slice().sort(function (a, b) {
-					var x = cellText(a, column), y = cellText(b, column);
+					var x = cellText(a, column, key), y = cellText(b, column, key);
 					if (!x || !y) return (x ? 0 : 1) - (y ? 0 : 1);
 					return sign * compare(x, y, type);
 				});
@@ -193,10 +204,10 @@
 			order.forEach(function (row) { tbody.appendChild(row); });
 
 			Array.prototype.forEach.call(headers, function (th, i) {
-				if (i === column) th.setAttribute("aria-sort", direction === "desc" ? "descending" : "ascending");
+				if (i === column && !key) th.setAttribute("aria-sort", direction === "desc" ? "descending" : "ascending");
 				else th.removeAttribute("aria-sort");
 			});
-			sortSelect.value = column === null ? "" : column + ":" + direction;
+			sortSelect.value = column === null ? "" : column + ":" + direction + (key ? ":" + key : "");
 		}
 
 		Array.prototype.forEach.call(headers, function (th, i) {
@@ -209,7 +220,7 @@
 		sortSelect.addEventListener("change", function () {
 			if (!sortSelect.value) return sortBy(null);
 			var parts = sortSelect.value.split(":");
-			sortBy(parseInt(parts[0], 10), parts[1]);
+			sortBy(parseInt(parts[0], 10), parts[1], parts[2]);
 		});
 		filter.addEventListener("input", applyFilter);
 		tbody.addEventListener("click", function (event) {

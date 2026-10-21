@@ -111,6 +111,7 @@ def insert_website_item(name, item_code, variant_of=None, published=1, warehouse
             "variant_of": variant_of,
             "published": published,
             "website_warehouse": warehouse,
+            "stock_uom": "Nos",
         }
     ).db_insert()
 
@@ -257,6 +258,13 @@ class TestVariantTable(unittest.TestCase):
         self.assertEqual(catalog.cap_stock(2500, 50, "More than {cap}", "-"), "More than 50")
         self.assertEqual(catalog.cap_stock(37, 100, "{cap}+", "On request", show_qty=False), "In stock")
 
+    def test_stock_sort_value_is_never_above_the_cap(self):
+        self.assertEqual(catalog.stock_sort_value(0, 100), 0)
+        self.assertEqual(catalog.stock_sort_value(-3, 100), 0)
+        self.assertEqual(catalog.stock_sort_value(37, 100), 37)
+        self.assertEqual(catalog.stock_sort_value(2500, 100), 100)
+        self.assertEqual(catalog.stock_sort_value(2500, 100, show_qty=False), 1)
+
     def test_add_shop_info_returns_new_rows(self):
         rows = [{"item_code": "A", "values": {}}, {"item_code": "B", "values": {}}]
         shop_rows = {"A": {"stock": "5", "price": "₹ 10.00", "price_value": 10.0, "can_add": True}}
@@ -285,10 +293,16 @@ class TestVariantTable(unittest.TestCase):
         table = catalog.get_variant_table(TEMPLATE_WEB_ITEM)
         shop = self.shop_by_item(table)
 
-        self.assertEqual(table["shop"], {"show_stock": True, "show_price": True, "show_cart": True})
+        self.assertEqual(
+            table["shop"], {"show_stock": True, "show_qty": True, "show_price": True, "show_cart": True}
+        )
         # only the website warehouse counts, and the reserved qty is free stock no more
         self.assertEqual(shop["_Test RIGPL V1"]["stock"], "100+")
         self.assertEqual(shop["_Test RIGPL V2"]["stock"], "On request")
+        # the sort value is capped as well
+        self.assertEqual(shop["_Test RIGPL V1"]["stock_value"], 100)
+        self.assertEqual(shop["_Test RIGPL V2"]["stock_value"], 0)
+        self.assertEqual(shop["_Test RIGPL V1"]["uom"], "Nos")
         self.assertEqual(shop["_Test RIGPL V1"]["price_value"], 627)
         # a variant with no price uses the template price; a customer price is skipped
         self.assertEqual(shop["_Test RIGPL V2"]["price_value"], 500)
@@ -332,3 +346,34 @@ class TestVariantTable(unittest.TestCase):
         self.assertNotIn("2500", html)
         self.assertIn('data-rigpl-add="_Test RIGPL V1"', html)
         self.assertNotIn('data-rigpl-add="_Test RIGPL V2"', html)
+
+    def render_table(self):
+        return frappe.render_template(
+            "rigpl_erpnext/website_rigpl/web_template/rigpl_variant_table/rigpl_variant_table.html",
+            {"website_item": TEMPLATE_WEB_ITEM},
+        )
+
+    def test_price_stock_and_cart_share_one_column(self):
+        self.make_shop_data()
+        frappe.set_user("Guest")
+        html = self.render_table()
+
+        self.assertEqual(html.count('<th scope="col" data-type="number" class="rigpl-variant-buy">'), 1)
+        self.assertEqual(html.count('<td class="rigpl-variant-buy"'), 2)
+        self.assertIn("/ Nos</span>", html)
+        self.assertIn('<span class="rigpl-buy-stock-label">In stock:</span>', html)
+        self.assertIn("Stock: On request", html)
+        self.assertIn('data-sort-stock="100"', html)
+        self.assertIn('<a class="rigpl-enquire" href="/contact">Enquire</a>', html)
+        self.assertIn(':desc:stock">Stock ↓</option>', html)
+
+    def test_price_column_without_prices_sorts_by_stock(self):
+        self.make_shop_data()
+        frappe.local.shopping_cart_settings = cart_settings(hide_price_for_guest=1)
+        frappe.set_user("Guest")
+        html = self.render_table()
+
+        self.assertIn('<button type="button">Stock</button>', html)
+        self.assertNotIn("Price ↑", html)
+        self.assertNotIn("rigpl-buy-price", html)
+        self.assertIn('data-sort="100"', html)

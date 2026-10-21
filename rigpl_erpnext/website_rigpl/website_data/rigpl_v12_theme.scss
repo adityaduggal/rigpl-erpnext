@@ -72,7 +72,7 @@ img {
     max-width: 100%;
 }
 
-// RIGPL tables v4 (#108): the common specifications table and the variant table on template pages,
+// RIGPL tables v5 (#126): the common specifications table and the variant table on template pages,
 // and the product description font. Edit the look here, in Website Theme > Custom SCSS. The variables
 // use the theme colors ($primary, $dark) and the Bootstrap greys. The page script only sets
 // attributes (hidden, disabled, aria-sort), no styles.
@@ -91,6 +91,13 @@ $rigpl-variant-meta-color: $gray-600;
 $rigpl-variant-max-height: 75vh;        // the box scrolls inside, so the header row stays in view
 $rigpl-variant-card-breakpoint: sm;     // at this width and below, each row shows as a card
 $rigpl-variant-head-min-width: 4.5rem;  // a heading wraps to 2 or 3 lines down to this width
+$rigpl-variant-stock-color: darken($primary, 25%);  // dark enough to read as small text on white
+$rigpl-variant-cart-bg: $primary;
+$rigpl-variant-cart-color: $dark;
+$rigpl-variant-enquire-bg: $dark;
+$rigpl-variant-enquire-color: $white;
+$rigpl-variant-buy-card-bg: mix($primary, $white, 15%);  // the price bar of a phone card
+$rigpl-variant-button-min-width: 7.5rem;  // Add to Cart and Enquire have the same width
 
 // The description HTML comes from v12 with its own fonts (font tags, inline styles). The theme font
 // applies instead. !important is needed to win over inline style attributes.
@@ -303,54 +310,102 @@ $rigpl-variant-head-min-width: 4.5rem;  // a heading wraps to 2 or 3 lines down 
         color: $rigpl-variant-code-color;
     }
 
-    // Stock and price
-    td.rigpl-variant-num {
+    // Price column (#126): price, stock and the cart button in one cell. It stays on the right
+    // when the table scrolls sideways, so the item code and its price are always in view.
+    tr > .rigpl-variant-buy {
+        position: sticky;
+        right: 0;
+        z-index: 1;
+        border-left: 1px solid $rigpl-variant-border-color;
+        box-shadow: -6px 0 8px -6px rgba($black, 0.25);
         text-align: right;
+    }
+
+    thead tr > .rigpl-variant-buy {
+        z-index: 3;
+    }
+
+    thead th.rigpl-variant-buy button {
+        text-align: right;
+    }
+
+    .rigpl-buy-price {
+        font-size: 0.9375rem;
+        font-weight: 700;
         font-variant-numeric: tabular-nums;
     }
 
-    thead th.rigpl-variant-num button {
-        text-align: right;
+    .rigpl-buy-uom,
+    .rigpl-buy-stock-label {
+        font-weight: 400;
+        color: $rigpl-variant-meta-color;
     }
 
-    // Add to cart
-    th.rigpl-variant-cart {
-        min-width: 0;
+    .rigpl-buy-uom {
+        font-size: 0.75rem;
     }
 
-    td.rigpl-variant-cart {
-        text-align: center;
+    .rigpl-buy-stock {
+        margin: 0.0625rem 0 0.25rem;
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+        color: $rigpl-variant-stock-color;
+
+        &.is-out {
+            color: $rigpl-variant-meta-color;
+        }
     }
 
-    .rigpl-add-to-cart {
+    // Add to Cart, In Cart and Enquire look the same, in different colours
+    .rigpl-add-to-cart,
+    .rigpl-go-to-cart,
+    .rigpl-enquire {
+        display: inline-block;
+        min-width: $rigpl-variant-button-min-width;
         padding: 0.2rem 0.6rem;
-        border: 1px solid $primary;
+        border: 1px solid $rigpl-variant-cart-bg;
         border-radius: $border-radius;
-        background: $primary;
-        color: color-yiq($primary);
+        background: $rigpl-variant-cart-bg;
+        color: $rigpl-variant-cart-color;
         font-size: 0.8125rem;
         font-weight: 600;
+        line-height: 1.5;
+        text-align: center;
+        text-decoration: none;
         cursor: pointer;
 
         &:hover,
         &:focus {
-            background: darken($primary, 7.5%);
-        }
-
-        &:disabled {
-            opacity: 0.65;
-            cursor: wait;
+            background: darken($rigpl-variant-cart-bg, 7.5%);
+            color: $rigpl-variant-cart-color;
+            text-decoration: none;
         }
     }
 
-    .rigpl-go-to-cart,
-    .rigpl-enquire {
-        font-size: 0.8125rem;
-        font-weight: 600;
+    .rigpl-add-to-cart:disabled {
+        opacity: 0.65;
+        cursor: wait;
+    }
+
+    .rigpl-go-to-cart {
+        background: $white;
+
+        &:hover,
+        &:focus {
+            background: $rigpl-variant-hover-bg;
+        }
     }
 
     .rigpl-enquire {
-        color: $rigpl-variant-meta-color;
+        border-color: $rigpl-variant-enquire-bg;
+        background: $rigpl-variant-enquire-bg;
+        color: $rigpl-variant-enquire-color;
+
+        &:hover,
+        &:focus {
+            background: lighten($rigpl-variant-enquire-bg, 10%);
+            color: $rigpl-variant-enquire-color;
+        }
     }
 }
 
@@ -417,6 +472,32 @@ $rigpl-variant-head-min-width: 4.5rem;  // a heading wraps to 2 or 3 lines down 
             position: static;
             border-right: 0;
             background: $rigpl-variant-stripe-bg;
+        }
+
+        // Price bar at the bottom of the card: price and stock on the left, the button on the right
+        tbody tr > td.rigpl-variant-buy {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            column-gap: 1rem;
+            position: static;
+            border-left: 0;
+            box-shadow: none;
+            text-align: left;
+            background: $rigpl-variant-buy-card-bg;
+
+            &::before {
+                display: none;
+            }
+
+            .rigpl-buy-action {
+                grid-column: 2;
+                grid-row: 1 / span 2;
+            }
+
+            .rigpl-buy-stock {
+                margin-bottom: 0;
+            }
         }
 
         td {
