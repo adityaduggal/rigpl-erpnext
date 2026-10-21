@@ -11,7 +11,7 @@ from rohit_common.utils.rohit_common_utils import check_dynamic_link, check_sale
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
 from rigpl_erpnext.utils.stock_utils import make_sales_job_work_ste, cancel_delete_ste_from_name
 from rigpl_erpnext.utils.accounts_receivable_utils import check_overdue_receivables
-from rigpl_erpnext.utils.process_sheet_utils import create_ps_from_so_item
+from rigpl_erpnext.manufacturing_rigpl.utils.process_sheet_utils import create_ps_from_so_item
 
 
 def validate(doc, method):

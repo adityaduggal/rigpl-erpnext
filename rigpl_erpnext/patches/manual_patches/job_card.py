@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 import time
-from ...utils.job_card_utils import get_job_card_process_sno
+from ...manufacturing_rigpl.utils.job_card_utils import get_job_card_process_sno
 
 
 # This Patch would update the Serial No and Final Op for Job Card

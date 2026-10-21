@@ -7,7 +7,7 @@ import sys
 import frappe
 from frappe.utils import flt
 from .stock_utils import get_quantities_for_item
-from .process_sheet_utils import get_last_operation_for_psheet
+from ..manufacturing_rigpl.utils.process_sheet_utils import get_last_operation_for_psheet
 from .purchase_utils import get_detailed_po_lead_time_for_item, get_avg_days_for_po_dict
 from .other_utils import auto_round_up, get_base_doc, get_weighted_average
 

@@ -2,8 +2,8 @@
 from __future__ import unicode_literals
 import time
 import frappe
-from ...utils.job_card_utils import check_existing_job_card
-from ...utils.manufacturing_utils import get_comp_qty_operation
+from ...manufacturing_rigpl.utils.job_card_utils import check_existing_job_card
+from ...manufacturing_rigpl.utils.manufacturing_utils import get_comp_qty_operation
 
 
 def execute():

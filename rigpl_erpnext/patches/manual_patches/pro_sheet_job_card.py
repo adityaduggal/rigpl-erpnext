@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 import frappe
 import time
-from ...utils.process_sheet_utils import update_process_sheet_operations, update_process_sheet_op_planned_qty
+from ...manufacturing_rigpl.utils.process_sheet_utils import update_process_sheet_operations, update_process_sheet_op_planned_qty
 
 # This patch would check the completed quantity in Process Sheet Operations and Correct them if needed
 # This would also update the total qty in Job Card field
