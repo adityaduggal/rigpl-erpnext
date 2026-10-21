@@ -375,6 +375,8 @@ When you save:
 
 The redirects are rows in Website Settings, table **Route Redirects**. The app adds them. For a template, one row redirects the template and all its variants, for example `old-template(/.*)?` to `/new-template\1`. When a route changes again, the app changes the target of the earlier rows, so a visitor gets one redirect, not a chain. The app deletes a redirect whose source is the route of a live page, because Frappe reads the redirects before the pages. If the job cannot change a route (for example, it is too long), it keeps the old route and writes an Error Log "RIGPL website routes not changed".
 
+The rigpl.com (v12) URLs of items do not have redirect rows. Frappe tries every redirect row on each request, so 2,600 more rows would make every page slower. Instead, the 404 page of this app (`www/404.py`, issue #84) looks up the path in **Item > Route**, which still has the v12 route. It sends a 301 to the most specific live page: the Website Item of the item, then its template, then its Item Group. A variant route `<template route>/<item code>` of a variant that is not published goes to the template. The route of a hidden Item Group goes to its nearest shown ancestor. If nothing matches, the visitor gets the normal 404 page. The lookup runs only when no page matches, and it reads today's routes, so it never makes a redirect chain. After a deploy, run `bench --site <site> clear-website-cache`, because Frappe caches the page context of the Frappe 404 page.
+
 The patch `rebuild_website_routes` made the first short routes. It set the Website Slug of 55 groups from `website_data/route_slugs.json`, only where the Website Slug was empty. To change a slug after the patch, edit the Item Group in Desk.
 
 ## 7. Open items

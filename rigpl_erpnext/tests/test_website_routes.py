@@ -1,6 +1,7 @@
 import re
 import unittest
 
+from rigpl_erpnext.website_rigpl.legacy_routes import pick_item_target
 from rigpl_erpnext.website_rigpl.routes import (
     Redirect,
     build_group_route,
@@ -259,3 +260,30 @@ class TestRouteRebuild(unittest.TestCase):
         sources = [re.escape("carbide/jobber-drills"), re.escape("old") + "(/.*)?", "("]
 
         self.assertEqual(hijacking_redirects(sources, live), [re.escape("carbide/jobber-drills")])
+
+
+class TestLegacyItemTarget(unittest.TestCase):
+    TEMPLATE = "carbide/jobber-drills/c0gj-metric"
+    VARIANT = TEMPLATE + "/cr0agbe00md1"
+
+    def test_published_variant_goes_to_its_own_page(self):
+        published = {"CR0AGBE00MD1": self.VARIANT, "C0GJ-Metric": self.TEMPLATE}
+
+        target = pick_item_target("CR0AGBE00MD1", "C0GJ-Metric", published, "carbide/jobber-drills")
+
+        self.assertEqual(target, self.VARIANT)
+
+    def test_unpublished_variant_goes_to_its_template(self):
+        target = pick_item_target(
+            "CR0AGBE00MD1", "C0GJ-Metric", {"C0GJ-Metric": self.TEMPLATE}, "carbide/jobber-drills"
+        )
+
+        self.assertEqual(target, self.TEMPLATE)
+
+    def test_item_without_a_published_page_goes_to_its_group(self):
+        target = pick_item_target("C0GJ-Metric", None, {}, "carbide/jobber-drills")
+
+        self.assertEqual(target, "carbide/jobber-drills")
+
+    def test_item_with_no_live_page_has_no_target(self):
+        self.assertIsNone(pick_item_target("C0GJ-Metric", None, {}, None))
