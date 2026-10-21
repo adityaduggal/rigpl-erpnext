@@ -204,7 +204,7 @@ def get_items(attributes, att_details, filters):
         ON it.name = {att_trimmed}.parent AND {att_trimmed}.attribute = '{att.att_name}'"""
     if filters.get("price_list_type") == "Price List":
         query = """SELECT IFNULL(itp.name, "-"), IFNULL(itp.price_list, "-"), itp.price_list_rate,
-            IFNULL(itp.currency, "-"), it.name %s, IFNULL(it.pl_item, "-"),
+            IFNULL(itp.currency, "-"), it.name %s, IF(it.pl_item, "Yes", "No"),
             IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level),
             it.description
             FROM `tabItem` it
@@ -216,7 +216,7 @@ def get_items(attributes, att_details, filters):
             ORDER BY %s it.name""" % (att_query, plist, att_join, conditions_it, att_order)
         data = frappe.db.sql(query, as_list=1)
     elif filters.get("price_list_type") == "Pricing Rule":
-        query = f"""SELECT it.name {att_query}, IFNULL(it.pl_item, '-') as pl_item,
+        query = f"""SELECT it.name {att_query}, IF(it.pl_item, 'Yes', 'No') as pl_item,
         IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level) as rol, it.description
         FROM `tabItem` it
             LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
@@ -350,8 +350,9 @@ def get_conditions(filters):
     if filters.get("item"):
         conditions_it += " and it.name = '%s'" % filters.get("item")
 
-    if filters.get("is_pl"):
-        conditions_it += f" AND it.pl_item = '{filters.get('is_pl')}'"
+    # The filter is a Yes/No select; pl_item is a Check (#106)
+    if filters.get("is_pl") in ("Yes", "No"):
+        conditions_it += " AND it.pl_item = %d" % (1 if filters.get("is_pl") == "Yes" else 0)
 
     if filters.get("template"):
         conditions_it += f" AND it.variant_of = {filters.get('template')}"

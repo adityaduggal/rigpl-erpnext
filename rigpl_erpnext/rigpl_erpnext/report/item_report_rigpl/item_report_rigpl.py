@@ -185,7 +185,7 @@ def get_items(conditions_it, attributes, att_details):
 		IF(it.pack_size =0, NULL, it.pack_size),
 		IF(it.selling_mov =0, NULL, it.selling_mov),
 		IF(it.min_order_qty =0, NULL, it.min_order_qty),
-		IFNULL(it.pl_item, "-"), IFNULL(it.stock_maintained, "-"),
+		IF(it.pl_item, "Yes", "No"), IF(it.stock_maintained, "Yes", "No"),
 		IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level),
 		it.variant_of, IFNULL(def.default_warehouse, "X"),
 		IFNULL(def.default_price_list, 'X'),

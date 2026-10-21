@@ -41,9 +41,10 @@ def get_items(filters):
 		IFNULL(mtm.allowed_values, "-"), IFNULL(purpose.allowed_values, "-"),
 		it.item_group, it.default_warehouse, it.valuation_method,
 		it.tolerance, it.is_purchase_item,
-		it.is_sales_item, it.show_in_website, 
-		(SELECT COUNT(name) FROM `tabItem` WHERE show_variant_in_website = 1 AND variant_of = it.name), 
-		it.pl_item, it.is_pro_applicable,
+		it.is_sales_item,
+		IFNULL((SELECT published FROM `tabWebsite Item` WHERE item_code = it.name), 0),
+		(SELECT COUNT(name) FROM `tabWebsite Item` WHERE published = 1 AND variant_of = it.name),
+		IF(it.pl_item, "Yes", "No"), it.is_pro_applicable,
 		IFNULL(cetsh.allowed_values, "-"), NULL, NULL, NULL, IFNULL(it.image, "-")
 		
 		FROM `tabItem` it

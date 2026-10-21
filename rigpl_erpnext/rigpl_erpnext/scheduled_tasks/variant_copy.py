@@ -8,7 +8,7 @@ from operator import itemgetter
 from time import time
 from frappe.utils.background_jobs import enqueue
 from frappe.website.render import clear_cache
-from rigpl_erpnext.website_rigpl.item_sync import sync_web_items
+from rigpl_erpnext.website_rigpl.item_sync import make_missing_web_items, sync_web_items
 
 
 def enqueue_check_wrong_variants():
@@ -37,9 +37,10 @@ def check_expired_items():
 
 def check_web_items():
     # check_items_as_per_sorting_for_website changes long descriptions and clears no cache.
+    made = make_missing_web_items()
     changed = sync_web_items()
     clear_cache()
-    print(f"Website Items changed as per Item = {changed}")
+    print(f"Website Items made = {made}, changed as per Item = {changed}")
     frappe.db.commit()
 
 

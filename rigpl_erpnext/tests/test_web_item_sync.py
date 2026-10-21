@@ -1,10 +1,12 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import frappe
 
 from rigpl_erpnext.tests.test_variant_table import insert_item, insert_website_item
 from rigpl_erpnext.website_rigpl.item_sync import (
+    make_missing_web_items,
     on_item_update,
     plan_web_item_changes,
     set_web_long_description,
@@ -16,7 +18,7 @@ TEMPLATE = "_Test RIGPL Sync Template"
 VARIANT = "_Test RIGPL Sync Variant"
 
 
-def row(image=IMAGE, website_image=IMAGE, thumbnail=IMAGE, published=1, disabled=0, pl_item="Yes"):
+def row(image=IMAGE, website_image=IMAGE, thumbnail=IMAGE, published=1, disabled=0, pl_item=1):
     return {
         "name": "W1",
         "image": image,
@@ -43,7 +45,7 @@ class TestPlanWebItemChanges(unittest.TestCase):
         self.assertEqual(plan_web_item_changes([row(thumbnail=None)]), {"W1": {"thumbnail": IMAGE}})
 
     def test_pl_item_no_unpublishes(self):
-        self.assertEqual(plan_web_item_changes([row(pl_item="No")]), {"W1": {"published": 0}})
+        self.assertEqual(plan_web_item_changes([row(pl_item=0)]), {"W1": {"published": 0}})
 
     def test_disabled_unpublishes(self):
         self.assertEqual(plan_web_item_changes([row(disabled=1)]), {"W1": {"published": 0}})
@@ -57,7 +59,7 @@ class TestSyncWebItems(unittest.TestCase):
         insert_item(TEMPLATE)
         insert_item(VARIANT, variant_of=TEMPLATE)
         for name in (TEMPLATE, VARIANT):
-            frappe.db.set_value("Item", name, {"image": IMAGE, "pl_item": "Yes"}, update_modified=False)
+            frappe.db.set_value("Item", name, {"image": IMAGE, "pl_item": 1}, update_modified=False)
         insert_website_item("_Test RIGPL WEB-SYNC-T", TEMPLATE)
         insert_website_item("_Test RIGPL WEB-SYNC-V", VARIANT, variant_of=TEMPLATE)
 
@@ -84,7 +86,7 @@ class TestSyncWebItems(unittest.TestCase):
 
     def test_hook_follows_item_image_and_pl_item(self):
         sync_web_items([VARIANT])
-        frappe.db.set_value("Item", VARIANT, {"image": "/files/new.jpg", "pl_item": "No"}, update_modified=False)
+        frappe.db.set_value("Item", VARIANT, {"image": "/files/new.jpg", "pl_item": 0}, update_modified=False)
         on_item_update(item_doc(VARIANT, variant_of=TEMPLATE))
 
         web_item = self.web_item(VARIANT)
@@ -98,6 +100,22 @@ class TestSyncWebItems(unittest.TestCase):
 
         self.assertEqual(self.web_item(VARIANT).web_long_description, "Dia 10 mm")
         self.assertIsNone(self.web_item(TEMPLATE).web_long_description)
+
+    def test_missing_web_item_is_made_only_for_an_enabled_price_list_item(self):
+        insert_item("_Test RIGPL Sync New", variant_of=TEMPLATE)
+        insert_item("_Test RIGPL Sync Not PL", variant_of=TEMPLATE)
+        insert_item("_Test RIGPL Sync Disabled", variant_of=TEMPLATE, disabled=1)
+        for name in ("_Test RIGPL Sync New", "_Test RIGPL Sync Disabled"):
+            frappe.db.set_value("Item", name, "pl_item", 1, update_modified=False)
+        codes = ["_Test RIGPL Sync New", "_Test RIGPL Sync Not PL", "_Test RIGPL Sync Disabled", VARIANT]
+
+        with patch("erpnext.e_commerce.doctype.website_item.website_item.make_website_item") as make:
+            made = make_missing_web_items(codes)
+
+        # VARIANT has a Website Item already
+        self.assertEqual(made, 1)
+        self.assertEqual([call.args[0].name for call in make.call_args_list], ["_Test RIGPL Sync New"])
+        self.assertEqual(make_missing_web_items([]), 0)
 
     def test_long_description_writes_only_a_difference(self):
         self.assertTrue(set_web_long_description(VARIANT, "Dia 10 mm"))

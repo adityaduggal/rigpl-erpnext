@@ -33,13 +33,13 @@ def get_si_entries(filters):
 	
 	if filters.get("summary"):
 		if filters.get("separated_tod"):
-			query = """select si.customer, sum(sid.base_net_amount), it.stock_maintained
+			query = """select si.customer, sum(sid.base_net_amount), IF(it.stock_maintained, 'Yes', 'No')
 				FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
 				WHERE sid.parent = si.name AND sid.item_code = it.name AND
 				si.docstatus = 1 %s 
 				GROUP BY si.customer, it.stock_maintained""" % conditions
 		else:
-			query = """select si.customer, sum(sid.base_net_amount), it.stock_maintained
+			query = """select si.customer, sum(sid.base_net_amount), IF(it.stock_maintained, 'Yes', 'No')
 				FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
 				WHERE sid.parent = si.name AND sid.item_code = it.name AND
 				si.docstatus = 1 %s 
@@ -48,7 +48,8 @@ def get_si_entries(filters):
 	else:
 		query = """select si.name, si.posting_date, si.customer, sid.item_code,
 			sid.description, sid.qty, sid.base_price_list_rate, sid.discount_percentage, 
-			sid.base_net_rate, sid.base_net_amount, it.stock_maintained, it.pl_item
+			sid.base_net_rate, sid.base_net_amount, IF(it.stock_maintained, 'Yes', 'No'),
+			IF(it.pl_item, 'Yes', 'No')
 			FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
 			WHERE sid.parent = si.name AND sid.item_code = it.name AND
 			si.docstatus = 1 %s 

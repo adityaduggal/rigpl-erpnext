@@ -305,8 +305,12 @@ Edit these values in the Item, not in the Website Item. When you save the Item, 
 | Website Item field | Value |
 |---|---|
 | **Website Image** and **Thumbnail** | The **Image** of the Item |
-| **Published** | Set if the Item is enabled and **PL Item** is "Yes". Else clear. The app does not delete the Website Item, so its route and redirects stay. |
+| **Published** | Set if the Item is enabled and **PL Item** is set. Else clear. The app does not delete the Website Item, so its route and redirects stay. |
 | **Web Long Description** (variant) | The long description that the app makes from the variant attributes |
+
+An enabled Item with **PL Item** set and no Website Item gets one when you save the Item, and in the daily job (issue #106). The app makes it with the ERPNext function `make_website_item`, then applies the rules above. So a new price list variant shows in its template table without manual work.
+
+**PL Item** and **TOD Given** (`stock_maintained`) are check boxes. Before issue #106 they were Yes/No selects. The patch `convert_item_yes_no_to_check` changes "Yes" to 1 and "No" or empty to 0, then changes the fields and the columns. The reports still show "Yes" and "No".
 
 The long description of a template is not made from attributes. Edit it in the template Website Item.
 

@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 from rigpl_erpnext.utils.item_utils import *
 from datetime import date, datetime
-from frappe.utils import getdate
+from frappe.utils import cint, getdate
 from ...utils.lead_time_utils import get_item_lead_time
 from ...utils.stock_utils import get_max_lead_times
 from rohit_common.utils.rohit_common_utils import fn_check_digit, fn_next_string
@@ -37,17 +37,13 @@ def validate(doc, method):
 
     if getdate(doc.end_of_life) < datetime.strptime('2099-12-31', "%Y-%m-%d").date():
         doc.disabled = 1
-        doc.pl_item = "No"
-        doc.show_variant_in_website = 0
-        doc.show_in_website = 0
+        doc.pl_item = 0
 
     if doc.disabled == 1:
         if getdate(doc.end_of_life) > date.today():
             doc.end_of_life = date.today()
 
-        doc.pl_item = "No"
-        doc.show_variant_in_website = 0
-        doc.show_in_website = 0
+        doc.pl_item = 0
 
     if doc.variant_of is None:
         doc.item_name = doc.name
@@ -109,9 +105,9 @@ def generate_item_code(doc,method):
 
 
 #Set the Website Specifications automatically from Template, Attribute and Variant Table
-#This is done only for Variants which are shown on website
+#This is done only for price list items without variants (the v12 show_variant_in_website rule)
 def set_website_specs(doc,method):
-    if doc.show_variant_in_website == 1:
+    if cint(doc.pl_item) and not doc.has_variants:
         template = frappe.get_doc("Item", doc.variant_of)
         web_spec = []
         for temp_att in template.attributes:

@@ -171,7 +171,7 @@ def get_item_data(filters):
 		CAST(zn.attribute_value AS UNSIGNED),
 		CAST(d2.attribute_value AS DECIMAL(8,3)),
 		CAST(l2.attribute_value AS DECIMAL(8,3)),
-		CAST(a1.attribute_value AS DECIMAL(8,3)), it.pl_item
+		CAST(a1.attribute_value AS DECIMAL(8,3)), IF(it.pl_item, 'Yes', 'No')
 		
 	FROM `tabItem` it
 	
@@ -261,5 +261,5 @@ def get_conditions(filters):
 		conditions_it += " AND it.variant_of = '%s'" % filters["template"]
 
 	if filters.get("is_pl") == 1:
-		conditions_it += " AND it.pl_item = 'Yes'"
+		conditions_it += " AND it.pl_item = 1"
 	return conditions_it

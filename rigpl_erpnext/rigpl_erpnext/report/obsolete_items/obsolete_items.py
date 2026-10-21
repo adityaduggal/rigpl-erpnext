@@ -35,9 +35,10 @@ def get_items(filters):
 		frappe.throw(("Server overload possible due to {0} rows of data, kindly reduce \
 			the lines by selecting filters").format(len(pre_data)))
 	
-	query = """SELECT it.name, it.description, it.pl_item, 
-		it.is_sales_item, it.is_purchase_item, it.show_in_website, 
-		it.stock_maintained, 
+	query = """SELECT it.name, it.description, IF(it.pl_item, 'Yes', 'No'), 
+		it.is_sales_item, it.is_purchase_item,
+		IFNULL((SELECT published FROM `tabWebsite Item` WHERE item_code = it.name), 0),
+		IF(it.stock_maintained, 'Yes', 'No'), 
 		
 		ifnull((SELECT count(sod.name) FROM `tabSales Order Item` sod 
 			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
@@ -81,9 +82,9 @@ def get_conditions(filters):
 		conditions += "WHERE ifnull(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
 
 	if filters.get("is_pl_item"):
-		conditions += " AND it.pl_item ='Yes'"
+		conditions += " AND it.pl_item = 1"
 	else:
-		conditions += " AND it.pl_item ='No'"
+		conditions += " AND it.pl_item = 0"
 		
 	if filters.get("has_variants"):
 		conditions += " AND it.has_variants = 1"

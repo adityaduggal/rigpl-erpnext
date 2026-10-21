@@ -9,7 +9,7 @@ import re
 
 import frappe
 from frappe import scrub
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from rigpl_erpnext.website_rigpl.item_sync import set_web_long_description
 
@@ -133,21 +133,12 @@ def web_catalog(it_doc):
     validate_item_defaults(it_doc)
     it_doc.website_image = it_doc.image
     it_doc.thumbnail = it_doc.image
-    if it_doc.pl_item == "Yes":
-        it_doc.show_in_website = 1
-        if it_doc.has_variants == 0:
-            it_doc.show_variant_in_website = 1
-        else:
-            it_doc.show_variant_in_website = 0
-    else:
-        it_doc.show_in_website = 0
-        it_doc.show_variant_in_website = 0
-
-    if it_doc.show_in_website == 1:
+    # A price list item has a published Website Item (website_rigpl/item_sync.py, #106)
+    if cint(it_doc.pl_item):
         rol = frappe.db.sql(
             """SELECT warehouse_reorder_level
-        FROM `tabItem Reorder` WHERE parent ='%s' """
-            % (it_doc.name),
+        FROM `tabItem Reorder` WHERE parent = %s """,
+            (it_doc.name,),
             as_list=1,
         )
         if it_doc.item_defaults:

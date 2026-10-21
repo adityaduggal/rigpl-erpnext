@@ -2,8 +2,9 @@
 Item is the controller of its Website Item (#105).
 
 - `website_image` and `thumbnail` are the Item `image`.
-- The Website Item is published if and only if the Item is enabled and `pl_item = "Yes"`.
-  An unpublished Website Item is not deleted, so its route and redirects stay.
+- The Website Item is published if and only if the Item is enabled and `pl_item` is set.
+  An enabled `pl_item` Item with no Website Item gets one (#106). An unpublished Website Item
+  is not deleted, so its route and redirects stay.
 - `web_long_description` is the text that `generate_description` makes for a variant. A
   template has no generated text, so its Website Item keeps the text an editor gives it.
 
@@ -31,7 +32,7 @@ def plan_web_item_changes(rows: List[dict]) -> Dict[str, dict]:
         for field in ("website_image", "thumbnail"):
             if (row.get(field) or None) != image:
                 changed[field] = image
-        published = int(not cint(row.get("disabled")) and row.get("pl_item") == "Yes")
+        published = int(not cint(row.get("disabled")) and cint(row.get("pl_item")))
         if cint(row.get("published")) != published:
             changed["published"] = published
         if changed:
@@ -73,6 +74,38 @@ def sync_web_items(item_codes: Optional[List[str]] = None) -> int:
     return len(changes)
 
 
+def make_missing_web_items(item_codes: Optional[List[str]] = None) -> int:
+    """Make a Website Item with ERPNext `make_website_item` for each enabled `pl_item` Item
+    of `item_codes` (or all Items if None) that has none (#106). Return the number made.
+    `sync_web_items` then sets its image and publish state.
+    """
+    from erpnext.e_commerce.doctype.website_item.website_item import make_website_item
+
+    if item_codes is not None and not item_codes:
+        return 0
+
+    item = frappe.qb.DocType("Item")
+    web_item = frappe.qb.DocType("Website Item")
+    query = (
+        frappe.qb.from_(item)
+        .left_join(web_item)
+        .on(web_item.item_code == item.name)
+        .select(item.name)
+        .where((item.disabled == 0) & (item.pl_item == 1) & web_item.name.isnull())
+        .orderby(item.has_variants, order=frappe.qb.desc)  # a template before its variants
+    )
+    if item_codes is not None:
+        query = query.where(item.name.isin(item_codes))
+
+    made = 0
+    for (item_code,) in query.run():
+        # a variant's Website Item can make its template's one (WebsiteItem.update_template_item)
+        if not frappe.db.exists("Website Item", {"item_code": item_code}):
+            make_website_item(frappe.get_doc("Item", item_code))
+            made += 1
+    return made
+
+
 def set_web_long_description(item_code: str, long_desc: str) -> bool:
     """Write `long_desc` to the Website Item of `item_code` if it is different.
     Return True if it wrote."""
@@ -87,6 +120,7 @@ def set_web_long_description(item_code: str, long_desc: str) -> bool:
 
 def on_item_update(doc, method=None):
     """Item on_update. Item validate puts the generated long description in the flags."""
+    make_missing_web_items([doc.name])
     sync_web_items([doc.name])
     long_desc = doc.flags.web_long_description
     if doc.variant_of and long_desc and set_web_long_description(doc.name, long_desc):
