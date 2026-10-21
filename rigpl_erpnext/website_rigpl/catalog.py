@@ -109,14 +109,18 @@ def pick_sort_attribute(row: dict, template_rows: List[dict]) -> dict:
 def get_published_variants(template: str) -> list:
     """Disabling an Item unpublishes its Website Item, so `published` also hides disabled items."""
     web_item = frappe.qb.DocType("Website Item")
+    item = frappe.qb.DocType("Item")
     return (
         frappe.qb.from_(web_item)
+        .left_join(item)
+        .on(item.name == web_item.item_code)
         .select(
             web_item.item_code,
             web_item.route,
             web_item.website_warehouse,
             web_item.on_backorder,
             web_item.stock_uom,
+            item.sales_uom,
         )
         .where((web_item.variant_of == template) & (web_item.published == 1))
         .orderby(web_item.item_code)
@@ -206,9 +210,10 @@ def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]
     """Stock, price and add-to-cart for each variant, as E Commerce Settings allow.
 
     Returns the column flags and
-    {item_code: {"stock", "stock_value", "uom", "price", "price_value", "can_add"}}.
+    {item_code: {"stock", "stock_value", "uom", "stock_uom", "price", "price_value", "can_add"}}.
     Only the stock label and the capped sort value leave this function, so a quantity above
-    the cap never reaches the page. Price and stock are in the stock UOM (#127 adds the sales UOM).
+    the cap never reaches the page. The price is per stock UOM (`uom`). The stock is in the
+    sales UOM if the Item has one (`stock_uom`), as ERPNext counts it (#127).
     """
     from erpnext.e_commerce.doctype.e_commerce_settings.e_commerce_settings import (
         get_shopping_cart_settings,
@@ -233,10 +238,7 @@ def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]
     if shop["show_price"]:
         prices = get_list_prices(item_codes, template.item_code, get_selling_price_list(cart))
 
-    settings = frappe.get_cached_doc("RIGPL Settings")
-    cap = cint(settings.get("website_stock_cap")) or DEFAULT_STOCK_CAP
-    cap_label = settings.get("website_stock_cap_label") or DEFAULT_CAP_LABEL
-    zero_label = settings.get("website_zero_stock_label") or DEFAULT_ZERO_LABEL
+    cap, cap_label, zero_label = get_stock_cap_settings()
 
     shop_rows = {}
     for variant in variants:
@@ -247,6 +249,7 @@ def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]
             "stock": cap_stock(qty, cap, cap_label, zero_label, shop["show_qty"]),
             "stock_value": stock_sort_value(qty, cap, shop["show_qty"]),
             "uom": variant.stock_uom or "",
+            "stock_uom": variant.sales_uom or variant.stock_uom or "",
             "price": fmt_money(price.price_list_rate, currency=price.currency) if price else "",
             "price_value": flt(price.price_list_rate) if price else "",
             "can_add": bool(price and in_stock),
@@ -256,21 +259,42 @@ def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]
 
 def add_shop_info(rows: List[dict], shop_rows: Dict[str, dict]) -> List[dict]:
     """New rows with a `shop` dict. A row with no shop info gets empty values."""
-    empty = {"stock": "", "stock_value": "", "uom": "", "price": "", "price_value": "", "can_add": False}
+    empty = {
+        "stock": "",
+        "stock_value": "",
+        "uom": "",
+        "stock_uom": "",
+        "price": "",
+        "price_value": "",
+        "can_add": False,
+    }
     return [dict(row, shop=shop_rows.get(row["item_code"], empty)) for row in rows]
 
 
 def get_stock_qty(warehouses: Dict[str, Optional[str]]) -> Dict[str, float]:
-    """Free quantity of each item in its website warehouse, as ERPNext counts it:
-    actual minus the reserved quantities. One query on the Bin (item_code, warehouse) index.
+    """The website stock of each item, as ERPNext `get_web_item_qty_in_stock`
+    (erpnext/utilities/product.py) counts it, for many items at once (#127):
+    GREATEST(actual - reserved - reserved for production - reserved for sub contract, 0)
+    in the website warehouse, divided by the conversion factor of the sales UOM, less the
+    expired batches. `warehouses` already falls back to the template's website warehouse.
+    One query on the Bin (item_code, warehouse) index. ERPNext's own
+    `adjust_qty_for_expired_items` runs only for batch items.
     """
+    from erpnext.utilities.product import adjust_qty_for_expired_items
+
     pairs = {(code, wh) for code, wh in warehouses.items() if wh}
     if not pairs:
         return {}
 
     bin_ = frappe.qb.DocType("Bin")
+    item = frappe.qb.DocType("Item")
+    uom = frappe.qb.DocType("UOM Conversion Detail")
     rows = (
         frappe.qb.from_(bin_)
+        .inner_join(item)
+        .on(item.name == bin_.item_code)
+        .left_join(uom)
+        .on((uom.uom == item.sales_uom) & (uom.parent == item.name))
         .select(
             bin_.item_code,
             bin_.warehouse,
@@ -280,15 +304,47 @@ def get_stock_qty(warehouses: Dict[str, Optional[str]]) -> Dict[str, float]:
                 - bin_.reserved_qty_for_production
                 - bin_.reserved_qty_for_sub_contract
             ).as_("free_qty"),
+            uom.conversion_factor,
+            item.has_batch_no,
         )
         .where(
             bin_.item_code.isin([code for code, _ in pairs])
             & bin_.warehouse.isin(list({wh for _, wh in pairs}))
         )
     ).run(as_dict=True)
-    return {
-        row.item_code: max(flt(row.free_qty), 0.0) for row in rows if (row.item_code, row.warehouse) in pairs
-    }
+
+    stock = {}
+    for row in rows:
+        if (row.item_code, row.warehouse) not in pairs:
+            continue
+        qty = max(flt(row.free_qty), 0.0) / (flt(row.conversion_factor) or 1)
+        if row.has_batch_no and qty:
+            qty = adjust_qty_for_expired_items(row.item_code, [[qty]], row.warehouse)[0][0]
+        stock[row.item_code] = qty
+    return stock
+
+
+def get_stock_cap_settings() -> Tuple[int, str, str]:
+    """The cap, the cap label and the zero stock label from RIGPL Settings (#92)."""
+    settings = frappe.get_cached_doc("RIGPL Settings")
+    return (
+        cint(settings.get("website_stock_cap")) or DEFAULT_STOCK_CAP,
+        settings.get("website_stock_cap_label") or DEFAULT_CAP_LABEL,
+        settings.get("website_zero_stock_label") or DEFAULT_ZERO_LABEL,
+    )
+
+
+def cap_product_info(product_info: dict) -> dict:
+    """A copy of ERPNext's `product_info` with `stock_qty` as the capped label (#127).
+
+    ERPNext keeps the shape [[qty]]: its page prints `stock_qty[0][0]` and product_page.js
+    prints the whole value, so both show the label. Every other key stays as ERPNext set it.
+    """
+    stock_qty = product_info.get("stock_qty")
+    if not stock_qty:
+        return dict(product_info)
+    cap, cap_label, zero_label = get_stock_cap_settings()
+    return dict(product_info, stock_qty=[[cap_stock(flt(stock_qty[0][0]), cap, cap_label, zero_label)]])
 
 
 def cap_stock(qty: float, cap: int, cap_label: str, zero_label: str, show_qty: bool = True) -> str:

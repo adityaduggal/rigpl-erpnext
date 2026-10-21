@@ -320,8 +320,8 @@ The variant table shows the Price column only when **E Commerce Settings** > **E
 
 | Line | Shows when | Value |
 |---|---|---|
-| Price | **Show Price** is set, and the visitor is logged in or **Hide Price for Guest** is not set | The list price and its unit, for example `₹ 245.00 / Nos`. The list price comes from the **Item Price** of the variant. If the variant has no price, the price of the template. The unit is the **Stock UOM** of the variant Website Item. Issue #127 adds the sales UOM. |
-| Stock | **Show Stock Availability** is set | `In stock: 100+ Nos`, or `Stock: On request` when there is no stock. The value is the free quantity in the **Website Warehouse** of the variant Website Item, or of the template Website Item if the variant has none. Free quantity is the actual quantity minus the reserved quantities, as ERPNext counts it. |
+| Price | **Show Price** is set, and the visitor is logged in or **Hide Price for Guest** is not set | The list price and its unit, for example `₹ 245.00 / Nos`. The list price comes from the **Item Price** of the variant. If the variant has no price, the price of the template. The unit is the **Stock UOM** of the variant Website Item, because the Item Price is per stock UOM. |
+| Stock | **Show Stock Availability** is set | `In stock: 100+ Nos`, or `Stock: On request` when there is no stock. The value is the website stock as ERPNext `get_web_item_qty_in_stock` counts it (issue #127): the actual quantity minus the reserved quantities, not below 0, in the **Website Warehouse** of the variant Website Item, or of the template Website Item if the variant has none. If the Item has a **Sales UOM**, the quantity and the unit are in the sales UOM. Expired batches do not count. |
 | Button | Always | **Add to Cart** adds 1 of the variant to the cart. A guest goes to the login page. After the add, the button changes to **In Cart ✓**, a link to the cart. **Enquire** (a dark button of the same size) opens the contact page. |
 
 The stock text comes from **RIGPL Settings** > **Website Settings**:
@@ -332,7 +332,13 @@ The stock text comes from **RIGPL Settings** > **Website Settings**:
 | **Website Stock Cap Label** | `{cap}+` | The text above the cap. `{cap}` changes to the cap, for example `100+`. |
 | **Website Zero Stock Label** | `On request` | The text when the free quantity is 0. |
 
-An empty field uses its default. The page never contains a quantity above the cap. If **Show Quantity in Website** is not set, the stock line shows "In stock" or the zero stock label.
+An empty field uses its default. The page never contains a quantity above the cap. The same cap applies on the variant page and in the API (issue #127):
+
+- The variant page is the ERPNext page. The `update_website_context` hook changes only the stock quantity in its data to the capped label, so it shows "In stock (100+)".
+- `hooks.py` `override_whitelisted_methods` sends the guest API `erpnext.e_commerce.shopping_cart.product_info.get_product_info_for_website` to `website_rigpl/product_info.py`. It calls the ERPNext method and changes only `stock_qty` to the capped label.
+- `override_whitelisted_methods` also sends the cart's `place_order` to `website_rigpl/cart.py`. Before ERPNext places the order, it runs the same stock check as ERPNext. If the ordered quantity is more than the stock, the message shows the capped label, for example "Only 100+ in Stock", not the real quantity. Then it calls ERPNext's `place_order`.
+
+The table counts the stock for all variants in one query. It uses the same formula as ERPNext, and a test checks that both give the same numbers. If **Show Quantity in Website** is not set, the stock line shows "In stock" or the zero stock label.
 
 The price list is the **Default Price List** of the customer of the logged-in user, or of the customer's group. For a guest, or if there is none, it is the **Price List** of E Commerce Settings. An Item Price for one customer only, or out of its valid dates, is not used. The page does not apply Pricing Rules (#77). The cart applies them when it makes the quotation.
 

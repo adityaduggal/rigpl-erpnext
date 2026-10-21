@@ -111,7 +111,7 @@
 						<div class="rigpl-buy-stock is-out">Stock: {{ row.shop.stock | e }}</div>
 						{%- elif shop.show_qty -%}
 						<div class="rigpl-buy-stock"><span class="rigpl-buy-stock-label">In stock:</span>
-							{{ row.shop.stock | e }} {{ row.shop.uom | e }}</div>
+							{{ row.shop.stock | e }} {{ row.shop.stock_uom | e }}</div>
 						{%- else -%}
 						<div class="rigpl-buy-stock">In stock</div>
 						{%- endif -%}

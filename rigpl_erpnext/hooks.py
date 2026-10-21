@@ -66,6 +66,12 @@ website_generators = ["Carrier Tracking"]
 
 update_website_context = ["rigpl_erpnext.website_rigpl.item_page.update_website_context"]
 
+# The guest API and the place order message show the capped stock label, not the real quantity (#127)
+override_whitelisted_methods = {
+    "erpnext.e_commerce.shopping_cart.product_info.get_product_info_for_website": "rigpl_erpnext.website_rigpl.product_info.get_product_info_for_website",
+    "erpnext.e_commerce.shopping_cart.cart.place_order": "rigpl_erpnext.website_rigpl.cart.place_order",
+}
+
 jenv = {"methods": ["rigpl_variant_table:rigpl_erpnext.website_rigpl.catalog.get_variant_table"]}
 
 # You can use the update_website_context hook for more complex scenarios as it allows you to manipulate the

@@ -409,3 +409,88 @@ class TestVariantTable(unittest.TestCase):
         self.assertNotIn("Price ↑", html)
         self.assertNotIn("rigpl-buy-price", html)
         self.assertIn('data-sort="100"', html)
+
+    def test_table_stock_matches_erpnext_web_stock(self):
+        from erpnext.utilities.product import get_web_item_qty_in_stock
+
+        self.make_shop_data()
+        # V1 sells in boxes of 10, so ERPNext counts its stock in boxes
+        frappe.db.set_value("Item", "_Test RIGPL V1", "sales_uom", "_Test RIGPL Box", update_modified=False)
+        frappe.get_doc(
+            {
+                "doctype": "UOM Conversion Detail",
+                "name": frappe.generate_hash(length=10),
+                "parent": "_Test RIGPL V1",
+                "parenttype": "Item",
+                "parentfield": "uoms",
+                "uom": "_Test RIGPL Box",
+                "conversion_factor": 10,
+            }
+        ).db_insert()
+        table_stock = catalog.get_stock_qty({"_Test RIGPL V1": WAREHOUSE, "_Test RIGPL V2": WAREHOUSE})
+
+        for item_code in ("_Test RIGPL V1", "_Test RIGPL V2"):
+            erpnext_qty = get_web_item_qty_in_stock(item_code, "website_warehouse").stock_qty[0][0]
+            self.assertEqual(table_stock[item_code], erpnext_qty)
+        self.assertEqual(table_stock["_Test RIGPL V1"], 250)
+        shop = self.shop_by_item(catalog.get_variant_table(TEMPLATE_WEB_ITEM))
+        self.assertEqual(shop["_Test RIGPL V1"]["stock_uom"], "_Test RIGPL Box")
+        self.assertEqual(shop["_Test RIGPL V1"]["uom"], "Nos")  # the price stays per stock UOM
+
+    def test_cap_product_info_hides_the_quantity_above_the_cap(self):
+        product_info = {"stock_qty": [[2500]], "in_stock": 1, "uom": "Nos"}
+        capped = catalog.cap_product_info(product_info)
+
+        self.assertEqual(capped, {"stock_qty": [["100+"]], "in_stock": 1, "uom": "Nos"})
+        self.assertEqual(product_info["stock_qty"], [[2500]])  # a copy, not changed in place
+        self.assertEqual(catalog.cap_product_info({"stock_qty": [[37]]})["stock_qty"], [["37"]])
+        self.assertEqual(catalog.cap_product_info({"stock_qty": ""}), {"stock_qty": ""})
+        self.assertEqual(catalog.cap_product_info({}), {})
+
+    def test_variant_page_shows_the_capped_stock(self):
+        context = frappe._dict(
+            doc=frappe._dict(doctype="Website Item", has_variants=0),
+            shopping_cart=frappe._dict(product_info={"stock_qty": [[2500]]}, cart_settings=frappe._dict(enabled=1)),
+        )
+        values = item_page.update_website_context(context)
+
+        self.assertEqual(values["shopping_cart"].product_info["stock_qty"], [["100+"]])
+        self.assertEqual(values["shopping_cart"].cart_settings, context.shopping_cart.cart_settings)
+        self.assertEqual(context.shopping_cart.product_info["stock_qty"], [[2500]])
+
+    def test_guest_api_returns_the_capped_stock(self):
+        from rigpl_erpnext.website_rigpl import product_info
+
+        erpnext_path = "erpnext.e_commerce.shopping_cart.product_info.get_product_info_for_website"
+        self.assertEqual(
+            frappe.get_hooks("override_whitelisted_methods").get(erpnext_path),
+            ["rigpl_erpnext.website_rigpl.product_info.get_product_info_for_website"],
+        )
+        erpnext_result = frappe._dict(product_info={"stock_qty": [[2500]], "in_stock": 1}, cart_settings={})
+        with patch.object(product_info, "erpnext_get_product_info_for_website", return_value=erpnext_result):
+            result = product_info.get_product_info_for_website("_Test RIGPL V1")
+
+        self.assertEqual(result.product_info["stock_qty"], [["100+"]])
+        self.assertNotIn("2500", frappe.as_json(result))
+
+    def test_place_order_message_shows_the_capped_stock(self):
+        from rigpl_erpnext.website_rigpl import cart
+
+        self.assertEqual(
+            frappe.get_hooks("override_whitelisted_methods").get("erpnext.e_commerce.shopping_cart.cart.place_order"),
+            ["rigpl_erpnext.website_rigpl.cart.place_order"],
+        )
+        self.make_shop_data()
+        frappe.db.set_value("Item", "_Test RIGPL V1", "is_stock_item", 1, update_modified=False)
+        quotation = frappe._dict(items=[frappe._dict(item_code="_Test RIGPL V1", qty=3000)])
+
+        with self.assertRaises(frappe.ValidationError) as raised:
+            cart.check_cart_stock(quotation)
+        self.assertIn("100+", str(raised.exception))
+        self.assertNotIn("2500", str(raised.exception))
+        frappe.clear_messages()
+
+        # an order within the stock passes to ERPNext's place order
+        cart.check_cart_stock(frappe._dict(items=[frappe._dict(item_code="_Test RIGPL V1", qty=5)]))
+        frappe.local.shopping_cart_settings = cart_settings(allow_items_not_in_stock=1)
+        cart.check_cart_stock(quotation)
