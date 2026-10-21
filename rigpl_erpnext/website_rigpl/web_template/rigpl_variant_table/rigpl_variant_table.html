@@ -92,7 +92,10 @@
 						{%- endif -%}
 					</th>
 					{%- for column in table.columns -%}
-					<td data-label="{{ column.label | e }}">{{ row["values"][column.attribute] | e }}</td>
+					{#- A text size (d1_inch) sorts by its numeric twin (d1_mm), #128 -#}
+					<td data-label="{{ column.label | e }}"
+						{%- if column.sort_attribute != column.attribute %} data-sort="{{ row['values'][column.sort_attribute] | e }}"{% endif -%}
+					>{{ row["values"][column.attribute] | e }}</td>
 					{%- endfor -%}
 					{%- if shop.show_price or shop.show_stock or shop.show_cart -%}
 					<td class="rigpl-variant-buy" data-no-filter

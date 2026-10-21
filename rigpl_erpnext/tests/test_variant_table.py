@@ -53,8 +53,8 @@ def insert_numeric_attribute(name):
     frappe.get_doc({"doctype": "Item Attribute", "name": name, "attribute_name": name, "numeric_values": 1}).db_insert()
 
 
-def column(attribute, label, numeric=True):
-    return {"attribute": attribute, "label": label, "numeric": numeric}
+def column(attribute, label, numeric=True, sort_attribute=None):
+    return {"attribute": attribute, "label": label, "numeric": numeric, "sort_attribute": sort_attribute or attribute}
 
 
 def insert_bin(item_code, warehouse, actual_qty, reserved_qty=0):
@@ -257,6 +257,38 @@ class TestVariantTable(unittest.TestCase):
         self.assertEqual(catalog.cap_stock(2500, 100, "{cap}+", "On request"), "100+")
         self.assertEqual(catalog.cap_stock(2500, 50, "More than {cap}", "-"), "More than 50")
         self.assertEqual(catalog.cap_stock(37, 100, "{cap}+", "On request", show_qty=False), "In stock")
+
+    def test_text_size_sorts_by_its_numeric_twin(self):
+        rows = [
+            frappe._dict(attribute="d1_mm", numeric_values=1, source="UOM", update_from="d1"),
+            frappe._dict(attribute="d1_inch", numeric_values=0, source="UOM", update_from="d1"),
+            frappe._dict(attribute="Coating", numeric_values=0, source=None, update_from=None),
+            frappe._dict(attribute="w1_inch", numeric_values=0, source="UOM", update_from="w1"),
+        ]
+
+        self.assertEqual(
+            catalog.pick_sort_attribute(rows[1], rows), {"numeric": True, "sort_attribute": "d1_mm"}
+        )
+        self.assertEqual(
+            catalog.pick_sort_attribute(rows[0], rows), {"numeric": True, "sort_attribute": "d1_mm"}
+        )
+        # no twin: sorts by its own value, as text
+        self.assertEqual(
+            catalog.pick_sort_attribute(rows[2], rows), {"numeric": False, "sort_attribute": "Coating"}
+        )
+        self.assertEqual(
+            catalog.pick_sort_attribute(rows[3], rows), {"numeric": False, "sort_attribute": "w1_inch"}
+        )
+
+    def test_rows_sort_by_the_twin_value_not_the_text(self):
+        rows = [
+            {"item_code": code, "values": {"d1_inch": inch, "d1_mm": mm}}
+            for code, inch, mm in [("A", "1/4", "6.35"), ("B", "1/8", "3.175"), ("C", "3/16", "4.763"), ("D", "3/8", "")]
+        ]
+        columns = [column("d1_inch", "Height (inch)", sort_attribute="d1_mm")]
+
+        # an empty twin value sorts last
+        self.assertEqual([r["item_code"] for r in catalog.sort_variant_rows(rows, columns)], ["B", "C", "A", "D"])
 
     def test_stock_sort_value_is_never_above_the_cap(self):
         self.assertEqual(catalog.stock_sort_value(0, 100), 0)
