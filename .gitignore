@@ -9,3 +9,8 @@ node_modules
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Local tool folders (Claude Code, Continue, superpowers mockups)
+.claude/
+.continue/
+.superpowers/
