@@ -396,15 +396,53 @@ def get_special_item_attribute_doc(item_name, so_detail, docstatus=1):
 
 
 def get_bom_temp_from_it_att(item_doc, att_dict):
+    return match_bom_templates(get_fg_restriction_rules(), att_dict)
+
+
+def get_fg_restriction_rules():
+    """
+    Returns {template: [FG restriction rows by idx]} for all BOM Templates by name, in one query.
+    A template with no FG restrictions has an empty list (it matches all items).
+    """
+    bt = frappe.qb.DocType("BOM Template RIGPL")
+    ivr = frappe.qb.DocType("Item Variant Restrictions")
+    rows = (
+        frappe.qb.from_(bt)
+        .left_join(ivr)
+        .on(
+            (ivr.parent == bt.name)
+            & (ivr.parenttype == "BOM Template RIGPL")
+            & (ivr.parentfield == "fg_restrictions")
+        )
+        .select(
+            bt.name.as_("template"), ivr.name.as_("row_name"), ivr.attribute, ivr.is_numeric,
+            ivr.allowed_values, ivr.rule,
+        )
+        .orderby(bt.name)
+        .orderby(ivr.idx)
+        .run(as_dict=True)
+    )
+    rules = {}
+    for row in rows:
+        restrictions = rules.setdefault(row.pop("template"), [])
+        if row.pop("row_name") is not None:
+            restrictions.append(row)
+    return rules
+
+
+def match_bom_templates(rules, att_dict):
+    """
+    Returns the templates in `rules` whose FG restrictions all match the item attributes in
+    `att_dict`. The loops are the same as when each template was loaded with get_doc: the order
+    decides when a formula is evaluated, and a formula can throw.
+    """
     bt_list = []
-    all_bt = frappe.get_all("BOM Template RIGPL", order_by="name")
-    for bt in all_bt:
-        bt_doc = frappe.get_doc("BOM Template RIGPL", bt.name)
-        total_score = len(bt_doc.fg_restrictions)
+    for bt_name, fg_restrictions in rules.items():
+        total_score = len(fg_restrictions)
         match_score = 0
         exit_bt = 0
         # Before checking the formula always check if the attributes are there in the Item Attributes
-        for bt_row in bt_doc.fg_restrictions:
+        for bt_row in fg_restrictions:
             exists = 0
             for att in att_dict:
                 if bt_row.attribute == att.attribute:
@@ -413,7 +451,7 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
             if exists == 0:
                 exit_bt = 1
         if exit_bt == 0:
-            for bt_rule in bt_doc.fg_restrictions:
+            for bt_rule in fg_restrictions:
                 if exit_bt == 1:
                     break
                 for att in att_dict:
@@ -447,7 +485,7 @@ def get_bom_temp_from_it_att(item_doc, att_dict):
                                 exit_bt = 1
                                 break
         if match_score == total_score:
-            bt_list.append(bt.name)
+            bt_list.append(bt_name)
     return bt_list
 
 

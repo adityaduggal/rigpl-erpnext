@@ -22,7 +22,8 @@ class BOMTemplateRIGPL(Document):
         self.validate_restriction_rules("rm_restrictions")
         self.validate_restriction_rules("fg_restrictions")
         self.validate_restriction_rules("wip_restrictions")
-        self.validate_operations()
+        operations = get_operation_details([d.operation for d in self.operations])
+        self.validate_operations(operations)
         self.generate_title()
         if self.routing:
             routing_dict = {}
@@ -53,7 +54,7 @@ class BOMTemplateRIGPL(Document):
             else:
                 d.transfer_entry = 0
 
-            op_doc = frappe.get_doc("Operation", d.operation)
+            op_doc = operations.get(d.operation) or get_operation_details([d.operation]).get(d.operation)
             if op_doc.is_subcontracting == 1:
                 d.target_warehouse = op_doc.sub_contracting_warehouse
             if d.batch_size_based_on_formula == 1 and not d.batch_size_formula:
@@ -97,20 +98,28 @@ class BOMTemplateRIGPL(Document):
 
     def validate_restriction_rules(self, table_name):
         if self.get(table_name):
+            numeric = dict(frappe.get_all(
+                "Item Attribute",
+                filters={"name": ("in", list({d.attribute for d in self.get(table_name)}))},
+                fields=["name", "numeric_values"],
+                as_list=True,
+            ))
+            att_docs = {}
             for d in self.get(table_name):
                 if d.item_number == 0:
                     d.item_number = 1
-                d.is_numeric = frappe.get_value("Item Attribute", d.attribute, "numeric_values")
+                d.is_numeric = numeric.get(d.attribute)
                 if d.is_numeric == 1:
                     d.allowed_values = ""
                 else:
-                    att_doc = frappe.get_doc("Item Attribute", d.attribute)
-                    check_text_attributes(att_doc=att_doc, att_value=d.allowed_values, error=0)
+                    if d.attribute not in att_docs:
+                        att_docs[d.attribute] = frappe.get_doc("Item Attribute", d.attribute)
+                    check_text_attributes(att_doc=att_docs[d.attribute], att_value=d.allowed_values, error=0)
                     d.rule = ""
 
-    def validate_operations(self):
+    def validate_operations(self, operations):
         for d in self.operations:
-            op_doc = frappe.get_doc("Operation", d.operation)
+            op_doc = operations.get(d.operation) or get_operation_details([d.operation]).get(d.operation)
             if op_doc.is_subcontracting == 1:
                 if d.idx == 1:
                     frappe.throw("First Operation Cannot be Sub-Contracting")
@@ -136,3 +145,22 @@ class BOMTemplateRIGPL(Document):
                 else:
                     title += ", " + d.attribute
         self.title = title
+
+
+def get_operation_details(operations):
+    """
+    Returns {operation: {is_subcontracting, sub_contracting_warehouse}} in one query.
+    An operation that does not exist stops with the same error as get_doc.
+    """
+    details = {
+        d.name: d
+        for d in frappe.get_all(
+            "Operation",
+            filters={"name": ("in", list(set(operations)))},
+            fields=["name", "is_subcontracting", "sub_contracting_warehouse"],
+        )
+    } if operations else {}
+    for operation in operations:
+        if operation not in details:
+            frappe.get_doc("Operation", operation)
+    return details
