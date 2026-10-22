@@ -437,18 +437,14 @@ def match_bom_templates(rules, att_dict):
     decides when a formula is evaluated, and a formula can throw.
     """
     bt_list = []
+    item_attributes = {att.attribute for att in att_dict}
     for bt_name, fg_restrictions in rules.items():
         total_score = len(fg_restrictions)
         match_score = 0
         exit_bt = 0
         # Before checking the formula always check if the attributes are there in the Item Attributes
         for bt_row in fg_restrictions:
-            exists = 0
-            for att in att_dict:
-                if bt_row.attribute == att.attribute:
-                    exists = 1
-                    break
-            if exists == 0:
+            if bt_row.attribute not in item_attributes:
                 exit_bt = 1
         if exit_bt == 0:
             for bt_rule in fg_restrictions:

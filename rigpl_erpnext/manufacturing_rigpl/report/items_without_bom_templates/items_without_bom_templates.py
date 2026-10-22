@@ -5,8 +5,10 @@ from __future__ import unicode_literals
 
 import frappe
 from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
-    get_bom_template_from_item,
+    get_fg_restriction_rules,
+    match_bom_templates,
 )
+from rigpl_erpnext.utils.item_attribute_utils import get_attribute_rows
 
 
 def execute(filters=None):
@@ -25,22 +27,16 @@ def get_columns():
 
 
 def get_data(filters):
+    """
+    Returns each manufactured variant with its BOM Templates. The templates and the attributes
+    of all items are read once, then each item is matched in memory (#137).
+    """
     data = []
-    it_conditions = get_conditions(filters)
-    query = (
-        """SELECT it.name, it.description, it.variant_of FROM `tabItem` it 
-	WHERE it.disabled = 0 AND it.include_item_in_manufacturing = 1 AND it.has_variants = 0 
-	AND it.variant_of IS NOT NULL %s
-	ORDER BY it.variant_of, it.name"""
-        % it_conditions
-    )
-    it_dict = frappe.db.sql(query, as_dict=1)
-    for d in it_dict:
-        line_data = []
-        line_data.append(d.name)
-        line_data.append(d.description)
-        it_doc = frappe.get_doc("Item", d.name)
-        bt_name = get_bom_template_from_item(it_doc, no_error=1)
+    items = get_items(filters)
+    rules = get_fg_restriction_rules()
+    att_rows = get_attribute_rows([d.name for d in items])
+    for d in items:
+        bt_name = match_bom_templates(rules, att_rows.get(d.name, []))
         bt_names_concat = " "
         if bt_name:
             if len(bt_name) == 1:
@@ -50,15 +46,22 @@ def get_data(filters):
                     bt_names_concat += bt + ", "
         else:
             bt_names_concat = "No Applicable BOM Templates Found"
-        line_data.append(bt_names_concat)
-        line_data.append(d.variant_of)
-        data.append(line_data)
+        data.append([d.name, d.description, bt_names_concat, d.variant_of])
     return data
 
 
-def get_conditions(filters):
-    it_conds = ""
+def get_items(filters):
+    it = frappe.qb.DocType("Item")
+    query = (
+        frappe.qb.from_(it)
+        .select(it.name, it.description, it.variant_of)
+        .where(it.disabled == 0)
+        .where(it.include_item_in_manufacturing == 1)
+        .where(it.has_variants == 0)
+        .where(it.variant_of.isnotnull())
+        .orderby(it.variant_of)
+        .orderby(it.name)
+    )
     if filters.get("template"):
-        it_conds += " AND it.variant_of = '%s'" % (filters.get("template"))
-
-    return it_conds
+        query = query.where(it.variant_of == filters["template"])
+    return query.run(as_dict=True)
