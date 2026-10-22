@@ -86,5 +86,6 @@ frappe.query_reports["Process Sheet Analysis"] = {
 			"fieldtype": "Check",
 			"reqd": 0
 		}
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 };
