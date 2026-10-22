@@ -18,6 +18,7 @@ from frappe.utils import (
     time_diff_in_hours,
 )
 
+from ...utils.item_attribute_utils import chunks
 from ...utils.other_utils import auto_round_down, auto_round_up
 from ...utils.sales_utils import get_priority_for_so
 from ...utils.stock_utils import cancel_delete_ste_from_name, get_quantities_for_item
@@ -991,68 +992,115 @@ def check_po_submitted(jc_doc):
 
 
 def get_last_jc_for_so(so_item):
-    jc_list = frappe.db.sql(
-        """SELECT jc.name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available,
-    jc.docstatus, jc.process_sheet, bmop.idx, jc.total_completed_qty
-    FROM `tabProcess Job Card RIGPL` jc, `tabBOM Operation` bmop
-    WHERE jc.docstatus < 2 AND bmop.parent = jc.process_sheet AND bmop.operation = jc.operation
-    AND jc.sales_order_item = '%s'"""
-        % so_item,
-        as_dict=1,
+    return get_last_jc_for_so_items([so_item]).get(so_item, {})
+
+
+def get_last_jc_for_so_items(so_items):
+    """
+    Returns {so_item: last Job Card with its remarks} for the Sales Order items, in 3 queries per
+    chunk. An SO item with no Job Card is not in the result.
+    """
+    jc_rows = {}
+    for chunk in chunks(so_items):
+        jc = frappe.qb.DocType("Process Job Card RIGPL")
+        bmop = frappe.qb.DocType("BOM Operation")
+        rows = (
+            frappe.qb.from_(jc)
+            .join(bmop)
+            .on((bmop.parent == jc.process_sheet) & (bmop.operation == jc.operation))
+            .select(
+                jc.name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available,
+                jc.docstatus, jc.process_sheet, bmop.idx, jc.total_completed_qty,
+                jc.sales_order_item,
+            )
+            .where(jc.docstatus < 2)
+            .where(jc.sales_order_item.isin(chunk))
+            .run(as_dict=True)
+        )
+        for row in rows:
+            jc_rows.setdefault(row.pop("sales_order_item"), []).append(row)
+    all_rows = [row for rows in jc_rows.values() for row in rows]
+    subcon_ops = get_subcontracting_operations({row.operation for row in all_rows})
+    po_rows = get_po_rows_for_job_cards(
+        [row.name for row in all_rows if row.docstatus == 1 and row.operation in subcon_ops]
     )
+    return {
+        so_item: pick_last_jc(rows, subcon_ops, po_rows) for so_item, rows in jc_rows.items()
+    }
+
+
+def pick_last_jc(jc_list, subcon_ops, po_rows):
+    """
+    Returns the last Job Card of one SO item with remarks on its progress.
+    `subcon_ops` is the set of subcontracting operations, `po_rows` is {jc name: PO rows}.
+    """
     jc_list = sorted(jc_list, key=lambda i: i["idx"])
     jc = {}
-    if jc_list:
-        for i in range(0, len(jc_list)):
-            jc = jc_list[i]
-            jc["remarks"] = ""
-            if jc_list[i].docstatus == 1:
-                if i == len(jc_list) - 1:
-                    jc[
-                        "remarks"
-                    ] += " All Operations Completed {} Qty Ready for Dispatch".format(
-                        jc_list[i].total_completed_qty
-                    )
-                else:
-                    # Check if Operation is Job Work and if so then check if PO item is completed or Not
-                    # if PO is pending then remarks should show PO# and PO Date else show Process Completed
-                    op_doc = frappe.get_doc("Operation", jc_list[i].operation)
-                    if op_doc.is_subcontracting == 1:
-                        po_details = frappe.db.sql(
-                            """SELECT po.name, po.transaction_date, poi.stock_qty,
-                        poi.received_qty FROM `tabPurchase Order` po, `tabPurchase Order Item` poi
-                        WHERE po.docstatus = 1 AND poi.parent = po.name AND poi.reference_dt = 'Process Job Card RIGPL'
-                        AND poi.reference_dn = '%s'"""
-                            % jc_list[i].name,
-                            as_dict=1,
+    for i in range(0, len(jc_list)):
+        jc = jc_list[i]
+        jc["remarks"] = ""
+        if jc_list[i].docstatus == 1:
+            if i == len(jc_list) - 1:
+                jc["remarks"] += " All Operations Completed {} Qty Ready for Dispatch".format(
+                    jc_list[i].total_completed_qty
+                )
+            elif jc_list[i].operation in subcon_ops:
+                # Job Work operation: if its PO is pending, show the PO# and PO Date
+                for po in po_rows.get(jc_list[i].name, []):
+                    if po.stock_qty > po.received_qty:
+                        po_link = """<a href="#Form/Purchase Order/%s" target="_blank">%s</a>""" % (
+                            po.name,
+                            po.name,
                         )
-                        if po_details:
-                            for po in po_details:
-                                if po.stock_qty > po.received_qty:
-                                    po_link = (
-                                        """<a href="#Form/Purchase Order/%s" target="_blank">%s</a>"""
-                                        % (po.name, po.name)
-                                    )
-                                    jc["remarks"] += (
-                                        f" PO# {po_link} Pending Qty= {po.stock_qty - po.received_qty} "
-                                        f"PO Date: {po.transaction_date}"
-                                    )
-                                    return jc
+                        jc["remarks"] += (
+                            f" PO# {po_link} Pending Qty= {po.stock_qty - po.received_qty} "
+                            f"PO Date: {po.transaction_date}"
+                        )
+                        return jc
+        else:
+            if i == 0:
+                jc["remarks"] += "Taken into Production but First Process is Pending"
             else:
-                if i == 0:
-                    jc[
-                        "remarks"
-                    ] += "Taken into Production but First Process is Pending"
-                else:
-                    jc["remarks"] += (
-                        " "
-                        + jc.operation
-                        + " Pending and "
-                        + jc_list[i - 1].operation
-                        + " Completed"
-                    )
-                break
+                jc["remarks"] += (
+                    " " + jc.operation + " Pending and " + jc_list[i - 1].operation + " Completed"
+                )
+            break
     return jc
+
+
+def get_subcontracting_operations(operations):
+    if not operations:
+        return set()
+    return set(
+        frappe.get_all(
+            "Operation",
+            filters={"name": ("in", list(operations)), "is_subcontracting": 1},
+            pluck="name",
+        )
+    )
+
+
+def get_po_rows_for_job_cards(jc_names):
+    """
+    Returns {jc name: submitted Purchase Order rows made for the Job Card}
+    """
+    po_rows = {}
+    for chunk in chunks(jc_names):
+        po = frappe.qb.DocType("Purchase Order")
+        poi = frappe.qb.DocType("Purchase Order Item")
+        rows = (
+            frappe.qb.from_(po)
+            .join(poi)
+            .on(poi.parent == po.name)
+            .select(po.name, po.transaction_date, poi.stock_qty, poi.received_qty, poi.reference_dn)
+            .where(po.docstatus == 1)
+            .where(poi.reference_dt == "Process Job Card RIGPL")
+            .where(poi.reference_dn.isin(chunk))
+            .run(as_dict=True)
+        )
+        for row in rows:
+            po_rows.setdefault(row.pop("reference_dn"), []).append(row)
+    return po_rows
 
 
 def get_made_to_stock_qty(jc_doc):

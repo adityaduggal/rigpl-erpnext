@@ -112,5 +112,6 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"fieldtype": "Check",
 			"default": 0
 		}
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 };

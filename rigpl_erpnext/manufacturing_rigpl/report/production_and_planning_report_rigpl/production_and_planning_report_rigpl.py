@@ -4,9 +4,26 @@
 from __future__ import unicode_literals
 
 import frappe
-from frappe.utils import flt, getdate
+from frappe.query_builder.functions import CustomFunction, IfNull, Sum
+from frappe.utils import cint, flt, getdate, nowdate
+from pypika.terms import Criterion
 
-from ....manufacturing_rigpl.utils.job_card_utils import get_last_jc_for_so
+from ....manufacturing_rigpl.utils.job_card_utils import get_last_jc_for_so_items
+from ....utils.item_attribute_utils import (
+    attribute_filters,
+    attribute_sort_key,
+    chunks,
+    get_attribute_map,
+)
+from ....utils.report_utils import blank_zeros
+
+Round = CustomFunction("ROUND", ["value", "digits"])
+
+VIEWS = ("mach_eff", "summary", "production_planning", "order_wise_summary", "op_time_analysis")
+SIZE_ATTS = ["d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm"]
+ATTS = ["Base Material", "Tool Type", "Special Treatment", "Series"] + SIZE_ATTS
+PLANNING_SORT_ATTS = ATTS[:7]
+OP_TIME_ATTS = ["Base Material", "Tool Type", "Series"] + SIZE_ATTS
 
 
 def execute(filters=None):
@@ -129,305 +146,299 @@ def get_columns(filters):
 
 
 def get_data(filters):
-    data = []
-    cond_jc, cond_it, cond_so = get_conditions(filters)
-    if filters.get("summary") == 1:
-        query = (
-            """SELECT jc.employee_name, jc.workstation, jc.production_item, jc.description,
-        jc.for_quantity, jc.total_completed_qty, jc.total_rejected_qty, jc.operation, jc.total_time_in_mins,
-        ROUND((jc.total_time_in_mins/ (jc.total_completed_qty + jc.total_rejected_qty)),2), jc.name
-        FROM `tabProcess Job Card RIGPL` jc WHERE jc.docstatus = 1 %s
-        ORDER BY jc.workstation, jc.production_item"""
-            % cond_jc
-        )
-        data = frappe.db.sql(query, as_list=1)
-    elif filters.get("production_planning") == 1:
-        query = """SELECT jc.name, jc.status, jc.rm_status, jc.rm_shortage,
-        IF(jc.sales_order='', 'X', IFNULL(jc.sales_order, 'X')) as so_no,
-        jc.production_item as item, IF(jc.priority=0, NULL, jc.priority) as priority,
-        IFNULL(jc.remarks, 'X') as remarks, bm.attribute_value as bm, tt.attribute_value as tt,
-        spl.attribute_value as spl, ser.attribute_value as series, d1.attribute_value as d1, w1.attribute_value as w1,
-        l1.attribute_value as l1, d2.attribute_value as d2, l2.attribute_value as l2, jc.description, jc.operation,
-        jc.workstation, jc.total_qty, jc.for_quantity, IF(jc.qty_available=0, NULL, jc.qty_available) as qty_available,
-        jc.sales_order_item, jc.creation
-        FROM `tabProcess Job Card RIGPL` jc, `tabItem` it
-        LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-            AND bm.attribute = 'Base Material'
-        LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-            AND tt.attribute = 'Tool Type'
-        LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-            AND spl.attribute = 'Special Treatment'
-        LEFT JOIN `tabItem Variant Attribute` ser ON it.name = ser.parent
-            AND ser.attribute = 'Series'
-        LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-            AND d1.attribute = 'd1_mm'
-        LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-            AND w1.attribute = 'w1_mm'
-        LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-            AND l1.attribute = 'l1_mm'
-        LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
-            AND d2.attribute = 'd2_mm'
-        LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
-            AND l2.attribute = 'l2_mm'
-        WHERE jc.docstatus = 0 AND it.name = jc.production_item AND jc.status != 'Completed'
-            AND jc.status != 'Cancelled' %s %s
-        ORDER BY jc.priority, jc.operation_serial_no, bm.attribute_value, tt.attribute_value, spl.attribute_value,
-        ser.attribute_value, d1.attribute_value, w1.attribute_value, l1.attribute_value""" % (
-            cond_jc,
-            cond_it,
-        )
-        tmp_data = frappe.db.sql(query, as_dict=1)
-        for row in tmp_data:
-            tmp_row = [
-                row.name,
-                row.status,
-                row.rm_status,
-                row.rm_shortage,
-                "X" if not row.so_no else row.so_no,
-                row.item,
-                row.priority,
-                "X" if not row.remarks else row.remarks,
-                row.bm,
-                row.tt,
-                row.spl,
-                row.series,
-                row.d1,
-                row.w1,
-                row.l1,
-                row.d2,
-                row.l2,
-                row.description,
-                row.operation,
-                row.workstation,
-                row.total_qty,
-                row.for_quantity,
-                row.qty_available,
-                row.creation,
-            ]
-            data.append(tmp_row)
-    elif filters.get("order_wise_summary") == 1:
-        query = (
-            """SELECT so.name, so.transaction_date, soi.item_code, soi.description,
-        (soi.qty - ifnull(soi.delivered_qty, 0)) as pend_qty, soi.qty, "" as jc_name, "NO JC" as jc_status,
-        "" as jc_operation, 0 as jc_priority, 0 as planned_qty, 0 as qty_avail, "Not in Production" as remarks,
-        soi.name as so_item
-        FROM `tabSales Order` so, `tabSales Order Item` soi, `tabItem` it
-        WHERE soi.parent = so.name AND so.docstatus = 1 AND (soi.qty - ifnull(soi.delivered_qty, 0)) > 0
-        AND so.status != "Closed" AND so.transaction_date <= curdate() AND soi.item_code = it.name
-        AND it.made_to_order = 1 %s ORDER BY so.transaction_date, so.name, soi.item_code, soi.description"""
-            % cond_so
-        )
-        so_data = frappe.db.sql(query, as_dict=1)
-        data = update_so_data_with_job_card(so_data)
-    elif filters.get("op_time_analysis") == 1:
-        query = """SELECT jc.posting_date, jc.employee_name, jc.workstation, jc.production_item,
-        bm.attribute_value, tt.attribute_value, ser.attribute_value, d1.attribute_value,
-        w1.attribute_value, l1.attribute_value, d2.attribute_value, l2.attribute_value,
-        jc.for_quantity, jc.total_completed_qty, jc.total_rejected_qty, jc.operation, jc.total_time_in_mins,
-        ROUND((jc.total_time_in_mins/ (jc.total_completed_qty + jc.total_rejected_qty)),2) as time_per_pc,
-        ROUND((jc.total_time_in_mins/ (jc.total_completed_qty + jc.total_rejected_qty) * ws.hour_rate / 60), 2) as cost_per_pc,
-        jc.name, jc.description
-        FROM `tabProcess Job Card RIGPL` jc, `tabWorkstation` ws, `tabJob Card Time Log` tlog, `tabItem` it
-        LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-            AND bm.attribute = 'Base Material'
-        LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-            AND tt.attribute = 'Tool Type'
-        LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-            AND spl.attribute = 'Special Treatment'
-        LEFT JOIN `tabItem Variant Attribute` ser ON it.name = ser.parent
-            AND ser.attribute = 'Series'
-        LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-            AND d1.attribute = 'd1_mm'
-        LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-            AND w1.attribute = 'w1_mm'
-        LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-            AND l1.attribute = 'l1_mm'
-        LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
-            AND d2.attribute = 'd2_mm'
-        LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
-            AND l2.attribute = 'l2_mm'
-        WHERE jc.docstatus = 1 AND tlog.parent = jc.name AND jc.production_item = it.name
-        AND tlog.parenttype = 'Process Job Card RIGPL' AND ws.name = jc.workstation
-        AND tlog.from_time IS NOT NULL AND tlog.to_time IS NOT NULL %s %s
-        ORDER BY jc.posting_date, jc.workstation, jc.production_item""" % (
-            cond_jc,
-            cond_it,
-        )
-        data = frappe.db.sql(query, as_list=1)
-    elif filters.get("mach_eff") == 1:
-        days = (
-            getdate(filters.get("to_date")) - getdate(filters.get("from_date"))
-        ).days + 1
-        tot_hrs = days * 24
-        if days < 1:
-            frappe.throw(
-                f"Difference Between From and To Date should be Minimum 1 \
-                days for Machine Efficiency"
-            )
-        if filters.get("mach_eff_type") == "Total":
-            group_by = ""
-        else:
-            group_by = ", jc.posting_date"
-        machines = frappe.db.sql(
-            """SELECT name, disabled FROM `tabWorkstation`""", as_dict=1
-        )
-        query = f"""SELECT jc.workstation, SUM(jc.total_time_in_mins) as tot_mins, jc.posting_date
-        FROM `tabProcess Job Card RIGPL` jc, `tabJob Card Time Log` tlog, `tabWorkstation` ws
-        WHERE ws.name = jc.workstation AND jc.docstatus = 1 AND tlog.parent = jc.name
-        AND tlog.from_time IS NOT NULL {cond_jc}
-        GROUP BY jc.workstation {group_by} ORDER BY jc.workstation"""
-        dt = frappe.db.sql(query, as_dict=1)
-        # frappe.throw(str(dt))
-        for mc in machines:
-            mc_found = 0
-            for d in dt:
-                if d.workstation == mc.name:
-                    worked_hrs = d.tot_mins / 60
-                    eff = worked_hrs / tot_hrs * 100
-                    if group_by == "":
-                        row = [
-                            d.workstation,
-                            days,
-                            tot_hrs,
-                            worked_hrs,
-                            eff,
-                            mc.disabled,
-                        ]
-                    else:
-                        row = [
-                            d.workstation,
-                            d.posting_date,
-                            24,
-                            worked_hrs,
-                            worked_hrs / 24 * 100,
-                            mc.disabled,
-                        ]
-                    data.append(row)
-                    mc_found = 1
-                    if group_by == "":
-                        break
-            if mc_found != 1:
-                if group_by == "":
-                    row = [mc.name, days, tot_hrs, 0, 0, mc.disabled]
-                else:
-                    row = [mc.name, filters.get("to_date"), 24, 0, 0, mc.disabled]
-                data.append(row)
-    else:
-        frappe.throw("Select one of the Check Boxes.")
-    return data
+    view = get_view(filters)
+    if view == "summary":
+        return get_summary_data(filters, view)
+    if view == "production_planning":
+        return get_planning_data(filters, view)
+    if view == "order_wise_summary":
+        return get_order_wise_data(filters)
+    if view == "op_time_analysis":
+        return get_op_time_data(filters, view)
+    return get_machine_efficiency_data(filters, view)
 
 
-def update_so_data_with_job_card(so_dict):
-    data = []
-    for so in so_dict:
-        line_data = []
-        ps_dict = frappe.db.sql(
-            """SELECT name FROM `tabProcess Sheet`
-        WHERE docstatus != 2 AND sales_order_item = '%s' ORDER BY creation"""
-            % so.so_item,
-            as_dict=1,
-        )
-        so["ps_name"] = ""
-        for ps in ps_dict:
-            ps_link = """<a href="#Form/Process Sheet/%s" target="_blank">%s</a>""" % (
-                ps.name,
-                ps.name,
-            )
-            so["ps_name"] += ps_link + "\n"
-        so_jc = get_last_jc_for_so(so.so_item)
-        if so_jc:
-            so["jc_name"] = so_jc.name
-            so["jc_status"] = so_jc.status
-            so["jc_operation"] = so_jc.operation
-            so["jc_priority"] = so_jc.priority
-            so["planned_qty"] = so_jc.for_quantity
-            so["qty_avail"] = so_jc.qty_available
-            so["remarks"] = so_jc.remarks
-        line_data = [
-            so.name,
-            so.transaction_date,
-            so.item_code,
-            so.description,
-            so.pend_qty,
-            so.qty,
-            so.jc_name,
-            so.ps_name,
-            so.jc_status,
-            so.jc_operation,
-            so.jc_priority,
-            so.planned_qty,
-            so.qty_avail,
-            so.remarks,
-        ]
-        data.append(line_data)
-    return data
-
-
-def get_conditions(filters):
-    cond_jc = ""
-    cond_it = ""
-    cond_so = ""
-    no_of_checks = 0
-    if filters.get("mach_eff") == 1:
-        no_of_checks += 1
-    if filters.get("summary") == 1:
-        no_of_checks += 1
-    if filters.get("production_planning") == 1:
-        no_of_checks += 1
-    if filters.get("order_wise_summary") == 1:
-        no_of_checks += 1
-    if filters.get("op_time_analysis") == 1:
-        no_of_checks += 1
-        if not filters.get("operation"):
-            frappe.throw("For Operation Time Analysis Operation is Mandatory")
-    if no_of_checks == 0:
+def get_view(filters):
+    """
+    Returns the checked view and checks its mandatory filters
+    """
+    views = [view for view in VIEWS if cint(filters.get(view))]
+    if not views:
         frappe.throw("One checkbox is needed to be checked")
-    elif no_of_checks > 1:
+    elif len(views) > 1:
         frappe.throw("Only 1 checkbox should be checked")
+    view = views[0]
+    if view == "op_time_analysis" and not filters.get("operation"):
+        frappe.throw("For Operation Time Analysis Operation is Mandatory")
+    if view == "mach_eff" and not filters.get("mach_eff_type"):
+        frappe.throw("For Machine Efficiency Select Total or Daily in Type of Report")
+    return view
 
-    if filters.get("from_date") and (
-        filters.get("summary") == 1
-        or filters.get("op_time_analysis") == 1
-        or filters.get("mach_eff") == 1
-    ):
-        cond_jc += " AND jc.posting_date >= '%s'" % filters.get("from_date")
-    if filters.get("to_date") and (
-        filters.get("summary") == 1
-        or filters.get("op_time_analysis") == 1
-        or filters.get("mach_eff") == 1
-    ):
-        cond_jc += " AND jc.posting_date <= '%s'" % filters.get("to_date")
 
-    if filters.get("mach_eff"):
-        if not filters.get("mach_eff_type"):
-            frappe.throw(
-                "For Machine Efficiency Select Total or Daily in Type of Report"
+def get_summary_data(filters, view):
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    return [
+        blank_zeros(row)
+        for row in (
+            frappe.qb.from_(jc)
+            .select(
+                jc.employee_name, jc.workstation, jc.production_item, jc.description,
+                jc.for_quantity, jc.total_completed_qty, jc.total_rejected_qty, jc.operation,
+                jc.total_time_in_mins, Round(time_per_pc(jc), 2), jc.name,
             )
+            .where(jc.docstatus == 1)
+            .where(get_jc_conditions(jc, filters, view))
+            .orderby(jc.workstation)
+            .orderby(jc.production_item)
+            .run()
+        )
+    ]
 
-    if not filters.get("summary"):
-        if filters.get("sales_order") and filters.get("summary") != 1:
-            cond_jc += " AND jc.sales_order = '%s'" % filters.get("sales_order")
-        if (
-            filters.get("jc_status")
-            and not filters.get("op_time_analysis")
-            and not filters.get("mach_eff")
-        ):
-            cond_jc += " AND jc.status = '%s'" % filters.get("jc_status")
-        if filters.get("operation") and not filters.get("mach_eff"):
-            cond_jc += " AND jc.operation = '%s'" % filters.get("operation")
-        if filters.get("bm"):
-            cond_it += " AND bm.attribute_value = '%s'" % filters.get("bm")
-        if filters.get("tt"):
-            cond_it += " AND tt.attribute_value = '%s'" % filters.get("tt")
-        if filters.get("spl"):
-            cond_it += " AND spl.attribute_value = '%s'" % filters.get("spl")
-        if filters.get("series"):
-            cond_it += " AND ser.attribute_value = '%s'" % filters.get("series")
-        if filters.get("item"):
-            cond_jc += " AND jc.production_item = '%s'" % filters.get("item")
 
-    if filters.get("order_wise_summary") == 1:
+def get_planning_data(filters, view):
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    it = frappe.qb.DocType("Item")
+    job_cards = (
+        frappe.qb.from_(jc)
+        .join(it)
+        .on(it.name == jc.production_item)
+        .select(
+            jc.name, jc.status, jc.rm_status, jc.rm_shortage, jc.sales_order, jc.production_item,
+            jc.priority, jc.operation_serial_no, jc.remarks, jc.description, jc.operation,
+            jc.workstation, jc.total_qty, jc.for_quantity, jc.qty_available, jc.creation,
+        )
+        .where(jc.docstatus == 0)
+        .where(jc.status.notin(["Completed", "Cancelled"]))
+        .where(get_jc_conditions(jc, filters, view))
+        .where(attribute_filters(jc.production_item, get_attribute_values(filters)))
+        .run(as_dict=True)
+    )
+    att_map = get_attribute_map([d.production_item for d in job_cards], ATTS)
+    numeric = set(SIZE_ATTS)
+    job_cards.sort(
+        key=lambda d: (
+            cint(d.priority),
+            cint(d.operation_serial_no),
+            attribute_sort_key(att_map.get(d.production_item, {}), PLANNING_SORT_ATTS, numeric),
+            d.name,
+        )
+    )
+    data = []
+    for d in job_cards:
+        row = [
+            d.name, d.status, d.rm_status, d.rm_shortage, d.sales_order or "X", d.production_item,
+            d.priority, d.remarks or "X"
+        ]
+        row += get_attribute_cells(att_map.get(d.production_item, {}), ATTS)
+        row += [
+            d.description, d.operation, d.workstation, d.total_qty, d.for_quantity,
+            d.qty_available, d.creation
+        ]
+        data.append(blank_zeros(row))
+    return data
+
+
+def get_order_wise_data(filters):
+    so = frappe.qb.DocType("Sales Order")
+    soi = frappe.qb.DocType("Sales Order Item")
+    it = frappe.qb.DocType("Item")
+    pend_qty = soi.qty - IfNull(soi.delivered_qty, 0)
+    query = (
+        frappe.qb.from_(so)
+        .join(soi)
+        .on(soi.parent == so.name)
+        .join(it)
+        .on(it.name == soi.item_code)
+        .select(
+            so.name, so.transaction_date, soi.item_code, soi.description,
+            pend_qty.as_("pend_qty"), soi.qty, soi.name.as_("so_item"),
+        )
+        .where(so.docstatus == 1)
+        .where(pend_qty > 0)
+        .where(so.status != "Closed")
+        .where(so.transaction_date <= nowdate())
+        .where(it.made_to_order == 1)
+        .orderby(so.transaction_date)
+        .orderby(so.name)
+        .orderby(soi.item_code)
+        .orderby(soi.description)
+    )
+    if filters.get("sales_order"):
+        query = query.where(so.name == filters["sales_order"])
+    so_rows = query.run(as_dict=True)
+    so_items = [d.so_item for d in so_rows]
+    ps_links = get_process_sheet_links(so_items)
+    last_jcs = get_last_jc_for_so_items(so_items)
+    data = []
+    for d in so_rows:
+        jc = last_jcs.get(d.so_item)
+        row = [d.name, d.transaction_date, d.item_code, d.description, d.pend_qty, d.qty]
+        if jc:
+            row += [
+                jc.name, ps_links.get(d.so_item, ""), jc.status, jc.operation, jc.priority,
+                jc.for_quantity, jc.qty_available, jc.remarks
+            ]
+        else:
+            row += ["", ps_links.get(d.so_item, ""), "NO JC", "", 0, 0, 0, "Not in Production"]
+        data.append(blank_zeros(row))
+    return data
+
+
+def get_process_sheet_links(so_items):
+    """
+    Returns {so_item: links to its Process Sheets, one per line}
+    """
+    links = {}
+    for chunk in chunks(so_items):
+        ps = frappe.qb.DocType("Process Sheet")
+        rows = (
+            frappe.qb.from_(ps)
+            .select(ps.name, ps.sales_order_item)
+            .where(ps.docstatus != 2)
+            .where(ps.sales_order_item.isin(chunk))
+            .orderby(ps.creation)
+            .run(as_dict=True)
+        )
+        for d in rows:
+            link = """<a href="#Form/Process Sheet/%s" target="_blank">%s</a>""" % (d.name, d.name)
+            links[d.sales_order_item] = links.get(d.sales_order_item, "") + link + "\n"
+    return links
+
+
+def get_op_time_data(filters, view):
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    ws = frappe.qb.DocType("Workstation")
+    tlog = frappe.qb.DocType("Job Card Time Log")
+    it = frappe.qb.DocType("Item")
+    job_cards = (
+        frappe.qb.from_(jc)
+        .join(ws)
+        .on(ws.name == jc.workstation)
+        .join(tlog)
+        .on(tlog.parent == jc.name)
+        .join(it)
+        .on(it.name == jc.production_item)
+        .select(
+            jc.posting_date, jc.employee_name, jc.workstation, jc.production_item,
+            jc.for_quantity, jc.total_completed_qty, jc.total_rejected_qty, jc.operation,
+            jc.total_time_in_mins, Round(time_per_pc(jc), 2).as_("time_per_pc"),
+            Round(time_per_pc(jc) * ws.hour_rate / 60, 2).as_("cost_per_pc"), jc.name,
+            jc.description,
+        )
+        .where(jc.docstatus == 1)
+        .where(tlog.parenttype == "Process Job Card RIGPL")
+        .where(tlog.from_time.isnotnull())
+        .where(tlog.to_time.isnotnull())
+        .where(get_jc_conditions(jc, filters, view))
+        .where(attribute_filters(jc.production_item, get_attribute_values(filters)))
+        .orderby(jc.posting_date)
+        .orderby(jc.workstation)
+        .orderby(jc.production_item)
+        .run(as_dict=True)
+    )
+    att_map = get_attribute_map([d.production_item for d in job_cards], OP_TIME_ATTS)
+    data = []
+    for d in job_cards:
+        row = [d.posting_date, d.employee_name, d.workstation, d.production_item]
+        row += get_attribute_cells(att_map.get(d.production_item, {}), OP_TIME_ATTS)
+        row += [
+            d.for_quantity, d.total_completed_qty, d.total_rejected_qty, d.operation,
+            d.total_time_in_mins, d.time_per_pc, d.cost_per_pc, d.name, d.description
+        ]
+        data.append(blank_zeros(row))
+    return data
+
+
+def get_machine_efficiency_data(filters, view):
+    days = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days + 1
+    tot_hrs = days * 24
+    if days < 1:
+        frappe.throw("Difference Between From and To Date should be Minimum 1 days for Machine Efficiency")
+    daily = filters.get("mach_eff_type") != "Total"
+    ws = frappe.qb.DocType("Workstation")
+    machines = frappe.qb.from_(ws).select(ws.name, ws.disabled).run(as_dict=True)
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    tlog = frappe.qb.DocType("Job Card Time Log")
+    query = (
+        frappe.qb.from_(jc)
+        .join(tlog)
+        .on(tlog.parent == jc.name)
+        .join(ws)
+        .on(ws.name == jc.workstation)
+        .select(jc.workstation, Sum(jc.total_time_in_mins).as_("tot_mins"))
+        .where(jc.docstatus == 1)
+        .where(tlog.from_time.isnotnull())
+        .where(get_jc_conditions(jc, filters, view))
+        .groupby(jc.workstation)
+        .orderby(jc.workstation)
+    )
+    if daily:
+        query = query.select(jc.posting_date).groupby(jc.posting_date)
+    worked = {}
+    for d in query.run(as_dict=True):
+        worked.setdefault(d.workstation, []).append(d)
+    data = []
+    for mc in machines:
+        rows = worked.get(mc.name, [])
+        if not rows:
+            date_or_days = filters.get("to_date") if daily else days
+            data.append([mc.name, date_or_days, 24 if daily else tot_hrs, 0, 0, mc.disabled])
+        elif daily:
+            for d in rows:
+                worked_hrs = d.tot_mins / 60
+                data.append([d.workstation, d.posting_date, 24, worked_hrs, worked_hrs / 24 * 100, mc.disabled])
+        else:
+            worked_hrs = rows[0].tot_mins / 60
+            data.append([mc.name, days, tot_hrs, worked_hrs, worked_hrs / tot_hrs * 100, mc.disabled])
+    return [blank_zeros(row) for row in data]
+
+
+def get_jc_conditions(jc, filters, view):
+    """
+    Returns the Job Card criterion for the filters that apply to the view
+    """
+    conditions = []
+    if view in ("summary", "op_time_analysis", "mach_eff"):
+        if filters.get("from_date"):
+            conditions.append(jc.posting_date >= filters["from_date"])
+        if filters.get("to_date"):
+            conditions.append(jc.posting_date <= filters["to_date"])
+    if view != "summary":
         if filters.get("sales_order"):
-            cond_so += " AND so.name = '%s'" % filters.get("sales_order")
+            conditions.append(jc.sales_order == filters["sales_order"])
+        if filters.get("jc_status") and view not in ("op_time_analysis", "mach_eff"):
+            conditions.append(jc.status == filters["jc_status"])
+        if filters.get("operation") and view != "mach_eff":
+            conditions.append(jc.operation == filters["operation"])
+        if filters.get("item"):
+            conditions.append(jc.production_item == filters["item"])
+    return Criterion.all(conditions)
 
-    return cond_jc, cond_it, cond_so
+
+def get_attribute_values(filters):
+    """
+    Returns {attribute: value} for the attribute filters
+    """
+    return {
+        "Base Material": filters.get("bm"),
+        "Tool Type": filters.get("tt"),
+        "Special Treatment": filters.get("spl"),
+        "Series": filters.get("series"),
+    }
+
+
+def get_attribute_cells(values, attributes):
+    """
+    Returns the cells of the attribute columns: text as it is, sizes rounded to 3 decimals
+    """
+    cells = []
+    for attribute in attributes:
+        value = values.get(attribute)
+        if attribute in SIZE_ATTS and value is not None:
+            value = round(flt(value), 3)
+        cells.append(value)
+    return cells
+
+
+def time_per_pc(jc):
+    return jc.total_time_in_mins / (jc.total_completed_qty + jc.total_rejected_qty)
