@@ -858,9 +858,10 @@ def update_pro_sheet_rm_from_jc(jc_doc, status="Submit", pro_sheet=None):
                     frappe.db.set_value(
                         "Process Sheet Items", row.name, "qty", row.calculated_qty
                     )
-        update_qty_for_prod(
-            row.item_code, row.source_warehouse, table_name="rm_consumed"
-        )
+                # Reserved qty for production of the row that changed
+                update_qty_for_prod(
+                    row.item_code, row.source_warehouse, table_name="rm_consumed"
+                )
 
 
 def get_produced_qty_changes(jc_doc, status, pro_sheet, ps_r, tc_comp_qty):
