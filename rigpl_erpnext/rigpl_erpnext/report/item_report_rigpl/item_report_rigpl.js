@@ -106,5 +106,6 @@ frappe.query_reports["Item Report RIGPL"] = {
 			"label": "Show in Website",
 			"fieldtype": "Check"
 		}
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 }

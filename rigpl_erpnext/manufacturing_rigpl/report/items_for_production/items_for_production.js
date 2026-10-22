@@ -60,5 +60,6 @@ frappe.query_reports["Items For Production"] = {
 			"options": "Item",
 			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
 		}
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 }
