@@ -48,7 +48,8 @@
    "in_standard_filter": 1,
    "label": "Production Item",
    "options": "Item",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "consumeables_issued",
@@ -163,7 +164,8 @@
    "in_standard_filter": 1,
    "label": "Status",
    "options": "\nCancelled\nCompleted\nDraft\nIn Progress\nShort Closed\nStopped\nSubmitted",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "allow_on_submit": 1,
@@ -201,7 +203,8 @@
    "fieldtype": "Data",
    "in_standard_filter": 1,
    "label": "Sales Order Item",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fetch_from": "sales_order_item.idx",
@@ -278,7 +281,7 @@
    "link_fieldname": "process_sheet"
   }
  ],
- "modified": "2023-08-10 08:31:36.851427",
+ "modified": "2026-10-22 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Manufacturing-RIGPL",
  "name": "Process Sheet",
