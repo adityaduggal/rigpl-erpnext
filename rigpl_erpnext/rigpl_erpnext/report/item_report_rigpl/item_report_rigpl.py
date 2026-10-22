@@ -1,7 +1,29 @@
 from __future__ import unicode_literals
 import frappe
-from frappe import msgprint, _
-from frappe.utils import flt, getdate, nowdate
+from frappe import _
+from frappe.query_builder.functions import IfNull
+from frappe.utils import flt
+from ....utils.item_attribute_utils import (
+    attribute_filters,
+    attribute_sort_key,
+    chunks,
+    get_attribute_map,
+    get_attribute_meta,
+)
+from ....utils.report_utils import blank_zeros
+from ....utils.stock_utils import get_reorder_levels
+
+# Filter fieldname: attribute. Quality is "<Base Material> Quality".
+ATTRIBUTE_FILTERS = [
+    ("rm", "Is RM"),
+    ("bm", "Base Material"),
+    ("tt", "Tool Type"),
+    ("series", "Series"),
+    ("spl", "Special Treatment"),
+    ("purpose", "Purpose"),
+    ("type", "Type Selector"),
+    ("mtm", "Material to Machine"),
+]
 
 
 def execute(filters=None):
@@ -10,244 +32,221 @@ def execute(filters=None):
     """
     if not filters:
         filters = {}
-    bmat = filters.get("bm")
-    conditions_it = get_conditions(bmat, filters)
-    templates = get_templates(bmat, conditions_it, filters)
+    check_tool_type(filters)
+    items = get_item_list(filters)
+    templates = list(dict.fromkeys(d.variant_of for d in items))
+    if not templates:
+        frappe.throw("No Temps in the given Criterion")
 
-    columns, attributes, att_details = get_columns(templates)
-    data = get_items(conditions_it, attributes, att_details)
-
+    att_details = get_attribute_details([t for t in templates if t])
+    columns = get_columns(att_details)
+    data = get_data(items, att_details)
     return columns, data
 
 
-def get_columns(templates):
-    """
-    Returns columns for the Report based on the Templates
-    """
-    columns = [
-            _("Item") + ":Link/Item:130"
-    ]
-    attributes = []
-    attributes = frappe.db.sql_list("""SELECT DISTINCT(iva.attribute)
-		FROM `tabItem Variant Attribute` iva
-		WHERE
-			iva.parent in (%s)
-		ORDER BY iva.idx""" %
-            (', '.join(['%s']*len(templates))), tuple([d.variant_of for d in templates]))
+def check_tool_type(filters):
+    if not filters.get("tt") and "System Manager" not in frappe.get_roles(frappe.session.user):
+        frappe.throw("Please Select Tool Type")
 
+
+def get_attribute_values(filters):
+    """
+    Returns {attribute: value} for the attribute filters
+    """
+    values = {attribute: filters.get(fieldname) for fieldname, attribute in ATTRIBUTE_FILTERS}
+    values["%s Quality" % filters.get("bm")] = filters.get("quality")
+    return values
+
+
+def get_item_list(filters):
+    """
+    Returns the Items for the filters, with the Item fields of the report
+    """
+    it = frappe.qb.DocType("Item")
+    query = (
+        frappe.qb.from_(it)
+        .select(
+            it.name,
+            it.lead_time_days,
+            it.pack_size,
+            it.selling_mov,
+            it.min_order_qty,
+            it.pl_item,
+            it.stock_maintained,
+            it.variant_of,
+            it.description,
+            it.end_of_life,
+            it.owner,
+            it.creation,
+        )
+        .where(attribute_filters(it.name, get_attribute_values(filters)))
+    )
+    if filters.get("eol"):
+        query = query.where(IfNull(it.end_of_life, "2099-12-31") > filters["eol"])
+    if filters.get("show_in_website") == 1:
+        query = query.where(it.show_variant_in_website == 1)
+    if filters.get("item"):
+        query = query.where(it.name == filters["item"])
+    if filters.get("variant_of"):
+        query = query.where(it.variant_of == filters["variant_of"])
+    return query.run(as_dict=True)
+
+
+def get_attribute_details(templates):
+    """
+    Returns the attributes of the templates in column order, each with its label details:
+    [{name, numeric_values, max_length, name_in_template}]
+    Column order: lowest idx in the templates, then the attribute used by more templates,
+    then the name.
+    """
+    iva = frappe.qb.DocType("Item Variant Attribute")
+    rows = []
+    for chunk in chunks(templates):
+        rows += (
+            frappe.qb.from_(iva)
+            .select(iva.parent, iva.attribute, iva.field_name, iva.idx)
+            .where(iva.parent.isin(chunk) & (iva.parenttype == "Item"))
+            .run(as_dict=True)
+        )
+    min_idx, used_by, field_names = {}, {}, {}
+    for row in rows:
+        min_idx[row.attribute] = min(row.idx, min_idx.get(row.attribute, row.idx))
+        used_by.setdefault(row.attribute, set()).add(row.parent)
+        field_names.setdefault(row.attribute, set()).add(row.field_name)
+    attributes = sorted(min_idx, key=lambda a: (min_idx[a], -len(used_by[a]), a))
+
+    meta = get_attribute_meta(attributes)
     att_details = []
-    #above dict would be as below
-    #[{name: "Base Material", max_length: 20, numeric_values:0, name_in_template: "bm"}]
-    for row in attributes:
-        format_dict = frappe._dict({})
-        cond = f""" attribute = '{row}'"""
-        att_name = frappe.db.sql("""SELECT name, attribute, field_name
-            FROM `tabItem Variant Attribute` WHERE {condition} AND parent IN (%s)
-            GROUP BY field_name""".format(condition=cond)
-                %(", ".join(['%s']*len(templates))),
-                tuple([d.variant_of for d in templates]), as_dict=1)
-
-        attr = frappe.get_doc("Item Attribute", row)
-        format_dict["name"] = row
-        format_dict["numeric_values"] = attr.numeric_values
-        if attr.numeric_values != 1:
-            max_length = frappe.db.sql("""SELECT MAX(CHAR_LENGTH(attribute_value))
-				FROM `tabItem Attribute Value` WHERE parent = '%s'""" %(row), as_list=1)
-            if attr.hidden == 1:
-                sname = att_name[0].field_name
-                n_row = row.split('_', 1)[1]
-                nit = sname.split('(', 1)[0] + "(" + n_row + ")"
-                name_in_template = nit
-            else:
-                name_in_template = att_name[0].attribute
-        else:
-            max_length = [[6]]
-            sname = att_name[0].field_name
-            if '_' in row:
-                n_row = row.split('_', 1)[1]
-            else:
-                n_row = row
-            if sname and '(' in sname:
-                nit = sname.split('(', 1)[0] + "(" + n_row + ")"
-            else:
-                nit = row
-            name_in_template = nit
-
-        format_dict["max_length"] = int(max_length[0][0])
-        format_dict["name_in_template"] = name_in_template
-        att_details.append(format_dict.copy())
-
     for att in attributes:
-        for i in att_details:
-            if att == i["name"]:
-                label = i["name_in_template"]
-                if i["max_length"] > 10:
-                    wd_max = 10
-                else:
-                    wd_max = i["max_length"]
-                width = 10 * wd_max
-                if i["numeric_values"] == 1:
-                    col = ":Float:%s" %(width)
-                else:
-                    col = "::%s" %(width)
-                columns = columns + [(label + col)]
+        att_meta = meta.get(att, frappe._dict(numeric_values=0, hidden=0, max_length=0))
+        field_name = first_field_name(field_names[att])
+        att_details.append(
+            frappe._dict(
+                name=att,
+                numeric_values=att_meta.numeric_values,
+                max_length=6 if att_meta.numeric_values else att_meta.max_length,
+                name_in_template=get_name_in_template(att, att_meta, field_name),
+            )
+        )
+    return att_details
 
-    columns = columns + [_("Lead Time") + ":Int:40"] + [_("Pack Size") + ":Int:40"] + \
-            [_("Selling MoV") + ":Int:40"] + [_("Purchase MoQ") + ":Int:40"] + \
-            [_("Is PL") + "::40"] + [_("TOD") + "::40"] +[_("ROL") + ":Int:40"] + \
-            [_("Template or Variant Of") + ":Link/Item:300"] + \
-            [_("Def Warehouse") + "::50"] + [_("Def PL") + "::50"] + \
-            [_("Description") + "::400"] + [_("EOL") + ":Date:80"] + [_("Created By") + "::150"] + \
-            [_("Creation") + ":Date:150"]
 
-    return columns, attributes, att_details
-
-def define_join(string, tab,val):
+def first_field_name(field_names):
     """
-    Defines join for SQL query for attribute
+    Returns the field name the report used: no field name first, then the lowest, without case
     """
-    string += """ LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent
-			AND %s.attribute = '%s'""" %(tab, tab, tab, val)
-    return string
+    if None in field_names:
+        return None
+    return sorted(field_names, key=lambda name: name.casefold())[0]
 
-def get_templates(bmat, conditions_it, filters):
+
+def get_name_in_template(att, att_meta, field_name):
     """
-    Returns templates based on conditions and filters
+    Returns the column label: for a numeric or hidden attribute, the field name with the unit
+    of the attribute name, for example "Dia (mm)" for d1_mm with field name "Dia (inch)"
     """
-    query_join = ""
-    if filters.get("rm"):
-        tab = 'Is RM'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
+    if att_meta.numeric_values != 1:
+        if att_meta.hidden == 1:
+            return field_name.split("(", 1)[0] + "(" + att.split("_", 1)[1] + ")"
+        return att
+    n_row = att.split("_", 1)[1] if "_" in att else att
+    if field_name and "(" in field_name:
+        return field_name.split("(", 1)[0] + "(" + n_row + ")"
+    return att
 
-    if filters.get("bm"):
-        tab = 'Base Material'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
 
-    if filters.get("tt"):
-        tab = 'Tool Type'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("quality"):
-        tab = '%s Quality' %(bmat)
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("series"):
-        tab = 'Series'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("spl"):
-        tab = 'Special Treatment'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("purpose"):
-        tab = 'Purpose'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("type"):
-        tab = 'Type Selector'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("mtm"):
-        tab = 'Material to Machine'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    query = """SELECT DISTINCT(it.variant_of)
-		FROM `tabItem` it %s %s""" %(query_join, conditions_it)
-
-    templates = frappe.db.sql(query, as_dict=1)
-
-    if not templates:
-        frappe.throw("No Temps in the given Criterion")
-    return templates
-
-def get_items(conditions_it, attributes, att_details):
+def get_columns(att_details):
     """
-    Retunrs Items based on Conditions, Attributes and Attribute Details
+    Returns columns for the Report based on the attributes of the Templates
     """
-    att_join = ''
-    att_query = ''
-    att_order = ''
-    for att in attributes:
-        att_trimmed = att.replace(" ", "")
-        for i in att_details:
-            if att == i["name"]:
-                if i["numeric_values"] == 1:
-                    att_query += """, CAST(%s.attribute_value AS DECIMAL(8,3))""" %(att_trimmed)
-                    att_order += """CAST(%s.attribute_value AS DECIMAL(8,3)), """ %(att_trimmed)
-                else:
-                    att_query += """, IFNULL(%s.attribute_value, "-")""" %(att_trimmed)
-                    att_order += """%s.attribute_value, """ %(att_trimmed)
+    columns = [_("Item") + ":Link/Item:130"]
+    for att in att_details:
+        width = 10 * min(att.max_length, 10)
+        col_type = "Float" if att.numeric_values == 1 else ""
+        columns.append("%s:%s:%s" % (att.name_in_template, col_type, width))
 
-        att_join += """LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent
-			AND %s.attribute = '%s'""" %(att_trimmed,att_trimmed,att_trimmed,att)
+    columns += [
+        _("Lead Time") + ":Int:40",
+        _("Pack Size") + ":Int:40",
+        _("Selling MoV") + ":Int:40",
+        _("Purchase MoQ") + ":Int:40",
+        _("Is PL") + "::40",
+        _("TOD") + "::40",
+        _("ROL") + ":Int:40",
+        _("Template or Variant Of") + ":Link/Item:300",
+        _("Def Warehouse") + "::50",
+        _("Def PL") + "::50",
+        _("Description") + "::400",
+        _("EOL") + ":Date:80",
+        _("Created By") + "::150",
+        _("Creation") + ":Date:150",
+    ]
+    return columns
 
-    query = """SELECT it.name %s, IF(it.lead_time_days =0, NULL, it.lead_time_days),
-		IF(it.pack_size =0, NULL, it.pack_size),
-		IF(it.selling_mov =0, NULL, it.selling_mov),
-		IF(it.min_order_qty =0, NULL, it.min_order_qty),
-		IF(it.pl_item, "Yes", "No"), IF(it.stock_maintained, "Yes", "No"),
-		IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level),
-		it.variant_of, IFNULL(def.default_warehouse, "X"),
-		IFNULL(def.default_price_list, 'X'),
-		it.description, IFNULL(it.end_of_life, '2099-12-31'),
-		it.owner, it.creation
-		FROM `tabItem` it
-			LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
-			LEFT JOIN `tabItem Default` def ON it.name = def.parent
-			%s %s
-		ORDER BY %s it.name""" %(att_query, att_join, conditions_it, att_order)
 
-    data = frappe.db.sql(query, as_list=1)
+def get_data(items, att_details):
+    """
+    Returns the report rows, sorted by the attribute columns and then the Item name
+    """
+    names = [d.name for d in items]
+    attributes = [att.name for att in att_details]
+    numeric = {att.name for att in att_details if att.numeric_values == 1}
+    att_map = get_attribute_map(names, attributes)
+    rol_dict = get_reorder_levels(names)
+    defaults = get_item_defaults(names)
+    items.sort(
+        key=lambda d: (attribute_sort_key(att_map.get(d.name, {}), attributes, numeric), d.name)
+    )
+
+    data = []
+    for d in items:
+        values = att_map.get(d.name, {})
+        row = [d.name]
+        for att in attributes:
+            value = values.get(att)
+            if att in numeric:
+                row.append(None if value is None else round(flt(value), 3))
+            else:
+                row.append("-" if value is None else value)
+        default = defaults.get(d.name, {})
+        row += [
+            d.lead_time_days or None,
+            d.pack_size or None,
+            d.selling_mov or None,
+            d.min_order_qty or None,
+            "Yes" if d.pl_item else "No",
+            "Yes" if d.stock_maintained else "No",
+            rol_dict.get(d.name) or None,
+            d.variant_of,
+            if_none(default.get("default_warehouse"), "X"),
+            if_none(default.get("default_price_list"), "X"),
+            d.description,
+            if_none(d.end_of_life, "2099-12-31"),
+            d.owner,
+            d.creation,
+        ]
+        data.append(blank_zeros(row))
     return data
 
 
-def get_conditions(bmat, filters):
+def get_item_defaults(items):
     """
-    Returns Conditions based on filters selected
+    Returns {item: first Item Default row by idx}
     """
-    conditions_it = ""
+    ide = frappe.qb.DocType("Item Default")
+    defaults = {}
+    for chunk in chunks(items):
+        rows = (
+            frappe.qb.from_(ide)
+            .select(ide.parent, ide.default_warehouse, ide.default_price_list)
+            .where(ide.parent.isin(chunk) & (ide.parenttype == "Item"))
+            .orderby(ide.idx)
+            .run(as_dict=True)
+        )
+        for row in rows:
+            defaults.setdefault(row.parent, row)
+    return defaults
 
-    if filters.get("eol"):
-        conditions_it += " WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters.get("eol")
 
-    if filters.get("rm"):
-        conditions_it += " AND IsRM.attribute_value = '%s'" % filters.get("rm")
-
-    if filters.get("bm"):
-        conditions_it += " AND BaseMaterial.attribute_value = '%s'" % filters.get("bm")
-
-    if filters.get("series"):
-        conditions_it += " AND Series.attribute_value = '%s'" % filters.get("series")
-
-    if filters.get("quality"):
-        conditions_it += " AND %sQuality.attribute_value = '%s'" % (bmat, filters.get("quality"))
-
-    if filters.get("spl"):
-        conditions_it += " AND SpecialTreatment.attribute_value = '%s'" % filters.get("spl")
-
-    if filters.get("purpose"):
-        conditions_it += " AND Purpose.attribute_value = '%s'" % filters.get("purpose")
-
-    if filters.get("type"):
-        conditions_it += " AND TypeSelector.attribute_value = '%s'" % filters.get("type")
-
-    if filters.get("mtm"):
-        conditions_it += " AND MaterialtoMachine.attribute_value = '%s'" % filters.get("mtm")
-
-    if filters.get("tt"):
-        conditions_it += " AND ToolType.attribute_value = '%s'" % filters.get("tt")
-    else:
-        user_roles = frappe.get_roles(frappe.session.user)
-        if "System Manager" not in user_roles:
-            frappe.throw("Please Select Tool Type")
-
-    if filters.get("show_in_website") ==1:
-        conditions_it += " and it.show_variant_in_website =%s" % filters.get("show_in_website")
-
-    if filters.get("item"):
-        conditions_it += " and it.name = '%s'" % filters.get("item")
-
-    if filters.get("variant_of"):
-        conditions_it += " and it.variant_of = '%s'" % filters.get("variant_of")
-
-    return conditions_it
+def if_none(value, default):
+    return default if value is None else value
