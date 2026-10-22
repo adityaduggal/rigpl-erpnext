@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 from datetime import date
 import frappe
+from frappe.query_builder.functions import Max
 from frappe.utils import nowdate, nowtime, add_months, flt
 from pypika.terms import Criterion
 from .item_attribute_utils import chunks
@@ -621,6 +622,24 @@ def get_wh_wise_qty(item_name):
     Returns a dictionary for quantities for Item in Various Warehouses
     """
     return get_wh_wise_qty_for_items([item_name]).get(item_name, [])
+
+
+def get_reorder_levels(items):
+    """
+    Returns {item: highest warehouse reorder level}
+    """
+    ro = frappe.qb.DocType("Item Reorder")
+    rol_dict = {}
+    for chunk in chunks(items):
+        rows = (
+            frappe.qb.from_(ro)
+            .select(ro.parent, Max(ro.warehouse_reorder_level))
+            .where(ro.parent.isin(chunk) & (ro.parenttype == "Item"))
+            .groupby(ro.parent)
+            .run()
+        )
+        rol_dict.update(dict(rows))
+    return rol_dict
 
 
 def get_wh_wise_qty_for_items(items, non_zero=False):

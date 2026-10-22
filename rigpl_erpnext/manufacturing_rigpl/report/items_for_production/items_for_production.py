@@ -3,15 +3,11 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.query_builder.functions import IfNull, Max
+from frappe.query_builder.functions import IfNull
 from frappe.utils import cint, flt, nowdate
-from ....utils.item_attribute_utils import (
-    attribute_filters,
-    attribute_sort_key,
-    chunks,
-    get_attribute_map,
-)
-from ....utils.stock_utils import get_wh_wise_qty_for_items
+from ....utils.item_attribute_utils import attribute_filters, attribute_sort_key, get_attribute_map
+from ....utils.report_utils import blank_zeros
+from ....utils.stock_utils import get_reorder_levels, get_wh_wise_qty_for_items
 
 TEXT_COLUMNS = [
     ("is_rm", "Is RM"),
@@ -113,7 +109,7 @@ def get_items(filters, wh_dict):
             if wh.listing_serial >= 10:
                 row += [d.get(wh.short_code, 0) if d.get(wh.short_code, 0) > 0 else None]
         row += [d.jw if d.jw > 0 else None, d.pur if d.pur > 0 else None, d.sale if d.sale > 0 else None]
-        actual_data.append(row)
+        actual_data.append(blank_zeros(row))
     return actual_data
 
 
@@ -142,24 +138,6 @@ def get_item_list(filters):
     if filters.get("variant_of"):
         query = query.where(it.variant_of == filters["variant_of"])
     return query.run(as_dict=True)
-
-
-def get_reorder_levels(items):
-    """
-    Returns {item: highest warehouse reorder level}
-    """
-    ro = frappe.qb.DocType("Item Reorder")
-    rol_dict = {}
-    for chunk in chunks(items):
-        rows = (
-            frappe.qb.from_(ro)
-            .select(ro.parent, Max(ro.warehouse_reorder_level))
-            .where(ro.parent.isin(chunk) & (ro.parenttype == "Item"))
-            .groupby(ro.parent)
-            .run()
-        )
-        rol_dict.update(dict(rows))
-    return rol_dict
 
 
 def get_urgency(itd, whd):
