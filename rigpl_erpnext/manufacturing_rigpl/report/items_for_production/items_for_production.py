@@ -175,7 +175,7 @@ def get_urgency(itd, whd):
     urg = ""
     prd = ""
 
-    if itd.is_rm == 1:
+    if itd.is_rm == "Yes":
         for wh in whd:
             if wh.warehouse_type == "Raw Material":
                 stock += flt(itd.get(wh.short_code))
