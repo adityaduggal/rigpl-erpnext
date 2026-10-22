@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 
 from frappe.model.document import Document
+from frappe.query_builder.functions import Sum
 from frappe.utils import nowdate
 
 from ....utils.sales_utils import get_priority_for_so
@@ -28,7 +29,7 @@ class ProcessSheet(Document):
         bt_doc = frappe.get_doc("BOM Template RIGPL", self.bom_template)
         allow_rm_consumption = 0
         for op in self.operations:
-            update_process_sheet_operations(self.name, op.name)
+            update_process_sheet_operations(self.name, op.name, psd=self, btd=bt_doc)
             if op.allow_consumption_of_rm == 1:
                 allow_rm_consumption = 1
 
@@ -64,11 +65,12 @@ class ProcessSheet(Document):
                 ps_doc=self,
             )
             if existing_jc:
-                # Update the Total Quantity for All the Job Cards which are existing
+                # Update the Total Quantity for the existing Job Cards of other Process Sheets.
+                # The Job Cards of this sheet are deleted below.
                 for jc in existing_jc:
-                    jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
-                    update_job_card_total_qty(jcd)
-                    if jcd.process_sheet != self.name:
+                    if frappe.get_value("Process Job Card RIGPL", jc.name, "process_sheet") != self.name:
+                        jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
+                        update_job_card_total_qty(jcd)
                         jcd.save()
         delete_job_card(self)
 
@@ -77,38 +79,39 @@ class ProcessSheet(Document):
         update_priority_psd(self, itd)
         # Priority and Auto Quantity
         self.update_ps_status()
-        self.validate_other_psheet()
+        self.validate_other_psheet(itd)
         if not self.flags.ignore_mandatory:
-            it_doc = frappe.get_doc("Item", self.production_item)
-            disallow_templates(self, it_doc)
+            disallow_templates(self, itd)
+            # One template lookup per save: the list gives the template and
+            # total_applicable_bom_templates
+            bom_templates = get_bom_template_from_item(itd, self.sales_order_item)
             if not self.bom_template:
-                bom_tmp_name = get_bom_template_from_item(it_doc, self.sales_order_item)
+                bom_tmp_name = bom_templates
             else:
                 bom_tmp_name = [self.bom_template]
             if not bom_tmp_name:
                 frappe.throw("No BOM Template Found")
             else:
                 bom_tmp_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name[0])
-                self.update_ps_fields(bom_tmp_doc, it_doc)
+                self.update_ps_fields(bom_tmp_doc, itd, bom_templates)
 
-    def validate_other_psheet(self):
+    def validate_other_psheet(self, it_doc=None):
         if self.production_item:
-            it_doc = frappe.get_doc("Item", self.production_item)
+            if it_doc is None:
+                it_doc = frappe.get_doc("Item", self.production_item)
+            ps = frappe.qb.DocType("Process Sheet")
+            query = (
+                frappe.qb.from_(ps)
+                .select(ps.name)
+                .where(ps.docstatus == 0)
+                .where(ps.production_item == self.production_item)
+                .where(ps.name != self.name)
+            )
             if it_doc.variant_of:
-                other_ps = frappe.db.sql(
-                    """SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0
-                AND production_item = '%s' AND name <> '%s' """
-                    % (self.production_item, self.name),
-                    as_dict=1,
-                )
+                other_ps = query.run(as_dict=True)
             else:
                 if self.sales_order_item:
-                    other_ps = frappe.db.sql(
-                        """SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0 AND
-                    production_item = '%s' AND sales_order_item = '%s' AND name != '%s'"""
-                        % (self.production_item, self.sales_order_item, self.name),
-                        as_dict=1,
-                    )
+                    other_ps = query.where(ps.sales_order_item == self.sales_order_item).run(as_dict=True)
                 else:
                     frappe.throw(
                         "Sales Order is Mandatory for Item: {} in Process Sheet {}".format(
@@ -153,12 +156,12 @@ class ProcessSheet(Document):
         self.set("rm_consumed", [])
         self.set("item_manufactured", [])
 
-    def update_ps_fields(self, bt_doc, it_doc):
+    def update_ps_fields(self, bt_doc, it_doc, bom_templates=None):
         if self.date != nowdate():
             self.date = nowdate()
-        self.total_applicable_bom_templates = len(
-            get_bom_template_from_item(it_doc, self.sales_order_item)
-        )
+        if bom_templates is None:
+            bom_templates = get_bom_template_from_item(it_doc, self.sales_order_item)
+        self.total_applicable_bom_templates = len(bom_templates)
         self.bom_template = bt_doc.name
         if bt_doc.remarks:
             remarks = ", Remarks: " + bt_doc.remarks
@@ -166,7 +169,7 @@ class ProcessSheet(Document):
             remarks = ""
         self.bom_template_description = "Title: " + bt_doc.title + remarks
         self.routing = bt_doc.routing
-        self.get_routing_from_template()
+        self.get_routing_from_template(it_doc, bt_doc)
         self.validate_qty_to_manufacture(it_doc)
         for row in self.operations:
             if row.planned_qty != self.quantity:
@@ -342,9 +345,7 @@ class ProcessSheet(Document):
                         )
                     )
         if self.quantity > self.max_auto_qty and self.bypass_all_qty_checks != 1:
-            vrate = flt(
-                frappe.get_value("Item", self.production_item, "valuation_rate")
-            )
+            vrate = flt(it_doc.valuation_rate)
             max_amt = flt(
                 frappe.get_value(
                     "RIGPL Settings", "RIGPL Settings", "max_value_over_max_qty_allowed"
@@ -361,23 +362,26 @@ class ProcessSheet(Document):
 
     def get_balance_qty_from_so(self, so_detail):
         soi_doc = frappe.get_doc("Sales Order Item", so_detail)
-        qty_in_prd = frappe.db.sql(
-            """SELECT SUM(quantity) FROM `tabProcess Sheet` WHERE docstatus=1 AND
-        status NOT IN ("Stopped", "Short Closed") AND production_item = '%s'
-        AND sales_order_item = '%s'"""
-            % (soi_doc.item_code, so_detail),
-            as_list=1,
+        ps = frappe.qb.DocType("Process Sheet")
+        so_sheets = (
+            frappe.qb.from_(ps)
+            .where(ps.docstatus == 1)
+            .where(ps.production_item == soi_doc.item_code)
+            .where(ps.sales_order_item == so_detail)
+        )
+        qty_in_prd = (
+            so_sheets.select(Sum(ps.quantity))
+            .where(ps.status.notin(["Stopped", "Short Closed"]))
+            .run()
         )
         if qty_in_prd:
             qty_in_prd = flt(qty_in_prd[0][0])
         else:
             qty_in_prd = 0
-        qty_stopped = frappe.db.sql(
-            """SELECT SUM(produced_qty) - SUM(short_closed_qty)
-        FROM `tabProcess Sheet` WHERE docstatus=1 AND status IN ("Stopped", "Short Closed")
-        AND production_item = '%s' AND sales_order_item = '%s'"""
-            % (soi_doc.item_code, so_detail),
-            as_list=1,
+        qty_stopped = (
+            so_sheets.select(Sum(ps.produced_qty) - Sum(ps.short_closed_qty))
+            .where(ps.status.isin(["Stopped", "Short Closed"]))
+            .run()
         )
         if qty_stopped:
             qty_stopped = flt(qty_stopped[0][0])
@@ -396,8 +400,9 @@ class ProcessSheet(Document):
         elif self.docstatus == 2:
             self.status = "Cancelled"
 
-    def get_routing_from_template(self):
-        fg_it_doc = frappe.get_doc("Item", self.production_item)
+    def get_routing_from_template(self, fg_it_doc=None, bt_doc=None):
+        if fg_it_doc is None:
+            fg_it_doc = frappe.get_doc("Item", self.production_item)
         if not self.bom_template:
             bom_tmp_name = get_bom_template_from_item(fg_it_doc, self.sales_order_item)
             if bom_tmp_name:
@@ -407,14 +412,20 @@ class ProcessSheet(Document):
         item_list = self.get_item_list(
             item_name=self.production_item, known_type="fg", unknown_type="rm"
         )
-        bt_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
-        query = (
-            """SELECT idx, name, operation, workstation, hour_rate, time_based_on_formula, time_in_mins,
-        operation_time_formula, batch_size_based_on_formula, batch_size_formula FROM `tabBOM Operation` WHERE
-        parenttype = 'BOM Template RIGPL' AND parent = '%s'"""
-            % bt_doc.name
+        if bt_doc is None or bt_doc.name != bom_tmp_name:
+            bt_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name)
+        bop = frappe.qb.DocType("BOM Operation")
+        routing_dict = (
+            frappe.qb.from_(bop)
+            .select(
+                bop.idx, bop.name, bop.operation, bop.workstation, bop.hour_rate,
+                bop.time_based_on_formula, bop.time_in_mins, bop.operation_time_formula,
+                bop.batch_size_based_on_formula, bop.batch_size_formula,
+            )
+            .where(bop.parenttype == "BOM Template RIGPL")
+            .where(bop.parent == bt_doc.name)
+            .run(as_dict=True)
         )
-        routing_dict = frappe.db.sql(query, as_dict=1)
         if self.routing:
             self.get_routing()
             if self.get("__islocal") != 1:

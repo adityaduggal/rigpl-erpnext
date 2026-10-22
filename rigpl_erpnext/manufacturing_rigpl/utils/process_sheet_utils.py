@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 from datetime import date
 
 import frappe
+from frappe.query_builder.functions import Sum
 from frappe.utils import flt
 
 from ...utils.stock_utils import get_quantities_for_item
@@ -34,44 +35,35 @@ def get_last_operation_for_psheet(psdoc, no_cons_ld_time):
     """
     op_list = psdoc.operations
     tot_operations = len(op_list)
-    for val in range(tot_operations, 0, -1):
-        if val == tot_operations - 1:
-            no_consider_op = frappe.get_value(
-                "Operation", op_list[val].operation, "dont_consider_in_lead_time"
-            )
-            no_consider_btd = flt(
-                frappe.db.sql(
-                    f"""SELECT SUM(bop.dont_consider_in_lead_time)
-                            FROM `tabBOM Operation` bop WHERE bop.parenttype = 'BOM Template RIGPL'
-                            AND bop.parent = '{psdoc.bom_template}'
-                            AND bop.operation = '{op_list[val].operation}'""",
-                    as_list=1,
-                )[0][0]
-            )
-            if no_cons_ld_time == no_consider_op or no_cons_ld_time == no_consider_btd:
-                no_consider_next_op = frappe.get_value(
-                    "Operation",
-                    op_list[val - 1].operation,
-                    "dont_consider_in_lead_time",
-                )
-                no_consider_next_bt = flt(
-                    frappe.db.sql(
-                        f"""SELECT SUM(bop.dont_consider_in_lead_time)
-                                FROM `tabBOM Operation` bop WHERE bop.parenttype = 'BOM Template RIGPL'
-                                AND bop.parent = '{psdoc.bom_template}'
-                                AND bop.operation = '{op_list[val - 1].operation}'""",
-                        as_list=1,
-                    )[0][0]
-                )
-                if (
-                    no_cons_ld_time == no_consider_next_op
-                    or no_cons_ld_time == no_consider_next_bt
-                ):
-                    return op_list[val - 2].operation
-                else:
-                    return op_list[val - 1].operation
-            else:
-                return op_list[val].operation
+    if tot_operations < 2:
+        return None
+    val = tot_operations - 1
+    last_op, prev_op = op_list[val].operation, op_list[val - 1].operation
+    op_flags = dict(
+        frappe.get_all(
+            "Operation",
+            filters={"name": ("in", [last_op, prev_op])},
+            fields=["name", "dont_consider_in_lead_time"],
+            as_list=True,
+        )
+    )
+    bop = frappe.qb.DocType("BOM Operation")
+    bt_flags = dict(
+        frappe.qb.from_(bop)
+        .select(bop.operation, Sum(bop.dont_consider_in_lead_time))
+        .where(bop.parenttype == "BOM Template RIGPL")
+        .where(bop.parent == psdoc.bom_template)
+        .where(bop.operation.isin([last_op, prev_op]))
+        .groupby(bop.operation)
+        .run()
+    )
+    if no_cons_ld_time == op_flags.get(last_op) or no_cons_ld_time == flt(bt_flags.get(last_op)):
+        if no_cons_ld_time == op_flags.get(prev_op) or no_cons_ld_time == flt(bt_flags.get(prev_op)):
+            return op_list[val - 2].operation
+        else:
+            return op_list[val - 1].operation
+    else:
+        return op_list[val].operation
 
 
 def get_actual_qty_before_process_in_ps(psd, itd, operation):
@@ -148,12 +140,18 @@ def get_psop_trans_pend_qty(it_name, operation):
     return qty_dict
 
 
-def update_process_sheet_operations(ps_name, op_name):
+def update_process_sheet_operations(ps_name, op_name, psd=None, btd=None):
+    """
+    Updates the status and completed qty of one operation from its submitted Job Cards.
+    `psd` and `btd` are the Process Sheet and its BOM Template, when the caller has them loaded.
+    """
     changes_made = 0
     obsolete = 1
     opd = frappe.get_doc("BOM Operation", op_name)
-    psd = frappe.get_doc("Process Sheet", ps_name)
-    btd = frappe.get_doc("BOM Template RIGPL", psd.bom_template)
+    if psd is None:
+        psd = frappe.get_doc("Process Sheet", ps_name)
+    if btd is None:
+        btd = frappe.get_doc("BOM Template RIGPL", psd.bom_template)
     for op in btd.operations:
         if op.operation == opd.operation:
             obsolete = 0
@@ -163,13 +161,19 @@ def update_process_sheet_operations(ps_name, op_name):
             opd.status = "Obsolete"
             changes_made = 1
 
-    jc_comp = frappe.db.sql(
-        """SELECT SUM(total_completed_qty) AS comp_qty, SUM(short_close_operation) AS sc_op,
-    SUM(transfer_entry) AS transfer, SUM(qty_available) AS avail_qty
-    FROM `tabProcess Job Card RIGPL` WHERE docstatus = 1 AND operation_id = '%s'
-    AND process_sheet = '%s'"""
-        % (op_name, ps_name),
-        as_dict=1,
+    jcr = frappe.qb.DocType("Process Job Card RIGPL")
+    jc_comp = (
+        frappe.qb.from_(jcr)
+        .select(
+            Sum(jcr.total_completed_qty).as_("comp_qty"),
+            Sum(jcr.short_close_operation).as_("sc_op"),
+            Sum(jcr.transfer_entry).as_("transfer"),
+            Sum(jcr.qty_available).as_("avail_qty"),
+        )
+        .where(jcr.docstatus == 1)
+        .where(jcr.operation_id == op_name)
+        .where(jcr.process_sheet == ps_name)
+        .run(as_dict=True)
     )
     jc = jc_comp[0]
     comp_qty = flt(jc.comp_qty)
@@ -238,6 +242,7 @@ def update_process_sheet_quantities(ps_doc):
 def make_jc_for_process_sheet(ps_doc):
     jcr_needed = check_jc_needed_for_ps(ps_doc)
     if jcr_needed == 1:
+        btd = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template)
         for row in ps_doc.operations:
             if (
                 row.status == "Pending"
@@ -252,7 +257,7 @@ def make_jc_for_process_sheet(ps_doc):
                 )
                 if not existing_job_card:
                     create_job_card(ps_doc, row, auto_create=True)
-                    update_process_sheet_operations(ps_doc.name, row.name)
+                    update_process_sheet_operations(ps_doc.name, row.name, psd=ps_doc, btd=btd)
                 else:
                     # Update the Total Quantity for All the Job Cards which are existing
                     for jc in existing_job_card:
@@ -436,16 +441,12 @@ def stop_ps_operation(op_id, psd):
     opd = frappe.get_doc("BOM Operation", op_id)
     allowed = get_process_sheet_permission(psd)
     if allowed == 1:
-        jcl = frappe.db.sql(
-            """SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus=0
-        AND operation_id = '%s'"""
-            % op_id,
-            as_dict=1,
+        jcl = frappe.get_all(
+            "Process Job Card RIGPL", filters={"docstatus": 0, "operation_id": op_id}, pluck="name"
         )
-        if jcl:
-            for jc in jcl:
-                frappe.delete_doc("Process Job Card RIGPL", jc.name, for_reload=True)
-                frappe.msgprint(f"Deleted {jc.name}")
+        for jc in jcl:
+            frappe.delete_doc("Process Job Card RIGPL", jc, for_reload=True)
+            frappe.msgprint(f"Deleted {jc}")
         opd.status = "Stopped"
         opd.save()
     else:
@@ -463,24 +464,21 @@ def stop_process_sheet(ps_name):
             else:
                 ps_doc.status = "Stopped"
             # Delete Job Cards for Process Sheeet
-            jc_list = frappe.db.sql(
-                """SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus=0
-            AND process_sheet = '%s'"""
-                % ps_name,
-                as_dict=1,
+            jc_list = frappe.get_all(
+                "Process Job Card RIGPL",
+                filters={"docstatus": 0, "process_sheet": ps_doc.name},
+                pluck="name",
             )
-            if jc_list:
-                for jc in jc_list:
-                    frappe.delete_doc(
-                        "Process Job Card RIGPL", jc.name, for_reload=True
-                    )
+            for jc in jc_list:
+                frappe.delete_doc("Process Job Card RIGPL", jc, for_reload=True)
         ps_doc.save()
         for d in ps_doc.operations:
             if d.status == "In Progress" or d.status == "Pending":
                 d.status = "Stopped"
         update_process_sheet_quantities(ps_doc)
+        btd = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template)
         for op in ps_doc.operations:
-            update_process_sheet_operations(ps_doc.name, op.name)
+            update_process_sheet_operations(ps_doc.name, op.name, psd=ps_doc, btd=btd)
     else:
         frappe.throw(
             "Don't Have Permission to Stop or Unstop Process Sheet {}".format(ps_name)
@@ -528,36 +526,21 @@ def unstop_process_sheet(ps_name):
 
 def get_process_sheet_permission(ps_doc):
     user = frappe.session.user
-    usr_role_list = frappe.db.sql(
-        """SELECT role FROM `tabHas Role` WHERE parenttype = 'User'
-    AND parent = '%s'"""
-        % user,
-        as_list=1,
+    usr_roles = set(
+        frappe.get_all("Has Role", filters={"parenttype": "User", "parent": user}, pluck="role")
     )
-    is_sys_mgr = any("System Manager" in sublist for sublist in usr_role_list)
-    if is_sys_mgr == 1:
+    if "System Manager" in usr_roles:
         return 1
-    custom_perm_cancel = frappe.db.sql(
-        """SELECT role, parent, cancel FROM `tabCustom DocPerm`
-    WHERE parenttype = 'DocType' AND parent = '%s' AND cancel=1"""
-        % ps_doc.doctype,
-        as_dict=1,
-    )
+    perm_filters = {"parenttype": "DocType", "parent": ps_doc.doctype, "cancel": 1}
+    custom_perm_cancel = frappe.get_all("Custom DocPerm", filters=perm_filters, pluck="role")
     if custom_perm_cancel:
         for role in custom_perm_cancel:
-            cancel_allowed = any(role.role in sublist for sublist in usr_role_list)
-            if cancel_allowed == 1:
+            if role in usr_roles:
                 return 1
     else:
-        std_perm_cancel = frappe.db.sql(
-            """SELECT role, parent, cancel FROM `tabDocPerm`
-        WHERE parenttype = 'DocType' AND parent = '%s' AND cancel=1"""
-            % ps_doc.doctype,
-            as_dict=1,
-        )
+        std_perm_cancel = frappe.get_all("DocPerm", filters=perm_filters, pluck="role")
         for role in std_perm_cancel:
-            cancel_allowed = any(role.role in sublist for sublist in usr_role_list)
-            if cancel_allowed == 1:
+            if role in usr_roles:
                 return 1
     return 0
 
@@ -571,11 +554,12 @@ def get_bom_template_from_item_name(
     bt_list = get_bom_template_from_item(it_doc, so_detail)
     if not bt_list:
         frappe.throw("NO BOM Template Found")
-    elif len(bt_list) == 1:
-        bt_list = "('" + bt_list[0] + "')"
-    else:
-        bt_list = tuple(bt_list)
-    query = """SELECT name, title, remarks FROM `tabBOM Template RIGPL` WHERE name in {}""".format(
-        bt_list
+    bt = frappe.qb.DocType("BOM Template RIGPL")
+    return (
+        frappe.qb.from_(bt)
+        .select(bt.name, bt.title, bt.remarks)
+        .where(bt.name.isin(list(bt_list)))
+        .run(as_dict=as_dict)
     )
-    return frappe.db.sql(query, as_dict=as_dict)
+
+
