@@ -497,13 +497,23 @@ def unstop_process_sheet(ps_name):
                 ps_doc.status = "Short Closed"
             else:
                 ps_doc.status = "Completed"
+        # Recompute each operation from its Job Cards, then read the new values back, so that the
+        # save below does not write the old values again
         for op in ps_doc.operations:
             update_process_sheet_operations(ps_doc.name, op.name)
-            if (
-                op.status != "Completed"
-                or op.status != "Short Closed"
-                or op.status != "Obsolete"
-            ):
+        new_values = {
+            d.name: d
+            for d in frappe.get_all(
+                "BOM Operation",
+                filters={"parenttype": "Process Sheet", "parent": ps_doc.name},
+                fields=["name", "status", "completed_qty"],
+            )
+        }
+        for op in ps_doc.operations:
+            if op.name in new_values:
+                op.status = new_values[op.name].status
+                op.completed_qty = new_values[op.name].completed_qty
+            if op.status not in ("Completed", "Short Closed", "Obsolete"):
                 if op.completed_qty > 0:
                     op.status = "In Progress"
                 else:
