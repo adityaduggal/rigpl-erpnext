@@ -10,6 +10,7 @@ import re
 import frappe
 from erpnext.stock.stock_balance import update_bin_qty
 from frappe import _
+from frappe.query_builder.functions import Sum
 from frappe.utils import flt
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
@@ -698,10 +699,11 @@ def check_jc_needed_for_ps(psd):
         return 1
 
 
-def update_produced_qty(jc_doc, status="Submit"):
+def update_produced_qty(jc_doc, status="Submit", pro_sheet=None):
     # This function would update the produced qty in Process Sheet from Process Job Card and Close if needed
     # There are 2 places to update the Produced Qty one in the PSheet and Other in the Operation
-    pro_sheet = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+    if pro_sheet is None:
+        pro_sheet = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     min_qty, max_qty = get_min_max_ps_qty(pro_sheet.quantity)
     bal_qty = pro_sheet.produced_qty - pro_sheet.produced_qty
     if min_qty - pro_sheet.produced_qty < 0:
@@ -709,7 +711,6 @@ def update_produced_qty(jc_doc, status="Submit"):
     else:
         min_bal_qty = min_qty - pro_sheet.produced_qty
     max_bal_qty = max_qty - pro_sheet.produced_qty
-    pro_sheet = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     if min_bal_qty < jc_doc.total_completed_qty < max_bal_qty and bal_qty != 0:
         frappe.msgprint(
             "Balance Ordered Qty = {} but Manufactured Qty = {} for Job Card# {} for Item Code: {}. Check "
@@ -720,117 +721,25 @@ def update_produced_qty(jc_doc, status="Submit"):
 
     for ps_r in pro_sheet.operations:
         if ps_r.name == jc_doc.operation_id:
-            if status == "Submit":
-                tc_comp_qty = get_comp_qty_operation(ps_r.name)
-                frappe.db.set_value(
-                    "BOM Operation",
-                    ps_r.name,
-                    "completed_qty",
-                    tc_comp_qty if tc_comp_qty > 0 else 0,
-                )
-                if pro_sheet.status == "Submitted":
-                    frappe.db.set_value(
-                        "Process Sheet", pro_sheet.name, "status", "In Progress"
-                    )
-                if tc_comp_qty >= ps_r.planned_qty or jc_doc.short_close_operation == 1:
-                    frappe.db.set_value(
-                        "BOM Operation", ps_r.name, "status", "Completed"
-                    )
-                else:
-                    frappe.db.set_value(
-                        "BOM Operation", ps_r.name, "status", "In Progress"
-                    )
-            else:
-                tc_comp_qty = get_comp_qty_operation(
-                    ps_r.name
-                )  # jc_doc.total_completed_qty
-                frappe.db.set_value(
-                    "BOM Operation",
-                    ps_r.name,
-                    "completed_qty",
-                    tc_comp_qty if tc_comp_qty > 0 else 0,
-                )
-                if tc_comp_qty < ps_r.planned_qty or jc_doc.short_close_operation == 1:
-                    frappe.db.set_value(
-                        "BOM Operation", ps_r.name, "status", "In Progress"
-                    )
-
-            if ps_r.idx == 1 and status == "Submit":
-                tc_comp_qty = pro_sheet.produced_qty + jc_doc.total_completed_qty
-                frappe.db.set_value(
-                    "Process Sheet",
-                    pro_sheet.name,
-                    "produced_qty",
-                    tc_comp_qty if tc_comp_qty > 0 else 0,
-                )
-                if tc_comp_qty >= pro_sheet.quantity:
-                    frappe.db.set_value(
-                        "Process Sheet", pro_sheet.name, "status", "Completed"
-                    )
-                elif jc_doc.short_close_operation != 1:
-                    frappe.db.set_value(
-                        "Process Sheet", pro_sheet.name, "status", "In Progress"
-                    )
-                else:
-                    sc_qty = (
-                        pro_sheet.quantity
-                        - jc_doc.total_completed_qty
-                        - pro_sheet.produced_qty
-                    )
-                    tc_comp_qty = pro_sheet.quantity
-                    frappe.db.set_value(
-                        "Process Sheet",
-                        pro_sheet.name,
-                        "produced_qty",
-                        tc_comp_qty if tc_comp_qty > 0 else 0,
-                    )
-                    frappe.db.set_value(
-                        "Process Sheet",
-                        pro_sheet.name,
-                        "short_closed_qty",
-                        sc_qty if sc_qty > 0 else 0,
-                    )
-                    frappe.db.set_value(
-                        "Process Sheet", pro_sheet.name, "status", "Short Closed"
-                    )
-            elif ps_r.idx == 1 and status == "Cancel":
-                if jc_doc.short_close_operation != 1:
-                    tc_comp_qty = pro_sheet.produced_qty - jc_doc.total_completed_qty
-                    frappe.db.set_value(
-                        "Process Sheet",
-                        pro_sheet.name,
-                        "produced_qty",
-                        tc_comp_qty if tc_comp_qty > 0 else 0,
-                    )
-                else:
-                    sc_qty = 0
-                    tc_comp_qty = (
-                        pro_sheet.quantity
-                        - jc_doc.total_completed_qty
-                        - pro_sheet.short_closed_qty
-                    )
-                    frappe.db.set_value(
-                        "Process Sheet",
-                        pro_sheet.name,
-                        "produced_qty",
-                        tc_comp_qty if tc_comp_qty > 0 else 0,
-                    )
-                    frappe.db.set_value(
-                        "Process Sheet", pro_sheet.name, "short_closed_qty", 0
-                    )
+            op_values, ps_values = get_produced_qty_changes(
+                jc_doc, status, pro_sheet, ps_r, get_comp_qty_operation(ps_r.name)
+            )
+            if op_values:
+                frappe.db.set_value("BOM Operation", ps_r.name, op_values)
+            if ps_values:
+                frappe.db.set_value("Process Sheet", pro_sheet.name, ps_values)
 
 
 def get_comp_qty_operation(op_id):
-    qty_dict = frappe.db.sql(
-        """SELECT SUM(total_completed_qty) as tot_qty FROM `tabProcess Job Card RIGPL`
-    WHERE docstatus = 1 AND operation_id = '%s'"""
-        % op_id,
-        as_dict=1,
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    result = (
+        frappe.qb.from_(jc)
+        .select(Sum(jc.total_completed_qty))
+        .where(jc.docstatus == 1)
+        .where(jc.operation_id == op_id)
+        .run()
     )
-    if qty_dict:
-        return flt(qty_dict[0].tot_qty)
-    else:
-        return 0
+    return flt(result[0][0]) if result else 0
 
 
 def update_qty_for_prod(item_code, warehouse, table_name):
@@ -929,8 +838,8 @@ def get_min_max_ps_qty(qty):
     return min_qty, max_qty
 
 
-def update_pro_sheet_rm_from_jc(jc_doc, status="Submit"):
-    pro_sheet_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+def update_pro_sheet_rm_from_jc(jc_doc, status="Submit", pro_sheet=None):
+    pro_sheet_doc = pro_sheet or frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     for rm in jc_doc.rm_consumed:
         for row in pro_sheet_doc.rm_consumed:
             if row.item_code == rm.item_code:
@@ -952,3 +861,48 @@ def update_pro_sheet_rm_from_jc(jc_doc, status="Submit"):
         update_qty_for_prod(
             row.item_code, row.source_warehouse, table_name="rm_consumed"
         )
+
+
+def get_produced_qty_changes(jc_doc, status, pro_sheet, ps_r, tc_comp_qty):
+    """
+    Returns the new values ({field: value}) for the BOM Operation row `ps_r` and for the Process
+    Sheet after a Job Card submit or cancel. `tc_comp_qty` is the completed qty of the operation.
+    A later value for a field replaces an earlier one, as the single-field writes did.
+    """
+    op_values = {}
+    ps_values = {}
+    if status == "Submit":
+        op_values["completed_qty"] = tc_comp_qty if tc_comp_qty > 0 else 0
+        if pro_sheet.status == "Submitted":
+            ps_values["status"] = "In Progress"
+        if tc_comp_qty >= ps_r.planned_qty or jc_doc.short_close_operation == 1:
+            op_values["status"] = "Completed"
+        else:
+            op_values["status"] = "In Progress"
+    else:
+        op_values["completed_qty"] = tc_comp_qty if tc_comp_qty > 0 else 0
+        if tc_comp_qty < ps_r.planned_qty or jc_doc.short_close_operation == 1:
+            op_values["status"] = "In Progress"
+
+    if ps_r.idx == 1 and status == "Submit":
+        tc_comp_qty = pro_sheet.produced_qty + jc_doc.total_completed_qty
+        ps_values["produced_qty"] = tc_comp_qty if tc_comp_qty > 0 else 0
+        if tc_comp_qty >= pro_sheet.quantity:
+            ps_values["status"] = "Completed"
+        elif jc_doc.short_close_operation != 1:
+            ps_values["status"] = "In Progress"
+        else:
+            sc_qty = pro_sheet.quantity - jc_doc.total_completed_qty - pro_sheet.produced_qty
+            tc_comp_qty = pro_sheet.quantity
+            ps_values["produced_qty"] = tc_comp_qty if tc_comp_qty > 0 else 0
+            ps_values["short_closed_qty"] = sc_qty if sc_qty > 0 else 0
+            ps_values["status"] = "Short Closed"
+    elif ps_r.idx == 1 and status == "Cancel":
+        if jc_doc.short_close_operation != 1:
+            tc_comp_qty = pro_sheet.produced_qty - jc_doc.total_completed_qty
+            ps_values["produced_qty"] = tc_comp_qty if tc_comp_qty > 0 else 0
+        else:
+            tc_comp_qty = pro_sheet.quantity - jc_doc.total_completed_qty - pro_sheet.short_closed_qty
+            ps_values["produced_qty"] = tc_comp_qty if tc_comp_qty > 0 else 0
+            ps_values["short_closed_qty"] = 0
+    return op_values, ps_values

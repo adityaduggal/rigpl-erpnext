@@ -28,15 +28,14 @@ class ProcessJobCardRIGPL(Document):
         validate_produced_qty_jc(self)
         update_job_card_status(self)
         self.validate_rm_qty_consumed()
-        update_produced_qty(self)
-        update_planned_qty(
-            self.production_item,
-            frappe.get_value("Process Sheet", self.process_sheet, "fg_warehouse"),
-        )
+        # The steps below read only Process Sheet fields that update_produced_qty does not write
+        ps_doc = frappe.get_doc("Process Sheet", self.process_sheet)
+        update_produced_qty(self, pro_sheet=ps_doc)
+        update_planned_qty(self.production_item, ps_doc.fg_warehouse)
         create_submit_ste_from_job_card(self)
-        update_pro_sheet_rm_from_jc(self)
-        self.update_next_jc_status()
-        self.create_new_jc_if_needed()
+        update_pro_sheet_rm_from_jc(self, pro_sheet=ps_doc)
+        self.update_next_jc_status(ps_doc)
+        self.create_new_jc_if_needed(ps_doc)
 
     def on_update_after_submit(self):
         """
@@ -53,13 +52,12 @@ class ProcessJobCardRIGPL(Document):
         """
         update_job_card_status(self)
         cancel_delete_ste(self)
-        update_produced_qty(self, status="Cancel")
-        update_planned_qty(
-            self.production_item,
-            frappe.get_value("Process Sheet", self.process_sheet, "fg_warehouse"),
-        )
-        update_pro_sheet_rm_from_jc(self, status="Cancel")
-        self.update_next_jc_status()
+        ps_doc = frappe.get_doc("Process Sheet", self.process_sheet)
+        update_produced_qty(self, status="Cancel", pro_sheet=ps_doc)
+        update_planned_qty(self.production_item, ps_doc.fg_warehouse)
+        update_pro_sheet_rm_from_jc(self, status="Cancel", pro_sheet=ps_doc)
+        self.update_next_jc_status(ps_doc)
+        # update_process_sheet_operations loads the Process Sheet again: it reads the new status
         update_process_sheet_operations(
             ps_name=self.process_sheet, op_name=self.operation_id
         )
@@ -73,8 +71,9 @@ class ProcessJobCardRIGPL(Document):
         update_job_card_priority(self)
         update_job_card_total_qty(self)
         update_job_card_status(self)
-        self.update_job_card_qty_text()
-        self.uom = frappe.get_value("Item", self.production_item, "stock_uom")
+        it_doc = frappe.get_doc("Item", self.production_item)
+        self.update_job_card_qty_text(it_doc)
+        self.uom = it_doc.stock_uom
         if self.s_warehouse == self.t_warehouse:
             self.no_stock_entry = 1
         if not self.flags.ignore_mandatory:
@@ -87,8 +86,10 @@ class ProcessJobCardRIGPL(Document):
             validate_qty_decimal(self, "rm_consumed")
             validate_qty_decimal(self, "item_manufactured")
             pro_doc = frappe.get_doc("Process Sheet", self.process_sheet)
+            op_doc = None
             for row in pro_doc.operations:
                 if row.name == self.operation_id:
+                    op_doc = row
                     self.operation = row.operation
                     self.allow_consumption_of_rm = row.allow_consumption_of_rm
                     self.allow_production_of_wip_materials = (
@@ -102,11 +103,11 @@ class ProcessJobCardRIGPL(Document):
                 if not self.rm_consumed:
                     get_items_from_process_sheet_for_job_card(self, "rm_consumed")
 
-            if self.transfer_entry == 1 and not self.s_warehouse:
+            if op_doc is None:
                 op_doc = frappe.get_doc("BOM Operation", self.operation_id)
+            if self.transfer_entry == 1 and not self.s_warehouse:
                 self.s_warehouse = op_doc.source_warehouse
             else:
-                op_doc = frappe.get_doc("BOM Operation", self.operation_id)
                 if op_doc.transfer_entry != self.transfer_entry:
                     self.transfer_entry = op_doc.transfer_entry
 
@@ -120,7 +121,7 @@ class ProcessJobCardRIGPL(Document):
                         "parentfield": "rm_consumed",
                     },
                 )
-                self.update_calculated_qty(rm_item_dict)
+                self.update_calculated_qty(rm_item_dict, pro_doc)
                 rm_qty_dict = find_item_quantities(rm_item_dict)
 
                 for rm in rm_qty_dict:
@@ -170,11 +171,12 @@ class ProcessJobCardRIGPL(Document):
                             d.uom = wip.stock_uom
             update_jc_rm_status(self)
 
-    def update_job_card_qty_text(self):
+    def update_job_card_qty_text(self, it_doc=None):
         """
         Updates the Quantity Text So that Items for Production is Not Needed to be Open
         """
-        it_doc = frappe.get_doc("Item", self.production_item)
+        if it_doc is None:
+            it_doc = frappe.get_doc("Item", self.production_item)
         qdict = get_quantities_for_item(it_doc)
         ready = qdict.finished_qty + qdict.dead_qty
         qty_for_order = qdict.on_so - ready - qdict.on_po
@@ -194,7 +196,7 @@ class ProcessJobCardRIGPL(Document):
         if self.quantity_details != qty_text:
             self.quantity_details = qty_text
 
-    def update_calculated_qty(self, rm_item_dict):
+    def update_calculated_qty(self, rm_item_dict, pro_sheet_doc=None):
         """
         Updates the Calculated Quantity in WIP Consumed and RM Consumed Tables of JCR
         """
@@ -202,7 +204,8 @@ class ProcessJobCardRIGPL(Document):
         fg_rm_qty = self.total_completed_qty + self.total_rejected_qty
         if fg_rm_qty == 0:
             fg_rm_qty = self.for_quantity
-        pro_sheet_doc = frappe.get_doc("Process Sheet", self.process_sheet)
+        if pro_sheet_doc is None:
+            pro_sheet_doc = frappe.get_doc("Process Sheet", self.process_sheet)
         for wip in self.item_manufactured:
             wip_calc_qty_dict = calculated_value_from_formula(
                 rm_item_dict,
@@ -255,8 +258,10 @@ class ProcessJobCardRIGPL(Document):
                 self, row, row.calculated_qty, row.qty, row.uom, row.bypass_qty_check
             )
 
-    def update_next_jc_status(self):
-        nxt_jc_list = get_next_job_card(self.name)
+    def update_next_jc_status(self, ps_doc=None):
+        if ps_doc is None:
+            ps_doc = frappe.get_doc("Process Sheet", self.process_sheet)
+        nxt_jc_list = get_next_job_cards(self, ps_doc)
         if nxt_jc_list:
             for jc in nxt_jc_list:
                 nxt_jc_doc = frappe.get_doc(self.doctype, jc[0])
@@ -264,8 +269,9 @@ class ProcessJobCardRIGPL(Document):
                 update_job_card_status(nxt_jc_doc)
                 nxt_jc_doc.save()
 
-    def create_new_jc_if_needed(self):
-        ps_doc = frappe.get_doc("Process Sheet", self.process_sheet)
+    def create_new_jc_if_needed(self, ps_doc=None):
+        if ps_doc is None:
+            ps_doc = frappe.get_doc("Process Sheet", self.process_sheet)
         jc_data = {}
         jc_data["operation"] = self.operation
         jc_data["workstation"] = self.workstation

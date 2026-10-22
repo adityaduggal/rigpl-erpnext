@@ -8,6 +8,7 @@ import datetime
 import time
 
 import frappe
+from frappe.query_builder.functions import Sum
 from frappe.utils import (
     flt,
     get_datetime,
@@ -331,34 +332,43 @@ def return_job_card_qty(jcd):
     tot_qty = 0
     trf_entry = 0
     for_qty = 0
-    extra_cond = ""
-    if jcd.sales_order_item:
-        extra_cond = " AND ps.sales_order_item = '%s'" % jcd.sales_order_item
-    query = """SELECT ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
-    pso.allow_consumption_of_rm, pso.status, pso.transfer_entry, pso.name AS op_name
-    FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name
-    AND pso.parenttype = 'Process Sheet' AND pso.completed_qty < pso.planned_qty AND pso.status != "Completed"
-    AND pso.status NOT IN ("Short Closed", "Stopped", "Obsolete") AND ps.production_item = '%s'
-    AND pso.operation = '%s' %s ORDER BY ps.creation""" % (
-        jcd.production_item,
-        jcd.operation,
-        extra_cond,
+    ps = frappe.qb.DocType("Process Sheet")
+    pso = frappe.qb.DocType("BOM Operation")
+    query = (
+        frappe.qb.from_(ps)
+        .join(pso)
+        .on(pso.parent == ps.name)
+        .select(
+            ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
+            pso.allow_consumption_of_rm, pso.status, pso.transfer_entry, pso.name.as_("op_name"),
+        )
+        .where(ps.docstatus == 1)
+        .where(pso.parenttype == "Process Sheet")
+        .where(pso.completed_qty < pso.planned_qty)
+        .where(pso.status != "Completed")
+        .where(pso.status.notin(["Short Closed", "Stopped", "Obsolete"]))
+        .where(ps.production_item == jcd.production_item)
+        .where(pso.operation == jcd.operation)
+        .orderby(ps.creation)
     )
-    ps_sheet = frappe.db.sql(query, as_dict=1)
+    if jcd.sales_order_item:
+        query = query.where(ps.sales_order_item == jcd.sales_order_item)
+    ps_sheet = query.run(as_dict=True)
+    ps_rm_codes = {}
+    if jcd.allow_consumption_of_rm == 1:
+        ps_rm_codes = get_rm_item_codes(
+            [ps.name for ps in ps_sheet if ps.allow_consumption_of_rm == 1], "Process Sheet"
+        )
     for ps in ps_sheet:
         if ps.op_name == jcd.operation_id:
             for_qty = ps.planned_qty - ps.completed_qty
         if ps.allow_consumption_of_rm == 1 and jcd.allow_consumption_of_rm == 1:
             # Now check if the Raw Material is Same in both the PS and JC then you can combine the quantities
-            psd = frappe.get_doc("Process Sheet", ps.name)
-
-            psd_rm = []
+            psd_rm = ps_rm_codes.get(ps.name, [])
             jcd_rm = []
             same_rm = 0
             for rm in jcd.rm_consumed:
                 jcd_rm.append(rm.item_code)
-            for rm in psd.rm_consumed:
-                psd_rm.append(rm.item_code)
             if len(psd_rm) == len(jcd_rm):
                 for rm in psd_rm:
                     if rm in jcd_rm:
@@ -521,58 +531,28 @@ def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
     not same
     3. Also there is a Case when the operation is same but One is Transfer and another is Non Transfer then its
     not repeat
+    Without ps_doc there is nothing to compare, so no Job Card is existing.
     """
-    it_doc = frappe.get_doc("Item", item_name)
-    if it_doc.made_to_order == 1:
-        exist_jc = frappe.db.sql(
-            """SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0
-            AND operation = '%s' AND sales_order_item = '%s' AND production_item = '%s'"""
-            % (operation, so_detail, item_name),
-            as_dict=1,
-        )
-    else:
-        query = """SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus = 0
-            AND operation = '%s' AND production_item = '%s' """ % (
-            operation,
-            item_name,
-        )
-        exist_jc = frappe.db.sql(query, as_dict=1)
-
-    new_exist_jc = []
-    new_jc_dict = frappe._dict({})
-    if ps_doc:
-        for op in ps_doc.operations:
-            if op.operation == operation:
-                if op.allow_consumption_of_rm == 1:
-                    for jc in exist_jc:
-                        jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
-                        if jcd.allow_consumption_of_rm == 1:
-                            # Now both Operation and JC have consumption of RM and now check if RM is same
-                            jc_rm = []
-                            ps_rm = []
-                            same_rm = 0
-                            for rm in jcd.rm_consumed:
-                                jc_rm.append(rm.item_code)
-                            for rm in ps_doc.rm_consumed:
-                                ps_rm.append(rm.item_code)
-                            if len(ps_rm) == len(jc_rm):
-                                for rm in jc_rm:
-                                    if rm in ps_rm:
-                                        same_rm += 1
-                                if same_rm == len(jc_rm):
-                                    # Return JC No
-                                    new_jc_dict["name"] = jc.name
-                                    new_exist_jc.append(new_jc_dict.copy())
-                                else:
-                                    # JC is having different RM so no existing JC
-                                    pass
-                else:
-                    for jc in exist_jc:
-                        jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
-                        if jcd.transfer_entry == 1:
-                            new_jc_dict["name"] = jc.name
-                            new_exist_jc.append(new_jc_dict.copy())
-    return new_exist_jc
+    if not ps_doc:
+        return []
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    query = (
+        frappe.qb.from_(jc)
+        .select(jc.name, jc.allow_consumption_of_rm, jc.transfer_entry)
+        .where(jc.docstatus == 0)
+        .where(jc.operation == operation)
+        .where(jc.production_item == item_name)
+    )
+    if frappe.get_value("Item", item_name, "made_to_order") == 1:
+        if so_detail is None:
+            return []
+        query = query.where(jc.sales_order_item == so_detail)
+    exist_jc = query.run(as_dict=True)
+    jc_rm = get_rm_item_codes(
+        [d.name for d in exist_jc if d.allow_consumption_of_rm == 1], "Process Job Card RIGPL"
+    )
+    ps_rm = [rm.item_code for rm in ps_doc.rm_consumed]
+    return match_existing_job_cards(ps_doc.operations, operation, exist_jc, jc_rm, ps_rm)
 
 
 def validate_qty_decimal(document, table_name):
@@ -1108,13 +1088,12 @@ def get_made_to_stock_qty(jc_doc):
     # But first process qty = qty of Sales Order if the Item is Sales Job Work Item since JW items are received at SO
     # Else the qty available in Source Warehouse is Equal to the qty available for completed job cards for target WH
     ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
-    it_doc = frappe.get_doc("Item", jc_doc.production_item)
     found = 0
     for op in ps_doc.operations:
         if op.name == jc_doc.operation_id or op.operation == jc_doc.operation:
             found = 1
             if op.idx == 1:
-                if it_doc.sales_job_work == 1:
+                if frappe.get_value("Item", jc_doc.production_item, "sales_job_work") == 1:
                     return flt(
                         frappe.get_value(
                             "Sales Order Item", jc_doc.sales_order_item, "qty"
@@ -1127,128 +1106,127 @@ def get_made_to_stock_qty(jc_doc):
                 completed_qty = 0
                 if jc_doc.s_warehouse:
                     # If Source WH is there then check IN - OUT Qty, IN Qty is also from GRN for Sub-Contracting.
-                    query = """SELECT SUM(total_completed_qty)  as in_qty FROM `tab%s` WHERE status = "Completed"
-                    AND t_warehouse = '%s' AND docstatus = 1 AND sales_order_item='%s'""" % (
-                        jc_doc.doctype,
-                        jc_doc.s_warehouse,
-                        jc_doc.sales_order_item,
-                    )
-                    in_qty = frappe.db.sql(query, as_dict=1)
+                    in_qty = get_completed_qty_for_warehouse(jc_doc, "t_warehouse")
                     grn_in_qty = get_grn_qty(jc_doc)
-                    if in_qty:
-                        in_qty = flt(in_qty[0].in_qty)
-                    else:
-                        in_qty = 0
-                    out_qty = frappe.db.sql(
-                        """SELECT SUM(total_completed_qty)  as out_qty FROM `tab%s`
-                    WHERE status = "Completed" AND s_warehouse = '%s' AND docstatus = 1 AND sales_order_item='%s'"""
-                        % (jc_doc.doctype, jc_doc.s_warehouse, jc_doc.sales_order_item),
-                        as_dict=1,
-                    )
-                    if out_qty:
-                        out_qty = flt(out_qty[0].out_qty)
-                    else:
-                        out_qty = 0
+                    out_qty = get_completed_qty_for_warehouse(jc_doc, "s_warehouse")
                     completed_qty = in_qty - out_qty + grn_in_qty
                 return completed_qty
     if found != 1:
         frappe.throw(
-            "For {frappe.get_desk_link(jc_doc.doctype, jc_doc.name)}, Operation {jc_doc.operation} "
-            "is not mentioned in {frappe.get_desk_link(ps_doc.doctype, ps_doc.name)}"
+            f"For {frappe.get_desk_link(jc_doc.doctype, jc_doc.name)}, Operation {jc_doc.operation} "
+            f"is not mentioned in {frappe.get_desk_link(ps_doc.doctype, ps_doc.name)}"
         )
 
 
 def get_grn_qty(jc_doc):
+    """
+    Returns the GRN qty into the source warehouse of `jc_doc` for the subcontracting Job Cards of
+    the same SO item. Each Job Card counts the GRN rows of its first PO row.
+    """
     qty = 0
-    prev_jc = frappe.db.sql(
-        """SELECT name FROM `tabProcess Job Card RIGPL` WHERE sales_order_item = '%s'
-    AND docstatus = 1 AND name != '%s'"""
-        % (jc_doc.sales_order_item, jc_doc.name),
-        as_dict=1,
+    if jc_doc.sales_order_item is None:
+        return qty
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    prev_jc = (
+        frappe.qb.from_(jc)
+        .select(jc.name, jc.operation)
+        .where(jc.sales_order_item == jc_doc.sales_order_item)
+        .where(jc.docstatus == 1)
+        .where(jc.name != jc_doc.name)
+        .run(as_dict=True)
     )
-    if prev_jc:
-        for oth_jc in prev_jc:
-            oth_doc = frappe.get_doc(jc_doc.doctype, oth_jc.name)
-            op_doc = frappe.get_doc("Operation", oth_doc.operation)
-            if op_doc.is_subcontracting == 1:
-                po = frappe.db.sql(
-                    """SELECT po.name as po, poi.name FROM `tabPurchase Order` po,
-                `tabPurchase Order Item` poi WHERE po.docstatus=1 AND poi.parent = po.name ANd poi.reference_dn = '%s'
-                AND poi.reference_dt = '%s'"""
-                    % (oth_jc.name, jc_doc.doctype),
-                    as_dict=1,
-                )
-                if po:
-                    # Check if GRN is submitted for this PO
-                    grn_list = frappe.db.sql(
-                        """SELECT pri.qty, pri.warehouse FROM `tabPurchase Receipt` pr,
-                    `tabPurchase Receipt Item` pri WHERE pri.parent = pr.name AND pr.docstatus = 1
-                    AND pri.purchase_order_item = '%s'"""
-                        % po[0].name,
-                        as_dict=1,
-                    )
-                    if grn_list:
-                        for grn in grn_list:
-                            if grn.warehouse == jc_doc.s_warehouse:
-                                qty += grn.qty
+    subcon_ops = get_subcontracting_operations({d.operation for d in prev_jc})
+    subcon_jc = [d.name for d in prev_jc if d.operation in subcon_ops]
+    if not subcon_jc:
+        return qty
+    po = frappe.qb.DocType("Purchase Order")
+    poi = frappe.qb.DocType("Purchase Order Item")
+    first_po_item = {}
+    for reference_dn, po_item in (
+        frappe.qb.from_(po)
+        .join(poi)
+        .on(poi.parent == po.name)
+        .select(poi.reference_dn, poi.name)
+        .where(po.docstatus == 1)
+        .where(poi.reference_dn.isin(subcon_jc))
+        .where(poi.reference_dt == jc_doc.doctype)
+        .run()
+    ):
+        first_po_item.setdefault(reference_dn, po_item)
+    if not first_po_item:
+        return qty
+    pr = frappe.qb.DocType("Purchase Receipt")
+    pri = frappe.qb.DocType("Purchase Receipt Item")
+    grn_rows = {}
+    for po_item, grn_qty, warehouse in (
+        frappe.qb.from_(pr)
+        .join(pri)
+        .on(pri.parent == pr.name)
+        .select(pri.purchase_order_item, pri.qty, pri.warehouse)
+        .where(pr.docstatus == 1)
+        .where(pri.purchase_order_item.isin(list(set(first_po_item.values()))))
+        .run()
+    ):
+        grn_rows.setdefault(po_item, []).append((grn_qty, warehouse))
+    for name in subcon_jc:
+        for grn_qty, warehouse in grn_rows.get(first_po_item.get(name), []):
+            if warehouse == jc_doc.s_warehouse:
+                qty += grn_qty
     return qty
 
 
 def get_next_job_card(jc_no):
     jc_doc = frappe.get_doc("Process Job Card RIGPL", jc_no)
-    ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
-    jc_list = []
-    for d in ps_doc.operations:
-        if d.name == jc_doc.operation_id or d.operation == jc_doc.operation:
-            # Found the Job Card Operation in PSheet
-            if d.idx == len(ps_doc.operations):
-                pass
-            else:
-                jc_list = get_job_card_from_process_sno((d.idx + 1), ps_doc)
-    return jc_list
+    return get_next_job_cards(jc_doc, frappe.get_doc("Process Sheet", jc_doc.process_sheet))
 
 
 def get_job_card_from_process_sno(operation_sno, ps_doc):
     jc_list = []
-    if ps_doc.sales_order_item:
-        cond = " AND sales_order_item = '%s'" % ps_doc.sales_order_item
-    else:
-        cond = ""
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
     for d in ps_doc.operations:
         if d.idx == operation_sno:
-            query = """SELECT name FROM `tabProcess Job Card RIGPL` WHERE operation = '%s' AND docstatus = 0
-            AND production_item ='%s' %s ORDER BY creation""" % (
-                d.operation,
-                ps_doc.production_item,
-                cond,
+            query = (
+                frappe.qb.from_(jc)
+                .select(jc.name)
+                .where(jc.operation == d.operation)
+                .where(jc.docstatus == 0)
+                .where(jc.production_item == ps_doc.production_item)
+                .orderby(jc.creation)
             )
-            jc_list = frappe.db.sql(query, as_list=1)
+            if ps_doc.sales_order_item:
+                query = query.where(jc.sales_order_item == ps_doc.sales_order_item)
+            jc_list = [list(row) for row in query.run()]
     return jc_list
 
 
 def cancel_delete_ste(jc_doc):
     if jc_doc.no_stock_entry != 1:
-        ste_jc = frappe.db.sql(
-            """SELECT name FROM `tabStock Entry` WHERE process_job_card = '%s'"""
-            % jc_doc.name,
-            as_dict=1,
+        ste_jc = frappe.get_all(
+            "Stock Entry", filters={"process_job_card": jc_doc.name}, pluck="name"
         )
         if ste_jc:
-            cancel_delete_ste_from_name(ste_jc[0].name)
+            cancel_delete_ste_from_name(ste_jc[0])
     else:
         frappe.msgprint("No Stock Entry Cancelled")
 
 
 def delete_job_card(pro_sheet_doc):
+    op_names = [row.name for row in pro_sheet_doc.operations]
+    if not op_names:
+        return
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    first_jc = {}
+    for name, operation_id in (
+        frappe.qb.from_(jc)
+        .select(jc.name, jc.operation_id)
+        .where(jc.docstatus < 1)
+        .where(jc.operation_id.isin(op_names))
+        .run()
+    ):
+        first_jc.setdefault(operation_id, name)
     for row in pro_sheet_doc.operations:
-        pro_jc = frappe.db.sql(
-            """SELECT name FROM `tabProcess Job Card RIGPL` WHERE docstatus < 1 AND operation_id
-        = '%s'"""
-            % row.name,
-            as_dict=1,
-        )
-        if pro_jc:
-            frappe.delete_doc("Process Job Card RIGPL", pro_jc[0].name, for_reload=True)
+        if row.name in first_jc:
+            frappe.delete_doc("Process Job Card RIGPL", first_jc[row.name], for_reload=True)
 
 
 @frappe.whitelist()
@@ -1283,3 +1261,82 @@ def make_jc_from_pro_sheet_row(
         opd.save()
     else:
         frappe.msgprint(f"No Job Card is Needed for {psd.name}")
+
+
+def get_rm_item_codes(parents, parenttype):
+    """
+    Returns {parent: [item codes of its rm_consumed rows by idx]} for Process Sheets or Job Cards
+    """
+    codes = {}
+    if not parents:
+        return codes
+    for row in frappe.get_all(
+        "Process Sheet Items",
+        filters={"parenttype": parenttype, "parentfield": "rm_consumed", "parent": ("in", parents)},
+        fields=["parent", "item_code"],
+        order_by="idx",
+    ):
+        codes.setdefault(row.parent, []).append(row.item_code)
+    return codes
+
+
+def match_existing_job_cards(ps_operations, operation, job_cards, jc_rm, ps_rm):
+    """
+    Returns [{name}] of the draft Job Cards that are the same as the operation rows of the Process
+    Sheet. `jc_rm` is {job card: [RM item codes]}, `ps_rm` the RM item codes of the Process Sheet.
+    """
+    new_exist_jc = []
+    for op in ps_operations:
+        if op.operation == operation:
+            if op.allow_consumption_of_rm == 1:
+                for jc in job_cards:
+                    if jc.allow_consumption_of_rm == 1:
+                        # Now both Operation and JC have consumption of RM and now check if RM is same
+                        rm_codes = jc_rm.get(jc.name, [])
+                        if len(ps_rm) == len(rm_codes):
+                            same_rm = 0
+                            for rm in rm_codes:
+                                if rm in ps_rm:
+                                    same_rm += 1
+                            if same_rm == len(rm_codes):
+                                new_exist_jc.append(frappe._dict(name=jc.name))
+            else:
+                for jc in job_cards:
+                    if jc.transfer_entry == 1:
+                        new_exist_jc.append(frappe._dict(name=jc.name))
+    return new_exist_jc
+
+
+def get_completed_qty_for_warehouse(jc_doc, warehouse_field):
+    """
+    Returns the completed qty of the submitted Job Cards of the SO item whose `warehouse_field`
+    (t_warehouse or s_warehouse) is the source warehouse of `jc_doc`
+    """
+    if jc_doc.sales_order_item is None:
+        return 0
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    result = (
+        frappe.qb.from_(jc)
+        .select(Sum(jc.total_completed_qty))
+        .where(jc.status == "Completed")
+        .where(getattr(jc, warehouse_field) == jc_doc.s_warehouse)
+        .where(jc.docstatus == 1)
+        .where(jc.sales_order_item == jc_doc.sales_order_item)
+        .run()
+    )
+    return flt(result[0][0]) if result else 0
+
+
+def get_next_job_cards(jc_doc, ps_doc):
+    """
+    Returns [[name]] of the draft Job Cards of the operation after the operation of `jc_doc`
+    """
+    jc_list = []
+    for d in ps_doc.operations:
+        if d.name == jc_doc.operation_id or d.operation == jc_doc.operation:
+            # Found the Job Card Operation in PSheet
+            if d.idx == len(ps_doc.operations):
+                pass
+            else:
+                jc_list = get_job_card_from_process_sno((d.idx + 1), ps_doc)
+    return jc_list
