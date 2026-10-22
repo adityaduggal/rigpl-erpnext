@@ -40,5 +40,6 @@ frappe.query_reports["BOM Templates"] = {
 			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_spl_query"}}
 		}
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 };
