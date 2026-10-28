@@ -11,6 +11,7 @@ __pycache__/
 *$py.class
 
 # Local tool folders (Claude Code, Continue, superpowers mockups)
-.claude/
+.claude/*
+!.claude/skills/
 .continue/
 .superpowers/
