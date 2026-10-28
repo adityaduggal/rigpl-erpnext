@@ -45,6 +45,8 @@ def validate(doc, method):
 
         doc.pl_item = 0
 
+    validate_pl_item_rule(doc)
+
     if doc.variant_of is None:
         doc.item_name = doc.name
         doc.item_code = doc.name
@@ -52,6 +54,37 @@ def validate(doc, method):
         doc.description = doc.name
     else:
         set_website_specs(doc,method)
+
+
+def validate_pl_item_rule(doc):
+    """
+    A variant can be a PL Item only if its template is one (#107), because the website
+    publish rule uses pl_item. A disabled template turns off PL Item on its variants in
+    on_update (item_sync.on_item_update), so that a template can be disabled in one save.
+    """
+    if doc.variant_of:
+        if cint(doc.pl_item) and not cint(frappe.db.get_value("Item", doc.variant_of, "pl_item")):
+            frappe.throw(
+                f"Item {doc.name} cannot be a PL Item, because its template {doc.variant_of} "
+                f"is not a PL Item. Set PL Item on the template first.",
+                title="Template is not a PL Item",
+            )
+        return
+
+    if not doc.has_variants or cint(doc.pl_item) or doc.is_new():
+        return
+    variants = frappe.get_all("Item", filters={"variant_of": doc.name, "pl_item": 1}, pluck="name")
+    if not variants:
+        return
+    if cint(doc.disabled):
+        doc.flags.variants_to_unlist = variants
+        return
+    shown = ", ".join(variants[:10]) + (f" and {len(variants) - 10} more" if len(variants) > 10 else "")
+    frappe.throw(
+        f"Template {doc.name} cannot stop being a PL Item, because {len(variants)} of its "
+        f"variants are PL Items: {shown}. Turn off PL Item on these variants first.",
+        title="Variants are PL Items",
+    )
 
 
 def autoname(doc,method):

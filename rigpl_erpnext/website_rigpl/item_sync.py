@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 import frappe
+from frappe.query_builder.functions import Count
 from frappe.utils import cint
 from frappe.website.render import clear_cache
 
@@ -119,9 +120,35 @@ def set_web_long_description(item_code: str, long_desc: str) -> bool:
 
 
 def on_item_update(doc, method=None):
-    """Item on_update. Item validate puts the generated long description in the flags."""
+    """Item on_update. Item validate puts the generated long description, and the variants
+    of a disabled template that are still PL Items, in the flags."""
+    variants = doc.flags.variants_to_unlist
+    if variants:
+        unlist_variants(variants)
     make_missing_web_items([doc.name])
     sync_web_items([doc.name])
     long_desc = doc.flags.web_long_description
     if doc.variant_of and long_desc and set_web_long_description(doc.name, long_desc):
         clear_cache()
+
+
+def unlist_variants(item_codes: List[str]) -> None:
+    """Turn off PL Item on `item_codes` and unpublish their Website Items (#107)."""
+    item = frappe.qb.DocType("Item")
+    frappe.qb.update(item).set(item.pl_item, 0).where(item.name.isin(item_codes)).run()
+    sync_web_items(item_codes)
+    frappe.msgprint(f"PL Item is turned off on {len(item_codes)} variants of this template.")
+
+
+def get_pl_item_mismatches() -> List[dict]:
+    """Templates that are not PL Items but have variants that are (#107), with the count."""
+    template = frappe.qb.DocType("Item")
+    variant = frappe.qb.DocType("Item").as_("variant")
+    return (
+        frappe.qb.from_(template)
+        .inner_join(variant)
+        .on(variant.variant_of == template.name)
+        .select(template.name, Count(variant.name).as_("variants"))
+        .where((template.pl_item == 0) & (variant.pl_item == 1))
+        .groupby(template.name)
+    ).run(as_dict=True)

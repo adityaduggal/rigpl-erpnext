@@ -8,7 +8,11 @@ from operator import itemgetter
 from time import time
 from frappe.utils.background_jobs import enqueue
 from frappe.website.render import clear_cache
-from rigpl_erpnext.website_rigpl.item_sync import make_missing_web_items, sync_web_items
+from rigpl_erpnext.website_rigpl.item_sync import (
+    get_pl_item_mismatches,
+    make_missing_web_items,
+    sync_web_items,
+)
 
 
 def enqueue_check_wrong_variants():
@@ -21,6 +25,7 @@ def check_wrong_variants():
     check_expired_items()
     check_items_as_per_sorting_for_website()
     check_web_items()
+    report_pl_item_mismatches()
     tot_time = int(time() - st_time)
     print(f"Total Time Taken = {tot_time} seconds")
 
@@ -42,6 +47,18 @@ def check_web_items():
     clear_cache()
     print(f"Website Items made = {made}, changed as per Item = {changed}")
     frappe.db.commit()
+
+
+def report_pl_item_mismatches():
+    """Item validate stops new mismatches (#107). This lists the ones from before it."""
+    rows = get_pl_item_mismatches()
+    if not rows:
+        return
+    message = "Templates that are not PL Items but have variants that are PL Items:\n" + "\n".join(
+        f"{row.name}: {row.variants} variants" for row in rows
+    )
+    print(message)
+    frappe.log_error(message, "PL Item of template and variants do not match")
 
 
 def check_items_as_per_sorting_for_website():
