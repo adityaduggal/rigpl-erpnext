@@ -1046,6 +1046,27 @@ def get_wh_wise_qty_for_items(items, non_zero=False):
     return qty_dict
 
 
+def get_template_max_lead_times(templates, exclude_items=()):
+    """
+    Returns {template: maximum lead time of its enabled variants} like get_max_lead_times for
+    many templates. exclude_items are left out, for example the items without lead time data.
+    """
+    it_tab = frappe.qb.DocType("Item")
+    max_lead_times = {}
+    exclude_items = list(exclude_items)
+    for chunk in chunks(templates):
+        query = (
+            frappe.qb.from_(it_tab)
+            .select(it_tab.variant_of, Max(it_tab.lead_time_days))
+            .where(it_tab.variant_of.isin(chunk) & (it_tab.disabled == 0))
+            .groupby(it_tab.variant_of)
+        )
+        if exclude_items:
+            query = query.where(it_tab.name.notin(exclude_items))
+        max_lead_times.update({template: flt(max_lt) for template, max_lt in query.run()})
+    return max_lead_times
+
+
 def get_max_lead_times(item_name):
     """
     Returns the Maximum lead time for an Item. Basically when an item does not have a Sales Order

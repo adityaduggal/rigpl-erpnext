@@ -33,12 +33,10 @@ def get_last_operation_for_psheet(psdoc, no_cons_ld_time):
     no_cons_ld_time is Boolean basically if Not Consider Operation in Lead time is a check in
     operation master also if the BOM template has checked it can be used
     """
-    op_list = psdoc.operations
-    tot_operations = len(op_list)
-    if tot_operations < 2:
+    op_names = [opr.operation for opr in psdoc.operations]
+    if len(op_names) < 2:
         return None
-    val = tot_operations - 1
-    last_op, prev_op = op_list[val].operation, op_list[val - 1].operation
+    last_op, prev_op = op_names[-1], op_names[-2]
     op_flags = dict(
         frappe.get_all(
             "Operation",
@@ -57,13 +55,27 @@ def get_last_operation_for_psheet(psdoc, no_cons_ld_time):
         .groupby(bop.operation)
         .run()
     )
+    return pick_last_operation(op_names, op_flags, bt_flags, no_cons_ld_time)
+
+
+def pick_last_operation(op_names, op_flags, bt_flags, no_cons_ld_time):
+    """
+    Returns the Last Operation from the operation names of a Process Sheet in order
+    op_flags is {operation: Dont Consider in Lead Time of the Operation} and bt_flags is
+    {operation: sum of the same flag in the BOM Template}
+    """
+    tot_operations = len(op_names)
+    if tot_operations < 2:
+        return None
+    val = tot_operations - 1
+    last_op, prev_op = op_names[val], op_names[val - 1]
     if no_cons_ld_time == op_flags.get(last_op) or no_cons_ld_time == flt(bt_flags.get(last_op)):
         if no_cons_ld_time == op_flags.get(prev_op) or no_cons_ld_time == flt(bt_flags.get(prev_op)):
-            return op_list[val - 2].operation
+            return op_names[val - 2]
         else:
-            return op_list[val - 1].operation
+            return op_names[val - 1]
     else:
-        return op_list[val].operation
+        return op_names[val]
 
 
 def get_actual_qty_before_process_in_ps(psd, itd, operation):

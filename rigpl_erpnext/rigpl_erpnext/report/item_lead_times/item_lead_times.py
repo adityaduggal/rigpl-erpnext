@@ -3,7 +3,7 @@
 
 from __future__ import unicode_literals
 import frappe
-from ....utils.lead_time_utils import get_detailed_manuf_lead_time_for_item, get_item_lead_time
+from ....utils.lead_time_utils import get_detailed_manuf_lead_time_for_item, get_items_lead_time
 from ....utils.purchase_utils import get_detailed_po_lead_time_for_item
 
 
@@ -139,8 +139,9 @@ def get_data(filters):
         it_dict = frappe.db.sql(query, as_dict=1)
         frm_dt = filters.get("from_date")
         to_dt = filters.get("to_date")
+        lead_times = get_items_lead_time([itm.name for itm in it_dict], frm_dt=frm_dt, to_dt=to_dt)
         for itm in it_dict:
-            calc_dict = get_item_lead_time(item_name=itm.name, frm_dt=frm_dt, to_dt=to_dt)
+            calc_dict = lead_times[itm.name]
             itm["no_of_trans"] = calc_dict["no_of_trans"]
             itm["based_on"] = calc_dict["based_on"]
             itm["min_days"] = calc_dict.get("min_days", 0)
