@@ -4,17 +4,21 @@
 
 from __future__ import unicode_literals
 
+import json
 from datetime import date
 
 import frappe
+from frappe import _
 from frappe.query_builder.functions import Sum
 from frappe.utils import flt
 
+from ...utils.batch_write_utils import bulk_set_values
 from ...utils.stock_utils import get_quantities_for_item
 from .job_card_utils import (
     check_existing_job_card,
     create_job_card,
     get_bin,
+    get_existing_job_cards,
     update_job_card_total_qty,
 )
 from .manufacturing_utils import (
@@ -156,89 +160,115 @@ def update_process_sheet_operations(ps_name, op_name, psd=None, btd=None):
     """
     Updates the status and completed qty of one operation from its submitted Job Cards.
     `psd` and `btd` are the Process Sheet and its BOM Template, when the caller has them loaded.
+    Returns 1 when the operation changed.
     """
-    changes_made = 0
-    obsolete = 1
-    opd = frappe.get_doc("BOM Operation", op_name)
     if psd is None:
         psd = frappe.get_doc("Process Sheet", ps_name)
-    if btd is None:
-        btd = frappe.get_doc("BOM Template RIGPL", psd.bom_template)
-    for op in btd.operations:
-        if op.operation == opd.operation:
-            obsolete = 0
-            break
-    if obsolete == 1:
-        if opd.status != "Obsolete":
-            opd.status = "Obsolete"
-            changes_made = 1
+    template_ops = [op.operation for op in btd.operations] if btd is not None else None
+    new = update_ps_operations(psd, op_names=[op_name], template_ops=template_ops)
+    return 1 if op_name in new and new[op_name].changed else 0
 
-    jcr = frappe.qb.DocType("Process Job Card RIGPL")
-    jc_comp = (
-        frappe.qb.from_(jcr)
-        .select(
-            Sum(jcr.total_completed_qty).as_("comp_qty"),
-            Sum(jcr.short_close_operation).as_("sc_op"),
-            Sum(jcr.transfer_entry).as_("transfer"),
-            Sum(jcr.qty_available).as_("avail_qty"),
-        )
-        .where(jcr.docstatus == 1)
-        .where(jcr.operation_id == op_name)
-        .where(jcr.process_sheet == ps_name)
-        .run(as_dict=True)
+
+def update_ps_operations(psd, op_names=None, template_ops=None):
+    """
+    Updates the status and completed qty of the operations `op_names` (all operations when None)
+    of the Process Sheet `psd` from their submitted Job Cards, with 3 queries and 1 write for each
+    changed value. `template_ops` are the operation names of the BOM Template, when the caller has
+    them. The rows of `psd.operations` get the new values.
+    Returns {op_name: {status, completed_qty, changed}}.
+    """
+    filters = {"parenttype": "Process Sheet", "parent": psd.name}
+    if op_names is not None:
+        if not op_names:
+            return {}
+        filters["name"] = ("in", op_names)
+    op_rows = frappe.get_all(
+        "BOM Operation",
+        filters=filters,
+        fields=["name", "operation", "status", "completed_qty", "planned_qty"],
     )
-    jc = jc_comp[0]
-    comp_qty = flt(jc.comp_qty)
-    sclose = flt(jc.sc_op)
-    if jc.comp_qty:
-        if comp_qty != opd.completed_qty:
-            opd.completed_qty = jc.comp_qty
-            changes_made = 1
+    if not op_rows:
+        return {}
+    if template_ops is None:
+        template_ops = frappe.get_all(
+            "BOM Operation",
+            filters={"parenttype": "BOM Template RIGPL", "parent": psd.bom_template},
+            pluck="operation",
+        )
+    jcr = frappe.qb.DocType("Process Job Card RIGPL")
+    totals = {
+        row.operation_id: row
+        for row in (
+            frappe.qb.from_(jcr)
+            .select(
+                jcr.operation_id,
+                Sum(jcr.total_completed_qty).as_("comp_qty"),
+                Sum(jcr.short_close_operation).as_("sc_op"),
+            )
+            .where(jcr.docstatus == 1)
+            .where(jcr.process_sheet == psd.name)
+            .where(jcr.operation_id.isin([op.name for op in op_rows]))
+            .groupby(jcr.operation_id)
+            .run(as_dict=True)
+        )
+    }
+    template_ops = set(template_ops)
+    new_values = {}
+    for opd in op_rows:
+        completed_qty, status = get_operation_values(
+            opd, totals.get(opd.name), psd.status, template_ops
+        )
+        new_values[opd.name] = frappe._dict(
+            status=status,
+            completed_qty=completed_qty,
+            changed=(status, completed_qty) != (opd.status, opd.completed_qty),
+        )
+
+    for field in ("completed_qty", "status"):
+        bulk_set_values(
+            "BOM Operation",
+            field,
+            {name: values[field] for name, values in new_values.items()},
+            {opd.name: opd[field] for opd in op_rows},
+        )
+    for row in psd.operations:
+        if row.name in new_values:
+            row.status = new_values[row.name].status
+            row.completed_qty = new_values[row.name].completed_qty
+    return new_values
+
+
+def get_operation_values(opd, jc, ps_status, template_ops):
+    """
+    Returns (completed_qty, status) of the Process Sheet operation `opd` from `jc`, the sums of
+    its submitted Job Cards (None when there are none).
+    """
+    completed_qty, status = opd.completed_qty, opd.status
+    obsolete = 0 if opd.operation in template_ops else 1
+    if obsolete == 1:
+        status = "Obsolete"
+
+    comp_qty = flt(jc.comp_qty) if jc else 0
+    sclose = flt(jc.sc_op) if jc else 0
+    if comp_qty:
+        completed_qty = comp_qty
         if comp_qty >= opd.planned_qty:
-            if opd.status != "Completed":
-                opd.status = "Completed"
-                changes_made = 1
-        else:
-            if sclose >= 1:
-                if opd.status != "Short Closed":
-                    opd.status = "Short Closed"
-                    changes_made = 1
-            else:
-                if psd.status != "Stopped":
-                    if opd.status != "In Progress" and obsolete != 1:
-                        opd.status = "In Progress"
-                        changes_made = 1
-                else:
-                    if opd.status != "Stopped" and obsolete != 1:
-                        opd.status = "Stopped"
-                        changes_made = 1
+            status = "Completed"
+        elif sclose >= 1:
+            status = "Short Closed"
+        elif obsolete != 1:
+            status = "In Progress" if ps_status != "Stopped" else "Stopped"
     else:
-        if opd.completed_qty > 0:
-            opd.completed_qty = 0
-            changes_made = 1
-        if psd.status != "Stopped":
-            if obsolete != 1:
+        completed_qty = 0
+        if obsolete != 1:
+            if ps_status != "Stopped":
                 if sclose >= 1:
-                    if opd.completed_qty < opd.planned_qty:
-                        if opd.status != "Short Closed":
-                            opd.status = "Short Closed"
-                            changes_made = 1
-                    else:
-                        if opd.status != "Completed":
-                            opd.status = "Completed"
-                            changes_made = 1
+                    status = "Short Closed" if completed_qty < opd.planned_qty else "Completed"
                 else:
-                    if opd.status != "Pending":
-                        opd.status = "Pending"
-                        changes_made = 1
-        else:
-            if obsolete != 1:
-                if opd.status != "Stopped":
-                    opd.status = "Stopped"
-                    changes_made = 1
-    if changes_made == 1:
-        opd.save()
-    return changes_made
+                    status = "Pending"
+            else:
+                status = "Stopped"
+    return completed_qty, status
 
 
 def update_process_sheet_quantities(ps_doc):
@@ -251,25 +281,31 @@ def update_process_sheet_quantities(ps_doc):
         )
 
 
-def make_jc_for_process_sheet(ps_doc):
+def make_jc_for_process_sheet(ps_doc, template_ops=None):
+    """
+    Creates the missing Job Cards of the open operations. `template_ops` are the operation names
+    of the BOM Template, when the caller has them.
+    """
     jcr_needed = check_jc_needed_for_ps(ps_doc)
     if jcr_needed == 1:
-        btd = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template)
+        open_rows = {
+            row.name: row for row in ps_doc.operations
+            if row.status in ("Pending", "In Progress", None)
+        }
+        existing = get_existing_job_cards(
+            ps_doc.production_item,
+            [row.operation for row in open_rows.values()],
+            so_detail=ps_doc.sales_order_item,
+            ps_doc=ps_doc,
+        )
+        created_ops = []
         for row in ps_doc.operations:
-            if (
-                row.status == "Pending"
-                or row.status == "In Progress"
-                or row.status is None
-            ):
-                existing_job_card = check_existing_job_card(
-                    item_name=ps_doc.production_item,
-                    operation=row.operation,
-                    so_detail=ps_doc.sales_order_item,
-                    ps_doc=ps_doc,
-                )
+            if row.name in open_rows:
+                existing_job_card = existing.get(row.operation)
                 if not existing_job_card:
-                    create_job_card(ps_doc, row, auto_create=True)
-                    update_process_sheet_operations(ps_doc.name, row.name, psd=ps_doc, btd=btd)
+                    # A second row with the same operation uses the Job Card just made
+                    existing[row.operation] = [create_job_card(ps_doc, row, auto_create=True)]
+                    created_ops.append(row.name)
                 else:
                     # Update the Total Quantity for All the Job Cards which are existing
                     for jc in existing_job_card:
@@ -280,6 +316,7 @@ def make_jc_for_process_sheet(ps_doc):
                 frappe.msgprint(
                     f"For Row# {row.idx} Status= {row.status} hence No Job Card Created"
                 )
+        update_ps_operations(ps_doc, op_names=created_ops, template_ops=template_ops)
     else:
         frappe.msgprint(f"No Job Card is Needed for {ps_doc.name}")
 
@@ -448,123 +485,93 @@ def create_ps_from_so_item(so_row):
     )
 
 
+def get_ps_for_change(ps_name, ptype):
+    """
+    Returns the Process Sheet `ps_name` after it checks that the user has `ptype` permission on it.
+    """
+    if not isinstance(ps_name, str):
+        frappe.throw(_("Process Sheet must be a name"), title=_("Invalid Arguments"))
+    ps_doc = frappe.get_doc("Process Sheet", ps_name)
+    frappe.has_permission("Process Sheet", ptype, ps_doc, throw=True)
+    return ps_doc
+
+
+def delete_draft_job_cards(filters):
+    """
+    Deletes the draft Job Cards that match `filters` and shows 1 message for all of them.
+    delete_doc is used for each one, because it also checks the links and deletes the child rows.
+    """
+    jc_list = frappe.get_all(
+        "Process Job Card RIGPL", filters=dict(filters, docstatus=0), pluck="name"
+    )
+    for jc in jc_list:
+        frappe.delete_doc("Process Job Card RIGPL", jc, for_reload=True)
+    if jc_list:
+        frappe.msgprint(_("Deleted {0}").format(", ".join(jc_list)))
+
+
 @frappe.whitelist()
-def stop_ps_operation(op_id, psd):
-    opd = frappe.get_doc("BOM Operation", op_id)
-    allowed = get_process_sheet_permission(psd)
-    if allowed == 1:
-        jcl = frappe.get_all(
-            "Process Job Card RIGPL", filters={"docstatus": 0, "operation_id": op_id}, pluck="name"
+def stop_ps_operation(op_id, ps_name=None, psd=None):
+    """
+    Stops the operation `op_id` of the Process Sheet `ps_name` and deletes its draft Job Cards.
+    `psd` (the form doc as JSON) is accepted for old callers.
+    """
+    if ps_name is None and psd:
+        ps_name = (json.loads(psd) if isinstance(psd, str) else psd).get("name")
+    ps_doc = get_ps_for_change(ps_name, "cancel")
+    row = next((op for op in ps_doc.operations if op.name == op_id), None)
+    if row is None:
+        frappe.throw(
+            _("Row {0} is not an operation of {1}").format(op_id, ps_name),
+            title=_("Operation Not in Process Sheet"),
         )
-        for jc in jcl:
-            frappe.delete_doc("Process Job Card RIGPL", jc, for_reload=True)
-            frappe.msgprint(f"Deleted {jc}")
-        opd.status = "Stopped"
-        opd.save()
-    else:
-        frappe.throw(f"Don't Have Permission to Stop Process")
+    delete_draft_job_cards({"operation_id": op_id})
+    row.db_set("status", "Stopped")
 
 
 @frappe.whitelist()
 def stop_process_sheet(ps_name):
-    ps_doc = frappe.get_doc("Process Sheet", ps_name)
-    allowed = get_process_sheet_permission(ps_doc)
-    if allowed == 1:
-        if ps_doc.status == "In Progress":
-            if ps_doc.produced_qty >= ps_doc.quantity:
-                ps_doc.status = "Completed"
-            else:
-                ps_doc.status = "Stopped"
-            # Delete Job Cards for Process Sheeet
-            jc_list = frappe.get_all(
-                "Process Job Card RIGPL",
-                filters={"docstatus": 0, "process_sheet": ps_doc.name},
-                pluck="name",
-            )
-            for jc in jc_list:
-                frappe.delete_doc("Process Job Card RIGPL", jc, for_reload=True)
-        ps_doc.save()
-        for d in ps_doc.operations:
-            if d.status == "In Progress" or d.status == "Pending":
-                d.status = "Stopped"
-        update_process_sheet_quantities(ps_doc)
-        btd = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template)
-        for op in ps_doc.operations:
-            update_process_sheet_operations(ps_doc.name, op.name, psd=ps_doc, btd=btd)
-    else:
-        frappe.throw(
-            "Don't Have Permission to Stop or Unstop Process Sheet {}".format(ps_name)
-        )
+    ps_doc = get_ps_for_change(ps_name, "cancel")
+    if ps_doc.status == "In Progress":
+        if ps_doc.produced_qty >= ps_doc.quantity:
+            ps_doc.status = "Completed"
+        else:
+            ps_doc.status = "Stopped"
+        delete_draft_job_cards({"process_sheet": ps_doc.name})
+    ps_doc.save()
+    update_process_sheet_quantities(ps_doc)
+    update_ps_operations(ps_doc)
 
 
 @frappe.whitelist()
 def unstop_process_sheet(ps_name):
-    ps_doc = frappe.get_doc("Process Sheet", ps_name)
-    allowed = get_process_sheet_permission(ps_doc)
-    if allowed == 1:
-        if ps_doc.produced_qty < ps_doc.quantity:
-            ps_doc.status = "In Progress"
+    ps_doc = get_ps_for_change(ps_name, "cancel")
+    if ps_doc.produced_qty < ps_doc.quantity:
+        ps_doc.status = "In Progress"
+    else:
+        if ps_doc.short_closed_qty > 0:
+            ps_doc.status = "Short Closed"
         else:
-            if ps_doc.short_closed_qty > 0:
-                ps_doc.status = "Short Closed"
-            else:
-                ps_doc.status = "Completed"
-        # Recompute each operation from its Job Cards, then read the new values back, so that the
-        # save below does not write the old values again
-        for op in ps_doc.operations:
-            update_process_sheet_operations(ps_doc.name, op.name)
-        new_values = {
-            d.name: d
-            for d in frappe.get_all(
-                "BOM Operation",
-                filters={"parenttype": "Process Sheet", "parent": ps_doc.name},
-                fields=["name", "status", "completed_qty"],
-            )
-        }
-        for op in ps_doc.operations:
-            if op.name in new_values:
-                op.status = new_values[op.name].status
-                op.completed_qty = new_values[op.name].completed_qty
-            if op.status not in ("Completed", "Short Closed", "Obsolete"):
-                if op.completed_qty > 0:
-                    op.status = "In Progress"
-                else:
-                    op.status = "Pending"
-                existing_job_card = check_existing_job_card(
-                    item_name=ps_doc.production_item,
-                    operation=op.operation,
-                    so_detail=ps_doc.sales_order_item,
-                    ps_doc=ps_doc,
-                )
-                if not existing_job_card:
-                    create_job_card(ps_doc, op, auto_create=True)
-        ps_doc.save()
-        update_process_sheet_quantities(ps_doc)
-    else:
-        frappe.throw(
-            "Don't Have Permission to Un-Stop Process Sheet {}".format(ps_name)
-        )
-
-
-def get_process_sheet_permission(ps_doc):
-    user = frappe.session.user
-    usr_roles = set(
-        frappe.get_all("Has Role", filters={"parenttype": "User", "parent": user}, pluck="role")
+            ps_doc.status = "Completed"
+    # Recompute each operation from its Job Cards. update_ps_operations also sets the new values
+    # on ps_doc.operations, so that the save below does not write the old values again
+    update_ps_operations(ps_doc)
+    open_rows = []
+    for op in ps_doc.operations:
+        if op.status not in ("Completed", "Short Closed", "Obsolete"):
+            op.status = "In Progress" if op.completed_qty > 0 else "Pending"
+            open_rows.append(op)
+    existing = get_existing_job_cards(
+        ps_doc.production_item,
+        [op.operation for op in open_rows],
+        so_detail=ps_doc.sales_order_item,
+        ps_doc=ps_doc,
     )
-    if "System Manager" in usr_roles:
-        return 1
-    perm_filters = {"parenttype": "DocType", "parent": ps_doc.doctype, "cancel": 1}
-    custom_perm_cancel = frappe.get_all("Custom DocPerm", filters=perm_filters, pluck="role")
-    if custom_perm_cancel:
-        for role in custom_perm_cancel:
-            if role in usr_roles:
-                return 1
-    else:
-        std_perm_cancel = frappe.get_all("DocPerm", filters=perm_filters, pluck="role")
-        for role in std_perm_cancel:
-            if role in usr_roles:
-                return 1
-    return 0
+    for op in open_rows:
+        if not existing.get(op.operation):
+            existing[op.operation] = [create_job_card(ps_doc, op, auto_create=True)]
+    ps_doc.save()
+    update_process_sheet_quantities(ps_doc)
 
 
 @frappe.whitelist()

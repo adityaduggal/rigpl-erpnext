@@ -72,7 +72,7 @@ frappe.query_reports["Production and Planning Report RIGPL"] = {
 			"label": "Sales Order",
 			"fieldtype": "Link",
 			"options": "Sales Order",
-			"get_query": function(){ return {query: "rigpl_erpnext.rigpl_erpnext.doctype.create_bulk_process_sheet." +
+			"get_query": function(){ return {query: "rigpl_erpnext.manufacturing_rigpl.doctype.create_bulk_process_sheet." +
 			    "create_bulk_process_sheet.get_so_pending_for_process_sheet"}}
 		},
 		{

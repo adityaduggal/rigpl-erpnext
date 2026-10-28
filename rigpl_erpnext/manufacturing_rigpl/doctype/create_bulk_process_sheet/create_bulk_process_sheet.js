@@ -5,7 +5,7 @@ frappe.ui.form.on('Create Bulk Process Sheet', {
 	onload: function(frm){
 	    frm.set_query("sales_order", function(doc){
 	        return{
-	            query: "rigpl_erpnext.rigpl_erpnext.doctype.create_bulk_process_sheet.create_bulk_process_sheet.get_so_pending_for_process_sheet"
+	            query: "rigpl_erpnext.manufacturing_rigpl.doctype.create_bulk_process_sheet.create_bulk_process_sheet.get_so_pending_for_process_sheet"
 	        }
 	    });
 		frm.set_query("item", function(doc) {
@@ -33,10 +33,13 @@ frappe.ui.form.on('Create Bulk Process Sheet', {
 	create_process_sheet: function(frm) {
 		frappe.call({
 			doc: frm.doc,
-			method: "raise_process_sheet"
+			method: "raise_process_sheet",
+			callback: function(r) {
+				if (!r.exc) {
+					frm.refresh_fields();
+				}
+			}
 		});
-		cur_frm.clear_table("items");
-		cur_frm.refresh_fields();
 	},
 });
 

@@ -27,9 +27,10 @@ from ...utils.process_sheet_utils import *
 class ProcessSheet(Document):
     def on_submit(self):
         bt_doc = frappe.get_doc("BOM Template RIGPL", self.bom_template)
+        template_ops = [op.operation for op in bt_doc.operations]
+        update_ps_operations(self, template_ops=template_ops)
         allow_rm_consumption = 0
         for op in self.operations:
-            update_process_sheet_operations(self.name, op.name, psd=self, btd=bt_doc)
             if op.allow_consumption_of_rm == 1:
                 allow_rm_consumption = 1
 
@@ -48,7 +49,7 @@ class ProcessSheet(Document):
             update_qty_for_prod(
                 d.item_code, d.source_warehouse, table_name="rm_consumed"
             )
-        make_jc_for_process_sheet(self)
+        make_jc_for_process_sheet(self, template_ops=template_ops)
 
     def on_cancel(self):
         frappe.db.set_value("Process Sheet", self.name, "status", "Cancelled")
@@ -57,21 +58,29 @@ class ProcessSheet(Document):
             update_qty_for_prod(
                 d.item_code, d.source_warehouse, table_name="rm_consumed"
             )
-        for row in self.operations:
-            existing_jc = check_existing_job_card(
-                item_name=self.production_item,
-                operation=row.operation,
-                so_detail=self.sales_order_item,
-                ps_doc=self,
+        existing = get_existing_job_cards(
+            self.production_item,
+            [row.operation for row in self.operations],
+            so_detail=self.sales_order_item,
+            ps_doc=self,
+        )
+        jc_names = list(
+            dict.fromkeys(jc.name for row in self.operations for jc in existing.get(row.operation, []))
+        )
+        own_jc = set(
+            frappe.get_all(
+                "Process Job Card RIGPL",
+                filters={"name": ("in", jc_names), "process_sheet": self.name},
+                pluck="name",
             )
-            if existing_jc:
-                # Update the Total Quantity for the existing Job Cards of other Process Sheets.
-                # The Job Cards of this sheet are deleted below.
-                for jc in existing_jc:
-                    if frappe.get_value("Process Job Card RIGPL", jc.name, "process_sheet") != self.name:
-                        jcd = frappe.get_doc("Process Job Card RIGPL", jc.name)
-                        update_job_card_total_qty(jcd)
-                        jcd.save()
+        ) if jc_names else set()
+        # Update the Total Quantity for the existing Job Cards of other Process Sheets.
+        # The Job Cards of this sheet are deleted below.
+        for name in jc_names:
+            if name not in own_jc:
+                jcd = frappe.get_doc("Process Job Card RIGPL", name)
+                update_job_card_total_qty(jcd)
+                jcd.save()
         delete_job_card(self)
 
     def validate(self):
@@ -133,6 +142,7 @@ class ProcessSheet(Document):
                         title="Another Process Sheet with Same Item in Draft",
                     )
 
+    @frappe.whitelist()
     def fill_details_from_item(self):
         item_doc = frappe.get_doc("Item", self.production_item)
         if not self.bom_template:
@@ -151,8 +161,7 @@ class ProcessSheet(Document):
             self.set("item_manufactured", [])
             self.set("operations", [])
             frappe.throw("No BOM Template found for {}".format(self.production_item))
-        bom_temp_doc = frappe.get_doc("BOM Template RIGPL", self.bom_template)
-        self.routing = bom_temp_doc.routing
+        self.routing = frappe.db.get_value("BOM Template RIGPL", self.bom_template, "routing")
         self.set("rm_consumed", [])
         self.set("item_manufactured", [])
 

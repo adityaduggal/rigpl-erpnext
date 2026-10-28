@@ -8,6 +8,7 @@ import datetime
 import time
 
 import frappe
+from frappe import _
 from frappe.query_builder.functions import Sum
 from frappe.utils import (
     flt,
@@ -144,8 +145,8 @@ def create_job_card(pro_sheet, row, quantity=0, auto_create=False):
     )
     if auto_create == 1:
         doc.flags.ignore_mandatory = True
-        get_items_from_process_sheet_for_job_card(doc, "rm_consumed")
-        get_items_from_process_sheet_for_job_card(doc, "item_manufactured")
+        get_items_from_process_sheet_for_job_card(doc, "rm_consumed", pro_sheet=pro_sheet)
+        get_items_from_process_sheet_for_job_card(doc, "item_manufactured", pro_sheet=pro_sheet)
         doc.insert()
         frappe.msgprint(
             f"{frappe.get_desk_link('Process Job Card RIGPL', doc.name)} created"
@@ -533,26 +534,43 @@ def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
     not repeat
     Without ps_doc there is nothing to compare, so no Job Card is existing.
     """
-    if not ps_doc:
-        return []
+    return get_existing_job_cards(item_name, [operation], so_detail, ps_doc).get(operation, [])
+
+
+def get_existing_job_cards(item_name, operations, so_detail=None, ps_doc=None):
+    """
+    Returns {operation: [{name}]} of the existing draft Job Cards for each of the `operations`, with
+    the rules of check_existing_job_card, in 3 queries for all the operations.
+    """
+    operations = list(set(operations))
+    if not ps_doc or not operations:
+        return {}
     jc = frappe.qb.DocType("Process Job Card RIGPL")
     query = (
         frappe.qb.from_(jc)
-        .select(jc.name, jc.allow_consumption_of_rm, jc.transfer_entry)
+        .select(jc.name, jc.operation, jc.allow_consumption_of_rm, jc.transfer_entry)
         .where(jc.docstatus == 0)
-        .where(jc.operation == operation)
+        .where(jc.operation.isin(operations))
         .where(jc.production_item == item_name)
     )
     if frappe.get_value("Item", item_name, "made_to_order") == 1:
         if so_detail is None:
-            return []
+            return {}
         query = query.where(jc.sales_order_item == so_detail)
-    exist_jc = query.run(as_dict=True)
+    jc_by_operation = {}
+    for row in query.run(as_dict=True):
+        jc_by_operation.setdefault(row.pop("operation"), []).append(row)
     jc_rm = get_rm_item_codes(
-        [d.name for d in exist_jc if d.allow_consumption_of_rm == 1], "Process Job Card RIGPL"
+        [d.name for rows in jc_by_operation.values() for d in rows if d.allow_consumption_of_rm == 1],
+        "Process Job Card RIGPL",
     )
     ps_rm = [rm.item_code for rm in ps_doc.rm_consumed]
-    return match_existing_job_cards(ps_doc.operations, operation, exist_jc, jc_rm, ps_rm)
+    return {
+        operation: match_existing_job_cards(
+            ps_doc.operations, operation, jc_by_operation.get(operation, []), jc_rm, ps_rm
+        )
+        for operation in operations
+    }
 
 
 def validate_qty_decimal(document, table_name):
@@ -1233,34 +1251,35 @@ def delete_job_card(pro_sheet_doc):
 def make_jc_from_pro_sheet_row(
     ps_name, production_item, operation, row_no, row_id, so_detail=None
 ):
+    if not isinstance(ps_name, str) or not isinstance(row_id, str):
+        frappe.throw(_("Process Sheet and operation row must be names"), title=_("Invalid Arguments"))
     psd = frappe.get_doc("Process Sheet", ps_name)
-    opd = frappe.get_doc("BOM Operation", row_id)
-    existing_pending_job_card = check_existing_job_card(
-        item_name=production_item, operation=operation, so_detail=so_detail, ps_doc=psd
-    )
-    jcr_needed = check_jc_needed_for_ps(psd)
-    if jcr_needed == 1:
-        if existing_pending_job_card:
-            frappe.msgprint(
-                f"{frappe.get_desk_link('Process Job Card RIGPL', existing_pending_job_card[0].name)} is "
-                f"already pending for {production_item} in Row# {row_no} and Operation {operation}"
-            )
-        else:
-            ps_doc = frappe.get_doc("Process Sheet", ps_name)
-            row = frappe.get_doc("BOM Operation", row_id)
-            create_job_card(
-                ps_doc,
-                row,
-                quantity=(row.planned_qty - row.completed_qty),
-                auto_create=True,
-            )
-        if opd.completed_qty > 0:
-            opd.status = "In Progress"
-        else:
-            opd.status = "Pending"
-        opd.save()
-    else:
+    psd.check_permission("write")
+    row = next((op for op in psd.operations if op.name == row_id), None)
+    if row is None:
+        frappe.throw(
+            _("Row {0} is not an operation of {1}").format(row_id, ps_name),
+            title=_("Operation Not in Process Sheet"),
+        )
+    if check_jc_needed_for_ps(psd) != 1:
         frappe.msgprint(f"No Job Card is Needed for {psd.name}")
+        return
+    existing_pending_job_card = check_existing_job_card(
+        item_name=psd.production_item, operation=row.operation, so_detail=psd.sales_order_item,
+        ps_doc=psd,
+    )
+    if existing_pending_job_card:
+        frappe.msgprint(
+            f"{frappe.get_desk_link('Process Job Card RIGPL', existing_pending_job_card[0].name)} is "
+            f"already pending for {psd.production_item} in Row# {row.idx} and Operation {row.operation}"
+        )
+    else:
+        create_job_card(
+            psd, row, quantity=(row.planned_qty - row.completed_qty), auto_create=True
+        )
+    new_status = "In Progress" if row.completed_qty > 0 else "Pending"
+    if row.status != new_status:
+        row.db_set("status", new_status)
 
 
 def get_rm_item_codes(parents, parenttype):

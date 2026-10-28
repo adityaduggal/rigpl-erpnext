@@ -222,7 +222,7 @@ frappe.ui.form.on("BOM Operation", {
                 method: "rigpl_erpnext.manufacturing_rigpl.utils.process_sheet_utils.stop_ps_operation",
                 args: {
                     "op_id": child.name,
-                    "psd": frm.doc
+                    "ps_name": frm.doc.name
                 },
                 callback: function(r) {
                     if (!r.exc) {

@@ -101,7 +101,9 @@ class ProcessJobCardRIGPL(Document):
             else:
                 self.s_warehouse = ""
                 if not self.rm_consumed:
-                    get_items_from_process_sheet_for_job_card(self, "rm_consumed")
+                    get_items_from_process_sheet_for_job_card(
+                        self, "rm_consumed", pro_sheet=pro_doc
+                    )
 
             if op_doc is None:
                 op_doc = frappe.get_doc("BOM Operation", self.operation_id)
@@ -143,7 +145,9 @@ class ProcessJobCardRIGPL(Document):
                 self.set("item_manufactured", [])
             else:
                 if not self.item_manufactured:
-                    get_items_from_process_sheet_for_job_card(self, "item_manufactured")
+                    get_items_from_process_sheet_for_job_card(
+                        self, "item_manufactured", pro_sheet=pro_doc
+                    )
             if self.item_manufactured:
                 wip_item_dict = frappe.get_all(
                     "Process Sheet Items",
@@ -233,13 +237,15 @@ class ProcessJobCardRIGPL(Document):
                     wip_rm_consume += rm_it.qty
                     rmr.calculated_qty = int(wip_rm_consume)
 
+    @frappe.whitelist()
     def get_items_from_process_sheet(self):
         """
         Gets Items from Process Sheet to Make JCR same as Process Sheet incase of RM Consumed and
         WIP Manufactured
         """
-        get_items_from_process_sheet_for_job_card(self, "rm_consumed")
-        get_items_from_process_sheet_for_job_card(self, "item_manufactured")
+        pro_sheet = frappe.get_doc("Process Sheet", self.process_sheet)
+        get_items_from_process_sheet_for_job_card(self, "rm_consumed", pro_sheet=pro_sheet)
+        get_items_from_process_sheet_for_job_card(self, "item_manufactured", pro_sheet=pro_sheet)
 
     def validate_rm_qty_consumed(self):
         """

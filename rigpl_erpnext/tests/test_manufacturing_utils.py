@@ -129,3 +129,44 @@ class TestProducedQtyChanges(unittest.TestCase):
         )
         self.assertEqual(op_values, {"completed_qty": 40, "status": "In Progress"})
         self.assertEqual(ps_values, {"produced_qty": 40, "short_closed_qty": 0})
+
+
+def ps_op(operation="Grinding", status="Pending", completed_qty=0, planned_qty=10):
+    return frappe._dict(
+        operation=operation, status=status, completed_qty=completed_qty, planned_qty=planned_qty
+    )
+
+
+def totals(comp_qty=None, sc_op=None):
+    return frappe._dict(comp_qty=comp_qty, sc_op=sc_op)
+
+
+class TestGetOperationValues(unittest.TestCase):
+    TEMPLATE = {"Grinding"}
+
+    def values(self, opd, jc, ps_status="In Progress"):
+        from rigpl_erpnext.manufacturing_rigpl.utils.process_sheet_utils import get_operation_values
+
+        return get_operation_values(opd, jc, ps_status, self.TEMPLATE)
+
+    def test_no_job_cards_is_pending(self):
+        self.assertEqual(self.values(ps_op(status=None), None), (0, "Pending"))
+
+    def test_partly_done_is_in_progress(self):
+        self.assertEqual(self.values(ps_op(), totals(4)), (4, "In Progress"))
+
+    def test_fully_done_is_completed(self):
+        self.assertEqual(self.values(ps_op(), totals(10)), (10, "Completed"))
+
+    def test_short_closed(self):
+        self.assertEqual(self.values(ps_op(), totals(4, 1)), (4, "Short Closed"))
+        self.assertEqual(self.values(ps_op(), totals(0, 1)), (0, "Short Closed"))
+
+    def test_stopped_sheet(self):
+        self.assertEqual(self.values(ps_op(), totals(4), "Stopped"), (4, "Stopped"))
+        self.assertEqual(self.values(ps_op(), None, "Stopped"), (0, "Stopped"))
+
+    def test_operation_not_in_template_is_obsolete(self):
+        self.assertEqual(self.values(ps_op("Coating"), None), (0, "Obsolete"))
+        self.assertEqual(self.values(ps_op("Coating"), totals(4)), (4, "Obsolete"))
+        self.assertEqual(self.values(ps_op("Coating"), totals(10)), (10, "Completed"))

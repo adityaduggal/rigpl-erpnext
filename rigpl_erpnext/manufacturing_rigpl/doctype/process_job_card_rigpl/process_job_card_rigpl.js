@@ -19,7 +19,7 @@ frappe.ui.form.on('Process Job Card RIGPL', {
 		});
 		frm.set_query("workstation", function(doc) {
 			return {
-                query: 'rigpl_erpnext.rigpl_erpnext.validations.workstation.get_workstation_for_operation',
+                query: 'rigpl_erpnext.manufacturing_rigpl.validations.workstation.get_workstation_for_operation',
                 filters: {
                     operation: doc.operation
                 }

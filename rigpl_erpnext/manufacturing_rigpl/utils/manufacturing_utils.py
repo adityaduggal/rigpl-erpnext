@@ -48,23 +48,19 @@ def get_planned_qty(item_name):
     return planned_dict
 
 
-def get_items_from_process_sheet_for_job_card(document, table_name):
+def get_items_from_process_sheet_for_job_card(document, table_name, pro_sheet=None):
+    """
+    Copies the `table_name` rows of the Process Sheet to the Job Card. Pass `pro_sheet` when the
+    caller has it loaded, so no query is needed.
+    """
     document.set(table_name, [])
-    pro_sheet = frappe.get_doc("Process Sheet", document.process_sheet)
+    if pro_sheet is None:
+        pro_sheet = frappe.get_doc("Process Sheet", document.process_sheet)
     for d in pro_sheet.operations:
         if d.name == document.operation_id:
             document.operation = d.operation
-    for d in frappe.get_all(
-        "Process Sheet Items",
-        fields=["*"],
-        filters={
-            "parenttype": "Process Sheet",
-            "parent": document.process_sheet,
-            "parentfield": table_name,
-        },
-        order_by="idx",
-    ):
-        child = document.append(
+    for d in pro_sheet.get(table_name):
+        document.append(
             table_name,
             {
                 "idx": d.idx,
