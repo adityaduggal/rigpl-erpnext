@@ -13,6 +13,7 @@ from frappe.query_builder.functions import Sum
 from frappe.utils import flt
 
 from ...utils.batch_write_utils import bulk_set_values
+from ...utils.item_attribute_utils import chunks
 from ...utils.stock_utils import get_quantities_for_item
 from .job_card_utils import (
     check_existing_job_card,
@@ -82,10 +83,26 @@ def pick_last_operation(op_names, op_flags, bt_flags, no_cons_ld_time):
         return op_names[val]
 
 
-def get_actual_qty_before_process_in_ps(psd, itd, operation):
+def get_actual_qty_before_process_in_ps(psd, itd, operation, qty_dict=None, subcon=None, bin_qty=None):
+    """
+    Returns the qty of the item in production before `operation` of the Process Sheet. When
+    checking many sheets, pass `qty_dict` (get_quantities_for_items), `subcon`
+    ({operation: is_subcontracting}) and `bin_qty` ({(item, warehouse): actual_qty}).
+    """
+    def is_subcontracting(op_name):
+        if subcon is not None:
+            return subcon.get(op_name)
+        return frappe.get_value("Operation", op_name, "is_subcontracting")
+
+    def actual_qty(warehouse):
+        if bin_qty is not None:
+            return flt(bin_qty.get((itd.name, warehouse)))
+        return flt(get_bin(item_code=itd.name, warehouse=warehouse).get("actual_qty"))
+
     qty_before_process, op_idx, add_po = 0, 0, 0
-    self_subcon_op = frappe.get_value("Operation", operation, "is_subcontracting")
-    qty_dict = get_quantities_for_item(it_doc=itd)
+    self_subcon_op = is_subcontracting(operation)
+    if qty_dict is None:
+        qty_dict = get_quantities_for_item(it_doc=itd)
     for d in psd.operations:
         if d.operation == operation:
             op_idx = d.idx
@@ -98,9 +115,7 @@ def get_actual_qty_before_process_in_ps(psd, itd, operation):
                 if self_subcon_op == 1:
                     add_po = 0
                 if d.idx <= op_idx:
-                    oth_subcon = frappe.get_value(
-                        "Operation", d.operation, "is_subcontracting"
-                    )
+                    oth_subcon = is_subcontracting(d.operation)
                     if d.transfer_entry == 1:
                         if d.source_warehouse not in s_wh_list:
                             s_wh_list.append(d.source_warehouse)
@@ -108,38 +123,44 @@ def get_actual_qty_before_process_in_ps(psd, itd, operation):
                         # IF subcontracting is there then add on_po qty to the process
                         add_po = 1
             for w_house in s_wh_list:
-                qty_before_process += flt(
-                    get_bin(item_code=itd.name, warehouse=w_house).get("actual_qty")
-                )
+                qty_before_process += actual_qty(w_house)
             if add_po == 1:
                 qty_before_process += qty_dict["on_po"]
     return qty_before_process
 
 
 def get_pend_psop(it_name=None, operation=None, tf_ent=None):
-    cond = ""
-    if it_name:
-        cond += " AND ps.production_item = '%s'" % it_name
-    if operation:
-        cond += " AND pso.operation = '%s'" % operation
-    if tf_ent == 1:
-        cond += " AND pso.transfer_entry = 1"
-    elif tf_ent == 0:
-        cond += " AND pso.transfer_entry = 0"
-
-    return frappe.db.sql(
-        """SELECT ps.name as ps_name, pso.name AS name, pso.operation, pso.planned_qty,
-        pso.completed_qty, pso.status AS op_status, ps.status, ps.production_item, pso.operation, ps.sales_order_item,
-        pso.allow_consumption_of_rm, pso.transfer_entry, pso.idx, (pso.planned_qty - pso.completed_qty) as op_pen_qty,
-        pso.workstation, pso.source_warehouse, pso.target_warehouse, pso.final_operation,
-        pso.allow_production_of_wip_materials
-        FROM `tabProcess Sheet` ps, `tabBOM Operation` pso WHERE ps.docstatus = 1 AND pso.parent = ps.name
-        AND pso.parenttype = 'Process Sheet' AND pso.status NOT IN ('Completed', 'Short Closed', 'Stopped', 'Obsolete')
-        AND pso.planned_qty > pso.completed_qty %s
-        ORDER BY ps.production_item, pso.operation, ps.creation"""
-        % cond,
-        as_dict=1,
+    """
+    Returns the pending operations of submitted Process Sheets, by item, operation and the
+    creation of the Process Sheet
+    """
+    ps = frappe.qb.DocType("Process Sheet")
+    pso = frappe.qb.DocType("BOM Operation")
+    query = (
+        frappe.qb.from_(ps)
+        .join(pso).on((pso.parent == ps.name) & (pso.parenttype == "Process Sheet"))
+        .select(
+            ps.name.as_("ps_name"), pso.name.as_("name"), pso.operation, pso.planned_qty,
+            pso.completed_qty, pso.status.as_("op_status"), ps.status, ps.production_item,
+            ps.sales_order_item, pso.allow_consumption_of_rm, pso.transfer_entry, pso.idx,
+            (pso.planned_qty - pso.completed_qty).as_("op_pen_qty"), pso.workstation,
+            pso.source_warehouse, pso.target_warehouse, pso.final_operation,
+            pso.allow_production_of_wip_materials,
+        )
+        .where(ps.docstatus == 1)
+        .where(pso.status.notin(["Completed", "Short Closed", "Stopped", "Obsolete"]))
+        .where(pso.planned_qty > pso.completed_qty)
+        .orderby(ps.production_item)
+        .orderby(pso.operation)
+        .orderby(ps.creation)
     )
+    if it_name:
+        query = query.where(ps.production_item == it_name)
+    if operation:
+        query = query.where(pso.operation == operation)
+    if tf_ent in (0, 1):
+        query = query.where(pso.transfer_entry == tf_ent)
+    return query.run(as_dict=True)
 
 
 def get_psop_trans_pend_qty(it_name, operation):
@@ -496,18 +517,33 @@ def get_ps_for_change(ps_name, ptype):
     return ps_doc
 
 
-def delete_draft_job_cards(filters):
+def delete_draft_job_cards(filters, show_message=True):
     """
-    Deletes the draft Job Cards that match `filters` and shows 1 message for all of them.
-    delete_doc is used for each one, because it also checks the links and deletes the child rows.
+    Deletes the draft Job Cards that match `filters` and returns their names. delete_doc is
+    used for each one, because it also checks the links and deletes the child rows.
     """
     jc_list = frappe.get_all(
         "Process Job Card RIGPL", filters=dict(filters, docstatus=0), pluck="name"
     )
     for jc in jc_list:
         frappe.delete_doc("Process Job Card RIGPL", jc, for_reload=True)
-    if jc_list:
+    if jc_list and show_message:
         frappe.msgprint(_("Deleted {0}").format(", ".join(jc_list)))
+    return jc_list
+
+
+def stop_operations(op_status, show_message=True):
+    """
+    Sets the status of the Process Sheet operations to Stopped and deletes their draft Job Cards.
+    `op_status` is {operation row name: its status now}, so that only changed rows are written.
+    """
+    if not op_status:
+        return []
+    deleted = []
+    for chunk in chunks(op_status):
+        deleted += delete_draft_job_cards({"operation_id": ("in", chunk)}, show_message)
+    bulk_set_values("BOM Operation", "status", {name: "Stopped" for name in op_status}, op_status)
+    return deleted
 
 
 @frappe.whitelist()
@@ -525,8 +561,8 @@ def stop_ps_operation(op_id, ps_name=None, psd=None):
             _("Row {0} is not an operation of {1}").format(op_id, ps_name),
             title=_("Operation Not in Process Sheet"),
         )
-    delete_draft_job_cards({"operation_id": op_id})
-    row.db_set("status", "Stopped")
+    stop_operations({row.name: row.status})
+    row.status = "Stopped"
 
 
 @frappe.whitelist()

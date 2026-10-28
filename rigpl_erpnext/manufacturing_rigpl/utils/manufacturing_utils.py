@@ -137,23 +137,30 @@ def get_priority_for_stock_prd(it_name, qty_dict, qty_before_process=0):
             return 29
 
 
-def get_qty_to_manufacture(it_doc):
+def get_manufacturing_qty_settings():
     """
-    Returns Min and Max Quantity to Manufacture
+    Returns (base ROL multiplier, max months) of RIGPL Settings for get_qty_to_manufacture
     """
-    base_multiplier = flt(
-        frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_rol_multiplier")
+    base_multiplier, max_months = frappe.get_cached_value(
+        "RIGPL Settings", "RIGPL Settings",
+        ["base_rol_multiplier", "max_months_for_manufacturing_qty"],
     )
-    max_months = flt(
-        frappe.get_value(
-            "RIGPL Settings", "RIGPL Settings", "max_months_for_manufacturing_qty"
-        )
-    )
+    base_multiplier, max_months = flt(base_multiplier), flt(max_months)
     if max_months <= 0:
         max_months = 3
     if base_multiplier <= 0:
         base_multiplier = 1
-    qty_dict = get_quantities_for_item(it_doc)
+    return base_multiplier, max_months
+
+
+def get_qty_to_manufacture(it_doc, qty_dict=None, settings=None):
+    """
+    Returns Min and Max Quantity to Manufacture. Pass `qty_dict` (get_quantities_for_items) and
+    `settings` (get_manufacturing_qty_settings) when checking many items.
+    """
+    base_multiplier, max_months = settings or get_manufacturing_qty_settings()
+    if qty_dict is None:
+        qty_dict = get_quantities_for_item(it_doc)
     # print(qty_dict)
     calc_rol = qty_dict["calculated_rol"]
     lead = qty_dict["lead_time"] if qty_dict["lead_time"] > 0 else 30

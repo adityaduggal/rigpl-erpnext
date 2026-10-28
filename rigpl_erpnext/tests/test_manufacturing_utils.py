@@ -170,3 +170,27 @@ class TestGetOperationValues(unittest.TestCase):
         self.assertEqual(self.values(ps_op("Coating"), None), (0, "Obsolete"))
         self.assertEqual(self.values(ps_op("Coating"), totals(4)), (4, "Obsolete"))
         self.assertEqual(self.values(ps_op("Coating"), totals(10)), (10, "Completed"))
+
+
+class TestBatchQtyHelpers(unittest.TestCase):
+    MULTIPLIERS = [
+        {"multiplier": 5, "value": 1000},
+        {"multiplier": 2.5, "value": 2000},
+        {"multiplier": 2, "value": 2500},
+    ]
+
+    def test_calculated_rol_uses_the_last_band_that_fits(self):
+        from rigpl_erpnext.utils.stock_utils import get_calculated_rol
+
+        # The last band that fits wins, so the 5x and 2.5x bands are never used (old behavior)
+        self.assertEqual(get_calculated_rol(10, 50, self.MULTIPLIERS), 20)
+        self.assertEqual(get_calculated_rol(10, 220, self.MULTIPLIERS), 20)
+        self.assertEqual(get_calculated_rol(10, 300, self.MULTIPLIERS), 10)
+
+    def test_so_lines_filter_by_so_detail(self):
+        from rigpl_erpnext.utils.sales_utils import get_so_date_value
+
+        lines = [frappe._dict(name="SO1", so_detail="A"), frappe._dict(name="SO2", so_detail="B")]
+        rows = get_so_date_value("IT", prd_qty=5, short_qty=2, so_detail="B", so_lines=lines)
+        self.assertEqual([(r.name, r.prd_qty, r.shortage) for r in rows], [("SO2", 5, 2)])
+        self.assertEqual(len(get_so_date_value("IT", 5, so_lines=lines)), 2)

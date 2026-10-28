@@ -405,25 +405,69 @@ def get_customer_rating_from_pts(tot_rating_pts):
     return min(int(tot_rating_pts/ divisor), 100)
 
 
-def get_priority_for_so(it_name, prd_qty, short_qty, so_detail=None):
-    so_date_value_dict = get_so_date_value(it_name=it_name, prd_qty=prd_qty, short_qty=short_qty, so_detail=so_detail)
+def get_priority_for_so(it_name, prd_qty, short_qty, so_detail=None, so_lines=None):
+    """
+    Returns the priority from the open Sales Order lines of the item. Pass `so_lines`
+    (get_open_so_lines) when checking many items.
+    """
+    so_date_value_dict = get_so_date_value(
+        it_name=it_name, prd_qty=prd_qty, short_qty=short_qty, so_detail=so_detail, so_lines=so_lines
+    )
     priority = prioritize_sales_order(so_date_value_dict)
     return priority
 
 
-def get_so_date_value(it_name, prd_qty, short_qty=0, so_detail=None):
-    if so_detail:
-        sod_cond = " AND sod.name = '%s'" % so_detail
-    else:
-        sod_cond = ""
-    query = """SELECT so.name, sod.item_code, so.transaction_date as so_date, sod.qty as order_qty, %s as prd_qty,
-    %s as shortage, sod.base_rate * (sod.qty - sod.delivered_qty) as balance_amt
-    FROM `tabSales Order` so, `tabSales Order Item` sod WHERE so.docstatus=1 AND sod.parent = so.name
-    AND so.status != "Closed" AND sod.qty > sod.delivered_qty AND sod.item_code = '%s' %s
-    ORDER BY so.transaction_date DESC, so.name""" % (prd_qty, short_qty, it_name, sod_cond)
-    so_dict = frappe.db.sql(query, as_dict=1)
+def get_so_date_value(it_name, prd_qty, short_qty=0, so_detail=None, so_lines=None):
+    if so_lines is None:
+        so_lines = get_open_so_lines([it_name]).get(it_name, [])
+    return [
+        frappe._dict(row, prd_qty=prd_qty, shortage=short_qty)
+        for row in so_lines
+        if not so_detail or row.so_detail == so_detail
+    ]
 
-    return so_dict
+
+def get_open_so_lines(items):
+    """
+    Returns {item: [open Sales Order lines]}, the newest Sales Order first. The SO Items are read
+    by item_code and the Sales Orders by name in 2 queries, because a join makes MariaDB scan all
+    the Sales Orders.
+    """
+    sod = frappe.qb.DocType("Sales Order Item")
+    so_lines = []
+    for chunk in chunks(items):
+        so_lines += (
+            frappe.qb.from_(sod)
+            .select(
+                sod.parent.as_("name"), sod.name.as_("so_detail"), sod.item_code,
+                sod.qty.as_("order_qty"),
+                (sod.base_rate * (sod.qty - sod.delivered_qty)).as_("balance_amt"),
+            )
+            .where(sod.parenttype == "Sales Order")
+            .where(sod.item_code.isin(chunk))
+            .where(sod.qty > sod.delivered_qty)
+            .run(as_dict=True)
+        )
+    so_dates = {}
+    for chunk in chunks(row.name for row in so_lines):
+        so_dates.update(
+            frappe.get_all(
+                "Sales Order",
+                filters={"name": ("in", chunk), "docstatus": 1, "status": ("!=", "Closed")},
+                fields=["name", "transaction_date"],
+                as_list=True,
+            )
+        )
+    lines = {}
+    for row in so_lines:
+        if row.name in so_dates:
+            row.so_date = so_dates[row.name]
+            lines.setdefault(row.item_code, []).append(row)
+    for rows in lines.values():
+        # Newest Sales Order first, then by name
+        rows.sort(key=lambda row: row.name)
+        rows.sort(key=lambda row: row.so_date, reverse=True)
+    return lines
 
 
 def prioritize_sales_order(so_dict):

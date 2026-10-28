@@ -8,7 +8,7 @@ import statistics
 from datetime import date
 import frappe
 from frappe.query_builder.functions import Count, Max, Sum
-from frappe.utils import nowdate, nowtime, add_months, flt, getdate, now
+from frappe.utils import nowdate, nowtime, add_months, cstr, flt, getdate, now
 from pypika.terms import Case, Criterion
 from .batch_write_utils import bulk_insert_rows, bulk_insert_versions, clear_document_cache
 from .item_attribute_utils import chunks
@@ -53,92 +53,159 @@ def get_qty_available_to_sell(it_doc):
     return qty_avail
 
 
+QTY_FIELDS = ("on_so", "on_po", "on_indent", "planned_qty", "reserved_for_prd", "finished_qty",
+    "wip_qty", "consumeable_qty", "raw_material_qty", "dead_qty", "rejected_qty", "calculated_rol",
+    "lead_time", "re_order_level")
+
+# Bin actual_qty goes to this qty_dict key for each Warehouse Type
+ACTUAL_QTY_BY_WH_TYPE = {
+    "Finished Stock": "finished_qty",
+    "Work In Progress": "wip_qty",
+    "Consumable": "consumeable_qty",
+    "Raw Material": "raw_material_qty",
+    "Dead Stock": "dead_qty",
+    "Recoverable Stock": "rejected_qty",
+    "Subcontracting": "on_po",
+}
+
+
 def get_quantities_for_item(it_doc, so_item=None):
     """
     Returns a Dictionary for Item Doc and its quantities on Sales Order, On Indent etc
     """
-    qty_dict = frappe._dict()
-    qty_dict.update({"on_so":0, "on_po":0, "on_indent":0, "planned_qty":0, "reserved_for_prd":0,
-        "finished_qty":0, "wip_qty":0, "consumeable_qty":0, "raw_material_qty":0, "dead_qty":0,
-        "rejected_qty":0, "calculated_rol":0, "lead_time":0, "re_order_level":0})
     if it_doc.made_to_order != 1:
-        rol_dict = frappe.db.sql("""SELECT warehouse_reorder_level, warehouse_reorder_qty
-            FROM `tabItem Reorder` WHERE parent = '%s' AND parenttype = '%s'
-            AND parentfield = 'reorder_levels'""" % (it_doc.name, it_doc.doctype), as_dict=1)
-        if rol_dict:
-            qty_dict["re_order_level"] = flt(rol_dict[0].warehouse_reorder_level)
-            rol = qty_dict["re_order_level"]
-        else:
-            qty_dict["re_order_level"] = 0
-            rol = 0
-        bin_dict = frappe.db.sql("""SELECT bn.warehouse, bn.item_code, bn.reserved_qty,
-            bn.actual_qty, bn.ordered_qty, bn.indented_qty, bn.planned_qty,
-            bn.reserved_qty_for_production, bn.reserved_qty_for_sub_contract, wh.warehouse_type,
-            wh.disabled FROM `tabBin` bn, `tabWarehouse` wh WHERE bn.warehouse = wh.name AND
-            bn.item_code = '%s'""" % it_doc.name, as_dict=1)
-        qty_dict["valuation_rate"] = flt(it_doc.valuation_rate)
-        qty_dict["lead_time"] = flt(it_doc.lead_time_days) if flt(it_doc.lead_time_days) > 0 else 30
-        calc_rol = get_calculated_rol(rol, flt(qty_dict["valuation_rate"]))
-
-        qty_dict["calculated_rol"] = calc_rol
-        if bin_dict:
-            for bnd in bin_dict:
-                qty_dict["on_so"] += flt(bnd.reserved_qty)
-                qty_dict["on_po"] += flt(bnd.ordered_qty)
-                qty_dict["on_indent"] += flt(bnd.indented_qty)
-                qty_dict["planned_qty"] += flt(bnd.planned_qty)
-                qty_dict["reserved_for_prd"] += flt(bnd.reserved_qty_for_production)
-
-                if bnd.warehouse_type == 'Finished Stock':
-                    qty_dict["finished_qty"] += flt(bnd.actual_qty)
-                elif bnd.warehouse_type == 'Work In Progress':
-                    qty_dict["wip_qty"] += flt(bnd.actual_qty)
-                elif bnd.warehouse_type == 'Consumable':
-                    qty_dict["consumeable_qty"] += flt(bnd.actual_qty)
-                elif bnd.warehouse_type == 'Raw Material':
-                    qty_dict["raw_material_qty"] += flt(bnd.actual_qty)
-                elif bnd.warehouse_type == 'Dead Stock':
-                    qty_dict["dead_qty"] += flt(bnd.actual_qty)
-                elif bnd.warehouse_type == 'Recoverable Stock':
-                    qty_dict["rejected_qty"] += flt(bnd.actual_qty)
-                elif bnd.warehouse_type == 'Subcontracting':
-                    qty_dict["on_po"] += flt(bnd.actual_qty)
-    else:
-        if so_item:
-            on_so = frappe.db.sql("""SELECT (soi.qty - soi.delivered_qty) FROM `tabSales Order Item` soi, `tabSales Order` so
-            WHERE so.docstatus=1 AND so.status != 'Closed' AND soi.qty > soi.delivered_qty
-            AND soi.name = '%s'""" % so_item, as_list=1)
-
-            on_po = frappe.db.sql("""SELECT (poi.qty - poi.received_qty) FROM `tabPurchase Order Item` poi,
-            `tabPurchase Order` po
-            WHERE po.docstatus=1 AND po.status != 'Closed' AND poi.qty > poi.received_qty
-            AND poi.so_detail = '%s'""" % so_item, as_list=1)
-            if on_so:
-                qty_dict["on_so"] += on_so[0][0]
-            if on_po:
-                qty_dict["on_po"] += on_po[0][0]
-            # frappe.msgprint(str(on_so))
-
+        return get_quantities_for_items([it_doc])[it_doc.name]
+    qty_dict = frappe._dict({key: 0 for key in QTY_FIELDS})
+    if so_item:
+        so = frappe.qb.DocType("Sales Order")
+        soi = frappe.qb.DocType("Sales Order Item")
+        on_so = (
+            frappe.qb.from_(soi).join(so).on(soi.parent == so.name)
+            .select(soi.qty - soi.delivered_qty)
+            .where((so.docstatus == 1) & (so.status != "Closed"))
+            .where((soi.qty > soi.delivered_qty) & (soi.name == so_item))
+            .run()
+        )
+        po = frappe.qb.DocType("Purchase Order")
+        poi = frappe.qb.DocType("Purchase Order Item")
+        on_po = (
+            frappe.qb.from_(poi).join(po).on(poi.parent == po.name)
+            .select(poi.qty - poi.received_qty)
+            .where((po.docstatus == 1) & (po.status != "Closed"))
+            .where((poi.qty > poi.received_qty) & (poi.so_detail == so_item))
+            .run()
+        )
+        if on_so:
+            qty_dict["on_so"] += on_so[0][0]
+        if on_po:
+            qty_dict["on_po"] += on_po[0][0]
     return qty_dict
 
 
-def get_calculated_rol(rol, val_rate):
-    rol_text = frappe.get_value("RIGPL Settings", "RIGPL Settings", "rol_multiplier")
+def get_quantities_for_items(items):
+    """
+    Returns {item: qty_dict} like get_quantities_for_item for items that are not made to order,
+    with 2 queries for each chunk. `items` are rows or docs with name, made_to_order,
+    valuation_rate and lead_time_days. A made to order item gets all quantities 0.
+    """
+    multipliers = get_rol_multipliers()
+    result = {}
+    stock_items = {}
+    for it in items:
+        if it.made_to_order == 1:
+            result[it.name] = frappe._dict({key: 0 for key in QTY_FIELDS})
+        else:
+            stock_items[it.name] = it
+    rol_by_item, bins_by_item = {}, {}
+    for chunk in chunks(stock_items):
+        rol_by_item.update(get_first_reorder_levels(chunk))
+        for row in get_bin_qty_by_wh_type(chunk):
+            bins_by_item.setdefault(row.item_code, []).append(row)
+    for name, it in stock_items.items():
+        qty_dict = frappe._dict({key: 0 for key in QTY_FIELDS})
+        rol = flt(rol_by_item.get(name))
+        qty_dict["re_order_level"] = rol
+        qty_dict["valuation_rate"] = flt(it.valuation_rate)
+        qty_dict["lead_time"] = flt(it.lead_time_days) if flt(it.lead_time_days) > 0 else 30
+        qty_dict["calculated_rol"] = get_calculated_rol(rol, qty_dict["valuation_rate"], multipliers)
+        for bnd in bins_by_item.get(name, []):
+            qty_dict["on_so"] += flt(bnd.reserved_qty)
+            qty_dict["on_po"] += flt(bnd.ordered_qty)
+            qty_dict["on_indent"] += flt(bnd.indented_qty)
+            qty_dict["planned_qty"] += flt(bnd.planned_qty)
+            qty_dict["reserved_for_prd"] += flt(bnd.reserved_qty_for_production)
+            key = ACTUAL_QTY_BY_WH_TYPE.get(bnd.warehouse_type)
+            if key:
+                qty_dict[key] += flt(bnd.actual_qty)
+        result[name] = qty_dict
+    return result
+
+
+def get_first_reorder_levels(items):
+    """
+    Returns {item: warehouse_reorder_level of its first Item Reorder row}
+    """
+    rol = frappe.qb.DocType("Item Reorder")
+    rows = (
+        frappe.qb.from_(rol)
+        .select(rol.parent, rol.warehouse_reorder_level)
+        .where((rol.parenttype == "Item") & (rol.parentfield == "reorder_levels"))
+        .where(rol.parent.isin(items))
+        .orderby(rol.idx)
+        .run(as_dict=True)
+    )
+    levels = {}
+    for row in rows:
+        levels.setdefault(row.parent, row.warehouse_reorder_level)
+    return levels
+
+
+def get_bin_qty_by_wh_type(items):
+    """
+    Returns the Bin quantities of `items` summed for each item and Warehouse Type
+    """
+    bn = frappe.qb.DocType("Bin")
+    wh = frappe.qb.DocType("Warehouse")
+    return (
+        frappe.qb.from_(bn)
+        .join(wh).on(bn.warehouse == wh.name)
+        .select(
+            bn.item_code, wh.warehouse_type,
+            Sum(bn.reserved_qty).as_("reserved_qty"),
+            Sum(bn.actual_qty).as_("actual_qty"),
+            Sum(bn.ordered_qty).as_("ordered_qty"),
+            Sum(bn.indented_qty).as_("indented_qty"),
+            Sum(bn.planned_qty).as_("planned_qty"),
+            Sum(bn.reserved_qty_for_production).as_("reserved_qty_for_production"),
+        )
+        .where(bn.item_code.isin(items))
+        .groupby(bn.item_code, wh.warehouse_type)
+        .run(as_dict=True)
+    )
+
+
+def get_rol_multipliers():
+    """
+    Returns the ROL multipliers of RIGPL Settings, sorted by value
+    """
+    rol_text = cstr(frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "rol_multiplier"))
     rol_text = rol_text.split(",")
     if not rol_text[0]:
         # Default Multipliers
         rol_text = ["5:1000", "2.5:2000", "2:2500"]
     rol_multi = []
     for d in rol_text:
-        multi_dict = {}
-        d=d.split(":")
-        multi_dict["multiplier"] = flt(d[0])
-        multi_dict["value"] = flt(d[1])
-        rol_multi.append(multi_dict.copy())
-    rol_multi = sorted(rol_multi, key=lambda i:i["value"])
+        d = d.split(":")
+        rol_multi.append({"multiplier": flt(d[0]), "value": flt(d[1])})
+    return sorted(rol_multi, key=lambda i: i["value"])
+
+
+def get_calculated_rol(rol, val_rate, multipliers=None):
+    if multipliers is None:
+        multipliers = get_rol_multipliers()
     rol_val_rate_prod = rol * val_rate
     multiplied = 0
-    for multi in rol_multi:
+    for multi in multipliers:
         if rol_val_rate_prod <= multi.get("value"):
             calc_rol = multi.get("multiplier") * rol
             multiplied = 1

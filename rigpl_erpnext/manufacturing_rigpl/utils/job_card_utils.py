@@ -545,32 +545,54 @@ def get_existing_job_cards(item_name, operations, so_detail=None, ps_doc=None):
     operations = list(set(operations))
     if not ps_doc or not operations:
         return {}
-    jc = frappe.qb.DocType("Process Job Card RIGPL")
-    query = (
-        frappe.qb.from_(jc)
-        .select(jc.name, jc.operation, jc.allow_consumption_of_rm, jc.transfer_entry)
-        .where(jc.docstatus == 0)
-        .where(jc.operation.isin(operations))
-        .where(jc.production_item == item_name)
-    )
     if frappe.get_value("Item", item_name, "made_to_order") == 1:
         if so_detail is None:
             return {}
-        query = query.where(jc.sales_order_item == so_detail)
-    jc_by_operation = {}
-    for row in query.run(as_dict=True):
-        jc_by_operation.setdefault(row.pop("operation"), []).append(row)
-    jc_rm = get_rm_item_codes(
-        [d.name for rows in jc_by_operation.values() for d in rows if d.allow_consumption_of_rm == 1],
-        "Process Job Card RIGPL",
-    )
+    else:
+        so_detail = None
+    jc_by_pair, jc_rm = get_draft_job_cards([item_name], operations, so_detail=so_detail)
     ps_rm = [rm.item_code for rm in ps_doc.rm_consumed]
     return {
         operation: match_existing_job_cards(
-            ps_doc.operations, operation, jc_by_operation.get(operation, []), jc_rm, ps_rm
+            ps_doc.operations, operation, jc_by_pair.get((item_name, operation), []), jc_rm, ps_rm
         )
         for operation in operations
     }
+
+
+def get_draft_job_cards(items, operations, so_detail=None):
+    """
+    Returns ({(item, operation): [draft Job Cards]}, {Job Card: [RM item codes]}) for all the
+    items and operations, in 2 queries for each chunk of items. With `so_detail`, only the Job
+    Cards of that Sales Order Item.
+    """
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    operations = list(set(operations))
+    jc_by_pair = {}
+    if not operations:
+        return jc_by_pair, {}
+    for chunk in chunks(items):
+        query = (
+            frappe.qb.from_(jc)
+            .select(
+                jc.name, jc.production_item, jc.operation, jc.operation_id,
+                jc.allow_consumption_of_rm, jc.transfer_entry,
+            )
+            .where(jc.docstatus == 0)
+            .where(jc.production_item.isin(chunk))
+            .where(jc.operation.isin(operations))
+            .orderby(jc.creation)
+        )
+        if so_detail is not None:
+            query = query.where(jc.sales_order_item == so_detail)
+        for row in query.run(as_dict=True):
+            key = (row.pop("production_item"), row.pop("operation"))
+            jc_by_pair.setdefault(key, []).append(row)
+    rm_jc = [d.name for rows in jc_by_pair.values() for d in rows if d.allow_consumption_of_rm == 1]
+    jc_rm = {}
+    for chunk in chunks(rm_jc):
+        jc_rm.update(get_rm_item_codes(chunk, "Process Job Card RIGPL"))
+    return jc_by_pair, jc_rm
 
 
 def validate_qty_decimal(document, table_name):

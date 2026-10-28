@@ -528,16 +528,22 @@ class ProcessSheet(Document):
         return rm_item_dict
 
 
-def return_priority_psd(psd, itd):
+def return_priority_psd(psd, itd, qty_dict=None, so_lines=None):
+    """
+    Returns the priority of the Process Sheet. Pass `qty_dict` (get_quantities_for_items) and
+    `so_lines` (the item's rows of get_open_so_lines) when checking many sheets.
+    """
     if itd.made_to_order == 1:
         priority = get_priority_for_so(
             it_name=itd.name,
             prd_qty=psd.quantity,
             short_qty=psd.quantity,
             so_detail=psd.sales_order_item,
+            so_lines=so_lines,
         )
     else:
-        qty_dict = get_quantities_for_item(itd)
+        if qty_dict is None:
+            qty_dict = get_quantities_for_item(itd)
         prd_qty = psd.quantity
         soqty, poqty, pqty = (
             qty_dict["on_so"],
@@ -558,7 +564,7 @@ def return_priority_psd(psd, itd):
                     # Shortage of Material is More than WIP Qty
                     shortage -= wipqty + poqty
                     priority = get_priority_for_so(
-                        it_name=itd.name, prd_qty=prd_qty, short_qty=shortage
+                        it_name=itd.name, prd_qty=prd_qty, short_qty=shortage, so_lines=so_lines
                     )
                 else:
                     # Shortage is Less than Items in Production now get shortage for the Job Card First
