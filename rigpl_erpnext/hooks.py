@@ -92,7 +92,10 @@ before_migrate = [
 # v13 only: backport of v14 pricing rule "Has Priority". Remove at the v14 upgrade.
 before_request = ["rigpl_erpnext.overrides.pricing_rule_utils.apply_overrides"]
 before_job = ["rigpl_erpnext.overrides.pricing_rule_utils.apply_overrides"]
-after_migrate = ["rigpl_erpnext.website_rigpl.website_data.importer.notify_pending_website_import"]
+after_migrate = [
+    "rigpl_erpnext.website_rigpl.website_data.importer.notify_pending_website_import",
+    "rigpl_erpnext.utils.role_permission_policy.enforce_role_permission_policy",
+]
 
 # Desk Notifications
 # ------------------
@@ -309,6 +312,7 @@ scheduler_events = {
     "daily": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
         "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks",
+        "rigpl_erpnext.utils.role_permission_policy.enforce_role_permission_policy",
     ],
     "hourly": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
