@@ -3,9 +3,9 @@
 from __future__ import unicode_literals
 
 import frappe
-import unittest
+from frappe.tests.utils import FrappeTestCase
 
 test_records = frappe.get_test_records('Trial Tracking')
 
-class TestTrialTracking(unittest.TestCase):
+class TestTrialTracking(FrappeTestCase):
 	pass

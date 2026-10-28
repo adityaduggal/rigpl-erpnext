@@ -1,8 +1,8 @@
 import datetime
-import unittest
 from unittest.mock import patch
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, nowdate
 
 from rigpl_erpnext.rigpl_erpnext.report.stock_valuation import stock_valuation as report
@@ -44,7 +44,7 @@ def chunk_rows(sv, rows):
         return sv.get_chunk_rows(rows)
 
 
-class TestStockValuationRows(unittest.TestCase):
+class TestStockValuationRows(FrappeTestCase):
     def test_row_values_and_fifo_ages(self):
         sv = make_report(bin_qty={("IT-1", WH): 7})
         rows = [
@@ -100,7 +100,7 @@ class TestStockValuationRows(unittest.TestCase):
         self.assertEqual(row[9], "H-1X")
 
 
-class TestStockValuationPairs(unittest.TestCase):
+class TestStockValuationPairs(FrappeTestCase):
     def test_today_reads_only_bins_in_stock(self):
         sv = make_report(date=nowdate(), bin_qty={("IT-1", WH): 3, ("IT-1", OTHER_WH): 0})
         self.assertEqual(sv.get_stocked_pairs(), {("IT-1", WH)})
@@ -110,7 +110,7 @@ class TestStockValuationPairs(unittest.TestCase):
         self.assertIsNone(sv.get_stocked_pairs())
 
 
-class TestStockValuationFilters(unittest.TestCase):
+class TestStockValuationFilters(FrappeTestCase):
     def test_quote_in_filter_does_not_change_the_query(self):
         with self.assertRaises(frappe.ValidationError):
             report.get_items(frappe._dict(bm="Carbide' OR '1'='1"))

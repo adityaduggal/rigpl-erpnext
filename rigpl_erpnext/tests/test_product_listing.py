@@ -1,7 +1,7 @@
-import unittest
 from unittest.mock import patch
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.patches.v13 import website_item_group_listing
 from rigpl_erpnext.website_rigpl import product_listing
@@ -11,7 +11,7 @@ def group(name):
     return frappe._dict(name=name, route=frappe.scrub(name))
 
 
-class TestProductListing(unittest.TestCase):
+class TestProductListing(FrappeTestCase):
     def tearDown(self):
         frappe.db.rollback()
 

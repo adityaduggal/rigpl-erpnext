@@ -1,7 +1,7 @@
-import unittest
 from types import SimpleNamespace
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.rigpl_erpnext.validations.item import validate_pl_item_rule
 from rigpl_erpnext.tests.test_variant_table import insert_item
@@ -12,7 +12,7 @@ VARIANT = "_Test RIGPL PL Variant"
 OTHER_VARIANT = "_Test RIGPL PL Variant 2"
 
 
-class TestPlItemRule(unittest.TestCase):
+class TestPlItemRule(FrappeTestCase):
     def setUp(self):
         insert_item(TEMPLATE)
         insert_item(VARIANT, variant_of=TEMPLATE)

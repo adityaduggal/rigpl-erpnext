@@ -1,6 +1,6 @@
-import unittest
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.utils.stock_utils import get_wh_wise_qty, get_wh_wise_qty_for_items
 
@@ -20,7 +20,7 @@ def add_bin(item_code, actual_qty=0, reserved_qty=0):
     ).db_insert()
 
 
-class TestWhWiseQty(unittest.TestCase):
+class TestWhWiseQty(FrappeTestCase):
     def setUp(self):
         frappe.get_doc(
             doctype="Warehouse", name=WAREHOUSE, warehouse_name=WAREHOUSE, short_code="WWQ"

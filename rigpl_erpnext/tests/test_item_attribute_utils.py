@@ -1,6 +1,6 @@
-import unittest
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.utils import item_attribute_utils as iau
 from rigpl_erpnext.utils.item_utils import get_item_attributes
@@ -42,7 +42,7 @@ def add_item_attribute(name, numeric, values=()):
         ).db_insert()
 
 
-class TestAttributeSortKey(unittest.TestCase):
+class TestAttributeSortKey(FrappeTestCase):
     def test_sorts_like_sql_order_by(self):
         rows = {
             "a": {TEXT_ATT: "hss", NUM_ATT: "10"},
@@ -62,7 +62,7 @@ class TestAttributeSortKey(unittest.TestCase):
         self.assertEqual(list(iau.chunks(["a", "b", "a", "c"], size=2)), [["a", "b"], ["c"]])
 
 
-class TestAttributeQueries(unittest.TestCase):
+class TestAttributeQueries(FrappeTestCase):
     def setUp(self):
         add_attribute_row(ITEM_1, TEXT_ATT, "HSS", 1)
         add_attribute_row(ITEM_1, NUM_ATT, "6", 2)

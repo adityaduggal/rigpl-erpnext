@@ -1,6 +1,6 @@
-import unittest
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.rigpl_erpnext.validations.pricing_rule import find_amount_band_errors
 
@@ -11,7 +11,7 @@ def band(name, min_amt, max_amt, priority="19"):
     return frappe._dict(name=name, item_code=ITEM, min_amt=min_amt, max_amt=max_amt, priority=priority)
 
 
-class TestAmountBandValidation(unittest.TestCase):
+class TestAmountBandValidation(FrappeTestCase):
     def test_joined_bands_pass(self):
         bands = [band("MOV58", 178571, 374999), band("MOV60", 375000, 0)]
         self.assertEqual(find_amount_band_errors(bands), [])

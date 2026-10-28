@@ -1,7 +1,7 @@
-import unittest
 from unittest.mock import patch
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 from erpnext.accounts.doctype.pricing_rule import utils
 
 from rigpl_erpnext.overrides import pricing_rule_utils
@@ -21,7 +21,7 @@ def pick_by_amount(args, pricing_rules, doc=None):
     return max(rules, key=lambda r: int(r.priority)) if rules else None
 
 
-class TestPricingRuleOverride(unittest.TestCase):
+class TestPricingRuleOverride(FrappeTestCase):
     def get_winner(self, qty, has_priority=1):
         stages = {
             "Item Code": [make_rule(MOV_RULE, has_priority)],

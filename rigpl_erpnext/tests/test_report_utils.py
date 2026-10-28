@@ -1,10 +1,11 @@
-import unittest
 from decimal import Decimal
+
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.utils.report_utils import blank_zeros
 
 
-class TestReportUtils(unittest.TestCase):
+class TestReportUtils(FrappeTestCase):
     def test_blank_zeros_keeps_text_dates_and_flags(self):
         row = ["CX0X", 0, 0.0, Decimal("0.000"), 2.5, "0", "-", False, None]
 

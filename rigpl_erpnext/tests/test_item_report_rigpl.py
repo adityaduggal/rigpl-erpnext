@@ -1,6 +1,6 @@
-import unittest
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.rigpl_erpnext.report.item_report_rigpl import item_report_rigpl as report
 
@@ -9,7 +9,7 @@ def meta(numeric=0, hidden=0):
     return frappe._dict(numeric_values=numeric, hidden=hidden, max_length=0)
 
 
-class TestItemReportLabels(unittest.TestCase):
+class TestItemReportLabels(FrappeTestCase):
     def test_first_field_name_like_sql_group_by(self):
         self.assertIsNone(report.first_field_name({"Dia (mm)", None}))
         names = {"flute Dia (mm)", "Body Dia (mm)"}

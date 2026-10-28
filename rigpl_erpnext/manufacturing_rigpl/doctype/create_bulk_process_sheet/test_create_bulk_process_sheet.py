@@ -4,9 +4,9 @@
 from __future__ import unicode_literals
 
 import frappe
-import unittest
+from frappe.tests.utils import FrappeTestCase
 
 # test_records = frappe.get_test_records('Create Bulk Production Orders')
 
-class TestCreateBulkProcessSheet(unittest.TestCase):
+class TestCreateBulkProcessSheet(FrappeTestCase):
 	pass

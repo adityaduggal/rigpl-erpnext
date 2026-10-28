@@ -1,7 +1,7 @@
-import unittest
 from unittest.mock import patch
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.tests.test_variant_table import insert_item, insert_website_item
 from rigpl_erpnext.website_rigpl import sales_rank
@@ -36,7 +36,7 @@ def insert_invoice_row(item_code, amount, posting_date="2026-06-01", docstatus=1
     ).db_insert()
 
 
-class TestRankPure(unittest.TestCase):
+class TestRankPure(FrappeTestCase):
     def test_revenue_ranks_first_and_usage_breaks_ties(self):
         ranks = sales_rank.rank_products(["A", "B", "C", "D"], {"A": 10, "B": 50}, {"C": 3, "D": 9})
 
@@ -66,7 +66,7 @@ class TestRankPure(unittest.TestCase):
         self.assertEqual(sales_rank.scale_weightage({}), ({}, 1))
 
 
-class TestRankData(unittest.TestCase):
+class TestRankData(FrappeTestCase):
     def setUp(self):
         insert_item(TEMPLATE_A)
         insert_item(TEMPLATE_A + " V1", variant_of=TEMPLATE_A)

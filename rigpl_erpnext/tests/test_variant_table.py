@@ -1,7 +1,7 @@
-import unittest
 from unittest.mock import patch
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.website_rigpl import catalog, item_page
 
@@ -116,7 +116,7 @@ def insert_website_item(name, item_code, variant_of=None, published=1, warehouse
     ).db_insert()
 
 
-class TestVariantTable(unittest.TestCase):
+class TestVariantTable(FrappeTestCase):
     def setUp(self):
         # get_shopping_cart_settings() reads this request cache first
         frappe.local.shopping_cart_settings = cart_settings()

@@ -1,8 +1,8 @@
-import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.tests.test_variant_table import insert_item, insert_website_item
 from rigpl_erpnext.website_rigpl.item_sync import (
@@ -30,7 +30,7 @@ def row(image=IMAGE, website_image=IMAGE, thumbnail=IMAGE, published=1, disabled
     }
 
 
-class TestPlanWebItemChanges(unittest.TestCase):
+class TestPlanWebItemChanges(FrappeTestCase):
     def test_row_in_sync_has_no_changes(self):
         self.assertEqual(plan_web_item_changes([row()]), {})
 
@@ -54,7 +54,7 @@ class TestPlanWebItemChanges(unittest.TestCase):
         self.assertEqual(plan_web_item_changes([row(published=0)]), {"W1": {"published": 1}})
 
 
-class TestSyncWebItems(unittest.TestCase):
+class TestSyncWebItems(FrappeTestCase):
     def setUp(self):
         insert_item(TEMPLATE)
         insert_item(VARIANT, variant_of=TEMPLATE)

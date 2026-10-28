@@ -1,9 +1,9 @@
 import json
 import os
-import unittest
 from unittest.mock import patch
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 from frappe.website.doctype.website_theme.website_theme import WebsiteTheme
 
 from rigpl_erpnext.website_rigpl.website_data import importer
@@ -34,7 +34,7 @@ def block_values(block):
     return json.loads(block.web_template_values)
 
 
-class TestWebsiteDataImport(unittest.TestCase):
+class TestWebsiteDataImport(FrappeTestCase):
     def tearDown(self):
         frappe.db.rollback()
 

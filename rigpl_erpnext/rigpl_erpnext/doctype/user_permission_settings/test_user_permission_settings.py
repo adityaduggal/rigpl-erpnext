@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 
 import frappe
-import unittest
+from frappe.tests.utils import FrappeTestCase
 
-class TestUserPermissionSettings(unittest.TestCase):
+class TestUserPermissionSettings(FrappeTestCase):
 	pass

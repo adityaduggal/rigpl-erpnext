@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 
 import frappe
-import unittest
+from frappe.tests.utils import FrappeTestCase
 
-class TestEmployeeAdvance(unittest.TestCase):
+class TestEmployeeAdvance(FrappeTestCase):
 	pass

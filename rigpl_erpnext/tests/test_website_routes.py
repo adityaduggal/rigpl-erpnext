@@ -1,5 +1,6 @@
 import re
-import unittest
+
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.website_rigpl.legacy_routes import pick_item_target
 from rigpl_erpnext.website_rigpl.routes import (
@@ -29,7 +30,7 @@ def web_item(name, item_code, route, variant_of=None):
     }
 
 
-class TestSharedRouteFixes(unittest.TestCase):
+class TestSharedRouteFixes(FrappeTestCase):
     def test_template_keeps_route_and_variants_nest_under_it(self):
         rows = [
             web_item("W1", "V-A1", SHARED, "330-Metric"),
@@ -139,7 +140,7 @@ TREE = [
 OLD_TEMPLATE = "carbide-tools/solid-carbide-drills/gp/solid-carbide-jobber-drills/c0gj-gp-jobber-x"
 
 
-class TestRouteRules(unittest.TestCase):
+class TestRouteRules(FrappeTestCase):
     def test_slugify_keeps_only_letters_digits_and_single_hyphens(self):
         self.assertEqual(slugify("M2-Round HSS Tool Bits-Metric-4.1-to-8mm"), "m2-round-hss-tool-bits-metric-4-1-to-8mm")
         self.assertEqual(slugify(" Upto-5/32 inch- "), "upto-5-32-inch")
@@ -188,7 +189,7 @@ class TestRouteRules(unittest.TestCase):
         self.assertEqual(custom, "carbide/jobber-drills/ss-flat-3mm")
 
 
-class TestRouteRebuild(unittest.TestCase):
+class TestRouteRebuild(FrappeTestCase):
     def rows(self, variant_route=None):
         return [
             item("W1", "C0GJ-GP-Jobber-X", "Solid Carbide Jobber Drills", OLD_TEMPLATE),
@@ -262,7 +263,7 @@ class TestRouteRebuild(unittest.TestCase):
         self.assertEqual(hijacking_redirects(sources, live), [re.escape("carbide/jobber-drills")])
 
 
-class TestLegacyItemTarget(unittest.TestCase):
+class TestLegacyItemTarget(FrappeTestCase):
     TEMPLATE = "carbide/jobber-drills/c0gj-metric"
     VARIANT = TEMPLATE + "/cr0agbe00md1"
 

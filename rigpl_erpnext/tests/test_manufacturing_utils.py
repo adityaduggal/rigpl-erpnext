@@ -1,6 +1,6 @@
-import unittest
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import match_existing_job_cards
 from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
@@ -20,7 +20,7 @@ def rule(attribute, allowed="", numeric=0, formula=""):
 ITEM = [att("Base Material", "HSS"), att("Tool Type", "Drill"), att("d1_mm", "6", numeric=1)]
 
 
-class TestMatchBomTemplates(unittest.TestCase):
+class TestMatchBomTemplates(FrappeTestCase):
     def test_text_rules(self):
         rules = {
             "BT1": [rule("Base Material", "HSS"), rule("Tool Type", "Drill")],
@@ -57,7 +57,7 @@ def jc(name, consume=0, transfer=0):
     return frappe._dict(name=name, allow_consumption_of_rm=consume, transfer_entry=transfer)
 
 
-class TestMatchExistingJobCards(unittest.TestCase):
+class TestMatchExistingJobCards(FrappeTestCase):
     def test_transfer_operation_matches_transfer_job_cards(self):
         cards = [jc("JC1", transfer=1), jc("JC2", transfer=0)]
         found = match_existing_job_cards([op("Coating")], "Coating", cards, {}, [])
@@ -89,7 +89,7 @@ def row(idx=1, planned=100):
     return frappe._dict(idx=idx, planned_qty=planned)
 
 
-class TestProducedQtyChanges(unittest.TestCase):
+class TestProducedQtyChanges(FrappeTestCase):
     def test_submit_first_operation_in_progress(self):
         op_values, ps_values = get_produced_qty_changes(card(40), "Submit", sheet(), row(), 40)
         self.assertEqual(op_values, {"completed_qty": 40, "status": "In Progress"})
@@ -141,7 +141,7 @@ def totals(comp_qty=None, sc_op=None):
     return frappe._dict(comp_qty=comp_qty, sc_op=sc_op)
 
 
-class TestGetOperationValues(unittest.TestCase):
+class TestGetOperationValues(FrappeTestCase):
     TEMPLATE = {"Grinding"}
 
     def values(self, opd, jc, ps_status="In Progress"):
@@ -172,7 +172,7 @@ class TestGetOperationValues(unittest.TestCase):
         self.assertEqual(self.values(ps_op("Coating"), totals(10)), (10, "Completed"))
 
 
-class TestBatchQtyHelpers(unittest.TestCase):
+class TestBatchQtyHelpers(FrappeTestCase):
     MULTIPLIERS = [
         {"multiplier": 5, "value": 1000},
         {"multiplier": 2.5, "value": 2000},

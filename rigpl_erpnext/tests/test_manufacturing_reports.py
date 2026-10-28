@@ -1,6 +1,6 @@
-import unittest
 
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.manufacturing_rigpl.report.bom_templates import bom_templates
 from rigpl_erpnext.manufacturing_rigpl.report.process_sheet_analysis import process_sheet_analysis as psa
@@ -22,7 +22,7 @@ def po_row(stock_qty, received_qty):
     )
 
 
-class TestPickLastJobCard(unittest.TestCase):
+class TestPickLastJobCard(FrappeTestCase):
     def test_no_job_card(self):
         self.assertEqual(pick_last_jc([], set(), {}), {})
 
@@ -62,7 +62,7 @@ class TestPickLastJobCard(unittest.TestCase):
         self.assertEqual(jc.remarks, " Marking Pending and Coating Completed")
 
 
-class TestProcessSheetAnalysis(unittest.TestCase):
+class TestProcessSheetAnalysis(FrappeTestCase):
     def test_view(self):
         self.assertEqual(psa.get_view(frappe._dict()), "default")
         self.assertEqual(psa.get_view(frappe._dict(pending=1)), "pending")
@@ -86,7 +86,7 @@ class TestProcessSheetAnalysis(unittest.TestCase):
         self.assertLess(first, second)
 
 
-class TestProductionPlanningReport(unittest.TestCase):
+class TestProductionPlanningReport(FrappeTestCase):
     def test_view(self):
         self.assertEqual(ppr.get_view(frappe._dict(summary=1)), "summary")
         self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict())
@@ -101,7 +101,7 @@ class TestProductionPlanningReport(unittest.TestCase):
         self.assertIsNone(cells[ppr.ATTS.index("w1_mm")])
 
 
-class TestBomTemplates(unittest.TestCase):
+class TestBomTemplates(FrappeTestCase):
     def test_restriction_values(self):
         values = bom_templates.get_restriction_values(frappe._dict(bm="HSS", quality="H-3X"))
         self.assertEqual(values, {"Base Material": "HSS", "HSS Quality": "H-3X"})

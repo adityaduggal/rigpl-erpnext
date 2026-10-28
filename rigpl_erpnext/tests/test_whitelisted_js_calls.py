@@ -1,7 +1,8 @@
 import ast
 import os
 import re
-import unittest
+
+from frappe.tests.utils import FrappeTestCase
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_PARENT = os.path.dirname(APP_DIR)
@@ -43,7 +44,7 @@ def get_called_methods(js_path):
         yield match.group(1) or match.group(2)
 
 
-class TestWhitelistedJsCalls(unittest.TestCase):
+class TestWhitelistedJsCalls(FrappeTestCase):
     def test_js_calls_are_whitelisted(self):
         errors = []
         for js_path in get_js_files():
