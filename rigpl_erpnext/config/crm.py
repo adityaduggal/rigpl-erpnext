@@ -11,15 +11,6 @@ def get_data():
 				},
 			]
 		},
-        {
-            "label": _("Settings"),
-            "items": [
-                {
-                    "type": "doctype",
-                    "name": "IndiaMart Pull Leads",
-                },
-            ]
-        },
 		{
 			"label": _("Reports"),
 			"icon": "icon-paper-clip",

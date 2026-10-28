@@ -283,10 +283,6 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-        "*/30 * * * *": [
-            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.indiamart.execute"
-            # Runs Every 30 mins
-        ],
         "10 2 * * *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.enqueue_check_wrong_variants",
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.check_update_bin_values.enqueue_ex"
