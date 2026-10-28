@@ -16,6 +16,8 @@
   "rol_calculation",
   "minimum_rol_value",
   "max_rol_fluctuation",
+  "rol_safety_factor",
+  "big_order_multiple",
   "base_rol_multiplier",
   "max_months_for_manufacturing_qty",
   "max_value_over_max_qty_allowed",
@@ -161,6 +163,20 @@
    "fieldname": "max_rol_fluctuation",
    "fieldtype": "Currency",
    "label": "Max ROL Fluctuation"
+  },
+  {
+   "default": "1.65",
+   "description": "Safety stock factor (z) for the ROL of items ordered often. 1.65 gives about 95% of lead times without a stock-out.",
+   "fieldname": "rol_safety_factor",
+   "fieldtype": "Float",
+   "label": "ROL Safety Factor"
+  },
+  {
+   "default": "5",
+   "description": "An order line above this many times the median order qty of the item is a big order. Its qty is counted only up to that limit for the ROL.",
+   "fieldname": "big_order_multiple",
+   "fieldtype": "Float",
+   "label": "Big Order Multiple for ROL"
   },
   {
    "fieldname": "rol_value_percentages",

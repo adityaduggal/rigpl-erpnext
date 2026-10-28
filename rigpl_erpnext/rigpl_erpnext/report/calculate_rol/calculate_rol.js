@@ -1,11 +1,12 @@
 frappe.query_reports["Calculate ROL"] = {
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 	"filters": [
 		{
 			"fieldname":"months",
 			"label": "Period",
 			"fieldtype": "Data",
 			"reqd": 1,
-			"default": "12,15,18,21,24",
+			"default": "3,6,12,24,48",
 		},
 		{
 			"fieldname":"to_date",
@@ -21,6 +22,12 @@ frappe.query_reports["Calculate ROL"] = {
 			"options": "Item",
 			"reqd": 1,
 			"get_query": function(){ return {'filters': [['Item', 'has_variants','=', 0]]}}
+		},
+		{
+			"fieldname":"cumulative",
+			"label": "Cumulative",
+			"fieldtype": "Check",
+			"default": 1,
 		}
 	]
 }
