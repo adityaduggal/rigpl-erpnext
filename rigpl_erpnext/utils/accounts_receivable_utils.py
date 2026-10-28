@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe.utils import flt, fmt_money
 from erpnext.accounts.utils import get_balance_on
+from .item_attribute_utils import chunks
 from .sales_utils import get_customer_sales_rating
 from datetime import datetime
 
@@ -113,33 +114,61 @@ def get_average_payment_days(customer, from_date, to_date):
     """
     Returns the Average Payment Days for a Customer within a Period
     """
-    invoice_list = frappe.db.sql("""SELECT customer, name, base_net_total as net_amt,
-        base_grand_total as grand_total, posting_date, due_date FROM `tabSales Invoice`
-        WHERE docstatus = 1 AND base_grand_total > 0 AND customer = '%s' AND is_pos = 0
-        AND posting_date >= '%s' AND posting_date <= '%s'""" % (customer,
-            from_date, to_date), as_dict=1)
-    if invoice_list:
-        entries = frappe.db.sql("""SELECT voucher_type, voucher_no, party_type, party,
-            posting_date, debit, credit, remarks, against_voucher
-            FROM `tabGL Entry` WHERE party_type="Customer" AND voucher_type in ('Journal Entry',
-            'Payment Entry') AND party = '%s' """ % customer, as_dict=1)
-        for inv in invoice_list:
+    return get_average_payment_days_by_customer([customer], from_date, to_date).get(customer, 0)
+
+
+def get_average_payment_days_by_customer(customers, from_date, to_date):
+    """
+    Returns {customer: Average Payment Days} for the invoices within a Period. Customers
+    without invoices are left out. Uses 2 queries for each chunk of customers.
+    """
+    si = frappe.qb.DocType("Sales Invoice")
+    gle = frappe.qb.DocType("GL Entry")
+    avg_days = {}
+    for chunk in chunks(customers):
+        invoices = (
+            frappe.qb.from_(si)
+            .select(
+                si.customer,
+                si.name,
+                si.base_net_total.as_("net_amt"),
+                si.base_grand_total.as_("grand_total"),
+                si.posting_date,
+                si.due_date,
+            )
+            .where((si.docstatus == 1) & (si.base_grand_total > 0) & (si.is_pos == 0))
+            .where(si.customer.isin(chunk))
+            .where((si.posting_date >= from_date) & (si.posting_date <= to_date))
+            .run(as_dict=True)
+        )
+        if not invoices:
+            continue
+        entries = (
+            frappe.qb.from_(gle)
+            .select(gle.party, gle.against_voucher, gle.posting_date, gle.debit, gle.credit)
+            .where(gle.party_type == "Customer")
+            .where(gle.voucher_type.isin(["Journal Entry", "Payment Entry"]))
+            .where(gle.party.isin(chunk))
+            .run(as_dict=True)
+        )
+        payments = {}
+        for d in entries:
+            payments.setdefault((d.party, d.against_voucher), []).append(d)
+
+        invoices_by_customer = {}
+        for inv in invoices:
             inv["total_pmt_days"] = 0
             inv["paid_amt"] = 0
-            for d in entries:
+            for d in payments.get((inv.customer, inv.name), []):
                 # Average days formula = p1 * d1 + p2 * d2 ... / total_amt
-                if d.against_voucher == inv.name:
-                    if d.reference_type == "Purchase Invoice":
-                        payment_amount = flt(d.debit) or -1 * flt(d.credit)
-                    else:
-                        payment_amount = flt(d.credit) or -1 * flt(d.debit)
-                    payment_days = (d.posting_date - inv.posting_date).days
-                    inv["total_pmt_days"] += payment_days * payment_amount
-                    inv["paid_amt"] += payment_amount
-        avg_days_invoice = get_average_from_all_invoices(invoice_list)
-        return avg_days_invoice.avg_days
-    else:
-        return 0
+                payment_amount = flt(d.credit) or -1 * flt(d.debit)
+                payment_days = (d.posting_date - inv.posting_date).days
+                inv["total_pmt_days"] += payment_days * payment_amount
+                inv["paid_amt"] += payment_amount
+            invoices_by_customer.setdefault(inv.customer, []).append(inv)
+        for customer, invoice_list in invoices_by_customer.items():
+            avg_days[customer] = get_average_from_all_invoices(invoice_list).avg_days
+    return avg_days
 
 
 def get_average_from_all_invoices(invoice_list):

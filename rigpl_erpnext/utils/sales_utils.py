@@ -5,9 +5,11 @@ from __future__ import unicode_literals
 import re
 import frappe
 import datetime
+from frappe.query_builder.functions import Count, Min, Sum
+from frappe.utils import flt, today, add_months, getdate
+from .item_attribute_utils import chunks
 from .other_utils import get_base_doc, round_up, auto_round_up, compute_lcm
 from .stock_utils import get_qty_available_to_sell
-from frappe.utils import flt, today, add_months
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
@@ -231,14 +233,12 @@ def compare_cust_pmt_terms(custd, enforce=0):
 
 def get_customer_sales_rating(cust_name):
     sales_rating = 0
-    annual_base = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_annual_sales"))
     period = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "years_to_consider"))
     if period == 0:
         period = 2
     to_date = today()
     from_date = add_months(to_date, months=12*period*(-1))
-    if annual_base == 0:
-        annual_base = 100000
+    annual_base = get_base_annual_sales(from_date, to_date)
 
     invoices = get_total_invoices_and_amount(cust_name, from_date, to_date)
     if invoices:
@@ -251,33 +251,31 @@ def get_customer_sales_rating(cust_name):
 
 
 def get_customer_rating_factor(customer_dict, base_years=5):
+    settings = frappe.get_cached_doc("RIGPL Settings", "RIGPL Settings")
     # Calculate Age Factor
     days_since = customer_dict["days_since"]
-    age_wt = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "age_weightage"))
+    age_wt = flt(settings.age_weightage)
     age_factor = min((days_since / (base_years*365))*100, 100)
     wt_age_factor = min(int(age_factor*(age_wt/100)), 100)
     customer_dict["age_factor"] = age_factor
 
     # Calculate Sales Factor
-    annual_base = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "base_annual_sales"))
-    if annual_base == 0:
-        annual_base = 100000
+    annual_base = customer_dict["base_annual_sales"]
     period = customer_dict["period"]
-    sal_wt = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "sales_weightage"))
+    sal_wt = flt(settings.sales_weightage)
     tot_sales = customer_dict["total_sales"]
-    tot_comp_sales = customer_dict["total_company_sales"]
     sales_factor = min(int(tot_sales*365*100/annual_base/period), 100)
     wt_sales_factor = int(sales_factor * (sal_wt/100))
     customer_dict["sales_factor"] = sales_factor
 
     # Calculate Payment Factor
-    pmt_wt = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "payment_weightage"))
+    pmt_wt = flt(settings.payment_weightage)
     pmt_factor = customer_dict["pmt_factor"] * 10
     wt_pmt_factor = int(pmt_factor * (pmt_wt / 100))
     customer_dict["pmt_factor"] = pmt_factor
 
     # Calculate Average Orders Given in a Month
-    min_monthly_orders = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "minimum_orders_per_month"))
+    min_monthly_orders = flt(settings.minimum_orders_per_month)
     no_of_orders = customer_dict["total_so"]
     monthly_orders = int(no_of_orders * 365 / period / 12)
     customer_dict["avg_monthly_orders"] = monthly_orders
@@ -301,16 +299,107 @@ def get_customer_rating_factor(customer_dict, base_years=5):
 
 
 def get_total_company_sales(frm_date, to_date):
-    tot_sales = frappe.db.sql("""SELECT SUM(base_grand_total) FROM `tabSales Invoice`
-        WHERE docstatus = 1 AND is_pos = 0 AND posting_date >= '%s'
-        AND posting_date <= '%s'""" % (frm_date, to_date), as_list=1)
-    return tot_sales[0][0]
+    """
+    Returns the Net Total of the submitted Sales Invoices in the period, with the same
+    filters as the sales of a customer (get_invoice_totals)
+    """
+    si = frappe.qb.DocType("Sales Invoice")
+    tot_sales = (
+        frappe.qb.from_(si)
+        .select(Sum(si.base_net_total))
+        .where((si.docstatus == 1) & (si.base_net_total > 0))
+        .where((si.posting_date >= frm_date) & (si.posting_date <= to_date))
+        .run()
+    )
+    return flt(tot_sales[0][0])
+
+
+def get_base_annual_sales(from_date, to_date):
+    """
+    Returns the annual sales that give a customer the full Sales Factor. It is a percent of the
+    company sales of the period when RIGPL Settings says so, else the fixed Base Annual Sales.
+    """
+    settings = frappe.get_cached_doc("RIGPL Settings", "RIGPL Settings")
+    if settings.get("base_sales_from_company_sales"):
+        days = max((getdate(to_date) - getdate(from_date)).days, 1)
+        annual_sales = get_total_company_sales(from_date, to_date) * 365 / days
+        annual_base = annual_sales * flt(settings.get("base_sales_percent")) / 100
+    else:
+        annual_base = flt(settings.base_annual_sales)
+    return annual_base or 100000
+
+
+def get_sales_order_totals(customers, from_date, to_date):
+    """
+    Returns {customer: frappe._dict(total_net_amt, so)} for the submitted Sales Orders in the
+    period, like get_total_sales_orders but for many customers
+    """
+    so = frappe.qb.DocType("Sales Order")
+    totals = {}
+    for chunk in chunks(customers):
+        rows = (
+            frappe.qb.from_(so)
+            .select(
+                so.customer,
+                Sum(so.base_net_total).as_("total_net_amt"),
+                Count(so.name).as_("so"),
+            )
+            .where((so.docstatus == 1) & (so.base_net_total > 0) & so.customer.isin(chunk))
+            .where((so.transaction_date >= from_date) & (so.transaction_date <= to_date))
+            .groupby(so.customer)
+            .run(as_dict=True)
+        )
+        totals.update({row.customer: row for row in rows})
+    return totals
+
+
+def get_invoice_totals(customers, from_date, to_date):
+    """
+    Returns {customer: frappe._dict(total_net_amt, invoices)} for the submitted Sales Invoices
+    in the period, like get_total_invoices_and_amount but for many customers
+    """
+    si = frappe.qb.DocType("Sales Invoice")
+    totals = {}
+    for chunk in chunks(customers):
+        rows = (
+            frappe.qb.from_(si)
+            .select(
+                si.customer,
+                Sum(si.base_net_total).as_("total_net_amt"),
+                Count(si.name).as_("invoices"),
+            )
+            .where((si.docstatus == 1) & (si.base_net_total > 0) & si.customer.isin(chunk))
+            .where((si.posting_date >= from_date) & (si.posting_date <= to_date))
+            .groupby(si.customer)
+            .run(as_dict=True)
+        )
+        totals.update({row.customer: row for row in rows})
+    return totals
+
+
+def get_first_order_dates(customers, amt=0):
+    """
+    Returns {customer: date of the first submitted Sales Order above amt}, like get_first_order
+    but for many customers
+    """
+    so = frappe.qb.DocType("Sales Order")
+    first_orders = {}
+    for chunk in chunks(customers):
+        rows = (
+            frappe.qb.from_(so)
+            .select(so.customer, Min(so.transaction_date))
+            .where((so.docstatus == 1) & (so.base_net_total > amt) & so.customer.isin(chunk))
+            .groupby(so.customer)
+            .run()
+        )
+        first_orders.update(dict(rows))
+    return first_orders
 
 
 def get_customer_rating_from_pts(tot_rating_pts):
     # Currently the assumption is that the maximum points earned is 0-10k for every rating 100pts are there.
     # But since there is less people above 5k the ranges are defined differently.
-    divisor = flt(frappe.get_value("RIGPL Settings", "RIGPL Settings", "rating_divisor"))
+    divisor = flt(frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "rating_divisor"))
     if divisor == 0:
         divisor = 1
     return min(int(tot_rating_pts/ divisor), 100)

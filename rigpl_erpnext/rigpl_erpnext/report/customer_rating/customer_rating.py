@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.utils import getdate, add_days
-from ...scheduled_tasks.customer_rating import build_customer_rating
+from ...scheduled_tasks.customer_rating import build_customer_ratings
 
 def execute(filters=None):
     columns = get_columns(filters)
@@ -31,25 +31,23 @@ def get_data(filters):
     period = (to_date - from_date).days
     fov = filters.get("first_order")
     conditions = get_conditions(filters)
-    cust_list = frappe.db.sql("""SELECT cu.name, cu.territory, cu.customer_group
+    cust_list = frappe.db.sql("""SELECT cu.name, cu.territory, cu.customer_group,
+    cu.payment_terms, cu.customer_rating as actual_rating
 	FROM `tabCustomer` cu WHERE cu.docstatus = 0 %s""" % conditions, as_dict=1)
-    customers_rated = []
-    for cust in cust_list:
-        cust_dict = build_customer_rating(cust_dict=cust, from_date=from_date, to_date=to_date,
-                fov=fov, days=years*365)
-        cust_dict["territory"] = cust.territory
-        cust_dict["customer_group"] = cust.customer_group
+    customers_rated = build_customer_ratings(cust_list, from_date=from_date, to_date=to_date,
+        fov=fov, days=years*365)
+    for cust_dict in customers_rated:
         cust_dict["period"] = period
-        customers_rated.append(cust_dict.copy())
     customers_rated = sorted(customers_rated, key=lambda i: (i["total_rating"]))
+    pmt_terms_dict = {pt.name: pt for pt in frappe.get_all("Payment Terms Template",
+        fields=["name", "average_credit_days", "minimum_sales_rating"])}
     data = []
     for cu in customers_rated:
-        cust_doc = frappe.get_doc("Customer", cu.name)
-        if cust_doc.payment_terms:
-            pmt_doc = frappe.get_doc("Payment Terms Template", cust_doc.payment_terms)
+        if cu.payment_terms:
+            pmt_doc = pmt_terms_dict[cu.payment_terms]
             pmt_days = pmt_doc.average_credit_days
             sales_rating = pmt_doc.minimum_sales_rating
-            pmt_terms = cust_doc.payment_terms
+            pmt_terms = cu.payment_terms
         else:
             pmt_days = 0
             sales_rating = 0
@@ -60,7 +58,7 @@ def get_data(filters):
             cu.sales_factor, (cu.sales_factor - sales_rating), cu.period, cu.days_since,
             cu.total_orders, cu.total_so, cu.total_sales,
             cu.total_invoices, cu.total_rating, cu.avg_monthly_orders, cu.customer_rating,
-            cust_doc.customer_rating, (cu.customer_rating - cust_doc.customer_rating)
+            cu.actual_rating, (cu.customer_rating - cu.actual_rating)
         ]
         data.append(row)
     # data = sorted(data, key=lambda i:(i["total_rating"]))

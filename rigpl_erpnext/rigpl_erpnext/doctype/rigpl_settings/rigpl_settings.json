@@ -27,6 +27,8 @@
   "default_payment_terms",
   "cb2",
   "base_annual_sales",
+  "base_sales_from_company_sales",
+  "base_sales_percent",
   "sales_weightage",
   "payment_weightage",
   "age_weightage",
@@ -115,6 +117,21 @@
    "fieldname": "base_annual_sales",
    "fieldtype": "Currency",
    "label": "Base Annual Sales"
+  },
+  {
+   "default": "0",
+   "description": "Calculate the Base Annual Sales for the Customer Rating from the Company Sales of the rating period. Base Annual Sales is then not used.",
+   "fieldname": "base_sales_from_company_sales",
+   "fieldtype": "Check",
+   "label": "Base Annual Sales from Company Sales"
+  },
+  {
+   "depends_on": "eval:doc.base_sales_from_company_sales",
+   "description": "Percent of the annual Company Sales (Net Total of submitted Sales Invoices) that a Customer must sell to get the full Sales Factor",
+   "fieldname": "base_sales_percent",
+   "fieldtype": "Percent",
+   "label": "Base Annual Sales % of Company Sales",
+   "mandatory_depends_on": "eval:doc.base_sales_from_company_sales"
   },
   {
    "default": "10000",
@@ -242,7 +259,7 @@
   }
  ],
  "issingle": 1,
- "modified": "2026-10-28 12:00:00.000000",
+ "modified": "2026-10-28 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
