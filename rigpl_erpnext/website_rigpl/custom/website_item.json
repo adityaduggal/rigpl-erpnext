@@ -41,6 +41,36 @@
    "property_type": "Check",
    "row_name": null,
    "value": "1"
+  },
+  {
+   "creation": "2026-10-28 12:00:00",
+   "default_value": null,
+   "doc_type": "Website Item",
+   "docstatus": 0,
+   "doctype": "Property Setter",
+   "doctype_or_field": "DocField",
+   "field_name": "item_name",
+   "modified": "2026-10-28 12:00:00",
+   "name": "Website Item-item_name-length",
+   "property": "length",
+   "property_type": "Int",
+   "row_name": null,
+   "value": "255"
+  },
+  {
+   "creation": "2026-10-28 12:00:00",
+   "default_value": null,
+   "doc_type": "Website Item",
+   "docstatus": 0,
+   "doctype": "Property Setter",
+   "doctype_or_field": "DocField",
+   "field_name": "web_item_name",
+   "modified": "2026-10-28 12:00:00",
+   "name": "Website Item-web_item_name-length",
+   "property": "length",
+   "property_type": "Int",
+   "row_name": null,
+   "value": "255"
   }
  ],
  "sync_on_migrate": 1
