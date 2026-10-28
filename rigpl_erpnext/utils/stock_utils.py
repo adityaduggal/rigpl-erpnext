@@ -9,7 +9,7 @@ from datetime import date
 import frappe
 from frappe.query_builder.functions import Count, Max, Sum
 from frappe.utils import nowdate, nowtime, add_months, flt, getdate, now
-from pypika.terms import Criterion
+from pypika.terms import Case, Criterion
 from .batch_write_utils import bulk_insert_rows, bulk_insert_versions, clear_document_cache
 from .item_attribute_utils import chunks
 from .other_utils import auto_round_down, auto_round_up, round_up
@@ -170,12 +170,16 @@ ROL_RARE_MONTHS = 24
 DEFAULT_LEAD_TIME_DAYS = 30
 
 
-def compute_rol_for_items(items, to_date=None):
+def compute_rol_for_items(items, to_date=None, consumption=None, order_lines=None):
     """
     Returns {item name: (new_rol, basis, change type)} like auto_compute_rol_for_item, for the
     item rows from get_items_for_rol with a fixed number of queries for each chunk.
     Sales items get their ROL from how often they are ordered (get_sales_rol), other items
     from their purchases or consumption in the periods of RIGPL Settings.
+    consumption is optional, from get_consumption_by_window with the windows of
+    get_rol_consumption_windows, so a caller can read more windows in the same query.
+    order_lines is optional, the lines of get_order_lines_for_items in the 24 months before
+    to_date.
     """
     to_date = getdate(to_date or date.today())
     sales_items = [itm for itm in items if itm.is_sales_item == 1]
@@ -185,15 +189,24 @@ def compute_rol_for_items(items, to_date=None):
         return new_rols
 
     names = [itm.name for itm in sales_items]
-    order_lines = get_order_lines_for_items(names, add_months(to_date, -ROL_RARE_MONTHS), to_date)
-    consumption = {
-        months: get_consumption_for_items(names, add_months(to_date, -months), to_date)
-        for months in {cls[2] for cls in ROL_FREQUENCY_CLASSES} | {ROL_RARE_MONTHS}
-    }
+    if order_lines is None:
+        order_lines = get_order_lines_for_items(names, add_months(to_date, -ROL_RARE_MONTHS),
+            to_date)
+    if consumption is None:
+        consumption = get_consumption_by_window(names, get_rol_consumption_windows(to_date))
     for itm in sales_items:
         calc_rol, basis = get_sales_rol(itm, order_lines.get(itm.name, []), consumption, to_date)
         new_rols[itm.name] = limit_rol_change(itm, calc_rol, basis)
     return new_rols
+
+
+def get_rol_consumption_windows(to_date):
+    """
+    Returns {months: (from_date, to_date)} for the consumption which get_sales_rol uses
+    """
+    to_date = getdate(to_date)
+    months = {cls[2] for cls in ROL_FREQUENCY_CLASSES} | {ROL_RARE_MONTHS}
+    return {month: (add_months(to_date, -month), to_date) for month in months}
 
 
 def get_sales_rol(itm, order_lines, consumption, to_date):
@@ -313,6 +326,22 @@ def get_order_lines_for_items(item_names, from_date, to_date):
         for row in rows:
             order_lines.setdefault(row.item_code, []).append(row)
     return order_lines
+
+
+def get_selling_data_from_lines(order_lines, from_date, to_date):
+    """
+    Returns {item_code: frappe._dict(no_of_customers, no_of_so)} like
+    get_selling_data_for_items, from the lines of get_order_lines_for_items in the period
+    """
+    from_date, to_date = getdate(from_date), getdate(to_date)
+    selling = {}
+    for item_code, lines in order_lines.items():
+        in_period = [line for line in lines if from_date <= line.transaction_date < to_date]
+        if in_period:
+            selling[item_code] = frappe._dict(
+                no_of_customers=len({line.customer for line in in_period}),
+                no_of_so=len({line.sales_order for line in in_period}))
+    return selling
 
 
 def compute_rol_for_items_by_period(items, to_date=None):
@@ -737,12 +766,15 @@ def get_items_for_rol(item_names):
     return items
 
 
-def get_rol_data_for_items(items, period=1, to_date=None, from_date=None):
+def get_rol_data_for_items(items, period=1, to_date=None, from_date=None, consumption=None,
+        selling=None):
     """
     Returns {item name: ROL dictionary} for a given period like get_rol_for_item, for the
-    item rows from get_items_for_rol with 5 grouped queries for each chunk of items.
+    item rows from get_items_for_rol with 4 grouped queries for each chunk of items.
     period is the number of months used for the averages. from_date is by default the
-    period before to_date.
+    period before to_date. consumption is optional, the {item: row} of the period from
+    get_consumption_by_window. selling is optional, the {item: row} of the period from
+    get_selling_data_from_lines.
     """
     to_date = to_date or date.today()
     from_date = from_date or add_months(to_date, period * (-1))
@@ -750,13 +782,18 @@ def get_rol_data_for_items(items, period=1, to_date=None, from_date=None):
     for start in range(0, len(items), 1000):
         item_rows = items[start : start + 1000]
         names = [itm.name for itm in item_rows]
-        selling = get_selling_data_for_items(names, from_date, to_date)
-        sold = get_sle_qty_for_items(names, ["Delivery Note", "Sales Invoice"], from_date,
-            to_date)
-        consumed = get_consumption_for_items(names, from_date, to_date)
+        if selling is None:
+            selling = get_selling_data_for_items(names, from_date, to_date)
+        sle_qty = get_sle_qty_by_group(names, {
+            "sold": ["Delivery Note", "Sales Invoice"],
+            "purchased": ["Purchase Receipt", "Purchase Invoice"],
+        }, from_date, to_date)
+        sold, purchased = sle_qty["sold"], sle_qty["purchased"]
+        if consumption is None:
+            consumed = get_consumption_for_items(names, from_date, to_date)
+        else:
+            consumed = consumption
         sred = get_sr_qty_for_items(names, from_date, to_date)
-        purchased = get_sle_qty_for_items(names, ["Purchase Receipt", "Purchase Invoice"],
-            from_date, to_date)
         for itm in item_rows:
             rol_dict = frappe._dict({})
             rol_dict["item_name"] = itm.name
@@ -824,21 +861,34 @@ def get_sle_qty_for_items(item_names, voucher_types, from_date, to_date):
     Returns {item_code: frappe._dict(qty, transactions)} from the Stock Ledger for the voucher
     types in the period. transactions is the number of distinct vouchers.
     """
+    return get_sle_qty_by_group(item_names, {0: voucher_types}, from_date, to_date)[0]
+
+
+def get_sle_qty_by_group(item_names, groups, from_date, to_date):
+    """
+    Returns {group: {item_code: frappe._dict(qty, transactions)}} from the Stock Ledger in the
+    period, for groups {group: voucher types}, with one query. transactions is the number of
+    distinct vouchers. An item without vouchers of a group is not in that group.
+    """
     sle = frappe.qb.DocType("Stock Ledger Entry")
+    group_terms = []
+    for idx, voucher_types in enumerate(groups.values()):
+        in_group = sle.voucher_type.isin(voucher_types)
+        group_terms += [
+            Sum(Case().when(in_group, sle.actual_qty)).as_(f"qty_{idx}"),
+            Count(Case().when(in_group, sle.voucher_no)).distinct().as_(f"transactions_{idx}"),
+        ]
+    all_types = [vtype for voucher_types in groups.values() for vtype in voucher_types]
     rows = (
         frappe.qb.from_(sle)
-        .select(
-            sle.item_code,
-            Sum(sle.actual_qty).as_("qty"),
-            Count(sle.voucher_no).distinct().as_("transactions"),
-        )
-        .where(sle.voucher_type.isin(voucher_types) & (sle.is_cancelled == 0))
+        .select(sle.item_code, *group_terms)
+        .where(sle.voucher_type.isin(all_types) & (sle.is_cancelled == 0))
         .where(sle.item_code.isin(item_names))
         .where((sle.posting_date >= from_date) & (sle.posting_date < to_date))
         .groupby(sle.item_code)
         .run(as_dict=True)
     )
-    return {row.item_code: row for row in rows}
+    return split_by_group(rows, groups, ("qty", "transactions"), "transactions")
 
 
 def get_consumption_for_items(item_names, from_date, to_date):
@@ -846,21 +896,55 @@ def get_consumption_for_items(item_names, from_date, to_date):
     Returns {item_code: frappe._dict(qty, no_of_ste)} for the qty consumed with Stock Entries
     (source warehouse only) in the period
     """
+    return get_consumption_by_window(item_names, {0: (from_date, to_date)})[0]
+
+
+def get_consumption_by_window(item_names, windows):
+    """
+    Returns {window: {item_code: frappe._dict(qty, no_of_ste)}} for the qty consumed with Stock
+    Entries (source warehouse only), for windows {window: (from_date, to_date)} with one query
+    for each chunk of items. An item without consumption in a window is not in that window.
+    """
     ste = frappe.qb.DocType("Stock Entry")
     sted = frappe.qb.DocType("Stock Entry Detail")
-    rows = (
-        frappe.qb.from_(sted)
-        .join(ste)
-        .on(sted.parent == ste.name)
-        .select(sted.item_code, Sum(sted.qty).as_("qty"), Count(ste.name).as_("no_of_ste"))
-        .where((ste.docstatus == 1) & sted.s_warehouse.isnotnull())
-        .where(sted.t_warehouse.isnull() | (sted.t_warehouse == ""))
-        .where(sted.item_code.isin(item_names))
-        .where((ste.posting_date >= from_date) & (ste.posting_date < to_date))
-        .groupby(sted.item_code)
-        .run(as_dict=True)
-    )
-    return {row.item_code: row for row in rows}
+    window_terms = []
+    for idx, (from_date, to_date) in enumerate(windows.values()):
+        in_window = (ste.posting_date >= from_date) & (ste.posting_date < to_date)
+        window_terms += [
+            Sum(Case().when(in_window, sted.qty)).as_(f"qty_{idx}"),
+            Count(Case().when(in_window, ste.name)).as_(f"no_of_ste_{idx}"),
+        ]
+    min_date = min(getdate(dates[0]) for dates in windows.values())
+    max_date = max(getdate(dates[1]) for dates in windows.values())
+    rows = []
+    for chunk in chunks(item_names):
+        rows += (
+            frappe.qb.from_(sted)
+            .join(ste)
+            .on(sted.parent == ste.name)
+            .select(sted.item_code, *window_terms)
+            .where((ste.docstatus == 1) & sted.s_warehouse.isnotnull())
+            .where(sted.t_warehouse.isnull() | (sted.t_warehouse == ""))
+            .where(sted.item_code.isin(chunk))
+            .where((ste.posting_date >= min_date) & (ste.posting_date < max_date))
+            .groupby(sted.item_code)
+            .run(as_dict=True)
+        )
+    return split_by_group(rows, windows, ("qty", "no_of_ste"), "no_of_ste")
+
+
+def split_by_group(rows, groups, fields, count_field):
+    """
+    Returns {group: {item_code: frappe._dict(fields)}} from rows with the columns
+    <field>_<index of the group>. Items with count_field 0 in a group are left out.
+    """
+    result = {key: {} for key in groups}
+    for row in rows:
+        for idx, key in enumerate(groups):
+            if row.get(f"{count_field}_{idx}"):
+                result[key][row.item_code] = frappe._dict(
+                    {field: row.get(f"{field}_{idx}") for field in fields})
+    return result
 
 
 def get_sr_qty_for_items(item_names, from_date, to_date):

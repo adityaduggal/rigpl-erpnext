@@ -3,6 +3,7 @@
 /* eslint-disable */
 
 frappe.query_reports["Calculate ROL Multiple Items"] = {
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 	"filters": [
 		{
 			"fieldname":"from_date",
