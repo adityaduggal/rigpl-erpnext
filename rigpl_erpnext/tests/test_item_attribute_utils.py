@@ -7,8 +7,8 @@ from rigpl_erpnext.utils.item_utils import get_item_attributes
 
 TEXT_ATT = "_Test IAU Material"
 NUM_ATT = "_Test IAU d1_mm"
-ITEM_1 = ITEM_1
-ITEM_2 = ITEM_2
+ITEM_1 = "_Test IAU Item 1"
+ITEM_2 = "_Test IAU Item 2"
 MTO = "Made to Order Item Attributes"
 
 
