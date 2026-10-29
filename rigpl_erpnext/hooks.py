@@ -130,6 +130,7 @@ doctype_js = {
 
 doc_events = {
     "Account": {"validate": "rigpl_erpnext.rigpl_erpnext.validations.account.validate"},
+    "Address": {"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead_share.address_on_update"},
     "Attendance": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
@@ -199,7 +200,8 @@ doc_events = {
         "validate": "rigpl_erpnext.hr_rigpl.validations.leave_policy.validate"
     },
     "Opportunity": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.opportunity.validate",
+        "on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead_share.opportunity_on_update",
     },
     "Payment Entry": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.validate",
@@ -224,7 +226,8 @@ doc_events = {
         "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt.on_cancel",
     },
     "Quotation": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.quotation.validate",
+        "on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead_share.quotation_on_update",
     },
     "Salary Component": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_component.validate"
