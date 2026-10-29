@@ -194,3 +194,8 @@ class TestBatchQtyHelpers(FrappeTestCase):
         rows = get_so_date_value("IT", prd_qty=5, short_qty=2, so_detail="B", so_lines=lines)
         self.assertEqual([(r.name, r.prd_qty, r.shortage) for r in rows], [("SO2", 5, 2)])
         self.assertEqual(len(get_so_date_value("IT", 5, so_lines=lines)), 2)
+
+    def test_open_job_cards_for_item_with_quote_in_name(self):
+        from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import get_open_job_cards_for_item
+
+        self.assertEqual(get_open_job_cards_for_item("No Such Item's Name"), [])

@@ -24,6 +24,7 @@ from ...utils.item_attribute_utils import chunks
 from ...utils.other_utils import auto_round_down, auto_round_up
 from ...utils.sales_utils import get_priority_for_so
 from ...utils.stock_utils import cancel_delete_ste_from_name, get_quantities_for_item
+from .batch_qty_utils import get_first_po_items, get_grn_rows
 from .manufacturing_utils import (
     check_jc_needed_for_ps,
     convert_qty_per_uom,
@@ -588,14 +589,16 @@ def get_qty_before_process(it_name, jc_doc, all_jc=None):
 
 
 def get_open_job_cards_for_item(item_name):
-    jc_dict = frappe.db.sql(
-        """SELECT name, production_item, for_quantity, qty_available, operation,
-    operation_serial_no, s_warehouse, transfer_entry FROM `tabProcess Job Card RIGPL` WHERE docstatus=0
-    AND production_item = '%s' ORDER BY operation_serial_no DESC"""
-        % item_name,
-        as_dict=1,
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    return (
+        frappe.qb.from_(jc)
+        .select(jc.name, jc.production_item, jc.for_quantity, jc.qty_available, jc.operation,
+            jc.operation_serial_no, jc.s_warehouse, jc.transfer_entry)
+        .where(jc.docstatus == 0)
+        .where(jc.production_item == item_name)
+        .orderby(jc.operation_serial_no, order=frappe.qb.desc)
+        .run(as_dict=True)
     )
-    return jc_dict
 
 
 def check_existing_job_card(item_name, operation, so_detail=None, ps_doc=None):
@@ -1277,35 +1280,8 @@ def get_grn_qty(jc_doc):
     subcon_jc = [d.name for d in prev_jc if d.operation in subcon_ops]
     if not subcon_jc:
         return qty
-    po = frappe.qb.DocType("Purchase Order")
-    poi = frappe.qb.DocType("Purchase Order Item")
-    first_po_item = {}
-    for reference_dn, po_item in (
-        frappe.qb.from_(po)
-        .join(poi)
-        .on(poi.parent == po.name)
-        .select(poi.reference_dn, poi.name)
-        .where(po.docstatus == 1)
-        .where(poi.reference_dn.isin(subcon_jc))
-        .where(poi.reference_dt == jc_doc.doctype)
-        .run()
-    ):
-        first_po_item.setdefault(reference_dn, po_item)
-    if not first_po_item:
-        return qty
-    pr = frappe.qb.DocType("Purchase Receipt")
-    pri = frappe.qb.DocType("Purchase Receipt Item")
-    grn_rows = {}
-    for po_item, grn_qty, warehouse in (
-        frappe.qb.from_(pr)
-        .join(pri)
-        .on(pri.parent == pr.name)
-        .select(pri.purchase_order_item, pri.qty, pri.warehouse)
-        .where(pr.docstatus == 1)
-        .where(pri.purchase_order_item.isin(list(set(first_po_item.values()))))
-        .run()
-    ):
-        grn_rows.setdefault(po_item, []).append((grn_qty, warehouse))
+    first_po_item = get_first_po_items(subcon_jc)
+    grn_rows = get_grn_rows(set(first_po_item.values()))
     for name in subcon_jc:
         for grn_qty, warehouse in grn_rows.get(first_po_item.get(name), []):
             if warehouse == jc_doc.s_warehouse:
