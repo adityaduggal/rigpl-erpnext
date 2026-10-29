@@ -3,16 +3,40 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt
+from frappe.query_builder.functions import Count, IfNull
+from frappe.utils import cint, nowdate
+from ....utils.item_attribute_utils import attribute_filters, chunks
+from ....utils.report_utils import blank_zeros
+
+ATTRIBUTE_FILTERS = {
+	"bm": "Base Material",
+	"is_rm": "Is RM",
+	"brand": "Brand",
+	"spl": "Special Treatment",
+	"tt": "Tool Type",
+}
+# Count column: (DocType, item field). Cancelled Stock Ledger rows are not counted.
+COUNT_TABLES = [
+	("Sales Order Item", "item_code"),
+	("Sales Invoice Item", "item_code"),
+	("Purchase Order Item", "item_code"),
+	("Purchase Invoice Item", "item_code"),
+	("Stock Ledger Entry", "item_code"),
+	("Stock Entry Detail", "item_code"),
+	("Stock Reconciliation Item", "item_code"),
+	("Work Order", "production_item"),
+]
+MAX_ITEMS = 500
+
 
 def execute(filters=None):
 	if not filters: filters = {}
 
 	columns = get_columns()
 	data = get_items(filters)
-	
+
 	return columns, data
-	
+
 def get_columns():
 	return [
 		"Item:Link/Item:100", "Description::300", "PL::35",
@@ -24,116 +48,68 @@ def get_columns():
 	]
 
 def get_items(filters):
-	conditions = get_conditions(filters)[0]
-	tab_join = get_conditions(filters)[1]
-	cond_join = get_conditions(filters)[2]
-
-	pre_data = frappe.db.sql("""SELECT it.name FROM `tabItem` it %s %s %s""" 
-		% (tab_join, conditions, cond_join), as_list = 1)
-	
-	if len(pre_data) > 500:
+	items = get_item_list(filters)
+	if len(items) > MAX_ITEMS:
 		frappe.throw(("Server overload possible due to {0} rows of data, kindly reduce \
-			the lines by selecting filters").format(len(pre_data)))
-	
-	query = """SELECT it.name, it.description, IF(it.pl_item, 'Yes', 'No'), 
-		it.is_sales_item, it.is_purchase_item,
-		IFNULL((SELECT published FROM `tabWebsite Item` WHERE item_code = it.name), 0),
-		IF(it.stock_maintained, 'Yes', 'No'), 
-		
-		ifnull((SELECT count(sod.name) FROM `tabSales Order Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabSales Invoice Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabPurchase Order Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabPurchase Invoice Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabStock Ledger Entry` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabStock Entry Detail` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabStock Reconciliation Item` sod 
-			WHERE sod.item_code = it.name GROUP BY sod.item_code),0),
-		
-		ifnull((SELECT count(sod.name) FROM `tabWork Order` sod 
-			WHERE sod.production_item = it.name GROUP BY sod.production_item),0),
-		
-		it.valuation_rate,
-		
-		ifnull(it.owner,'Administrator'), it.creation 
-		FROM `tabItem` it %s %s %s""" % (tab_join, conditions, cond_join)
-	
-	data = frappe.db.sql(query, as_list = 1)
-	
+			the lines by selecting filters").format(len(items)))
+
+	names = [d.name for d in items]
+	counts = get_counts(names)
+	published = get_published(names)
+	data = []
+	for it in items:
+		row = [it.name, it.description, "Yes" if it.pl_item else "No", it.is_sales_item,
+			it.is_purchase_item, published.get(it.name, 0), "Yes" if it.stock_maintained else "No"]
+		row += [counts[table].get(it.name, 0) for table, _ in COUNT_TABLES]
+		row += [it.valuation_rate, it.owner or "Administrator", it.creation]
+		data.append(blank_zeros(row))
 	return data
-	
-def get_conditions(filters):
-	conditions = ""
-	tab_join = ""
-	cond_join = ""
-	
-	if filters.get("eol"):
-		conditions += "WHERE ifnull(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
 
-	if filters.get("is_pl_item"):
-		conditions += " AND it.pl_item = 1"
-	else:
-		conditions += " AND it.pl_item = 0"
-		
-	if filters.get("has_variants"):
-		conditions += " AND it.has_variants = 1"
-	else:
-		conditions += " AND it.has_variants = 0"
-		
+def get_item_list(filters):
+	it = frappe.qb.DocType("Item")
+	query = (
+		frappe.qb.from_(it)
+		.select(it.name, it.description, it.pl_item, it.is_sales_item, it.is_purchase_item,
+			it.stock_maintained, it.valuation_rate, it.owner, it.creation)
+		.where(IfNull(it.end_of_life, "2099-12-31") > (filters.get("eol") or nowdate()))
+		.where(it.pl_item == cint(filters.get("is_pl_item")))
+		.where(it.has_variants == cint(filters.get("has_variants")))
+		.where(attribute_filters(it.name, {att: filters.get(key) for key, att in ATTRIBUTE_FILTERS.items()}))
+		.orderby(it.name)
+	)
 	if filters.get("item"):
-		conditions += " AND it.name = '%s'" %filters["item"]
-
-	if filters.get("bm"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` bm \
-			ON it.name = bm.parent \
-			AND bm.attribute = 'Base Material'"
-		
-		cond_join += " AND bm.attribute_value = '%s'" % filters.get("bm")
-		
-	if filters.get("is_rm"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` rm \
-			ON it.name = rm.parent \
-			AND rm.attribute = 'Is RM'"
-		
-		cond_join += " AND rm.attribute_value = '%s'" % filters.get("is_rm")
-		
-	if filters.get("brand"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` brand \
-			ON it.name = brand.parent \
-			AND brand.attribute = 'Brand'"
-		
-		cond_join += " AND brand.attribute_value = '%s'" % filters.get("brand")
-
+		query = query.where(it.name == filters["item"])
 	if filters.get("quality"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` quality \
-			ON it.name = quality.parent \
-			AND quality.attribute LIKE '%Quality'"
-		
-		cond_join += " AND quality.attribute_value = '%s'" % filters.get("quality")
-		
-	if filters.get("spl"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` spl \
-			ON it.name = spl.parent \
-			AND spl.attribute = 'Special Treatment'"
-		
-		cond_join += " AND spl.attribute_value = '%s'" % filters.get("spl")
-		
-	if filters.get("tt"):
-		tab_join += " LEFT JOIN `tabItem Variant Attribute` tt \
-			ON it.name = tt.parent \
-			AND tt.attribute = 'Tool Type'"
-		
-		cond_join += " AND tt.attribute_value = '%s'" % filters.get("tt")
-		
-	return conditions, tab_join, cond_join
+		# The quality attribute depends on the Base Material, so any "... Quality" attribute matches
+		iva = frappe.qb.DocType("Item Variant Attribute")
+		query = query.where(it.name.isin(
+			frappe.qb.from_(iva).select(iva.parent)
+			.where(iva.attribute.like("%Quality") & (iva.attribute_value == filters["quality"]))
+		))
+	return query.run(as_dict=True)
+
+def get_counts(items):
+	"""Return {DocType: {item: row count}}, one grouped query per DocType per chunk."""
+	counts = {table: {} for table, _ in COUNT_TABLES}
+	for chunk in chunks(items):
+		for table, field in COUNT_TABLES:
+			doc = frappe.qb.DocType(table)
+			query = (
+				frappe.qb.from_(doc)
+				.select(doc[field], Count(doc.name))
+				.where(doc[field].isin(chunk))
+				.groupby(doc[field])
+			)
+			if table == "Stock Ledger Entry":
+				query = query.where(doc.is_cancelled == 0)
+			counts[table].update(dict(query.run()))
+	return counts
+
+def get_published(items):
+	"""Return {item: published} of the Website Item of each item."""
+	published = {}
+	for chunk in chunks(items):
+		for item, value in frappe.get_all("Website Item", filters={"item_code": ("in", chunk)},
+				fields=["item_code", "published"], as_list=1):
+			published.setdefault(item, value)
+	return published
