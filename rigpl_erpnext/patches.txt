@@ -71,3 +71,4 @@ rigpl_erpnext.patches.v13.add_item_variant_attribute_indexes
 rigpl_erpnext.patches.v13.add_process_job_card_so_item_index
 rigpl_erpnext.patches.v13.add_process_job_card_item_operation_index
 rigpl_erpnext.patches.v13.remove_indiamart
+rigpl_erpnext.patches.v13.add_purchase_order_subcontracting_indexes

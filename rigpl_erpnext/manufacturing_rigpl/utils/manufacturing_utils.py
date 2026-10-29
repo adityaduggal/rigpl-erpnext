@@ -320,9 +320,9 @@ def convert_rule_to_mysql_statement(rule, it_dict, process_sheet_name=None):
 def get_special_item_attributes(it_name, special_item_attribute):
     attribute_dict = frappe.db.sql(
         """SELECT idx, name, attribute, attribute_value, numeric_values
-        FROM `tabItem Variant Attribute` WHERE parent = '%s' AND parenttype = 'Made to Order Item Attributes' ORDER BY
-        idx"""
-        % special_item_attribute,
+        FROM `tabItem Variant Attribute` WHERE parent = %s AND parenttype = 'Made to Order Item Attributes' ORDER BY
+        idx""",
+        special_item_attribute,
         as_dict=1,
     )
     return attribute_dict
@@ -393,8 +393,8 @@ def create_new_special_attributes(it_name, so_detail):
 def get_special_item_attribute_doc(item_name, so_detail, docstatus=1):
     return frappe.db.sql(
         """SELECT name FROM `tabMade to Order Item Attributes` WHERE docstatus = %s AND item_code =
-    '%s' AND sales_order_item = '%s'"""
-        % (docstatus, item_name, so_detail),
+    %s AND sales_order_item = %s""",
+        (docstatus, item_name, so_detail),
         as_dict=1,
     )
 

@@ -12,7 +12,7 @@ of the joins:
 - `attribute_sort_key` sorts the rows in Python, in the order MySQL used.
 
 Only Item rows are used (`parenttype = 'Item'`). The same table also holds the rows of
-Made to Order Item Attributes. The patch `add_item_variant_attribute_indexes` adds the
+Made to Order Item Attributes; `get_attribute_rows(..., parenttype=...)` reads those. The patch `add_item_variant_attribute_indexes` adds the
 `(parent, attribute)` and `(attribute, attribute_value)` indexes these queries use.
 """
 from __future__ import annotations
@@ -84,15 +84,18 @@ def get_attribute_map(
     return att_map
 
 
-def get_attribute_rows(items: Iterable[str]) -> Dict[str, List[frappe._dict]]:
-    """Return {item: [attribute rows by idx]} with the fields of `ROW_FIELDS`."""
+def get_attribute_rows(
+    items: Iterable[str], parenttype: str = "Item"
+) -> Dict[str, List[frappe._dict]]:
+    """Return {parent: [attribute rows by idx]} with the fields of `ROW_FIELDS`. Use
+    `parenttype="Made to Order Item Attributes"` to get the rows of those documents."""
     iva = frappe.qb.DocType("Item Variant Attribute")
     rows: Dict[str, List[frappe._dict]] = {}
     for chunk in chunks(items):
         query = (
             frappe.qb.from_(iva)
             .select(iva.parent, *[getattr(iva, field) for field in ROW_FIELDS])
-            .where((iva.parent.isin(chunk)) & (iva.parenttype == "Item"))
+            .where((iva.parent.isin(chunk)) & (iva.parenttype == parenttype))
             .orderby(iva.parent)
             .orderby(iva.idx)
         )

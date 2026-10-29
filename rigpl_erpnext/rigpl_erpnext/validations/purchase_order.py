@@ -3,96 +3,147 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import nowdate, nowtime, getdate
+from frappe.utils import nowdate, nowtime, getdate, flt, cint
 from frappe.desk.reportview import get_match_cond
-from ...manufacturing_rigpl.utils.manufacturing_utils import get_special_item_attribute_doc, \
-    get_special_item_attributes, get_formula_values, calculate_formula_values
-from ...utils.item_utils import get_item_attributes
+from ...manufacturing_rigpl.utils.manufacturing_utils import get_formula_values, calculate_formula_values
+from ...utils.item_attribute_utils import chunks, get_attribute_rows
 from rohit_common.rohit_common.validations.sales_invoice import check_validated_gstin
 
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
+JC_DOCTYPE = "Process Job Card RIGPL"
+MTO_DOCTYPE = "Made to Order Item Attributes"
+JC_FIELDS = ["name", "docstatus", "status", "operation", "production_item", "description", "total_completed_qty"]
+ITEM_FIELDS = ["name", "is_job_work", "is_purchase_item", "customs_tariff_number", "description", "stock_uom",
+               "variant_of"]
+
 
 def validate(doc, method):
-    update_fields(doc, method)
-    check_subcontracting(doc, method)
-    check_gst_rules(doc, method)
-    check_taxes_integrity(doc, method)
-    get_pricing_rule_based_on_attributes(doc)
-    get_qty_for_purchase(doc, reject=0)
+    template = get_tax_template(doc)
+    addresses = get_by_name("Address", [doc.shipping_address, doc.supplier_address, template.from_address],
+                            ["name", "state_rigpl", "country", "gstin"])
+    update_fields(doc, template)
+    data = load_row_data(doc)
+    check_subcontracting(doc, data)
+    validate_job_cards(doc, data)
+    check_gst_rules(doc, template, addresses)
+    check_taxes_integrity(doc, template, addresses)
+    set_prices_from_attribute_rules(doc, data)
     add_list = [doc.shipping_address, doc.supplier_address]
     for add in add_list:
         check_validated_gstin(add, doc)
 
 
 def on_submit(doc, method):
-    # Submit the Linked Job Card
-    validate_job_card_linking(doc, submit=1)
+    submit_draft_job_cards(doc)
 
 
-def on_cancel(doc, method):
-    # Need to Check if JC is to be Submitted on PO Submission or after GRN Submission
-    # Update the JC start date to PO Date and Time
-    pass
+def get_tax_template(doc):
+    if not doc.taxes_and_charges:
+        frappe.throw(f"Purchase Taxes and Charges Template is Mandatory for PO# {doc.name}")
+    return frappe.get_cached_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
 
 
-def on_update(doc, method):
-    # Check what to be done on Update maybe update the JC Start Time
-    pass
+def get_by_name(doctype, names, fields):
+    """Return {name: row} for the given names, in one query per chunk."""
+    found = {}
+    for chunk in chunks([name for name in names if name]):
+        for row in frappe.get_all(doctype, filters={"name": ("in", chunk)}, fields=fields):
+            found[row.name] = row
+    return found
 
 
-def validate_job_card_linking(po_doc, submit=0):
-    for d in po_doc.items:
-        if d.reference_dt == 'Process Job Card RIGPL':
-            jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
-            if jc_doc.docstatus == 0:
-                it_doc = frappe.get_doc("Item", d.subcontracted_item)
-                jc_doc.posting_date = po_doc.transaction_date
-                jc_doc.posting_time = nowtime()
-                if d.conversion_factor != 1 or it_doc.stock_uom != d.uom:
-                    jc_doc.total_completed_qty = d.conversion_factor
-                else:
-                    jc_doc.total_completed_qty = d.qty
-                if submit == 1:
-                    jc_doc.submit()
-            elif jc_doc.docstatus == 1:
-                # Check if JC linked to any other PO if not then its same the qty has to be equal to the completed qty
-                oth_po = frappe.db.sql("""SELECT po.name FROM `tabPurchase Order` po, `tabPurchase Order Item` poi
-                WHERE poi.parent = po.name AND po.docstatus=1 AND poi.reference_dt = '%s' AND poi.reference_dn = '%s'
-                AND po.name != '%s'""" % (d.reference_dt, d.reference_dn, po_doc.name), as_dict=1)
-                if oth_po:
-                    frappe.throw(f"For Row #{d.idx}: {frappe.get_desk_link(d.reference_dt, d.reference_dn)} is "
-                                 f"{jc_doc.status} and is already linked to "
-                                 f"{frappe.get_desk_link(po_doc.doctype, oth_po[0].name)}")
-                else:
-                    if jc_doc.total_completed_qty != d.qty:
-                        d.qty = jc_doc.total_completed_qty
-            else:
-                # Cancelled Job Card linking
-                frappe.throw(f"{frappe.get_desk_link(d.reference_dt, d.reference_dn)} is {jc_doc.status} "
-                             f"for Row#{d.idx}")
-        else:
-            if po_doc.is_subcontracting == 1:
-                frappe.throw(f"Job Card is Mandatory for Sub Contracting PO Check Row# {d.idx}")
+def load_row_data(doc):
+    """Load the Job Cards, Operations and Items of all the PO rows in 3 queries."""
+    jc_names = [d.reference_dn for d in doc.items if d.reference_dt == JC_DOCTYPE]
+    job_cards = get_by_name(JC_DOCTYPE, jc_names, JC_FIELDS)
+    operations = get_by_name("Operation", [jc.operation for jc in job_cards.values()],
+                             ["name", "sub_contracting_item_code"])
+    item_names = [d.item_code for d in doc.items] + [d.subcontracted_item for d in doc.items] + \
+        [op.sub_contracting_item_code for op in operations.values()] + \
+        [jc.production_item for jc in job_cards.values()]
+    return frappe._dict(job_cards=job_cards, operations=operations,
+                        item_map=get_by_name("Item", item_names, ITEM_FIELDS))
 
 
-def get_qty_for_purchase(doc, reject=0):
-    # ToDo Don't allow purchase of Items above certain limit
-    if doc.is_subcontracting != 1:
-        for it in doc.items:
-            it_doc = frappe.get_doc("Item", it.item_code)
+def get_item(data, item_name, idx):
+    item = data.item_map.get(item_name)
+    if not item:
+        frappe.throw(f"Item {item_name} in Row# {idx} does not exist")
+    return item
 
 
-def check_gst_rules(doc, method):
-    ship_state = frappe.db.get_value("Address", doc.shipping_address, "state_rigpl")
-    template_doc = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
-    supplier_state = frappe.db.get_value("Address", doc.supplier_address, "state_rigpl")
-    supplier_country = frappe.db.get_value("Address", doc.supplier_address, "country")
+def jc_completed_qty(row, stock_uom):
+    if row.conversion_factor != 1 or stock_uom != row.uom:
+        return row.conversion_factor
+    return row.qty
 
-    series_template = frappe.db.get_value("Purchase Taxes and Charges Template", doc.taxes_and_charges, "series")
+
+def submit_draft_job_cards(po_doc):
+    rows = [d for d in po_doc.items if d.reference_dt == JC_DOCTYPE and d.reference_dn]
+    draft_jcs = {jc.name for jc in get_by_name(JC_DOCTYPE, [d.reference_dn for d in rows],
+                                               ["name", "docstatus"]).values() if jc.docstatus == 0}
+    items = get_by_name("Item", [d.subcontracted_item for d in rows if d.reference_dn in draft_jcs],
+                        ["name", "stock_uom"])
+    for d in rows:
+        if d.reference_dn not in draft_jcs:
+            continue
+        jc_doc = frappe.get_doc(JC_DOCTYPE, d.reference_dn)
+        jc_doc.posting_date = po_doc.transaction_date
+        jc_doc.posting_time = nowtime()
+        jc_doc.total_completed_qty = jc_completed_qty(d, (items.get(d.subcontracted_item) or {}).get("stock_uom"))
+        jc_doc.submit()
+
+
+def validate_job_cards(po_doc, data):
+    rows = [d for d in po_doc.items if d.reference_dn in data.job_cards and d.reference_dt == JC_DOCTYPE]
+    submitted = [d.reference_dn for d in rows if data.job_cards[d.reference_dn].docstatus == 1]
+    other_pos = get_other_submitted_pos(submitted, po_doc.name)
+    for d in rows:
+        jc = data.job_cards[d.reference_dn]
+        jc_link = frappe.get_desk_link(JC_DOCTYPE, jc.name)
+        if jc.docstatus == 2:
+            frappe.throw(f"{jc_link} is {jc.status} for Row#{d.idx}")
+        elif jc.docstatus == 1:
+            if jc.name in other_pos:
+                frappe.throw(f"For Row #{d.idx}: {jc_link} is {jc.status} and is already linked to "
+                             f"{frappe.get_desk_link(po_doc.doctype, other_pos[jc.name])}")
+            stock_uom = (data.item_map.get(d.subcontracted_item) or {}).get("stock_uom")
+            po_qty = flt(jc_completed_qty(d, stock_uom))
+            if po_qty != flt(jc.total_completed_qty):
+                frappe.throw(f"For Row #{d.idx}: {jc_link} is {jc.status} with Completed Qty "
+                             f"{flt(jc.total_completed_qty)} but the PO has {po_qty}. Change the PO Qty "
+                             f"from {po_qty} to {flt(jc.total_completed_qty)}")
+
+
+def get_other_submitted_pos(jc_names, po_name):
+    """Return {Job Card: PO} for Job Cards linked to a submitted PO other than `po_name`."""
+    poi = frappe.qb.DocType("Purchase Order Item")
+    po = frappe.qb.DocType("Purchase Order")
+    found = {}
+    for chunk in chunks(jc_names):
+        query = (
+            frappe.qb.from_(poi).join(po).on(poi.parent == po.name)
+            .select(poi.reference_dn, po.name)
+            .where((po.docstatus == 1) & (poi.reference_dt == JC_DOCTYPE) & (poi.reference_dn.isin(chunk)))
+        )
+        if po_name:
+            query = query.where(po.name != po_name)
+        for jc_name, other_po in query.run():
+            found.setdefault(jc_name, other_po)
+    return found
+
+
+def check_gst_rules(doc, template_doc, addresses):
+    ship_state = (addresses.get(doc.shipping_address) or {}).get("state_rigpl")
+    supplier_add = addresses.get(doc.supplier_address) or {}
+    supplier_state = supplier_add.get("state_rigpl")
+    supplier_country = supplier_add.get("country")
+
+    series_template = template_doc.series
 
     # Check series of Tax with the Series Selected for Invoice
-    if series_template != doc.naming_series[2:4] and series_template != doc.name[2:4]:
+    if series_template != (doc.naming_series or "")[2:4] and series_template != (doc.name or "")[2:4]:
         frappe.throw("Selected Tax Template {0} Not Allowed since Series Selected {1} and PO number {2} don't "
                      "match with the Selected Template".format(doc.taxes_and_charges, doc.naming_series, doc.name))
 
@@ -121,7 +172,7 @@ def check_gst_rules(doc, method):
                               "Tax").format(doc.taxes_and_charges, supplier_country))
 
 
-def update_fields(doc, method):
+def update_fields(doc, template):
     doc.title = doc.supplier
     if getdate(doc.schedule_date) < getdate(nowdate()):
         doc.schedule_date = getdate(nowdate())
@@ -134,15 +185,14 @@ def update_fields(doc, method):
     if getdate(doc.transaction_date) < getdate(nowdate()):
         doc.transaction_date = getdate(nowdate())
 
-    letter_head_tax = frappe.db.get_value("Purchase Taxes and Charges Template", doc.taxes_and_charges, "letter_head")
-    doc.letter_head = letter_head_tax
+    doc.letter_head = template.letter_head
 
 
-def check_taxes_integrity(doc, method):
-    template = frappe.get_doc("Purchase Taxes and Charges Template", doc.taxes_and_charges)
+def check_taxes_integrity(doc, template, addresses):
     doc.billing_address = template.from_address
-    add_doc = frappe.get_doc('Address', doc.billing_address)
-    doc.company_gstin = add_doc.gstin
+    if doc.billing_address not in addresses:
+        frappe.throw(f"From Address {template.from_address} of Tax Template {template.name} does not exist")
+    doc.company_gstin = addresses[doc.billing_address].gstin
     for tax in doc.taxes:
         for temp in template.taxes:
             if tax.idx == temp.idx:
@@ -154,44 +204,51 @@ def check_taxes_integrity(doc, method):
                                  "{2} or reload Taxes".format(doc.taxes_and_charges, doc.name, tax.idx))
 
 
-def check_subcontracting(doc, method):
+def check_subcontracting(doc, data):
+    jc_rows = {}
     for d in doc.items:
-        it_doc = frappe.get_doc("Item", d.item_code)
-        it_gst = frappe.get_value('Item', d.item_code, 'customs_tariff_number')
-        if d.gst_hsn_code != it_gst:
-            d.gst_hsn_code = it_gst
         if doc.is_subcontracting == 1:
-            if d.reference_dt != "Process Job Card RIGPL":
-                frappe.throw(f"For Row# {d.idx} in PO# {doc.name} NO Job Card is Selected")
-            else:
-                for e in doc.items:
-                    if d.idx != e.idx:
-                        if d.reference_dn == e.reference_dn:
-                            frappe.throw(f"{d.reference_dn} is Selected in Row# {d.idx} and Row# {e.idx}")
-            jc_doc = frappe.get_doc(d.reference_dt, d.reference_dn)
-            subcon_it = frappe.get_value("Operation", jc_doc.operation, "sub_contracting_item_code")
-            sub_item = frappe.get_doc("Item", d.subcontracted_item)
-            if d.item_code != subcon_it:
-                d.item_code = subcon_it
-            if d.so_detail:
-                d.subcontracted_item = jc_doc.production_item
-                d.description = jc_doc.description
-            else:
-                d.description = sub_item.description
-            if d.subcontracted_item is None or d.subcontracted_item == "":
-                frappe.throw("Subcontracted Item is Mandatory for Subcontracting Purchase Order "
-                             "Check Row #{0}".format(d.idx))
-            if it_doc.is_job_work != 1:
-                frappe.throw(("Only Sub Contracted Items are allowed in Item Code for Sub Contracting PO. "
-                              "Check Row # {0}").format(d.idx))
+            set_subcontracting_row(doc, d, data, jc_rows)
         else:
             if d.subcontracted_item:
                 frappe.throw(("Subcontracted Item only allowed for Sub Contracting PO. Check Row# {0}. "
                               "This PO is Not a Subcontracting PO check the box to make this PO "
                               "as Subcontracting.").format(d.idx))
-            if it_doc.is_purchase_item != 1:
+            if get_item(data, d.item_code, d.idx).is_purchase_item != 1:
                 frappe.throw(("Only Purchase Items are allowed in Item Code for Purchase Orders. "
                               "Check Row # {0}").format(d.idx))
+        it_gst = get_item(data, d.item_code, d.idx).customs_tariff_number
+        if d.gst_hsn_code != it_gst:
+            d.gst_hsn_code = it_gst
+
+
+def set_subcontracting_row(doc, d, data, jc_rows):
+    """Set the item, subcontracted item and description of row `d` from its Job Card and check them.
+    `jc_rows` is {Job Card: row idx} of the rows checked before."""
+    if d.reference_dt != JC_DOCTYPE or not d.reference_dn:
+        frappe.throw(f"For Row# {d.idx} in PO# {doc.name} NO Job Card is Selected")
+    if d.reference_dn in jc_rows:
+        frappe.throw(f"{d.reference_dn} is Selected in Row# {jc_rows[d.reference_dn]} and Row# {d.idx}")
+    jc_rows[d.reference_dn] = d.idx
+    jc = data.job_cards.get(d.reference_dn)
+    if not jc:
+        frappe.throw(f"Job Card {d.reference_dn} in Row# {d.idx} does not exist")
+    subcon_it = (data.operations.get(jc.operation) or {}).get("sub_contracting_item_code")
+    if not subcon_it:
+        frappe.throw(f"Operation {jc.operation} of {frappe.get_desk_link(JC_DOCTYPE, jc.name)} has no Sub "
+                     f"Contracting Item Code. Check Row# {d.idx}")
+    d.item_code = subcon_it
+    if d.so_detail:
+        d.subcontracted_item = jc.production_item
+        d.description = jc.description
+    if not d.subcontracted_item:
+        frappe.throw("Subcontracted Item is Mandatory for Subcontracting Purchase Order "
+                     "Check Row #{0}".format(d.idx))
+    if not d.so_detail:
+        d.description = get_item(data, d.subcontracted_item, d.idx).description
+    if get_item(data, d.item_code, d.idx).is_job_work != 1:
+        frappe.throw(("Only Sub Contracted Items are allowed in Item Code for Sub Contracting PO. "
+                      "Check Row # {0}").format(d.idx))
 
 
 @frappe.whitelist()
@@ -225,70 +282,111 @@ def get_pending_prd(doctype, txt, searchfield, start, page_len, filters):
                          })
 
 
-def get_pricing_rule_based_on_attributes(doc):
-    item_att_dict = []
+def set_prices_from_attribute_rules(doc, data):
+    """Set `price_list_rate` of each subcontracting row from the first attribute Pricing Rule of the
+    supplier that matches the attributes of its subcontracted item."""
     if not doc.supplier:
         frappe.throw("Please Select Supplier First in {}".format(doc.name))
-    supp_prule_dict = get_supplier_pricing_rule(doc.supplier)
-    if doc.is_subcontracting == 1:
-        for d in doc.items:
-            if d.so_detail:
-                if d.reference_dt == "Process Job Card RIGPL":
-                    ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet`
-                        WHERE sales_order_item = '%s'""" % d.so_detail, as_dict=1)
-                    ps_doc = frappe.get_doc("Process Sheet", ps_dict[0].name)
-                    special_item_attr_doc = get_special_item_attribute_doc(d.subcontracted_item,
-                                                                           ps_doc.sales_order_item,
-                                                                           docstatus=1)
-                    item_att_dict = get_special_item_attributes(d.subcontracted_item, special_item_attr_doc[0].name)
-            else:
-                item_att_dict = get_item_attributes(d.subcontracted_item)
-            if supp_prule_dict:
-                for prule in supp_prule_dict:
-                    prule_doc = frappe.get_doc("Pricing Rule", prule.name)
-                    found = check_prule_for_it_att(prule_doc, item_att_dict)
-                    if found == 1:
-                        if d.price_list_rate != prule_doc.rate:
-                            d.price_list_rate = prule_doc.rate
-                            break
+    if doc.is_subcontracting != 1:
+        return
+    rules = get_supplier_attribute_rules(doc.supplier)
+    if not rules:
+        return
+    row_attributes = get_row_attributes(doc, data.item_map)
+    rates = {}
+    for d in doc.items:
+        key = (d.subcontracted_item, d.so_detail or None)
+        if key not in rates:
+            rates[key] = find_rule_rate(rules, row_attributes[key])
+        if rates[key] is not None and d.price_list_rate != rates[key]:
+            d.price_list_rate = rates[key]
 
 
-def check_prule_for_it_att(prule_doc, it_att_dict):
-    total_score = len(prule_doc.attributes)
-    match_score = 0
-    exit_prule = 0
-    for prule_att in prule_doc.attributes:
-        if exit_prule == 0:
-            if prule_att.is_numeric != 1:
-                for att in it_att_dict:
-                    if prule_att.attribute == att.attribute:
-                        if prule_att.allowed_values == att.attribute_value:
-                            match_score += 1
-                            break
-                        else:
-                            exit_prule = 1
-            else:
-                formula = replace_java_chars(prule_att.rule)
-                formula_values = get_formula_values(it_att_dict, formula)
-                dont_calculate_formula = 0
-                for key in list(formula_values):
-                    if key not in formula:
-                        break
-                    if dont_calculate_formula == 0:
-                        calculated_value = calculate_formula_values(formula, formula_values)
-                    else:
-                        break
-                    if calculated_value == 1:
-                        match_score += 1
-                        break
-        if match_score == total_score:
-            found = 1
-            return found
+def find_rule_rate(rules, item_rows):
+    for prule in rules:
+        if rule_matches(prule.attributes, item_rows):
+            return prule.rate
+    return None
 
 
-def get_supplier_pricing_rule(supplier):
-    query= f"""SELECT name FROM `tabPricing Rule` WHERE apply_on = 'Attributes' AND buying = 1
-    AND applicable_for = 'Supplier' AND supplier = '{supplier}' AND disable=0
-    AND valid_from <= CURDATE() AND IFNULL(valid_upto, '2099-12-31') >=CURDATE()"""
-    prule_dict = frappe.db.sql(query , as_dict=1)
-    return prule_dict
+def rule_matches(rule_rows, item_rows):
+    """A rule matches when each of its rows matches: a text row needs the same attribute value, a
+    numeric row needs its formula to give 1. A rule with no rows does not match."""
+    if not rule_rows:
+        return False
+    values = {att.attribute: att.attribute_value for att in item_rows}
+    for prule_att in rule_rows:
+        if prule_att.is_numeric == 1:
+            formula_values = get_formula_values(item_rows, prule_att.formula)
+            if not formula_values or calculate_formula_values(prule_att.formula, formula_values) != 1:
+                return False
+        elif prule_att.attribute not in values or values[prule_att.attribute] != prule_att.allowed_values:
+            return False
+    return True
+
+
+def get_supplier_attribute_rules(supplier):
+    """Return the active buying attribute Pricing Rules of the supplier with their attribute rows,
+    highest priority first, in 2 queries."""
+    today = nowdate()
+    pr = frappe.qb.DocType("Pricing Rule")
+    rules = (
+        frappe.qb.from_(pr)
+        .select(pr.name, pr.rate, pr.priority)
+        .where((pr.apply_on == "Attributes") & (pr.buying == 1) & (pr.applicable_for == "Supplier"))
+        .where((pr.supplier == supplier) & (pr.disable == 0) & (pr.valid_from <= today))
+        .where(pr.valid_upto.isnull() | (pr.valid_upto >= today))
+        .run(as_dict=True)
+    )
+    rules.sort(key=lambda prule: (-cint(prule.priority), prule.name))
+    by_name = {}
+    for prule in rules:
+        prule.attributes = []
+        by_name[prule.name] = prule
+    ivr = frappe.qb.DocType("Item Variant Restrictions")
+    for chunk in chunks(by_name):
+        rows = (
+            frappe.qb.from_(ivr)
+            .select(ivr.parent, ivr.attribute, ivr.is_numeric, ivr.rule, ivr.allowed_values)
+            .where((ivr.parent.isin(chunk)) & (ivr.parenttype == "Pricing Rule") & (ivr.parentfield == "attributes"))
+            .orderby(ivr.parent)
+            .orderby(ivr.idx)
+            .run(as_dict=True)
+        )
+        for row in rows:
+            if row.is_numeric == 1:
+                row.formula = replace_java_chars(row.rule or "")
+            by_name[row.pop("parent")].attributes.append(row)
+    return rules
+
+
+def get_row_attributes(doc, items):
+    """Return {(subcontracted item, so_detail): attribute rows} for the PO rows. A row with a Sales Order
+    item uses its submitted Made to Order Item Attributes, or the Item attributes for a variant."""
+    so_details = [d.so_detail for d in doc.items if d.so_detail]
+    mta = frappe.qb.DocType(MTO_DOCTYPE)
+    mto = {}
+    for chunk in chunks(so_details):
+        rows = (
+            frappe.qb.from_(mta)
+            .select(mta.name, mta.item_code, mta.sales_order_item)
+            .where((mta.sales_order_item.isin(chunk)) & (mta.docstatus == 1))
+            .orderby(mta.creation)
+            .run()
+        )
+        for name, item_code, so_item in rows:
+            mto.setdefault((item_code, so_item), name)
+    mto_rows = get_attribute_rows(mto.values(), parenttype=MTO_DOCTYPE)
+    item_rows = get_attribute_rows([d.subcontracted_item for d in doc.items
+                                    if (d.subcontracted_item, d.so_detail) not in mto])
+    row_attributes = {}
+    for d in doc.items:
+        mto_name = mto.get((d.subcontracted_item, d.so_detail))
+        if mto_name:
+            row_attributes[(d.subcontracted_item, d.so_detail)] = mto_rows.get(mto_name, [])
+            continue
+        if d.so_detail and not (items.get(d.subcontracted_item) or {}).get("variant_of"):
+            frappe.throw(f"For Row# {d.idx}: no Submitted {MTO_DOCTYPE} for Item {d.subcontracted_item}. "
+                         f"Submit the {MTO_DOCTYPE} of the Sales Order Item and try again")
+        row_attributes[(d.subcontracted_item, d.so_detail or None)] = item_rows.get(d.subcontracted_item, [])
+    return row_attributes

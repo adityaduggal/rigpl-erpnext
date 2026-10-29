@@ -994,11 +994,10 @@ def validate_sub_contracting_job_cards(jc_doc):
 
 
 def check_po_submitted(jc_doc):
-    po_list = frappe.db.sql(
-        """SELECT name FROM `tabPurchase Order Item`
-    WHERE docstatus=1 AND reference_dt = '%s' AND reference_dn = '%s'"""
-        % (jc_doc.doctype, jc_doc.name),
-        as_dict=1,
+    po_list = frappe.get_all(
+        "Purchase Order Item",
+        filters={"docstatus": 1, "reference_dt": jc_doc.doctype, "reference_dn": jc_doc.name},
+        limit=1,
     )
     if po_list:
         # Only allow Sub Contracting JC to be submitted after the  PO has been submitted
