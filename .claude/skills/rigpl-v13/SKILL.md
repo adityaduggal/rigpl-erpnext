@@ -39,7 +39,7 @@ The bench is at `~/v12` and the dev site is `dev-rigpl-v12`.
 5. **SQL**: pass values as parameters (`frappe.db.sql(q, {"k": v})`). Interpolate only fixed table or column names.
 6. **Patches**: add them under `patches/v13/` and append the dotted path to `patches.txt`. Patches that must run before the schema sync go in `before_migrate` in `hooks.py`.
 7. **Style**: match the file you edit. Indent is tabs in some files and 4 spaces in others, so do not reformat. Keep the comment density low. No linter is installed in `env`.
-8. **Bench**: never run `bench migrate`, `backup` or `run-tests`. Give the user the commands. Read-only `bench --site dev-rigpl-v12 mariadb` SELECT/SHOW and `console` reads are fine.
+8. **Bench**: never run `bench migrate`, `backup` or `run-tests`. Give the user the commands. Each `run-tests` command has `--skip-before-tests`: without it, the ERPNext `before_tests` hook deletes all rows in Item Price, Leave Allocation, Leave Application and Salary Slip, and commits. Read-only `bench --site dev-rigpl-v12 mariadb` SELECT/SHOW and `console` reads are fine.
 
 ## Skills to use with this one
 

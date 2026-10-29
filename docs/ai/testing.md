@@ -28,6 +28,8 @@ class TestThing(FrappeTestCase):
 The AI does not run tests. Give the user the command to run from `~/v12`:
 
 ```
-bench --site dev-rigpl-v12 run-tests --app rigpl_erpnext
-bench --site dev-rigpl-v12 run-tests --module rigpl_erpnext.tests.test_report_utils
+bench --site dev-rigpl-v12 run-tests --skip-before-tests --app rigpl_erpnext
+bench --site dev-rigpl-v12 run-tests --skip-before-tests --module rigpl_erpnext.tests.test_report_utils
 ```
+
+Always use `--skip-before-tests` on dev-rigpl-v12. The ERPNext `before_tests` hook (`erpnext/setup/utils.py`) deletes all rows in Item Price, Leave Allocation, Leave Application and Salary Slip, and commits. A test rollback does not undo it.
