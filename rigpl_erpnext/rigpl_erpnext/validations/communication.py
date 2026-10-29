@@ -2,11 +2,12 @@
 from __future__ import unicode_literals
 import frappe
 from rigpl_erpnext.rigpl_erpnext.doctype.daily_call.daily_call import check_date_time_diff
+from rigpl_erpnext.utils.follow_up_utils import end_follow_ups
 
 
 def validate(doc, method):
     in_daily_call = frappe.db.sql("""SELECT name, parent FROM `tabDaily Call Details` 
-    WHERE communication = '%s'""" % (doc.name), as_list=1)
+    WHERE communication = %s""", doc.name, as_list=1)
     if in_daily_call:
         dcr_details = frappe.get_doc("Daily Call Details", in_daily_call[0][0])
         dcr = frappe.get_doc("Daily Call", in_daily_call[0][1])
@@ -25,3 +26,14 @@ def validate(doc, method):
             frappe.throw('Next Action Date is Mandatory for Follow Up Communication')
         else:
             check_date_time_diff(doc.next_action_date, hours_diff=1, type_of_check='time', name_of_field='Next Action')
+
+
+def after_insert(doc, method):
+    # The latest call to a party ends the older follow-ups of the same user (#150)
+    if doc.communication_type != "Communication" or not (doc.reference_doctype and doc.reference_name
+                                                         and doc.user):
+        return
+    end_follow_ups(frappe.get_all("Communication", filters={
+        "communication_type": "Communication", "reference_doctype": doc.reference_doctype,
+        "reference_name": doc.reference_name, "user": doc.user, "follow_up": 1, "name": ["!=", doc.name]},
+        pluck="name"))

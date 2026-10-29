@@ -121,6 +121,7 @@ doctype_js = {
     "Bank Account": "public/js/bank_account.js",
     "Item": "public/js/stock/item.js",
     "Leave Allocation": "public/js/hr/leave_allocation.js",
+    "ToDo": "public/js/todo.js",
 }
 
 # Document Events
@@ -143,7 +144,8 @@ doc_events = {
         "on_trash": "rigpl_erpnext.website_rigpl.website_data.importer.clear_cache_on_blog_change",
     },
     "Communication": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.communication.validate"
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.communication.validate",
+        "after_insert": "rigpl_erpnext.rigpl_erpnext.validations.communication.after_insert",
     },
     "Customer": {
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update",
@@ -308,7 +310,7 @@ scheduler_events = {
     ],
     "hourly_long": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.user_permission_sync.execute",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.create_follow_up_todos",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.execute",
