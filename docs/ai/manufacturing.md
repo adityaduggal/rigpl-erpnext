@@ -4,7 +4,7 @@
 - Logic: `manufacturing_rigpl/utils/{process_sheet_utils,job_card_utils,manufacturing_utils}.py`.
 - Crons in `rigpl_erpnext/scheduled_tasks/`:
   - `process_sheet_update`: batched reads, writes only what changed;
-  - `create_new_job_cards`;
+  - `create_new_job_cards`: short closes Job Cards of delivered or closed Sales Orders, and deletes Job Cards without a Sales Order that still have a zero qty. One batched Sales Order read;
   - `update_job_card_status`;
   - `auto_reorder` (ROL).
 - Batch read helpers: `utils/stock_utils.get_quantities_for_items`, `utils/sales_utils.get_open_so_lines` and `manufacturing_rigpl/utils/batch_qty_utils.py` (Bins, operations, Job Card rows, pending Process Sheet operations).

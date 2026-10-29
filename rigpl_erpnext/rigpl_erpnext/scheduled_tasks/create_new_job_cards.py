@@ -1,98 +1,66 @@
 # -*- coding: utf-8 -*-
 #  Copyright (c) 2021. Rohit Industries Group Private Limited and Contributors.
 #  For license information, please see license.txt
-
+"""
+"Clean up Job Cards" step of the manufacturing pipeline (#147). Short closes the draft Job Cards
+whose Sales Order Item is delivered or closed, and deletes the Job Cards without a Sales Order
+that still have a zero qty after a save. Job Cards with an open Sales Order are left to "Update
+Job Card Status", which recalculates their quantities with batched reads.
+"""
 from __future__ import unicode_literals
 import time
 import frappe
-from ...manufacturing_rigpl.utils.process_sheet_utils import update_process_sheet_operations, get_pend_psop
-from ...manufacturing_rigpl.utils.job_card_utils import check_existing_job_card, create_job_card, return_job_card_qty
+from ...manufacturing_rigpl.utils.batch_qty_utils import get_open_so_items
 from .process_sheet_update import run_write
+
+JC_DOCTYPE = "Process Job Card RIGPL"
 
 
 def execute():
-    """
-    Delete Obsolete JCR
-    """
     st_time = time.time()
-    deleted_jcr = 0
-    changed_jcr = 0
-    sc_jcr = 0
-    draft_jc = frappe.db.sql("""SELECT name, priority, sales_order_item, operation_id,
-        process_sheet, for_quantity,total_qty  FROM `tabProcess Job Card RIGPL`
-        WHERE docstatus = 0 AND (priority = 999 OR total_qty = 0 OR for_quantity = 0)
-        ORDER BY creation, name""", as_dict=1)
+    job_cards = frappe.get_all(JC_DOCTYPE, filters={"docstatus": 0},
+        or_filters={"priority": 999, "total_qty": 0, "for_quantity": 0},
+        fields=["name", "sales_order_item", "total_qty", "for_quantity"], order_by="creation, name")
     print(f"Total No of Job Cards with 999 Priority or ZERO Total Qty OR ZERO FOR QTY = "
-        f"{len(draft_jc)}")
-    for jcr in draft_jc:
-        jcd = frappe.get_doc("Process Job Card RIGPL", jcr.name)
-        # Only check the Order Items and delete them if Order Already Dispatched and Short Close the Process
-        if jcr.sales_order_item:
-            pending_so = frappe.db.sql("""SELECT (soi.qty - soi.delivered_qty) AS pend_qty
-                FROM `tabSales Order` so, `tabSales Order Item` soi
-                WHERE soi.parent = so.name AND so.docstatus = 1 AND so.status != 'Closed'
-                AND soi.qty > soi.delivered_qty
-                AND soi.name = %s""", jcr.sales_order_item, as_dict=1)
-            if not pending_so:
-                jcd.no_stock_entry = 1
-                jcd.short_close_operation = 1
-                if run_write("jc_cleanup", jcd.submit, f"Job Card {jcd.name} not short closed"):
-                    sc_jcr += 1
-            else:
-                tot_qty, for_qty = return_job_card_qty(jcd)
-                if tot_qty != jcd.total_qty or for_qty != jcd.for_quantity:
-                    jcd.total_qty = tot_qty
-                    jcd.for_quantity = for_qty
-                    if run_write("jc_cleanup", jcd.save,
-                                 f"Job Card {jcr.name} with Pending SO not saved. Priority = {jcr.priority}, "
-                                 f"Tot Qty = {jcr.total_qty} and For Qty = {jcr.for_quantity}"):
-                        changed_jcr += 1
-        else:
-            if jcr.total_qty == 0 or jcr.for_quantity == 0:
-                # First Try and recalculate the quantities by saving if successful in saving and
-                # still zero then delete
-                saved = run_write("jc_cleanup", jcd.save,
-                                  f"Job Card {jcr.name} for Process Sheet {jcd.process_sheet} not saved")
-                if saved:
-                    changed_jcr += 1
-                if saved and (jcd.for_quantity == 0 or jcd.total_qty == 0):
-                    print(f"Deleting {jcd.name} as ZERO Total Qty or For Quantity is ZERO")
-                    if run_write("jc_cleanup",
-                                 lambda: frappe.delete_doc("Process Job Card RIGPL", jcr.name, for_reload=True),
-                                 f"Job Card {jcr.name} not deleted"):
-                        deleted_jcr += 1
-    frappe.db.commit()
-    jc_del_time = int(time.time() - st_time)
+        f"{len(job_cards)}")
+    open_so_items = get_open_so_items([jc.sales_order_item for jc in job_cards if jc.sales_order_item])
+    sc_jcr, changed_jcr, deleted_jcr = 0, 0, 0
+    for jc in job_cards:
+        if jc.sales_order_item:
+            if jc.sales_order_item not in open_so_items:
+                sc_jcr += short_close(jc.name)
+        elif jc.total_qty == 0 or jc.for_quantity == 0:
+            saved, deleted = save_or_delete(jc.name)
+            changed_jcr += saved
+            deleted_jcr += deleted
     print(f"Total No of Job Cards Deleted = {deleted_jcr}")
     print(f"Total No of Job Cards Short Closed = {sc_jcr}")
     print(f"Total No of Job Cards Updated = {changed_jcr}")
-    print(f"Total Time Taken for Deleting Job Cards = {jc_del_time} seconds")
+    print(f"Total Time Taken for Cleaning up Job Cards = {int(time.time() - st_time)} seconds")
 
 
+def short_close(name):
+    """Submits the Job Card as short closed without a Stock Entry. Returns 1 when it worked."""
+    def write():
+        jcd = frappe.get_doc(JC_DOCTYPE, name)
+        jcd.no_stock_entry = 1
+        jcd.short_close_operation = 1
+        jcd.submit()
 
-def create_production_job_cards():
+    return int(run_write("jc_cleanup", write, f"Job Card {name} not short closed"))
+
+
+def save_or_delete(name):
     """
-    Would only create the Job Cards for Entries where transfer entries = 0 that means only
-    for PS where RM is consumed
+    Saves the Job Card so that validate recalculates its quantities, and deletes it when a
+    quantity is still zero. Returns (saved, deleted) as 0 or 1.
     """
-    st_time = time.time()
-    pending_psheets = get_pend_psop(tf_ent=0)
-    print(f"Total Pending Process Sheets Operations to be Checked {len(pending_psheets)}")
-    jcr_created = 0
-    if pending_psheets:
-        for psh in pending_psheets:
-            psd = frappe.get_doc("Process Sheet", psh.ps_name)
-            opd = frappe.get_doc("BOM Operation", psh.name)
-            qty = psh.planned_qty - psh.completed_qty
-            exist_jc = check_existing_job_card(item_name=psh.production_item,
-                operation=psh.operation, so_detail=psh.sales_order_item, ps_doc=psd)
-            if not exist_jc:
-                jcr_created += 1
-                create_job_card(pro_sheet=psd, row=opd, quantity=qty, auto_create=True)
-                update_process_sheet_operations(ps_name=psh.ps_name, op_name=psh.name)
-            if jcr_created > 0 and jcr_created % 50 == 0:
-                print(f"Committing Changes after making {jcr_created} Changes. Total Time Taken = "
-                      f"{int(time.time() - st_time)}")
-                frappe.db.commit()
-    tot_time = int(time.time() - st_time)
-    print(f"Total JC Created = {jcr_created} and Time Taken for JCR Creation {tot_time} seconds")
+    jcd = frappe.get_doc(JC_DOCTYPE, name)
+    if not run_write("jc_cleanup", jcd.save, f"Job Card {name} for Process Sheet {jcd.process_sheet} not saved"):
+        return 0, 0
+    if jcd.total_qty and jcd.for_quantity:
+        return 1, 0
+    print(f"Deleting {name} as ZERO Total Qty or For Quantity is ZERO")
+    deleted = run_write("jc_cleanup", lambda: frappe.delete_doc(JC_DOCTYPE, name, for_reload=True),
+        f"Job Card {name} not deleted")
+    return 1, int(deleted)

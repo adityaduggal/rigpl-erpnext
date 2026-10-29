@@ -208,3 +208,27 @@ def get_pending_ps_ops_map(items, operations):
         ):
             result.setdefault((row.production_item, row.operation), []).append(row)
     return result
+
+
+def get_open_so_items(so_items):
+    """
+    Returns the Sales Order Items that still have pending qty in a submitted Sales Order that is
+    not Closed
+    """
+    so = frappe.qb.DocType("Sales Order")
+    soi = frappe.qb.DocType("Sales Order Item")
+    result = set()
+    for chunk in chunks(so_items):
+        result.update(
+            row[0] for row in (
+                frappe.qb.from_(soi)
+                .join(so).on(soi.parent == so.name)
+                .select(soi.name)
+                .where(so.docstatus == 1)
+                .where(so.status != "Closed")
+                .where(soi.qty > soi.delivered_qty)
+                .where(soi.name.isin(chunk))
+                .run()
+            )
+        )
+    return result
