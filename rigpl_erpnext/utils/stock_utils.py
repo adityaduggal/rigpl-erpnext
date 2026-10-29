@@ -8,7 +8,7 @@ import statistics
 from datetime import date
 import frappe
 from frappe.query_builder.functions import Count, Max, Sum
-from frappe.utils import nowdate, nowtime, add_months, cstr, flt, getdate, now
+from frappe.utils import nowdate, nowtime, add_months, cstr, flt, get_time, getdate, now
 from pypika.terms import Case, Criterion, Tuple
 from .batch_write_utils import bulk_insert_rows, bulk_insert_versions, clear_document_cache
 from .item_attribute_utils import chunks
@@ -1091,6 +1091,31 @@ def get_sle(criterion, to_date):
     )
     rows.sort(key=lambda d: (d.posting_date, d.posting_time, d.creation))
     return rows
+
+
+def get_reconciliations_after(pairs, posting_date, posting_time, inclusive=True):
+    """Return {(item, warehouse): SLE row} with the first Stock Reconciliation that is not
+    cancelled, after the posting date and time. With `inclusive`, one at the same time counts."""
+    pairs = {pair for pair in pairs if all(pair)}
+    if not pairs:
+        return {}
+    sle = frappe.qb.DocType("Stock Ledger Entry")
+    posting_date, posting_time = getdate(posting_date), str(get_time(posting_time))
+    same_day = sle.posting_time >= posting_time if inclusive else sle.posting_time > posting_time
+    rows = (
+        frappe.qb.from_(sle)
+        .select(sle.item_code, sle.warehouse, sle.voucher_no, sle.posting_date, sle.posting_time)
+        .where(Tuple(sle.item_code, sle.warehouse).isin([Tuple(*pair) for pair in sorted(pairs)]))
+        .where((sle.voucher_type == "Stock Reconciliation") & (sle.is_cancelled == 0))
+        .where((sle.posting_date > posting_date) | ((sle.posting_date == posting_date) & same_day))
+        .orderby(sle.posting_date)
+        .orderby(sle.posting_time)
+        .run(as_dict=True)
+    )
+    first = {}
+    for row in rows:
+        first.setdefault((row.item_code, row.warehouse), row)
+    return first
 
 
 def make_sales_job_work_ste(so_no):

@@ -3,8 +3,9 @@ from __future__ import unicode_literals
 import frappe
 from datetime import datetime as dt
 from datetime import date
-from frappe.utils import getdate, get_time
+from frappe.utils import getdate
 from ...utils.sales_utils import check_strict_po_rules, copy_address_and_check, validate_made_to_order_items
+from ...utils.stock_utils import get_reconciliations_after
 
 
 def validate(doc, method):
@@ -16,96 +17,90 @@ def validate(doc, method):
     copy_address_and_check(doc)
     check_price_list(doc, method)
     for dnd in doc.get("items"):
-        if dnd.against_sales_order:
-            so = frappe.get_doc("Sales Order", dnd.against_sales_order)
-            sod = frappe.get_doc("Sales Order Item", dnd.so_detail)
-            dnd.price_list = sod.price_list
-            sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE item_code = '%s'
-            AND warehouse = '%s' AND voucher_type = 'Stock Reconciliation' AND posting_date > '%s'""" %
-                               (dnd.item_code, dnd.warehouse, doc.posting_date), as_list=1)
-            if sr:
-                frappe.throw("There is a Reconciliation for Item Code: {0} after "
-                             "the posting date".format(dnd.item_code))
-            else:
-                sr = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry` WHERE item_code = '%s'
-                AND warehouse = '%s' AND voucher_type = 'Stock Reconciliation' AND posting_date = '%s'
-                AND posting_time >= '%s'""" %
-                                   (dnd.item_code, dnd.warehouse, doc.posting_date, doc.posting_time), as_list=1)
-                if sr:
-                    frappe.throw("There is a Reconciliation for Item Code: {0} after the posting time".
-                                 format(dnd.item_code))
-        else:
+        if not dnd.against_sales_order:
             frappe.throw("Delivery Note {} not against any Sales Order at Row {}".format(doc.name, dnd.idx))
+    srs = get_reconciliations_after([(d.item_code, d.warehouse) for d in doc.get("items")],
+        doc.posting_date, doc.posting_time)
+    for dnd in doc.get("items"):
+        sr = srs.get((dnd.item_code, dnd.warehouse))
+        if not sr:
+            continue
+        if sr.posting_date > getdate(doc.posting_date):
+            frappe.throw("There is a Reconciliation for Item Code: {0} after "
+                         "the posting date".format(dnd.item_code))
+        frappe.throw("There is a Reconciliation for Item Code: {0} after the posting time".
+                     format(dnd.item_code))
 
 
 def check_draft_dn(dn_doc):
     if dn_doc.is_new() == 1:
-        oth_dn = frappe.db.sql("""SELECT name FROM `tabDelivery Note` WHERE docstatus = 0 AND customer = '%s'
-        AND name != '%s' """ % (dn_doc.customer, dn_doc.name), as_dict=1)
+        oth_dn = frappe.db.get_value("Delivery Note", {"docstatus": 0, "customer": dn_doc.customer,
+            "name": ("!=", dn_doc.name)})
         if oth_dn:
-            frappe.throw(f"{frappe.get_desk_link('Delivery Note', oth_dn[0].name)} Already In Draft for "
+            frappe.throw(f"{frappe.get_desk_link('Delivery Note', oth_dn)} Already In Draft for "
                          f"{dn_doc.customer} Use that Delivery Note")
 
 
 def check_price_list(doc, method):
+    so_details = [it.so_detail for it in doc.items if it.so_detail]
+    if not so_details:
+        return
+    price_lists = dict(frappe.get_all("Sales Order Item", filters={"name": ("in", so_details)},
+        fields=["name", "price_list"], as_list=1))
     for it in doc.items:
         if it.so_detail:
-            sod_doc = frappe.get_doc("Sales Order Item", it.so_detail)
-            it.price_list = sod_doc.price_list
+            it.price_list = price_lists.get(it.so_detail)
 
 
 def on_submit(doc, method):
     validate_made_to_order_items(doc)
-    for dnd in doc.get("items"):
-        if dnd.so_detail and dnd.against_sales_order:
-            so = frappe.get_doc("Sales Order", dnd.against_sales_order)
-            sod = frappe.get_doc("Sales Order Item", dnd.so_detail)
-            if so.track_trial == 1:
-                query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name
-                name = frappe.db.sql(query, as_list=1)
-                tt = frappe.get_doc("Trial Tracking", name[0][0])
-                if tt:
-                    frappe.db.set(tt, 'status', 'Material Ready')
-                    frappe.msgprint('{0}{1}'.format("Updated Status of Trial No: ", name[0][0]))
+    update_trial_status(doc, "Material Ready")
 
 
 def on_cancel(doc, method):
     make_ste_for_reconciled_items(doc)
-    for dnd in doc.get("items"):
-        # Code to update the status in Trial Tracking
-        if dnd.so_detail and dnd.against_sales_order:
-            so = frappe.get_doc("Sales Order", dnd.against_sales_order)
-            sod = frappe.get_doc("Sales Order Item", dnd.so_detail)
-            if so.track_trial == 1:
-                query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name
-                name = frappe.db.sql(query, as_list=1)
-                tt = frappe.get_doc("Trial Tracking", name[0][0])
-                if tt:
-                    frappe.db.set(tt, 'status', 'In Production')
-                    frappe.msgprint('{0}{1}'.format("Updated Status of Trial No: ", name[0][0]))
+    update_trial_status(doc, "In Production")
+
+
+def update_trial_status(doc, status):
+    """Set the status of the Trial Tracking of each row whose Sales Order tracks trials."""
+    rows = [d for d in doc.get("items") if d.so_detail and d.against_sales_order]
+    if not rows:
+        return
+    tracked = set(frappe.get_all("Sales Order", filters={"name": ("in", {d.against_sales_order for d in rows}),
+        "track_trial": 1}, pluck="name"))
+    for dnd in rows:
+        if dnd.against_sales_order not in tracked:
+            continue
+        name = frappe.db.get_value("Trial Tracking", {"prevdoc_detail_docname": dnd.so_detail})
+        if not name:
+            frappe.throw("No Trial Tracking for Sales Order {} Row {}".format(dnd.against_sales_order,
+                dnd.so_detail))
+        frappe.db.set_value("Trial Tracking", name, "status", status)
+        frappe.msgprint('{0}{1}'.format("Updated Status of Trial No: ", name))
+
 
 def make_ste_for_reconciled_items(doc):
-    dn_dt_time = dt.combine(getdate(doc.posting_date), get_time(doc.posting_time))
     ste_list = []
     remarks = f"Stock Entry Due to Cancellation of DN# {doc.name} with Posting Date {doc.posting_date} on {dt.now()}"
-    ste_row = frappe._dict({})
+    items = {d.name: d for d in frappe.get_all("Item", filters={"name": ("in", {d.item_code for d in doc.items})},
+        fields=["name", "is_stock_item", "made_to_order"])}
+    srs = get_reconciliations_after([(d.item_code, d.warehouse) for d in doc.items], doc.posting_date,
+        doc.posting_time, inclusive=False)
     for d in doc.items:
-        itd = frappe.get_doc("Item", d.item_code)
-        if itd.is_stock_item == 1 and itd.made_to_order != 1:
-            sr = frappe.db.sql(f"""SELECT name, voucher_no FROM `tabStock Ledger Entry`
-                WHERE item_code = '{d.item_code}' AND CONCAT(posting_date, ' ', posting_time) >
-                '{dn_dt_time}' AND warehouse = '{d.warehouse}'
-                AND voucher_type = 'Stock Reconciliation'""", as_dict=1)
-            if sr:
-                remarks += f"\nFor Row# {d.idx} and Item: {d.item_code} there was "
-                f"Stock Reconciliation: {sr[0].voucher_no}"
-                ste_row["item_code"] = d.item_code
-                ste_row["t_warehouse"] = d.warehouse
-                ste_row["qty"] = d.qty
-                ste_row["uom"] = d.uom
-                ste_row["stock_uom"] = d.stock_uom
-                ste_row["conversion_factor"] = d.conversion_factor
-                ste_list.append(ste_row.copy())
+        itd = items[d.item_code]
+        sr = srs.get((d.item_code, d.warehouse))
+        if itd.is_stock_item == 1 and itd.made_to_order != 1 and sr:
+            remarks += (f"\nFor Row# {d.idx} and Item: {d.item_code} there was "
+                f"Stock Reconciliation: {sr.voucher_no}")
+            ste_list.append({
+                "item_code": d.item_code,
+                "t_warehouse": d.warehouse,
+                "qty": d.qty,
+                "uom": d.uom,
+                "stock_uom": d.stock_uom,
+                "conversion_factor": d.conversion_factor,
+            })
     if ste_list:
         ste_account = frappe.db.get_value("Company", doc.company, "stock_adjustment_account")
         new_ste = frappe.get_doc({

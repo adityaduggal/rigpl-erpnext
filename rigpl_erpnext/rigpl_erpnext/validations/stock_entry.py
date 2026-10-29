@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
-import datetime as dt
-from frappe.utils import flt, getdate, get_time
+from frappe.utils import flt
 from erpnext.stock.doctype.stock_entry.stock_entry import StockEntry
 from ...manufacturing_rigpl.utils.manufacturing_utils import get_bom_template_from_item
 from ...utils.item_attribute_utils import get_attribute_rows
+from ...utils.stock_utils import get_reconciliations_after
 from ..scheduled_tasks.item_valuation_rate import get_cut_pcs_factor
 
 
@@ -116,36 +116,19 @@ def check_stock_recon(ste):
     If there is a Stock Reconciliation then the submission would not be allowed for stock entry
     """
     sr_list = []
-    sr_row = frappe._dict({})
     def_stk_adj_acc = frappe.get_value("Company", ste.company, "stock_adjustment_account")
+    pairs = []
     for row in ste.items:
         row.expense_account = def_stk_adj_acc
-        ste_dt_time = dt.datetime.combine(getdate(ste.posting_date), get_time(ste.posting_time))
-        query = f"""SELECT name, voucher_no, CONCAT(posting_date, ' ', posting_time) as ptime
-        FROM `tabStock Ledger Entry` WHERE item_code = '{row.item_code}' AND
-        warehouse = '{row.s_warehouse}' AND voucher_type = 'Stock Reconciliation'
-        AND CONCAT(posting_date, ' ', posting_time) >= '{ste_dt_time}' LIMIT 1"""
-        sr_swh = frappe.db.sql(query, as_dict=1)
-        if sr_swh:
-            sr_row["idx"] = row.idx
-            sr_row["ic"] = row.item_code
-            sr_row["wh"] = row.s_warehouse
-            sr_row["srn"] = sr_swh[0].voucher_no
-            sr_row["ptime"] = sr_swh[0].ptime
-            sr_list.append(sr_row.copy())
-        # Check the Stock Reconciliation for Target Warehouse as well
-        query = f"""SELECT name, voucher_no, CONCAT(posting_date, ' ', posting_time) as ptime
-        FROM `tabStock Ledger Entry` WHERE item_code = '{row.item_code}'
-        AND warehouse = '{row.t_warehouse}' AND voucher_type = 'Stock Reconciliation'
-        AND CONCAT(posting_date, ' ', posting_time) >= '{ste_dt_time}' LIMIT 1"""
-        sr_twh = frappe.db.sql(query, as_dict=1)
-        if sr_twh:
-            sr_row["idx"] = row.idx
-            sr_row["ic"] = row.item_code
-            sr_row["wh"] = row.t_warehouse
-            sr_row["srn"] = sr_twh[0].voucher_no
-            sr_row["ptime"] = sr_twh[0].ptime
-            sr_list.append(sr_row.copy())
+        pairs += [(row.item_code, row.s_warehouse), (row.item_code, row.t_warehouse)]
+    srs = get_reconciliations_after(pairs, ste.posting_date, ste.posting_time)
+    for row in ste.items:
+        # Check the Source and then the Target Warehouse
+        for warehouse in (row.s_warehouse, row.t_warehouse):
+            sr = srs.get((row.item_code, warehouse))
+            if sr:
+                sr_list.append(frappe._dict(idx=row.idx, ic=row.item_code, wh=warehouse,
+                    srn=sr.voucher_no, ptime=f"{sr.posting_date} {sr.posting_time}"))
     if sr_list:
         for srn in sr_list:
             frappe.msgprint(f"In Row# {srn.idx} and Item: {srn.ic} for {srn.wh} there is "
