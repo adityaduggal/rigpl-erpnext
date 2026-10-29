@@ -174,11 +174,16 @@ class TestJobCardCalculations(FrappeTestCase):
             d(idx=3, operation="_Test RIGPL Op Coat", transfer_entry=0, source_warehouse=""),
         ])
         itd = d(name="_Test RIGPL Item")
-        with assert_max_queries(1, test_case=self):
-            qty = psu.get_actual_qty_before_process_in_ps(
+
+        def run():
+            return psu.get_actual_qty_before_process_in_ps(
                 psd, itd, "_Test RIGPL Op Grind", qty_dict={"planned_qty": 3, "on_po": 100},
                 bin_qty={(itd.name, "WH1"): 4, (itd.name, "WH2"): 5},
             )
+
+        run()  # loads the Operation meta and columns into the cache
+        with assert_max_queries(1, test_case=self):
+            qty = run()
         # Planned 3 + WH1 4 + WH2 5, no sub-contracting so no PO qty
         self.assertEqual(qty, 12)
 
