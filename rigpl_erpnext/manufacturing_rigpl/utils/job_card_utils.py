@@ -169,7 +169,7 @@ def validate_produced_qty_jc(doc):
             frappe.throw(
                 f"For Job Card# {doc.name} Qty Available for Item Code: {doc.production_item} in "
                 f"Warehouse: {doc.s_warehouse} is {doc.qty_available} but you are trying "
-                "to process {(doc.total_completed_qty + doc.total_rejected_qty)} quantities. \n"
+                f"to process {(doc.total_completed_qty + doc.total_rejected_qty)} quantities. \n"
                 "Please correct this error."
             )
     else:
@@ -200,15 +200,16 @@ def update_job_card_source_warehouse(jc_doc):
     return change_needed
 
 
-def update_job_card_qty_available(jc_doc):
-    ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+def update_job_card_qty_available(jc_doc, ps_doc=None):
+    if ps_doc is None:
+        ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
     if jc_doc.sales_order != ps_doc.sales_order:
         jc_doc.sales_order = ps_doc.sales_order
     if jc_doc.sales_order_item != ps_doc.sales_order_item:
         jc_doc.sales_order_item = ps_doc.sales_order_item
     if jc_doc.sno != ps_doc.sno:
         jc_doc.sno = ps_doc.sno
-    jc_doc.qty_available = get_job_card_qty_available(jc_doc)
+    jc_doc.qty_available = get_job_card_qty_available(jc_doc, ps_operations=ps_doc.operations)
 
 
 def get_job_card_qty_available(jc_doc, bin_qty=None, **made_to_stock_args):
@@ -235,23 +236,19 @@ def get_job_card_qty_available(jc_doc, bin_qty=None, **made_to_stock_args):
 
 
 def get_bin(item_code, warehouse):
-    bin_qty_dict = frappe.db.sql(
-        """SELECT name, item_code, warehouse, reserved_qty, actual_qty, ordered_qty,
-    indented_qty, planned_qty, projected_qty, reserved_qty_for_production, reserved_qty_for_sub_contract, stock_uom,
-    valuation_rate, stock_value FROM `tabBin` WHERE item_code = '%s'
-    AND warehouse = '%s'"""
-        % (item_code, warehouse),
-        as_dict=1,
-    )
-    if bin_qty_dict:
-        return bin_qty_dict[0]
-    else:
-        return {}
+    return frappe.db.get_value(
+        "Bin",
+        {"item_code": item_code, "warehouse": warehouse},
+        ["name", "item_code", "warehouse", "reserved_qty", "actual_qty", "ordered_qty",
+            "indented_qty", "planned_qty", "projected_qty", "reserved_qty_for_production",
+            "reserved_qty_for_sub_contract", "stock_uom", "valuation_rate", "stock_value"],
+        as_dict=True,
+    ) or {}
 
 
-def update_job_card_status(jc_doc):
+def update_job_card_status(jc_doc, bt_operations=None):
     # Old Name = update_jc_status
-    update_job_card_process_no(jc_doc)
+    update_job_card_process_no(jc_doc, bt_operations=bt_operations)
     jc_doc.status = get_job_card_status(jc_doc)
 
 
@@ -331,16 +328,17 @@ def get_job_card_qty_text(qdict):
         - qdict.dead_qty
         + qdict.calculated_rol
     )
-    qty_text = f"SO = {qdict.on_so} \nPO = {qdict.on_po} \nNeeded for PRD = "
-    f"{qdict.reserved_for_prd} \n Finished Stock = {qdict.finished_qty} \nDead Stock = "
-    f"{qdict.dead_qty} \n Work In Progress = {qdict.wip_qty} \nReal ROL = "
-    f"{qdict.re_order_level} But Calculated ROL = {qdict.calculated_rol} \nMinimum Qty to "
-    f"be Produced = {min_needed} AND Qty Needed for Order = {qty_for_order}"
-    return qty_text
+    return (
+        f"SO = {qdict.on_so} \nPO = {qdict.on_po} \nNeeded for PRD = "
+        f"{qdict.reserved_for_prd} \n Finished Stock = {qdict.finished_qty} \nDead Stock = "
+        f"{qdict.dead_qty} \n Work In Progress = {qdict.wip_qty} \nReal ROL = "
+        f"{qdict.re_order_level} But Calculated ROL = {qdict.calculated_rol} \nMinimum Qty to "
+        f"be Produced = {min_needed} AND Qty Needed for Order = {qty_for_order}"
+    )
 
 
-def update_job_card_process_no(jc_doc):
-    operation_sno, final_operation = get_job_card_process_sno(jc_doc)
+def update_job_card_process_no(jc_doc, bt_operations=None):
+    operation_sno, final_operation = get_job_card_process_sno(jc_doc, bt_operations=bt_operations)
     if jc_doc.operation_serial_no != operation_sno:
         jc_doc.operation_serial_no = operation_sno
     if jc_doc.final_operation != final_operation:
@@ -352,8 +350,9 @@ def get_job_card_process_sno(jc_doc, bt_operations=None):
     Pass `bt_operations` (the operations of the BOM Template) when checking many Job Cards.
     """
     if bt_operations is None:
-        ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
-        bt_operations = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template).operations
+        bt_operations = get_template_operations(
+            frappe.get_value("Process Sheet", jc_doc.process_sheet, "bom_template")
+        )
     op_sno, final_op = 0, 0
     for op in bt_operations:
         if op.operation == jc_doc.operation:
@@ -361,6 +360,15 @@ def get_job_card_process_sno(jc_doc, bt_operations=None):
             if op.final_operation == 1:
                 final_op = 1
     return op_sno, final_op
+
+
+def get_template_operations(bom_template):
+    return frappe.get_all(
+        "BOM Operation",
+        filters={"parent": bom_template, "parenttype": "BOM Template RIGPL", "parentfield": "operations"},
+        fields=["operation", "idx", "final_operation"],
+        order_by="idx",
+    )
 
 
 def get_bal_qty_for_jcr(jcd):
@@ -392,6 +400,7 @@ def return_job_card_qty(jcd, ps_sheet=None, ps_rm_codes=None, qty_available=None
     tot_qty = 0
     trf_entry = 0
     for_qty = 0
+    combined = 0
     for ps in ps_sheet:
         if ps.op_name == jcd.operation_id:
             for_qty = ps.planned_qty - ps.completed_qty
@@ -407,13 +416,16 @@ def return_job_card_qty(jcd, ps_sheet=None, ps_rm_codes=None, qty_available=None
                     if rm in jcd_rm:
                         same_rm += 1
                 if same_rm == len(psd_rm):
+                    combined = 1
                     tot_qty += ps.planned_qty - ps.completed_qty
         elif ps.transfer_entry == 1 and jcd.transfer_entry == 1:
             # Transfer entry if the qty available is less than total qty then total qty else available qty in WH
             trf_entry = 1
+            combined = 1
             tot_qty += ps.planned_qty - ps.completed_qty
-        else:
-            tot_qty += jcd.for_quantity
+    if combined == 0:
+        # No other Process Sheet shares the RM or the source warehouse so only own pending qty
+        tot_qty = for_qty
     if trf_entry == 1:
         if qty_available is None:
             qty_available = get_job_card_qty_available(jc_doc=jcd)
@@ -451,14 +463,16 @@ def get_pending_ps_ops(jcd):
     return query.run(as_dict=True)
 
 
-def update_job_card_total_qty(jcd):
-    tot_qty, for_qty = return_job_card_qty(jcd)
+def update_job_card_total_qty(jcd, qty_available=None):
+    tot_qty, for_qty = return_job_card_qty(jcd, qty_available=qty_available)
     jcd.total_qty = flt(tot_qty)
     jcd.for_quantity = flt(for_qty)
 
 
-def update_job_card_priority(jc_doc):
-    new_priority = get_production_priority_for_item(jc_doc.production_item, jc_doc)
+def update_job_card_priority(jc_doc, it_doc=None, qty_dict=None):
+    new_priority = get_production_priority_for_item(
+        jc_doc.production_item, jc_doc, it_doc=it_doc, qty_dict=qty_dict
+    )
     if jc_doc.priority != new_priority:
         jc_doc.priority = new_priority
 

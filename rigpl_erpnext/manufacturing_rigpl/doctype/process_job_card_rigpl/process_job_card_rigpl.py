@@ -67,12 +67,14 @@ class ProcessJobCardRIGPL(Document):
         Validation on Saving a JCR
         """
         update_jc_posting_date_time(self)
-        update_job_card_qty_available(self)
-        update_job_card_priority(self)
-        update_job_card_total_qty(self)
-        update_job_card_status(self)
+        pro_doc = frappe.get_doc("Process Sheet", self.process_sheet)
         it_doc = frappe.get_doc("Item", self.production_item)
-        self.update_job_card_qty_text(it_doc)
+        qty_dict = get_quantities_for_item(it_doc)
+        update_job_card_qty_available(self, ps_doc=pro_doc)
+        update_job_card_priority(self, it_doc=it_doc, qty_dict=qty_dict)
+        update_job_card_total_qty(self, qty_available=self.qty_available)
+        update_job_card_status(self, bt_operations=get_template_operations(pro_doc.bom_template))
+        self.update_job_card_qty_text(it_doc, qty_dict)
         self.uom = it_doc.stock_uom
         if self.s_warehouse == self.t_warehouse:
             self.no_stock_entry = 1
@@ -85,7 +87,6 @@ class ProcessJobCardRIGPL(Document):
             )
             validate_qty_decimal(self, "rm_consumed")
             validate_qty_decimal(self, "item_manufactured")
-            pro_doc = frappe.get_doc("Process Sheet", self.process_sheet)
             op_doc = None
             for row in pro_doc.operations:
                 if row.name == self.operation_id:
@@ -114,15 +115,7 @@ class ProcessJobCardRIGPL(Document):
                     self.transfer_entry = op_doc.transfer_entry
 
             if self.rm_consumed:
-                rm_item_dict = frappe.get_all(
-                    "Process Sheet Items",
-                    fields=["item_code"],
-                    filters={
-                        "parenttype": "Process Job Card RIGPL",
-                        "parent": self.name,
-                        "parentfield": "rm_consumed",
-                    },
-                )
+                rm_item_dict = [frappe._dict(item_code=d.item_code) for d in self.rm_consumed]
                 self.update_calculated_qty(rm_item_dict, pro_doc)
                 bins, totals = get_bin_map([d.item_code for d in rm_item_dict])
                 update_row_quantities(self.rm_consumed, "source_warehouse", bins, totals)
@@ -135,26 +128,19 @@ class ProcessJobCardRIGPL(Document):
                         self, "item_manufactured", pro_sheet=pro_doc
                     )
             if self.item_manufactured:
-                wip_item_dict = frappe.get_all(
-                    "Process Sheet Items",
-                    fields=["item_code"],
-                    filters={
-                        "parenttype": "Process Job Card RIGPL",
-                        "parent": self.name,
-                        "parentfield": "item_manufactured",
-                    },
-                )
-                bins, totals = get_bin_map([d.item_code for d in wip_item_dict])
+                bins, totals = get_bin_map([d.item_code for d in self.item_manufactured])
                 update_row_quantities(self.item_manufactured, "target_warehouse", bins, totals)
             update_jc_rm_status(self)
 
-    def update_job_card_qty_text(self, it_doc=None):
+    def update_job_card_qty_text(self, it_doc=None, qty_dict=None):
         """
         Updates the Quantity Text So that Items for Production is Not Needed to be Open
         """
-        if it_doc is None:
-            it_doc = frappe.get_doc("Item", self.production_item)
-        qty_text = get_job_card_qty_text(get_quantities_for_item(it_doc))
+        if qty_dict is None:
+            if it_doc is None:
+                it_doc = frappe.get_doc("Item", self.production_item)
+            qty_dict = get_quantities_for_item(it_doc)
+        qty_text = get_job_card_qty_text(qty_dict)
         if self.quantity_details != qty_text:
             self.quantity_details = qty_text
 
@@ -228,10 +214,8 @@ class ProcessJobCardRIGPL(Document):
         nxt_jc_list = get_next_job_cards(self, ps_doc)
         if nxt_jc_list:
             for jc in nxt_jc_list:
-                nxt_jc_doc = frappe.get_doc(self.doctype, jc[0])
-                update_job_card_qty_available(nxt_jc_doc)
-                update_job_card_status(nxt_jc_doc)
-                nxt_jc_doc.save()
+                # validate on save updates the qty available and status
+                frappe.get_doc(self.doctype, jc[0]).save()
 
     def create_new_jc_if_needed(self, ps_doc=None):
         if ps_doc is None:
@@ -264,40 +248,7 @@ class ProcessJobCardRIGPL(Document):
             frappe.msgprint("No New Job Card needed")
 
     def check_if_new_jc_needed(self):
+        # Returns 0 or 1: 0= No JC Needed and 1= New JC is needed
         if self.short_close_operation == 1:
             return 0
-        allowance = flt(
-            frappe.get_value(
-                "Manufacturing Settings",
-                "Manufacturing Settings",
-                "overproduction_percentage_for_work_order",
-            )
-        )
-        per_diff = abs(
-            self.for_quantity - self.total_completed_qty - self.total_rejected_qty
-        )
-        # Returns 0 or 1: 0= No JC Needed and 1= New JC is needed
-        # Checks if new JC is needed for an existing JC if its transfer entry and for Stock Items
-        if self.for_quantity > self.total_completed_qty:
-            if per_diff > allowance:
-                if self.s_warehouse:
-                    if self.sales_order_item:
-                        return 1
-                    else:
-                        # This means stock item so check from Manufacturing Settings for allowance of closing
-                        if per_diff > allowance:
-                            return 1
-                        else:
-                            if self.shor_close_operation == 1:
-                                return 0
-                            else:
-                                return 1
-                else:
-                    return 1
-            else:
-                if self.short_close_operation == 1:
-                    return 0
-                else:
-                    return 1
-        else:
-            return 0
+        return 1 if self.for_quantity > self.total_completed_qty else 0

@@ -2,7 +2,11 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.manufacturing_rigpl.doctype.process_job_card_rigpl.process_job_card_rigpl import (
+    ProcessJobCardRIGPL,
+)
 from rigpl_erpnext.manufacturing_rigpl.utils import job_card_utils as jcu
+from rigpl_erpnext.manufacturing_rigpl.utils import process_sheet_utils as psu
 from rigpl_erpnext.rigpl_erpnext.scheduled_tasks import update_job_card_status as ujs
 from rigpl_erpnext.tests.test_variant_table import insert_item
 from rigpl_erpnext.utils.batch_write_utils import bulk_set_fields
@@ -112,6 +116,70 @@ class TestJobCardCalculations(FrappeTestCase):
         qty = jcu.get_moved_qty(jc, submitted, {"Coat"}, {"JC3": "POI3"}, grn_rows)
 
         # IN 10 - OUT 4 + GRN 6 into WIP
+        self.assertEqual(qty, 12)
+
+    def test_qty_text_has_all_lines(self):
+        qdict = d(on_so=5, on_po=1, reserved_for_prd=2, finished_qty=3, dead_qty=0, wip_qty=4,
+            re_order_level=6, calculated_rol=7)
+        text = jcu.get_job_card_qty_text(qdict)
+        for part in ("SO = 5", "Needed for PRD = 2", "Finished Stock = 3", "Dead Stock = 0",
+                "Work In Progress = 4", "Calculated ROL = 7", "Minimum Qty to be Produced = 10",
+                "Qty Needed for Order = 1"):
+            self.assertIn(part, text)
+
+    def test_total_qty_adds_own_qty_once(self):
+        jc = d(operation_id="OP2", allow_consumption_of_rm=0, transfer_entry=0, for_quantity=50,
+            rm_consumed=[])
+        ps_sheet = [
+            d(name="PS1", op_name="OP1", planned_qty=30, completed_qty=0, allow_consumption_of_rm=0,
+                transfer_entry=0),
+            d(name="PS2", op_name="OP2", planned_qty=20, completed_qty=5, allow_consumption_of_rm=0,
+                transfer_entry=0),
+            d(name="PS3", op_name="OP3", planned_qty=10, completed_qty=0, allow_consumption_of_rm=0,
+                transfer_entry=0),
+        ]
+        self.assertEqual(
+            jcu.return_job_card_qty(jc, ps_sheet=ps_sheet, ps_rm_codes={}, qty_available=0), (15, 15)
+        )
+
+    def test_total_qty_sums_same_rm_rows(self):
+        jc = d(operation_id="OP1", allow_consumption_of_rm=1, transfer_entry=0, for_quantity=50,
+            rm_consumed=[d(item_code="RM1")])
+        ps_sheet = [
+            d(name="PS1", op_name="OP1", planned_qty=30, completed_qty=10, allow_consumption_of_rm=1,
+                transfer_entry=0),
+            d(name="PS2", op_name="OP2", planned_qty=20, completed_qty=0, allow_consumption_of_rm=1,
+                transfer_entry=0),
+            d(name="PS3", op_name="OP3", planned_qty=10, completed_qty=0, allow_consumption_of_rm=1,
+                transfer_entry=0),
+            d(name="PS4", op_name="OP4", planned_qty=99, completed_qty=0, allow_consumption_of_rm=0,
+                transfer_entry=0),
+        ]
+        rm_codes = {"PS1": ["RM1"], "PS2": ["RM1"], "PS3": ["RM2"]}
+        self.assertEqual(
+            jcu.return_job_card_qty(jc, ps_sheet=ps_sheet, ps_rm_codes=rm_codes, qty_available=0),
+            (40, 20),
+        )
+
+    def test_new_jc_needed(self):
+        check = ProcessJobCardRIGPL.check_if_new_jc_needed
+        self.assertEqual(check(d(short_close_operation=1, for_quantity=10, total_completed_qty=2)), 0)
+        self.assertEqual(check(d(short_close_operation=0, for_quantity=10, total_completed_qty=2)), 1)
+        self.assertEqual(check(d(short_close_operation=0, for_quantity=10, total_completed_qty=10)), 0)
+
+    def test_qty_before_process_reads_subcon_once(self):
+        psd = d(operations=[
+            d(idx=1, operation="_Test RIGPL Op Cut", transfer_entry=1, source_warehouse="WH1"),
+            d(idx=2, operation="_Test RIGPL Op Grind", transfer_entry=1, source_warehouse="WH2"),
+            d(idx=3, operation="_Test RIGPL Op Coat", transfer_entry=0, source_warehouse=""),
+        ])
+        itd = d(name="_Test RIGPL Item")
+        with assert_max_queries(1, test_case=self):
+            qty = psu.get_actual_qty_before_process_in_ps(
+                psd, itd, "_Test RIGPL Op Grind", qty_dict={"planned_qty": 3, "on_po": 100},
+                bin_qty={(itd.name, "WH1"): 4, (itd.name, "WH2"): 5},
+            )
+        # Planned 3 + WH1 4 + WH2 5, no sub-contracting so no PO qty
         self.assertEqual(qty, 12)
 
 

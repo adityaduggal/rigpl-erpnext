@@ -20,6 +20,7 @@ from .job_card_utils import (
     create_job_card,
     get_bin,
     get_existing_job_cards,
+    get_subcontracting_operations,
     update_job_card_total_qty,
 )
 from .manufacturing_utils import (
@@ -89,10 +90,10 @@ def get_actual_qty_before_process_in_ps(psd, itd, operation, qty_dict=None, subc
     checking many sheets, pass `qty_dict` (get_quantities_for_items), `subcon`
     ({operation: is_subcontracting}) and `bin_qty` ({(item, warehouse): actual_qty}).
     """
-    def is_subcontracting(op_name):
-        if subcon is not None:
-            return subcon.get(op_name)
-        return frappe.get_value("Operation", op_name, "is_subcontracting")
+    if subcon is None:
+        subcon = {
+            op: 1 for op in get_subcontracting_operations({d.operation for d in psd.operations} | {operation})
+        }
 
     def actual_qty(warehouse):
         if bin_qty is not None:
@@ -100,7 +101,7 @@ def get_actual_qty_before_process_in_ps(psd, itd, operation, qty_dict=None, subc
         return flt(get_bin(item_code=itd.name, warehouse=warehouse).get("actual_qty"))
 
     qty_before_process, op_idx, add_po = 0, 0, 0
-    self_subcon_op = is_subcontracting(operation)
+    self_subcon_op = subcon.get(operation)
     if qty_dict is None:
         qty_dict = get_quantities_for_item(it_doc=itd)
     for d in psd.operations:
@@ -115,7 +116,7 @@ def get_actual_qty_before_process_in_ps(psd, itd, operation, qty_dict=None, subc
                 if self_subcon_op == 1:
                     add_po = 0
                 if d.idx <= op_idx:
-                    oth_subcon = is_subcontracting(d.operation)
+                    oth_subcon = subcon.get(d.operation)
                     if d.transfer_entry == 1:
                         if d.source_warehouse not in s_wh_list:
                             s_wh_list.append(d.source_warehouse)
