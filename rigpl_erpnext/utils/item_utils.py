@@ -199,134 +199,109 @@ def validate_item_defaults(it_doc):
 
 
 def generate_description(it_doc):
-    if it_doc.variant_of:
-        desc = []
-        description = ""
-        long_desc = ""
-        for d in it_doc.attributes:
-            concat = ""
-            concat1 = ""
-            concat2 = ""
-            is_numeric = frappe.db.get_value(
-                "Item Attribute", d.attribute, "numeric_values"
+    """Return (description, long description) of a variant from its attribute rows."""
+    if not it_doc.variant_of:
+        return it_doc.name, it_doc.name
+    template_rows, numeric, value_desc = get_description_data(
+        [it_doc.variant_of], it_doc.attributes
+    )
+    return make_description(
+        it_doc.attributes, template_rows.get(it_doc.variant_of, {}), numeric, value_desc
+    )
+
+
+def get_description_data(templates, variant_rows):
+    """Return the data `make_description` needs for variants of `templates`:
+    ({template: {attribute: row}}, numeric attributes, {(attribute, value key): (desc, long desc)}).
+    """
+    template_rows = {}
+    for template, rows in get_attribute_rows(templates).items():
+        by_attribute = template_rows.setdefault(template, {})
+        for row in rows:
+            by_attribute.setdefault(row.attribute, row)
+    attributes = list({d.attribute for d in variant_rows})
+    values = list({d.attribute_value for d in variant_rows if d.attribute_value})
+    if not attributes:
+        return template_rows, set(), {}
+    numeric = set(
+        frappe.get_all(
+            "Item Attribute",
+            filters={"name": ("in", attributes), "numeric_values": 1},
+            pluck="name",
+        )
+    )
+    value_desc = {}
+    text_attributes = [att for att in attributes if att not in numeric]
+    if text_attributes and values:
+        for row in frappe.get_all(
+            "Item Attribute Value",
+            filters={"parent": ("in", text_attributes), "attribute_value": ("in", values)},
+            fields=["parent", "attribute_value", "description", "long_description"],
+            order_by="idx",
+        ):
+            value_desc.setdefault(
+                (row.parent, value_key(row.attribute_value)),
+                (row.description, row.long_description),
             )
-            use_in_description = frappe.db.sql(
-                """SELECT iva.use_in_description from `tabItem Variant Attribute` iva
-            WHERE iva.parent = '%s' AND iva.attribute = '%s' """
-                % (it_doc.variant_of, d.attribute),
-                as_list=1,
-            )[0][0]
+    return template_rows, numeric, value_desc
 
-            if is_numeric != 1 and use_in_description == 1:
-                # Below query gets the values of description mentioned in the Attribute table
-                # for non-numeric values
-                cond1 = d.attribute
-                cond2 = d.attribute_value
-                query = """SELECT iav.description AS descrip, iav.long_description AS lng_desc
-                FROM `tabItem Attribute Value` iav, `tabItem Attribute` ia
-                WHERE iav.parent = '%s' AND iav.parent = ia.name
-                AND iav.attribute_value = '%s'""" % (
-                    cond1,
-                    cond2,
-                )
-                vatt_lst = frappe.db.sql(query, as_dict=1)
-                if not vatt_lst:
-                    frappe.throw(
-                        f"No Value found for Attribute {d.attribute} bearing Value {d.attribute_value}"
-                    )
-                prefix = frappe.db.sql(
-                    """SELECT iva.prefix AS pref FROM `tabItem Variant Attribute` iva
-                WHERE iva.parent = '%s' AND iva.attribute = '%s' """
-                    % (it_doc.variant_of, d.attribute),
-                    as_dict=1,
-                )
-                suffix = frappe.db.sql(
-                    """SELECT iva.suffix AS suffix FROM `tabItem Variant Attribute` iva
-                WHERE iva.parent = '%s' AND iva.attribute = '%s' """
-                    % (it_doc.variant_of, d.attribute),
-                    as_dict=1,
-                )
-                concat = ""
-                concat2 = ""
-                if prefix[0].pref != '""':
-                    if vatt_lst[0].descrip:
-                        concat1 = str(prefix[0].pref[1:-1]) + str(
-                            vatt_lst[0].descrip[1:-1]
-                        )
-                    if vatt_lst[0].lng_desc:
-                        concat2 = str(prefix[0].pref[1:-1]) + str(
-                            vatt_lst[0].lng_desc[1:-1]
-                        )
-                else:
-                    if vatt_lst and vatt_lst[0].descrip != '""':
-                        concat1 = str(vatt_lst[0].descrip[1:-1])
-                    if vatt_lst and vatt_lst[0].lng_desc != '""':
-                        concat2 = str(vatt_lst[0].lng_desc[1:-1])
 
-                if suffix[0].suffix != '""':
-                    concat1 = concat1 + str(suffix[0].suffix[1:-1])
-                    concat2 = concat2 + str(suffix[0].suffix[1:-1])
-                desc.extend([[concat1, concat2, d.idx]])
+def value_key(value):
+    """Attribute values match like MySQL `=` does: without case and trailing spaces."""
+    return (value or "").casefold().rstrip()
 
-            elif is_numeric == 1 and use_in_description == 1:
-                concat = ""
-                concat2 = ""
-                # Below query gets the values of description mentioned in the Attribute table
-                # for Numeric values
-                query1 = (
-                    """SELECT iva.idx FROM `tabItem Variant Attribute` iva
-                WHERE iva.attribute = '%s'"""
-                    % d.attribute
-                )
 
-                prefix = frappe.db.sql(
-                    """SELECT iva.prefix FROM `tabItem Variant Attribute` iva
-                WHERE iva.parent = '%s' AND iva.attribute = '%s' """
-                    % (it_doc.variant_of, d.attribute),
-                    as_list=1,
-                )
+def make_description(variant_rows, template_rows, numeric, value_desc):
+    """Return (description, long description) of one variant. The template row of an attribute
+    gives use_in_description, prefix and suffix. Prefix, suffix and value descriptions are
+    stored in quotes, and '""' means none."""
+    desc = []
+    for d in variant_rows:
+        template_row = template_rows.get(d.attribute)
+        if not template_row:
+            frappe.throw(f"Attribute {d.attribute} is not in the Template")
+        if template_row.use_in_description != 1:
+            continue
+        prefix = template_row.prefix or ""
+        suffix = template_row.suffix or ""
+        if d.attribute in numeric:
+            concat = ""
+            if flt(d.attribute_value) > 0:
+                concat = "{0:g}".format(flt(d.attribute_value))
+                if prefix != '""':
+                    concat = prefix[1:-1] + concat
+            if suffix != '""' and concat:
+                concat = concat + suffix[1:-1]
+            desc.append([concat, concat, d.idx])
+            continue
 
-                suffix = frappe.db.sql(
-                    """SELECT iva.suffix FROM `tabItem Variant Attribute` iva
-                WHERE iva.parent = '%s' AND iva.attribute = '%s' """
-                    % (it_doc.variant_of, d.attribute),
-                    as_list=1,
-                )
+        values = value_desc.get((d.attribute, value_key(d.attribute_value)))
+        if not values:
+            frappe.throw(
+                f"No Value found for Attribute {d.attribute} bearing Value {d.attribute_value}"
+            )
+        short, long = values
+        concat1 = ""
+        concat2 = ""
+        if prefix != '""':
+            if short:
+                concat1 = prefix[1:-1] + short[1:-1]
+            if long:
+                concat2 = prefix[1:-1] + long[1:-1]
+        else:
+            if short and short != '""':
+                concat1 = short[1:-1]
+            if long and long != '""':
+                concat2 = long[1:-1]
+        if suffix != '""':
+            concat1 = concat1 + suffix[1:-1]
+            concat2 = concat2 + suffix[1:-1]
+        desc.append([concat1, concat2, d.idx])
 
-                concat = ""
-                if prefix[0][0] != '""':
-                    if flt(d.attribute_value) > 0:
-                        concat = str(prefix[0][0][1:-1]) + str(
-                            "{0:g}".format(flt(d.attribute_value))
-                        )
-                else:
-                    if flt(d.attribute_value) > 0:
-                        concat = str("{0:g}".format(flt(d.attribute_value)))
-
-                if suffix[0][0] != '""':
-                    if concat:
-                        concat = concat + str(suffix[0][0][1:-1])
-                desc.extend([[concat, concat, d.idx]])
-
-            else:
-                query1 = (
-                    """SELECT iva.idx FROM `tabItem Variant Attribute` iva
-                WHERE iva.attribute = '%s'"""
-                    % d.attribute
-                )
-                desc.extend([["", "", frappe.db.sql(query1, as_list=1)[0][0]]])
-
-        desc.sort(
-            key=lambda x: x[2]
-        )  # Sort the desc as per priority lowest one is taken first
-        for i in range(len(desc)):
-            if desc[i][0] != '""':
-                description = description + desc[i][0]
-            if desc[i][1] != '""':
-                long_desc = long_desc + desc[i][1]
-    else:
-        description = it_doc.name
-        long_desc = it_doc.name
+    # The lowest idx comes first.
+    desc.sort(key=lambda x: x[2])
+    description = "".join(d[0] for d in desc if d[0] != '""')
+    long_desc = "".join(d[1] for d in desc if d[1] != '""')
     return description, long_desc
 
 

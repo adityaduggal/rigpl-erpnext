@@ -43,11 +43,12 @@ def bulk_set_values(doctype: str, field: str, new_by_name: Dict, old_by_name: Di
 
 
 def bulk_set_fields(doctype: str, new_by_name: Dict[str, Dict], old_by_name: Dict[str, Dict],
-        add_versions: bool = True) -> Dict[str, List[List]]:
+        add_versions: bool = True, update_modified: bool = False) -> Dict[str, List[List]]:
     """
     Writes the fields of {name: {field: value}} that changed: one UPDATE for each set of new
-    values and chunk of names, so at most 1 UPDATE for each changed document. `modified` is not
-    changed. With `add_versions`, adds 1 Version for each changed document.
+    values and chunk of names, so at most 1 UPDATE for each changed document. With
+    `update_modified`, the changed documents also get a new `modified` and `modified_by`.
+    With `add_versions`, adds 1 Version for each changed document.
     Returns {name: [[field, old, new]]} of the changes.
     """
     changes = {}
@@ -61,11 +62,14 @@ def bulk_set_fields(doctype: str, new_by_name: Dict[str, Dict], old_by_name: Dic
         names_by_values.setdefault(tuple((field, new) for field, _old, new in diff), []).append(name)
 
     table = frappe.qb.DocType(doctype)
+    timestamp, user = now(), frappe.session.user
     for values, names in names_by_values.items():
         for chunk in chunks(names):
             query = frappe.qb.update(table)
             for field, value in values:
                 query = query.set(table[field], value)
+            if update_modified:
+                query = query.set(table.modified, timestamp).set(table.modified_by, user)
             query.where(table.name.isin(chunk)).run()
 
     clear_document_cache(doctype, changes)

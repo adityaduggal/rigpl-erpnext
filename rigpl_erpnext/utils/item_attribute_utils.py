@@ -33,6 +33,7 @@ ROW_FIELDS = (
     "attribute",
     "attribute_value",
     "prefix",
+    "suffix",
     "use_in_description",
     "field_name",
     "from_range",
