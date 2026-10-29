@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import time
 import frappe
 from frappe.utils import today, flt
-from frappe.utils.background_jobs import enqueue
 from ...utils.batch_write_utils import bulk_set_values
 from ...utils.item_attribute_utils import chunks
 from ...utils.sales_utils import get_open_so_lines
@@ -28,10 +27,6 @@ from ...manufacturing_rigpl.utils.job_card_utils import (
 )
 
 COMMIT_EVERY = 100
-
-
-def enqueue_process_sheet_update():
-    enqueue(execute, queue="long", timeout=1500)
 
 
 def execute():

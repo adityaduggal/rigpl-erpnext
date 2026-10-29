@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 from rigpl_erpnext.utils.item_utils import *
 from operator import itemgetter
 from time import time
-from frappe.utils.background_jobs import enqueue
+from rohit_common.utils.background_doc_processing import enqueue_once
 from frappe.website.render import clear_cache
 from rigpl_erpnext.website_rigpl.item_sync import (
     get_pl_item_mismatches,
@@ -16,7 +16,7 @@ from rigpl_erpnext.website_rigpl.item_sync import (
 
 
 def enqueue_check_wrong_variants():
-    enqueue(check_wrong_variants, queue="long", timeout=14400)
+    enqueue_once("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.check_wrong_variants", queue="long", timeout=14400)
 
 
 def check_wrong_variants():

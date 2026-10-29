@@ -9,9 +9,10 @@ import json
 import frappe
 import requests
 from datetime import datetime
-from frappe.utils.background_jobs import enqueue
 from ..doctype.carrier_tracking.fedex_functions import get_tracking_from_fedex
 from ..doctype.carrier_tracking.dtdc_functions import get_tracking_from_dtdc
+
+HTTP_TIMEOUT = 30  # seconds, so a remote API that hangs does not block a worker
 
 
 def update_delivery_date_time():
@@ -147,14 +148,6 @@ def send_bulk_tracks():
                     f"since its Not Old Enough")
 
 
-def enqueue_get_ship_data():
-    """
-    Enqueues the Shipment Data for Getting the Tracking. Enqueue basically avoids the standard
-    timeout which is of 300 seconds
-    """
-    enqueue(get_all_ship_data, queue="long", timeout=1500)
-
-
 def get_all_ship_data():
     """
     Gets the Shipment Tracking of all the Shipments which are booked but not delivered
@@ -236,7 +229,7 @@ def pushOrderData(track_doc):
                 "products": "N/A"
             }
             p_response = requests.get(url=url, verify=False,
-                                      data=json.dumps(post_data))
+                                      data=json.dumps(post_data), timeout=HTTP_TIMEOUT)
             post_response = json.loads(p_response.text)
             if post_response.get("status") == "Success":
                 track_doc.status = "Shipment Data Uploaded"
@@ -326,7 +319,7 @@ def post_to_shipway(track_doc):
         "password": license_key,
         "order_id": track_doc.name
     }
-    response = requests.get(url=url, verify=False, data=json.dumps(request))
+    response = requests.get(url=url, verify=False, data=json.dumps(request), timeout=HTTP_TIMEOUT)
     response_json = json.loads(response.text)
     return response_json
 

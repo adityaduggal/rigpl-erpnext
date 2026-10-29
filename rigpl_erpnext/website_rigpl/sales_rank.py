@@ -24,7 +24,7 @@ from typing import Dict, List, Tuple
 import frappe
 from frappe.query_builder.functions import Coalesce, Sum
 from frappe.utils import add_months, flt, nowdate
-from frappe.utils.background_jobs import enqueue
+from rohit_common.utils.background_doc_processing import enqueue_once
 
 DEFAULT_MONTHS = 12
 MAX_WEIGHTAGE = 1000
@@ -32,7 +32,7 @@ CONSUMPTION_PURPOSES = ("Material Issue", "Repack", "Manufacture", "Material Con
 
 
 def enqueue_sales_rank():
-    enqueue(update_sales_rank, queue="long", timeout=3600)
+    enqueue_once("rigpl_erpnext.website_rigpl.sales_rank.update_sales_rank", queue="long", timeout=3600)
 
 
 def update_sales_rank() -> Tuple[int, int]:

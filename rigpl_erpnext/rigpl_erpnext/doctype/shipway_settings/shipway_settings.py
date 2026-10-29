@@ -8,7 +8,7 @@ import requests
 import json
 from frappe.model.document import Document
 from frappe.integrations.utils import make_get_request, make_post_request, create_request_log
-from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update import get_shipway_url
+from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update import get_shipway_url, HTTP_TIMEOUT
 
 class ShipwaySettings(Document):
 	'''
@@ -43,7 +43,7 @@ class ShipwaySettings(Document):
 	'''
 	def get_carriers(self):
 		url = get_shipway_url() + "carriers"
-		carriers = requests.get(url=url, verify=False)
+		carriers = requests.get(url=url, verify=False, timeout=HTTP_TIMEOUT)
 		json_response = json.loads(carriers.text)
 		text = "Courier Name\t\t\t\tCourier ID\n"
 		courier_list = json_response.get("couriers")

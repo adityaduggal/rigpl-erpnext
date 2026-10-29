@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import time
 import datetime
 import frappe
-from frappe.utils.background_jobs import enqueue
 from ...manufacturing_rigpl.utils.job_card_utils import update_job_card_qty_available, update_job_card_status, update_job_card_priority, \
     update_job_card_source_warehouse, return_job_card_qty, get_jc_rm_status, update_jc_rm_status
 
@@ -58,10 +57,6 @@ def update_jc_rm_status(jc_name):
         jcd.save()
     except Exception as e:
         print(f"Some Error in JCR# {jcd.name} and Error is {e}")
-
-
-def enqueue_jc_status_update():
-    enqueue(execute, queue="long", timeout=1500)
 
 
 def execute():

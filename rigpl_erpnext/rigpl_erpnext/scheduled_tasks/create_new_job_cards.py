@@ -5,16 +5,9 @@
 from __future__ import unicode_literals
 import time
 import frappe
-from frappe.utils.background_jobs import enqueue
 from ...manufacturing_rigpl.utils.process_sheet_utils import update_process_sheet_operations, get_pend_psop
 from ...manufacturing_rigpl.utils.job_card_utils import check_existing_job_card, create_job_card, return_job_card_qty
-
-
-def enqueue_jc():
-    """
-    Enqueues the Creation of Job Cards Process with longer time out
-    """
-    enqueue(execute, queue="long", timeout=600)
+from .process_sheet_update import run_write
 
 
 def execute():
@@ -35,47 +28,39 @@ def execute():
         jcd = frappe.get_doc("Process Job Card RIGPL", jcr.name)
         # Only check the Order Items and delete them if Order Already Dispatched and Short Close the Process
         if jcr.sales_order_item:
-            pending_so = frappe.db.sql(f"""SELECT (soi.qty - soi.delivered_qty) AS pend_qty
+            pending_so = frappe.db.sql("""SELECT (soi.qty - soi.delivered_qty) AS pend_qty
                 FROM `tabSales Order` so, `tabSales Order Item` soi
                 WHERE soi.parent = so.name AND so.docstatus = 1 AND so.status != 'Closed'
                 AND soi.qty > soi.delivered_qty
-                AND soi.name = '{jcr.sales_order_item}'""", as_dict=1)
+                AND soi.name = %s""", jcr.sales_order_item, as_dict=1)
             if not pending_so:
                 jcd.no_stock_entry = 1
                 jcd.short_close_operation = 1
-                try:
-                    jcd.submit()
+                if run_write("jc_cleanup", jcd.submit, f"Job Card {jcd.name} not short closed"):
                     sc_jcr += 1
-                except:
-                    print(f"Some Error While Submitting {jcd.name}")
             else:
                 tot_qty, for_qty = return_job_card_qty(jcd)
                 if tot_qty != jcd.total_qty or for_qty != jcd.for_quantity:
                     jcd.total_qty = tot_qty
                     jcd.for_quantity = for_qty
-                    try:
-                        jcd.save()
+                    if run_write("jc_cleanup", jcd.save,
+                                 f"Job Card {jcr.name} with Pending SO not saved. Priority = {jcr.priority}, "
+                                 f"Tot Qty = {jcr.total_qty} and For Qty = {jcr.for_quantity}"):
                         changed_jcr += 1
-                    except:
-                        print(f"Pending SO exists for {jcr.name} and Priority = {jcr.priority}, "
-                            f"Tot Qty = {jcr.total_qy} and  For Qty = {jcr.for_quantity}."
-                            "You might wanna check why?")
         else:
-            save_failed = 0
             if jcr.total_qty == 0 or jcr.for_quantity == 0:
                 # First Try and recalculate the quantities by saving if successful in saving and
                 # still zero then delete
-                jcd = frappe.get_doc("Process Job Card RIGPL", jcr.name)
-                try:
-                    jcd.save()
+                saved = run_write("jc_cleanup", jcd.save,
+                                  f"Job Card {jcr.name} for Process Sheet {jcd.process_sheet} not saved")
+                if saved:
                     changed_jcr += 1
-                except:
-                    save_failed = 1
-                    print(f"Unable to Save {jcr.name} for Process Sheet {jcd.process_sheet}")
-                if save_failed != 1 and (jcd.for_quantity == 0 or jcd.total_qty == 0):
-                    deleted_jcr += 1
+                if saved and (jcd.for_quantity == 0 or jcd.total_qty == 0):
                     print(f"Deleting {jcd.name} as ZERO Total Qty or For Quantity is ZERO")
-                    frappe.delete_doc("Process Job Card RIGPL", jcr.name, for_reload=True)
+                    if run_write("jc_cleanup",
+                                 lambda: frappe.delete_doc("Process Job Card RIGPL", jcr.name, for_reload=True),
+                                 f"Job Card {jcr.name} not deleted"):
+                        deleted_jcr += 1
     frappe.db.commit()
     jc_del_time = int(time.time() - st_time)
     print(f"Total No of Job Cards Deleted = {deleted_jcr}")

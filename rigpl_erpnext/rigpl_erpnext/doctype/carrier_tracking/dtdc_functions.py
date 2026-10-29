@@ -9,6 +9,8 @@ import json
 import base64
 from datetime import datetime
 from frappe.utils.file_manager import save_file
+
+HTTP_TIMEOUT = 30  # seconds, so a remote API that hangs does not block a worker
 uom_mapper = {"gm": "gm", "Kg": "kg"}
 
 
@@ -21,7 +23,7 @@ def dtdc_get_available_services(ctrack, cod=0):
     pincodes = {}
     pincodes["orgPincode"] = frm_pincode
     pincodes["desPincode"] = to_pincode
-    reply = requests.post(url=url, json=pincodes)
+    reply = requests.post(url=url, json=pincodes, timeout=HTTP_TIMEOUT)
     zip_resp = (reply.json()).get("ZIPCODE_RESP")[0]
     if zip_resp.get("SERVFLAG") == 'N':
         all_service = 0
@@ -65,7 +67,7 @@ def dtdc_get_pdf(awb_no, track_doc):
     awb_dict["reference_number"] = awb_no
     api_key_dict["api-key"] = api_key
     pdf_url = url + "label/multipiece/"
-    pdf_reply = requests.post(url=pdf_url, headers=api_key_dict, json=awb_dict)
+    pdf_reply = requests.post(url=pdf_url, headers=api_key_dict, json=awb_dict, timeout=HTTP_TIMEOUT)
     if (pdf_reply.json()).get("status") == "OK":
         pdf_data = (pdf_reply.json()).get("data")
         for label in pdf_data:
@@ -109,7 +111,7 @@ def post_dtdc_booking_request(booking_json, trans_doc):
     api_key_dict["api-key"] = api_key
     api_key_dict = json.dumps(api_key_dict, indent=4)
     api_key_dict = json.loads(api_key_dict)
-    reply = requests.post(url=booking_url, json=booking_json, headers=api_key_dict)
+    reply = requests.post(url=booking_url, json=booking_json, headers=api_key_dict, timeout=HTTP_TIMEOUT)
     return reply.json()
 
 
@@ -181,7 +183,7 @@ def get_tracking_from_dtdc(track_doc):
 def dtdc_get_tracking_response(track_doc, url, token):
     json_data, header = dtdc_get_track_json(track_doc, token=token)
     json_data = json.loads(json_data)
-    trk_resp = requests.post(url=url, json=json_data, headers=header)
+    trk_resp = requests.post(url=url, json=json_data, headers=header, timeout=HTTP_TIMEOUT)
     return trk_resp.json()
 
 
@@ -197,7 +199,7 @@ def dtdc_update_tracking(doc, json_data):
             for fmt in ("%d%m%Y %H:%M:%S", "%d%m%Y %H:%M"):
                 try:
                     pickup_date_time = datetime.strptime(pdt, fmt)
-                except:
+                except ValueError:
                     print(f"Error in Format for Pickup Date {pdt} and {fmt}")
         if header.get("strExpectedDeliveryDate") != "":
             exp_delivery_date = datetime.strptime(header.get("strExpectedDeliveryDate"), "%d%m%Y")
@@ -249,7 +251,7 @@ def dtdc_track_auth_token(trans_doc):
     url = get_dtdc_base_url(trans_doc, type='track')
     auth = get_dtdc_authentication(trans_doc, type='track')
     full_url = url + auth
-    token_resp = requests.get(full_url)
+    token_resp = requests.get(full_url, timeout=HTTP_TIMEOUT)
     token = token_resp.text
     # token = (token_resp.text).split(':')[1]
     return token

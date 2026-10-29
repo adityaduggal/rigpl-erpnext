@@ -25,7 +25,7 @@ def execute():
                     cu_doc.payment_terms = def_pmt
                     cu_doc.save()
                     print(f"Changed Payment Terms for {cu.name} to Default Payment Terms")
-                except:
+                except Exception:
                     frappe.db.set_value("Customer", cu.name, "payment_terms", def_pmt)
                     print(f"Changed Payment Terms for {cu.name} to Default Payment Terms "
                         f"without Saving")

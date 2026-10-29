@@ -10,11 +10,11 @@ from ...utils.purchase_utils import get_po_pend_qty
 from ...utils.stock_utils import get_consolidate_bin, get_indented_qty
 from ...manufacturing_rigpl.utils.manufacturing_utils import get_planned_qty, get_qty_for_prod_for_item
 from frappe.utils import flt
-from frappe.utils.background_jobs import enqueue
+from rohit_common.utils.background_doc_processing import enqueue_once
 
 
 def enqueue_ex():
-    enqueue(execute, queue="long", timeout=1500)
+    enqueue_once("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.check_update_bin_values.execute", queue="long", timeout=1500)
 
 
 def execute():

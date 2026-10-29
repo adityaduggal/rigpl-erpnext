@@ -281,6 +281,10 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
+        "*/30 * * * *": [
+            "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.manufacturing_pipeline.enqueue_pipeline"
+            # Process Sheets and Job Cards, one copy at a time (#145)
+        ],
         "10 2 * * *": [
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.variant_copy.enqueue_check_wrong_variants",
             "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.check_update_bin_values.enqueue_ex"
@@ -298,27 +302,18 @@ scheduler_events = {
             # Runs on 1st Quarter End Jan, Apr, Jul, Oct at 3:15 AM
         ],
     },
-    "all": [
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.update_rm_status_unmodified",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.create_new_job_cards.execute",
-    ],
-    "daily": [
+    "daily_long": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
         "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks",
         "rigpl_erpnext.utils.role_permission_policy.enforce_role_permission_policy",
     ],
-    "hourly": [
+    "hourly_long": [
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.enqueue_get_ship_data",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.enqueue_docshare",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.update_job_card_status.enqueue_jc_status_update",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.process_sheet_update.enqueue_process_sheet_update",
-    ]
-    #   "monthly": [
-    #       "rigpl_erpnext.tasks.monthly"
-    #   ]
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.execute",
+    ],
 }
 
 # Testing

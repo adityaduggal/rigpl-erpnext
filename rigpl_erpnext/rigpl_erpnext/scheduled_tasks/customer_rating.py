@@ -7,7 +7,7 @@ import frappe
 import time
 import datetime
 from frappe.utils import add_days, flt
-from frappe.utils.background_jobs import enqueue
+from rohit_common.utils.background_doc_processing import enqueue_once
 from ...utils.accounts_receivable_utils import get_average_payment_days_by_customer, \
     get_customer_pmt_factor
 from ...utils.batch_write_utils import bulk_set_values
@@ -17,7 +17,7 @@ from ...utils.sales_utils import get_base_annual_sales, get_customer_rating_fact
 
 
 def enqueue_job():
-    enqueue(execute, queue="long", timeout=7200)
+    enqueue_once("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.customer_rating.execute", queue="long", timeout=7200)
 
 
 def execute():

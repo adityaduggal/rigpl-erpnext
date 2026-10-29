@@ -7,14 +7,14 @@ import csv
 import frappe
 import time
 from frappe.utils import flt, fmt_money
-from frappe.utils.background_jobs import enqueue
+from rohit_common.utils.background_doc_processing import enqueue_once
 from ...utils.item_attribute_utils import chunks
 from ...utils.stock_utils import compute_rol_for_items, get_items_for_rol, \
     set_item_reorder_levels
 
 
 def enqueue_rol_job():
-    enqueue(execute, queue="long", timeout=21600)
+    enqueue_once("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_reorder.execute", queue="long", timeout=21600)
 
 
 def execute(dry_run=0):

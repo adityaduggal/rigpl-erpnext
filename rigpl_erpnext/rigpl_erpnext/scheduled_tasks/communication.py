@@ -7,6 +7,7 @@ import frappe
 import time
 from frappe.utils import nowdate, time_diff_in_hours, now_datetime
 import html2text
+from .process_sheet_update import run_write
 
 
 def daily():
@@ -26,11 +27,11 @@ def daily():
         # print(f"Checking for Communication {comm.name}")
         com_doc = frappe.get_doc("Communication", comm.name)
         disabled_user = 0
-        user = frappe.db.sql("""SELECT name, enabled FROM `tabUser` WHERE name = '%s'""" % com_doc.user, as_dict=1)
+        user = frappe.db.sql("""SELECT name, enabled FROM `tabUser` WHERE name = %s""", com_doc.user, as_dict=1)
 
-        todo = frappe.db.sql("""SELECT name FROM `tabToDo` WHERE reference_type = 'Communication' 
-        AND reference_name = '%s' AND assigned_by = '%s' AND owner = '%s' """ % (com_doc.name, com_doc.owner,
-                                                                                 com_doc.user),as_dict=1)
+        todo = frappe.db.sql("""SELECT name FROM `tabToDo` WHERE reference_type = 'Communication'
+        AND reference_name = %s AND assigned_by = %s AND owner = %s """, (com_doc.name, com_doc.owner,
+                                                                          com_doc.user), as_dict=1)
         # print(f"{todo}")
         if user[0].enabled != 1:
             disabled_user += 1
@@ -39,10 +40,7 @@ def daily():
             if todo:
                 todo_doc = frappe.get_doc("ToDo", todo[0].name)
                 todo_doc.status = "Closed"
-                try:
-                    todo_doc.save()
-                except:
-                    print(f"Some Error with {todo_doc.name}. Unable to Close for Disabled User")
+                run_write("close_todo", todo_doc.save, f"ToDo {todo_doc.name} not closed for Disabled User")
 
         if todo and user[0].enabled == 1:
             todo_doc = frappe.get_doc("ToDo", todo[0].name)

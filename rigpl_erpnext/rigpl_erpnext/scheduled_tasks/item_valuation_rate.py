@@ -7,7 +7,7 @@ import frappe
 from time import time
 from datetime import datetime, date
 from ...utils.other_utils import round_down
-from frappe.utils.background_jobs import enqueue
+from rohit_common.utils.background_doc_processing import enqueue_once
 from ...utils.item_utils import get_item_attributes
 
 '''
@@ -39,7 +39,7 @@ like HSP, CSP, JCNO etc and set the valuation rate.
 
 
 def enqueue_set_valuation_rate():
-    enqueue(set_valuation_rate_for_all, queue="long", timeout=1500)
+    enqueue_once("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all", queue="long", timeout=1500)
 
 
 def set_valuation_rate_for_all():

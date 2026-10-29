@@ -6,12 +6,7 @@ from __future__ import unicode_literals
 from rigpl_erpnext.utils.rigpl_perm import *
 from rigpl_erpnext.rigpl_erpnext.validations.lead import lead_docshare, lead_quote_share, lead_address_share
 from rohit_common.rohit_common.validations.docshare import get_docshare_from_dt, create_docshare
-from frappe.utils.background_jobs import enqueue
 from time import time
-
-
-def enqueue_docshare():
-    enqueue(execute, queue="long", timeout=1500)
 
 
 def execute():

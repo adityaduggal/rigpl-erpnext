@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import time
 import frappe
 from frappe.utils import cint
-from frappe.utils.background_jobs import enqueue
+from rohit_common.utils.background_doc_processing import enqueue_once
 from ...utils.batch_write_utils import bulk_set_values
 from ...utils.item_attribute_utils import chunks
 from ...utils.lead_time_utils import get_items_lead_time
@@ -14,7 +14,7 @@ from ...utils.stock_utils import get_template_max_lead_times
 
 
 def enqueue_job():
-    enqueue(execute, queue="long", timeout=14400)
+    enqueue_once("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.auto_calculate_lead_times.execute", queue="long", timeout=14400)
 
 
 def execute():
