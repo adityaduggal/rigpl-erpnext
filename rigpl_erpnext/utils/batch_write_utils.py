@@ -34,22 +34,43 @@ def bulk_set_values(doctype: str, field: str, new_by_name: Dict, old_by_name: Di
     chunk of names. `modified` is not changed, since the jobs only write computed values.
     Returns the changes as [(name, old, new)].
     """
-    changes = [
-        (name, old_by_name.get(name), new)
-        for name, new in new_by_name.items()
-        if new != old_by_name.get(name)
-    ]
-    names_by_value = {}
-    for name, _old, new in changes:
-        names_by_value.setdefault(new, []).append(name)
+    changes = bulk_set_fields(
+        doctype,
+        {name: {field: new} for name, new in new_by_name.items()},
+        {name: {field: old} for name, old in old_by_name.items()},
+    )
+    return [(name, diff[0][1], diff[0][2]) for name, diff in changes.items()]
+
+
+def bulk_set_fields(doctype: str, new_by_name: Dict[str, Dict], old_by_name: Dict[str, Dict],
+        add_versions: bool = True) -> Dict[str, List[List]]:
+    """
+    Writes the fields of {name: {field: value}} that changed: one UPDATE for each set of new
+    values and chunk of names, so at most 1 UPDATE for each changed document. `modified` is not
+    changed. With `add_versions`, adds 1 Version for each changed document.
+    Returns {name: [[field, old, new]]} of the changes.
+    """
+    changes = {}
+    for name, new in new_by_name.items():
+        old = old_by_name.get(name, {})
+        diff = [[field, old.get(field), value] for field, value in new.items() if value != old.get(field)]
+        if diff:
+            changes[name] = diff
+    names_by_values = {}
+    for name, diff in changes.items():
+        names_by_values.setdefault(tuple((field, new) for field, _old, new in diff), []).append(name)
 
     table = frappe.qb.DocType(doctype)
-    for value, names in names_by_value.items():
+    for values, names in names_by_values.items():
         for chunk in chunks(names):
-            frappe.qb.update(table).set(table[field], value).where(table.name.isin(chunk)).run()
+            query = frappe.qb.update(table)
+            for field, value in values:
+                query = query.set(table[field], value)
+            query.where(table.name.isin(chunk)).run()
 
-    clear_document_cache(doctype, [name for name, _old, _new in changes])
-    bulk_insert_versions(doctype, {name: {"changed": [[field, old, new]]} for name, old, new in changes})
+    clear_document_cache(doctype, changes)
+    if add_versions:
+        bulk_insert_versions(doctype, {name: {"changed": diff} for name, diff in changes.items()})
     return changes
 
 

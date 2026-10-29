@@ -25,7 +25,6 @@ def get_steps():
         ("Create Process Sheets", process_sheet_update.create_new_process_sheets),
         ("Consolidate Transfer Operations", process_sheet_update.consolidate_transfer_operations),
         ("Clean up Job Cards", create_new_job_cards.execute),
-        ("Update Job Card RM Status", update_job_card_status.update_rm_status_unmodified),
         ("Update Job Card Status", update_job_card_status.execute),
         ("Update Process Sheet Priority", process_sheet_update.update_process_sheet_priority),
     ]

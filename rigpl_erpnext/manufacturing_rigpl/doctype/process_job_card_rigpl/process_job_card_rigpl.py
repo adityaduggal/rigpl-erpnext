@@ -7,11 +7,11 @@ from __future__ import unicode_literals
 from frappe.model.document import Document
 
 from ....utils.stock_utils import get_quantities_for_item
+from ...utils.batch_qty_utils import get_bin_map
 from ...utils.job_card_utils import *
 from ...utils.manufacturing_utils import (
     calculated_value_from_formula,
     check_warehouse_in_child_tables,
-    find_item_quantities,
     update_planned_qty,
     update_pro_sheet_rm_from_jc,
     update_produced_qty,
@@ -124,22 +124,8 @@ class ProcessJobCardRIGPL(Document):
                     },
                 )
                 self.update_calculated_qty(rm_item_dict, pro_doc)
-                rm_qty_dict = find_item_quantities(rm_item_dict)
-
-                for rm in rm_qty_dict:
-                    for d in self.rm_consumed:
-                        if (
-                            rm.item_code == d.item_code
-                            and rm.warehouse == d.source_warehouse
-                        ):
-                            d.qty_available = rm.actual_qty
-                            d.current_projected_qty = (
-                                rm.actual_qty - rm.prd_qty - rm.on_so
-                            )
-                            d.projected_qty = (
-                                d.current_projected_qty + rm.on_po + rm.planned
-                            )
-                            d.uom = rm.stock_uom
+                bins, totals = get_bin_map([d.item_code for d in rm_item_dict])
+                update_row_quantities(self.rm_consumed, "source_warehouse", bins, totals)
 
             if self.allow_production_of_wip_materials != 1:
                 self.set("item_manufactured", [])
@@ -158,21 +144,8 @@ class ProcessJobCardRIGPL(Document):
                         "parentfield": "item_manufactured",
                     },
                 )
-                wip_qty_dict = find_item_quantities(wip_item_dict)
-                for wip in wip_qty_dict:
-                    for d in self.item_manufactured:
-                        if (
-                            wip.item_code == d.item_code
-                            and wip.warehouse == d.target_warehouse
-                        ):
-                            d.qty_available = wip.actual_qty
-                            d.current_projected_qty = (
-                                wip.actual_qty - wip.prd_qty - wip.on_so
-                            )
-                            d.projected_qty = (
-                                d.current_projected_qty + wip.on_po + wip.planned
-                            )
-                            d.uom = wip.stock_uom
+                bins, totals = get_bin_map([d.item_code for d in wip_item_dict])
+                update_row_quantities(self.item_manufactured, "target_warehouse", bins, totals)
             update_jc_rm_status(self)
 
     def update_job_card_qty_text(self, it_doc=None):
@@ -181,22 +154,7 @@ class ProcessJobCardRIGPL(Document):
         """
         if it_doc is None:
             it_doc = frappe.get_doc("Item", self.production_item)
-        qdict = get_quantities_for_item(it_doc)
-        ready = qdict.finished_qty + qdict.dead_qty
-        qty_for_order = qdict.on_so - ready - qdict.on_po
-        min_needed = (
-            qdict.reserved_for_prd
-            + qdict.on_so
-            - qdict.on_po
-            - ready
-            - qdict.dead_qty
-            + qdict.calculated_rol
-        )
-        qty_text = f"SO = {qdict.on_so} \nPO = {qdict.on_po} \nNeeded for PRD = "
-        f"{qdict.reserved_for_prd} \n Finished Stock = {qdict.finished_qty} \nDead Stock = "
-        f"{qdict.dead_qty} \n Work In Progress = {qdict.wip_qty} \nReal ROL = "
-        f"{qdict.re_order_level} But Calculated ROL = {qdict.calculated_rol} \nMinimum Qty to "
-        f"be Produced = {min_needed} AND Qty Needed for Order = {qty_for_order}"
+        qty_text = get_job_card_qty_text(get_quantities_for_item(it_doc))
         if self.quantity_details != qty_text:
             self.quantity_details = qty_text
 

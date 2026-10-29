@@ -72,7 +72,6 @@ class TestManufacturingPipeline(FrappeTestCase):
             "Create Process Sheets",
             "Consolidate Transfer Operations",
             "Clean up Job Cards",
-            "Update Job Card RM Status",
             "Update Job Card Status",
             "Update Process Sheet Priority",
         ])

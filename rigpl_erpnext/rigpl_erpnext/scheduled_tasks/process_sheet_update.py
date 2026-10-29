@@ -11,6 +11,7 @@ from ...utils.item_attribute_utils import chunks
 from ...utils.sales_utils import get_open_so_lines
 from ...utils.stock_utils import get_quantities_for_items
 from ...manufacturing_rigpl.doctype.process_sheet.process_sheet import return_priority_psd
+from ...manufacturing_rigpl.utils.batch_qty_utils import get_item_rows
 from ...manufacturing_rigpl.utils.process_sheet_utils import (
     get_actual_qty_before_process_in_ps,
     get_pend_psop,
@@ -36,21 +37,6 @@ def execute():
     update_process_sheet_priority()
     total_time = int(time.time() - st_time)
     print(f"Total Time taken = {total_time} seconds")
-
-
-def get_item_rows(item_names):
-    """
-    Returns {item: row with the fields that get_quantities_for_items needs}
-    """
-    rows = {}
-    for chunk in chunks(item_names):
-        for row in frappe.get_all(
-            "Item",
-            filters={"name": ("in", chunk)},
-            fields=["name", "made_to_order", "valuation_rate", "lead_time_days"],
-        ):
-            rows[row.name] = row
-    return rows
 
 
 def run_write(savepoint, write, error_title):

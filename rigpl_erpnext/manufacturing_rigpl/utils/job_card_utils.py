@@ -210,17 +210,22 @@ def update_job_card_qty_available(jc_doc):
     jc_doc.qty_available = get_job_card_qty_available(jc_doc)
 
 
-def get_job_card_qty_available(jc_doc):
+def get_job_card_qty_available(jc_doc, bin_qty=None, **made_to_stock_args):
+    """
+    Pass `bin_qty` and the arguments of get_made_to_stock_qty when checking many Job Cards.
+    """
     if jc_doc.s_warehouse:
         if jc_doc.sales_order_item:
-            qty = get_made_to_stock_qty(jc_doc)
+            qty = get_made_to_stock_qty(jc_doc, **made_to_stock_args)
             if qty < 0:
                 qty = 0
             return qty
         else:
-            qty = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get(
-                "actual_qty", 0
-            )
+            if bin_qty is None:
+                bin_qty = get_bin(jc_doc.production_item, jc_doc.s_warehouse).get(
+                    "actual_qty", 0
+                )
+            qty = bin_qty
             if qty < 0:
                 qty = 0
             return qty
@@ -246,19 +251,20 @@ def get_bin(item_code, warehouse):
 def update_job_card_status(jc_doc):
     # Old Name = update_jc_status
     update_job_card_process_no(jc_doc)
+    jc_doc.status = get_job_card_status(jc_doc)
+
+
+def get_job_card_status(jc_doc):
     if jc_doc.docstatus == 2:
-        jc_doc.status = "Cancelled"
+        return "Cancelled"
     elif jc_doc.docstatus == 1:
-        jc_doc.status = "Completed"
-    elif jc_doc.docstatus == 0:
-        # Job Card is WIP if No Source Warehouse. If Source Warehouse then if qty available > 0 then WIP else Open
-        if jc_doc.s_warehouse:
-            if jc_doc.qty_available > 0:
-                jc_doc.status = "Work In Progress"
-            else:
-                jc_doc.status = "Open"
-        else:
-            jc_doc.status = "Work In Progress"
+        return "Completed"
+    # Job Card is WIP if No Source Warehouse. If Source Warehouse then if qty available > 0 then WIP else Open
+    if jc_doc.s_warehouse:
+        if jc_doc.qty_available > 0:
+            return "Work In Progress"
+        return "Open"
+    return "Work In Progress"
 
 
 def update_jc_rm_status(jc_doc):
@@ -293,6 +299,45 @@ def get_jc_rm_status(jc_doc):
     return percent, shortage
 
 
+def update_row_quantities(rows, warehouse_field, bins, totals):
+    """
+    Sets qty_available, current_projected_qty, projected_qty and uom of the Job Card rows from
+    get_bin_map. A row without a Bin in its `warehouse_field` is not changed.
+    """
+    for d in rows:
+        bn = bins.get((d.item_code, d.get(warehouse_field)))
+        if not bn:
+            continue
+        tot = totals[d.item_code]
+        d.qty_available = bn.actual_qty
+        d.current_projected_qty = bn.actual_qty - tot.prd_qty - tot.on_so
+        # On PO of a Job Work item also counts the stock in the Sub-Contracting Warehouse
+        d.projected_qty = d.current_projected_qty + tot.on_po + flt(tot.subcon_qty) + tot.planned
+        d.uom = bn.stock_uom
+
+
+def get_job_card_qty_text(qdict):
+    """
+    Returns the Quantity Text So that Items for Production is Not Needed to be Open
+    """
+    ready = qdict.finished_qty + qdict.dead_qty
+    qty_for_order = qdict.on_so - ready - qdict.on_po
+    min_needed = (
+        qdict.reserved_for_prd
+        + qdict.on_so
+        - qdict.on_po
+        - ready
+        - qdict.dead_qty
+        + qdict.calculated_rol
+    )
+    qty_text = f"SO = {qdict.on_so} \nPO = {qdict.on_po} \nNeeded for PRD = "
+    f"{qdict.reserved_for_prd} \n Finished Stock = {qdict.finished_qty} \nDead Stock = "
+    f"{qdict.dead_qty} \n Work In Progress = {qdict.wip_qty} \nReal ROL = "
+    f"{qdict.re_order_level} But Calculated ROL = {qdict.calculated_rol} \nMinimum Qty to "
+    f"be Produced = {min_needed} AND Qty Needed for Order = {qty_for_order}"
+    return qty_text
+
+
 def update_job_card_process_no(jc_doc):
     operation_sno, final_operation = get_job_card_process_sno(jc_doc)
     if jc_doc.operation_serial_no != operation_sno:
@@ -301,19 +346,19 @@ def update_job_card_process_no(jc_doc):
         jc_doc.final_operation = final_operation
 
 
-def get_job_card_process_sno(jc_doc):
-    ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
-    bt_doc = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template)
-    op_sno, final_op, found = [0, 0, 0]
-    for op in bt_doc.operations:
+def get_job_card_process_sno(jc_doc, bt_operations=None):
+    """
+    Pass `bt_operations` (the operations of the BOM Template) when checking many Job Cards.
+    """
+    if bt_operations is None:
+        ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+        bt_operations = frappe.get_doc("BOM Template RIGPL", ps_doc.bom_template).operations
+    op_sno, final_op = 0, 0
+    for op in bt_operations:
         if op.operation == jc_doc.operation:
-            found = 1
             op_sno = op.idx
             if op.final_operation == 1:
                 final_op = 1
-    if found == 0:
-        op_sno = 0
-        final_op = 0
     return op_sno, final_op
 
 
@@ -327,39 +372,25 @@ def get_bal_qty_for_jcr(jcd):
     return pend_qty
 
 
-def return_job_card_qty(jcd):
+def return_job_card_qty(jcd, ps_sheet=None, ps_rm_codes=None, qty_available=None):
+    """
+    Pass `ps_sheet` (get_pending_ps_ops_map rows of the item, operation and SO item),
+    `ps_rm_codes` (get_rm_item_codes of those Process Sheets) and `qty_available` when checking
+    many Job Cards.
+    """
     # Get Pending Process Sheets with Same Process and then check if RM Consumed in Process Sheet then RM should be same
     # If only Transfer entry then there is no need for RM.
+    if ps_sheet is None:
+        ps_sheet = get_pending_ps_ops(jcd)
+    if ps_rm_codes is None:
+        ps_rm_codes = {}
+        if jcd.allow_consumption_of_rm == 1:
+            ps_rm_codes = get_rm_item_codes(
+                [ps.name for ps in ps_sheet if ps.allow_consumption_of_rm == 1], "Process Sheet"
+            )
     tot_qty = 0
     trf_entry = 0
     for_qty = 0
-    ps = frappe.qb.DocType("Process Sheet")
-    pso = frappe.qb.DocType("BOM Operation")
-    query = (
-        frappe.qb.from_(ps)
-        .join(pso)
-        .on(pso.parent == ps.name)
-        .select(
-            ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
-            pso.allow_consumption_of_rm, pso.status, pso.transfer_entry, pso.name.as_("op_name"),
-        )
-        .where(ps.docstatus == 1)
-        .where(pso.parenttype == "Process Sheet")
-        .where(pso.completed_qty < pso.planned_qty)
-        .where(pso.status != "Completed")
-        .where(pso.status.notin(["Short Closed", "Stopped", "Obsolete"]))
-        .where(ps.production_item == jcd.production_item)
-        .where(pso.operation == jcd.operation)
-        .orderby(ps.creation)
-    )
-    if jcd.sales_order_item:
-        query = query.where(ps.sales_order_item == jcd.sales_order_item)
-    ps_sheet = query.run(as_dict=True)
-    ps_rm_codes = {}
-    if jcd.allow_consumption_of_rm == 1:
-        ps_rm_codes = get_rm_item_codes(
-            [ps.name for ps in ps_sheet if ps.allow_consumption_of_rm == 1], "Process Sheet"
-        )
     for ps in ps_sheet:
         if ps.op_name == jcd.operation_id:
             for_qty = ps.planned_qty - ps.completed_qty
@@ -383,10 +414,40 @@ def return_job_card_qty(jcd):
         else:
             tot_qty += jcd.for_quantity
     if trf_entry == 1:
-        qty_available = get_job_card_qty_available(jc_doc=jcd)
+        if qty_available is None:
+            qty_available = get_job_card_qty_available(jc_doc=jcd)
         if tot_qty < qty_available:
             tot_qty = qty_available
     return tot_qty, for_qty
+
+
+def get_pending_ps_ops(jcd):
+    """
+    Returns the pending operations of submitted Process Sheets for the item and operation of the
+    Job Card, the oldest Process Sheet first
+    """
+    ps = frappe.qb.DocType("Process Sheet")
+    pso = frappe.qb.DocType("BOM Operation")
+    query = (
+        frappe.qb.from_(ps)
+        .join(pso)
+        .on(pso.parent == ps.name)
+        .select(
+            ps.name, pso.operation, pso.planned_qty, pso.completed_qty, ps.creation,
+            pso.allow_consumption_of_rm, pso.status, pso.transfer_entry, pso.name.as_("op_name"),
+        )
+        .where(ps.docstatus == 1)
+        .where(pso.parenttype == "Process Sheet")
+        .where(pso.completed_qty < pso.planned_qty)
+        .where(pso.status != "Completed")
+        .where(pso.status.notin(["Short Closed", "Stopped", "Obsolete"]))
+        .where(ps.production_item == jcd.production_item)
+        .where(pso.operation == jcd.operation)
+        .orderby(ps.creation)
+    )
+    if jcd.sales_order_item:
+        query = query.where(ps.sales_order_item == jcd.sales_order_item)
+    return query.run(as_dict=True)
 
 
 def update_job_card_total_qty(jcd):
@@ -401,9 +462,16 @@ def update_job_card_priority(jc_doc):
         jc_doc.priority = new_priority
 
 
-def get_production_priority_for_item(item_name, jc_doc):
-    it_doc = frappe.get_doc("Item", item_name)
-    qty_dict = get_quantities_for_item(it_doc)
+def get_production_priority_for_item(item_name, jc_doc, it_doc=None, qty_dict=None, so_lines=None,
+        open_jcs=None):
+    """
+    Pass `it_doc`, `qty_dict` (get_quantities_for_items), `so_lines` (get_open_so_lines) and
+    `open_jcs` (get_open_job_cards_for_item) when checking many Job Cards.
+    """
+    if it_doc is None:
+        it_doc = frappe.get_doc("Item", item_name)
+    if qty_dict is None:
+        qty_dict = get_quantities_for_item(it_doc)
     qty_before_process = 0
     if it_doc.made_to_order == 1:
         priority = get_priority_for_so(
@@ -411,6 +479,7 @@ def get_production_priority_for_item(item_name, jc_doc):
             prd_qty=jc_doc.for_quantity,
             short_qty=jc_doc.for_quantity,
             so_detail=jc_doc.sales_order_item,
+            so_lines=so_lines,
         )
         return priority
     else:
@@ -438,14 +507,16 @@ def get_production_priority_for_item(item_name, jc_doc):
                     # Shortage of Material is More than WIP Qty
                     # Also check process number since last process should be More Urgent than 1st Process to fasten Prod
                     priority = get_priority_for_so(
-                        it_name=item_name, prd_qty=prd_qty, short_qty=shortage
+                        it_name=item_name, prd_qty=prd_qty, short_qty=shortage, so_lines=so_lines
                     )
                     return priority
                 else:
                     # Check if the PO QTY > 0 and if the operation is after PO then shortage includes PO Qty else
                     # deduct the PO Qty from the Shortage
                     # Shortage is Less than Items in Production now get shortage for the Job Card First
-                    jc_dict = get_open_job_cards_for_item(item_name)
+                    jc_dict = open_jcs
+                    if jc_dict is None:
+                        jc_dict = get_open_job_cards_for_item(item_name)
                     shortage -= poqty
                     if jc_dict:
                         for i in range(0, len(jc_dict)):
@@ -460,11 +531,12 @@ def get_production_priority_for_item(item_name, jc_doc):
                                 break
                         if shortage > 0:
                             return get_priority_for_so(
-                                it_name=item_name, prd_qty=prd_qty, short_qty=shortage
+                                it_name=item_name, prd_qty=prd_qty, short_qty=shortage,
+                                so_lines=so_lines,
                             )
                         else:
                             qty_before_process += get_qty_before_process(
-                                it_name=item_name, jc_doc=jc_doc
+                                it_name=item_name, jc_doc=jc_doc, all_jc=open_jcs
                             )
                             return get_priority_for_stock_prd(
                                 it_name=item_name,
@@ -473,12 +545,13 @@ def get_production_priority_for_item(item_name, jc_doc):
                             )
                     else:
                         return get_priority_for_so(
-                            it_name=item_name, prd_qty=prd_qty, short_qty=shortage
+                            it_name=item_name, prd_qty=prd_qty, short_qty=shortage,
+                            so_lines=so_lines,
                         )
             else:
                 # Qty in Production is for Stock Only
                 qty_before_process += get_qty_before_process(
-                    it_name=item_name, jc_doc=jc_doc
+                    it_name=item_name, jc_doc=jc_doc, all_jc=open_jcs
                 )
                 return get_priority_for_stock_prd(
                     it_name=item_name,
@@ -489,7 +562,7 @@ def get_production_priority_for_item(item_name, jc_doc):
             # No Order for Item
             # For Stock Production Priority
             qty_before_process += get_qty_before_process(
-                it_name=item_name, jc_doc=jc_doc
+                it_name=item_name, jc_doc=jc_doc, all_jc=open_jcs
             )
             return get_priority_for_stock_prd(
                 it_name=item_name,
@@ -498,9 +571,10 @@ def get_production_priority_for_item(item_name, jc_doc):
             )
 
 
-def get_qty_before_process(it_name, jc_doc):
+def get_qty_before_process(it_name, jc_doc, all_jc=None):
     qty_before_process = 0
-    all_jc = get_open_job_cards_for_item(it_name)
+    if all_jc is None:
+        all_jc = get_open_job_cards_for_item(it_name)
     if all_jc:
         for jc in all_jc:
             if jc.name != jc_doc.name:
@@ -1122,22 +1196,26 @@ def get_po_rows_for_job_cards(jc_names):
     return po_rows
 
 
-def get_made_to_stock_qty(jc_doc):
+def get_made_to_stock_qty(jc_doc, ps_operations=None, sales_job_work=None, so_qty=None,
+        moved_qty=None):
+    """
+    Pass `ps_operations` (the operations of the Process Sheet), `sales_job_work` of the item,
+    `so_qty` of the SO item and `moved_qty` (get_moved_qty) when checking many Job Cards.
+    """
     # First get the Process Number of the Job Cards if its first Process then qty available = 0 for Made to Order
     # But first process qty = qty of Sales Order if the Item is Sales Job Work Item since JW items are received at SO
     # Else the qty available in Source Warehouse is Equal to the qty available for completed job cards for target WH
-    ps_doc = frappe.get_doc("Process Sheet", jc_doc.process_sheet)
-    found = 0
-    for op in ps_doc.operations:
+    if ps_operations is None:
+        ps_operations = frappe.get_doc("Process Sheet", jc_doc.process_sheet).operations
+    for op in ps_operations:
         if op.name == jc_doc.operation_id or op.operation == jc_doc.operation:
-            found = 1
             if op.idx == 1:
-                if frappe.get_value("Item", jc_doc.production_item, "sales_job_work") == 1:
-                    return flt(
-                        frappe.get_value(
-                            "Sales Order Item", jc_doc.sales_order_item, "qty"
-                        )
-                    )
+                if sales_job_work is None:
+                    sales_job_work = frappe.get_value("Item", jc_doc.production_item, "sales_job_work")
+                if sales_job_work == 1:
+                    if so_qty is None:
+                        so_qty = frappe.get_value("Sales Order Item", jc_doc.sales_order_item, "qty")
+                    return flt(so_qty)
                 else:
                     return 0
             else:
@@ -1145,16 +1223,37 @@ def get_made_to_stock_qty(jc_doc):
                 completed_qty = 0
                 if jc_doc.s_warehouse:
                     # If Source WH is there then check IN - OUT Qty, IN Qty is also from GRN for Sub-Contracting.
-                    in_qty = get_completed_qty_for_warehouse(jc_doc, "t_warehouse")
-                    grn_in_qty = get_grn_qty(jc_doc)
-                    out_qty = get_completed_qty_for_warehouse(jc_doc, "s_warehouse")
-                    completed_qty = in_qty - out_qty + grn_in_qty
+                    if moved_qty is None:
+                        in_qty = get_completed_qty_for_warehouse(jc_doc, "t_warehouse")
+                        grn_in_qty = get_grn_qty(jc_doc)
+                        out_qty = get_completed_qty_for_warehouse(jc_doc, "s_warehouse")
+                        moved_qty = in_qty - out_qty + grn_in_qty
+                    completed_qty = moved_qty
                 return completed_qty
-    if found != 1:
-        frappe.throw(
-            f"For {frappe.get_desk_link(jc_doc.doctype, jc_doc.name)}, Operation {jc_doc.operation} "
-            f"is not mentioned in {frappe.get_desk_link(ps_doc.doctype, ps_doc.name)}"
-        )
+    frappe.throw(
+        f"For {frappe.get_desk_link(jc_doc.doctype, jc_doc.name)}, Operation {jc_doc.operation} "
+        f"is not mentioned in {frappe.get_desk_link('Process Sheet', jc_doc.process_sheet)}"
+    )
+
+
+def get_moved_qty(jc, submitted_jcs, subcon_ops, first_po_item, grn_rows):
+    """
+    Returns the IN - OUT qty of the source warehouse of a made to order Job Card, from the maps of
+    batch_qty_utils. Same formula as get_completed_qty_for_warehouse and get_grn_qty.
+    `submitted_jcs` are the submitted Job Cards of the SO item.
+    """
+    in_qty, out_qty, grn_qty = 0, 0, 0
+    for sjc in submitted_jcs:
+        if sjc.status == "Completed":
+            if sjc.t_warehouse == jc.s_warehouse:
+                in_qty += flt(sjc.total_completed_qty)
+            if sjc.s_warehouse == jc.s_warehouse:
+                out_qty += flt(sjc.total_completed_qty)
+        if sjc.name != jc.name and sjc.operation in subcon_ops:
+            for qty, warehouse in grn_rows.get(first_po_item.get(sjc.name), []):
+                if warehouse == jc.s_warehouse:
+                    grn_qty += qty
+    return in_qty - out_qty + grn_qty
 
 
 def get_grn_qty(jc_doc):
