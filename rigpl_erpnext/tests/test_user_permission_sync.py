@@ -46,7 +46,7 @@ class TestGetChanges(FrappeTestCase):
     def test_all_roles_rule_adds_permission_for_each_user(self):
         to_insert, _ = ups.get_changes(ctx([rule("Company", "RIGPL", all_roles=1)],
             roles={USER: {"Accounts User"}, OTHER: set()}, enabled=(USER, OTHER)))
-        self.assertEqual(sorted(key[0] for key in to_insert), [OTHER, USER])
+        self.assertCountEqual([key[0] for key in to_insert], [USER, OTHER])
 
     def test_rule_permission_without_all_values_rule_is_kept(self):
         # The old daily job deleted it and the hourly job added it again
@@ -115,8 +115,9 @@ class TestGetChanges(FrappeTestCase):
 class TestSyncUserPermissions(FrappeTestCase):
     def setUp(self):
         if not frappe.db.exists("User", USER):
+            # mobile_no is mandatory on this site (Property Setter) and unique
             frappe.get_doc({"doctype": "User", "email": USER, "first_name": "UPS",
-                "send_welcome_email": 0}).insert(ignore_permissions=True)
+                "mobile_no": "+91-0000000148", "send_welcome_email": 0}).insert(ignore_permissions=True)
 
     def tearDown(self):
         frappe.db.rollback()
