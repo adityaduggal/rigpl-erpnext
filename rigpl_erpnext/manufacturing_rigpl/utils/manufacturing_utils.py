@@ -20,34 +20,6 @@ from ...utils.sales_utils import get_pending_so_qty_from_soitem
 from ...utils.stock_utils import get_quantities_for_item
 
 
-def get_planned_qty(item_name):
-    planned = 0
-    planned_dict = frappe._dict({})
-    work_orders = frappe.db.sql(
-        """SELECT SUM(qty - produced_qty) as wo_plan FROM `tabWork Order`
-    WHERE docstatus = 1 AND status != 'Stopped' AND production_item = '%s'"""
-        % item_name,
-        as_list=1,
-    )
-
-    psheet = frappe.db.sql(
-        """SELECT production_item as item, SUM(quantity - produced_qty) as ps_plan
-    FROM `tabProcess Sheet` WHERE docstatus = 1 AND status != 'Short Closed' AND status != 'Stopped'
-    AND status != 'Completed' AND production_item = '%s'"""
-        % item_name,
-        as_dict=1,
-    )
-    if flt(work_orders[0][0]) > 0:
-        planned += work_orders[0][0]
-
-    if psheet[0].item:
-        planned += psheet[0].ps_plan
-    planned_dict["item"] = item_name
-    planned_dict["planned"] = planned
-
-    return planned_dict
-
-
 def get_items_from_process_sheet_for_job_card(document, table_name, pro_sheet=None):
     """
     Copies the `table_name` rows of the Process Sheet to the Job Card. Pass `pro_sheet` when the
@@ -755,23 +727,6 @@ def update_qty_for_prod(item_code, warehouse, table_name):
             )
         },
     )
-
-
-def get_qty_for_prod_for_item(item_code, warehouse=None):
-    wh_cond = ""
-    if warehouse:
-        wh_cond += f" AND psi.source_warehouse = {warehouse}"
-    qty_res_for_prod = frappe.db.sql(
-        f"""SELECT SUM(psi.calculated_qty - psi.qty) as qty_prod
-        FROM `tabProcess Sheet Items` psi, `tabProcess Sheet` ps
-        WHERE ps.name = psi.parent AND psi.parenttype = 'Process Sheet' AND ps.docstatus = 1
-        AND psi.parentfield = 'rm_consumed' AND ps.status NOT IN ("Stopped", "Completed",
-        "Short Closed") AND psi.donot_consider_rm_for_production != 1
-        AND psi.item_code = '{item_code}' {wh_cond}""",
-        as_dict=1,
-    )
-
-    return flt(qty_res_for_prod[0].qty_prod) if qty_res_for_prod else 0
 
 
 def get_qty_for_prod(item_code, warehouse, table_name):

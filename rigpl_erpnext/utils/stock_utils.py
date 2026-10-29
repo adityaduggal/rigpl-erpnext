@@ -15,33 +15,6 @@ from .item_attribute_utils import chunks
 from .other_utils import auto_round_down, auto_round_up, round_up
 
 
-def get_indented_qty(item_code, warehouse=None):
-    """
-    Returns the indented quantity as per the Material Requests
-    """
-    wh_cond = ""
-    if warehouse:
-        wh_cond += f" AND mri.warehouse = '{warehouse}'"
-    ind_dict = frappe.db.sql(f"""SELECT SUM(mri.qty - mri.ordered_qty) as ind_qty
-        FROM `tabMaterial Request` mr, `tabMaterial Request Item` mri
-        WHERE mri.parent = mr.name AND mr.docstatus = 1 AND mr.status != 'Stopped'
-        AND mri.qty > mri.ordered_qty AND mri.item_code = '{item_code}'
-        {wh_cond}""", as_dict=1)
-    return flt(ind_dict[0].ind_qty)
-
-
-def get_consolidate_bin(item_name):
-    """
-    Returns a dictionary with item_code, on_so, actual, on_po, on_indent, planned, for_prd
-    for All Warehouses consolidated as one row
-    """
-    bin_dict = frappe.db.sql("""SELECT item_code, SUM(reserved_qty) as on_so,
-        SUM(actual_qty) as actual, SUM(ordered_qty) as on_po, SUM(indented_qty) as on_indent,
-        SUM(planned_qty) as planned, SUM(reserved_qty_for_production) as for_prd
-        FROM `tabBin` WHERE item_code = '%s' """ % item_name, as_dict=1)
-    return bin_dict
-
-
 def get_qty_available_to_sell(it_doc):
     """
     Returns Qty available to Sell for an Item

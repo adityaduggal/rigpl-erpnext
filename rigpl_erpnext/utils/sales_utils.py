@@ -170,24 +170,6 @@ def get_contacts(name, type):
     return contacts_dict
 
 
-def get_total_pending_so_item(item_name):
-    pending_so = frappe.db.sql("""SELECT sod.item_code, SUM(sod.qty - sod.delivered_qty) as pending_qty,
-    COUNT(so.name) as no_of_so
-    FROM `tabSales Order` so, `tabSales Order Item` sod
-    WHERE so.name = sod.parent AND so.docstatus = 1 AND so.status != 'Closed' AND sod.item_code = '%s'
-    AND sod.qty > sod.delivered_qty""" % item_name, as_dict=1)
-
-    if flt(pending_so[0].pending_qty) > 0:
-        return pending_so
-    else:
-        pending_so = frappe._dict({})
-        pending_so["item_code"] = item_name
-        pending_so["pending_qty"] = 0
-        pending_so["no_of_so"] = 0
-        pending_so = [pending_so]
-        return pending_so
-
-
 def get_pending_so_qty_from_soitem(so_item):
     pending_so = frappe.db.sql("""SELECT SUM(sod.qty - sod.delivered_qty) AS pend_qty FROM `tabSales Order` so,
     `tabSales Order Item` sod WHERE sod.parent = so.name AND sod.parenttype = 'Sales Order' AND so.docstatus = 1
