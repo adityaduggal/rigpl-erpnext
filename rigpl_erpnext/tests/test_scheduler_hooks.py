@@ -43,6 +43,12 @@ class TestSchedulerHooks(FrappeTestCase):
             hooks.scheduler_events["cron"]["*/30 * * * *"], [TASKS + "manufacturing_pipeline.enqueue_pipeline"]
         )
 
+    def test_one_user_permission_job(self):
+        methods = [method for _frequency, method in hook_methods()]
+        self.assertNotIn(TASKS + "default_permissions.create_defaults", methods)
+        self.assertNotIn(TASKS + "permission_check.check_permission_exist", methods)
+        self.assertIn(("hourly_long", TASKS + "user_permission_sync.execute"), hook_methods())
+
     def test_long_jobs_do_not_enqueue_again(self):
         """A *_long job runs in the long queue already. A wrapper that enqueues again loses the dedupe."""
         for frequency, method in hook_methods():

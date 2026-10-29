@@ -10,6 +10,7 @@ All wiring is in `rigpl_erpnext/hooks.py`. Read it first when you trace behaviou
 - `before_request` / `before_job`: `overrides/pricing_rule_utils.apply_overrides`. This is a v13 backport of the v14 pricing rule "Has Priority". Remove it at the v14 upgrade.
 - `doc_events`: one module per DocType in `rigpl_erpnext/rigpl_erpnext/validations/<doctype>.py` (Item, Sales Order, Sales Invoice, Salary Slip, Stock Entry and more). Manufacturing validations are in `manufacturing_rigpl/validations/`.
 - `scheduler_events` (`cron`, `all`, `hourly`, `daily`, `monthly`): jobs in `rigpl_erpnext/rigpl_erpnext/scheduled_tasks/*.py`. Most of them are `enqueue_*` wrappers that start a long job.
+  - `user_permission_sync.execute` (`hourly_long`) is the only job that adds or deletes User Permissions from the rules in User Permission Settings. A permission that a rule asks for is never deleted. The validations in `validations/{customer,employee,department,account}.py` still add permissions on save, with the helpers in `utils/rigpl_perm.py`.
 - `doctype_js`: desk scripts for standard DocTypes in `public/js/` (Bank Account, Item, Leave Allocation). `app_include_js` loads `public/js/report_formatter.js`.
 - Website: `website_generators` (Carrier Tracking), `update_website_context`, `jenv` and `override_whitelisted_methods` point into `website_rigpl/`.
 

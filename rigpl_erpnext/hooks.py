@@ -303,12 +303,11 @@ scheduler_events = {
         ],
     },
     "daily_long": [
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.permission_check.check_permission_exist",
         "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks",
         "rigpl_erpnext.utils.role_permission_policy.enforce_role_permission_policy",
     ],
     "hourly_long": [
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.default_permissions.create_defaults",
+        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.user_permission_sync.execute",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.daily",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
