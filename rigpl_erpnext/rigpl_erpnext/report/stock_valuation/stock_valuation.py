@@ -7,9 +7,10 @@ from erpnext.stock.report.stock_ageing.stock_ageing import FIFOSlots, get_averag
 from frappe.query_builder.functions import IfNull
 from frappe.utils import date_diff, flt, getdate, nowdate
 from pypika.analytics import RowNumber
-from pypika.terms import Tuple
 from ....utils.item_attribute_utils import attribute_filters, chunks, get_attribute_map
 from ....utils.report_utils import blank_zeros
+from ....utils.stock_utils import get_bin_qty, get_sle_for_items, get_sle_for_pairs, \
+    get_warehouses
 
 TEXT_ATTS = ["Is RM", "Base Material", "HSS Quality", "Carbide Quality", "Brand", "Tool Type"]
 NUMERIC_ATTS = ["d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm"]
@@ -125,63 +126,6 @@ def get_items(filters):
     if not items:
         frappe.throw("No Items Found in given Criterion")
     return items
-
-
-def get_warehouses(warehouse=None):
-    wh = frappe.qb.DocType("Warehouse")
-    query = frappe.qb.from_(wh).select(wh.name).where((wh.is_group == 0) & (wh.disabled == 0))
-    if warehouse:
-        query = query.where(wh.name == warehouse)
-    return [d[0] for d in query.run()]
-
-
-def get_bin_qty(items, warehouses):
-    """Return {(item, warehouse): actual_qty} from the Bin."""
-    bin_qty = {}
-    if not warehouses:
-        return bin_qty
-    bin_tab = frappe.qb.DocType("Bin")
-    for chunk in chunks(items):
-        query = (
-            frappe.qb.from_(bin_tab)
-            .select(bin_tab.item_code, bin_tab.warehouse, bin_tab.actual_qty)
-            .where(bin_tab.item_code.isin(chunk) & bin_tab.warehouse.isin(warehouses))
-        )
-        for item, warehouse, qty in query.run():
-            bin_qty[(item, warehouse)] = flt(qty)
-    return bin_qty
-
-
-def get_sle_for_items(items, warehouses, to_date):
-    if not warehouses:
-        return []
-    sle = frappe.qb.DocType("Stock Ledger Entry")
-    return get_sle(sle.item_code.isin(items) & sle.warehouse.isin(warehouses), to_date)
-
-
-def get_sle_for_pairs(pairs, to_date):
-    """`pairs` are (item, warehouse) tuples. The tuple filter uses the item_warehouse index."""
-    sle = frappe.qb.DocType("Stock Ledger Entry")
-    return get_sle(Tuple(sle.item_code, sle.warehouse).isin([Tuple(*pair) for pair in pairs]), to_date)
-
-
-def get_sle(criterion, to_date):
-    """Return the SLE rows in time order, with the fields that ERPNext FIFOSlots uses.
-    Sort in Python: an SQL ORDER BY on these wide rows takes longer than the fetch."""
-    sle = frappe.qb.DocType("Stock Ledger Entry")
-    rows = (
-        frappe.qb.from_(sle)
-        .select(
-            sle.item_code.as_("name"), sle.warehouse, sle.voucher_type, sle.voucher_no,
-            sle.serial_no, sle.actual_qty, sle.qty_after_transaction, sle.valuation_rate,
-            sle.stock_value, sle.posting_date, sle.posting_time, sle.creation,
-        )
-        .where(criterion)
-        .where((sle.is_cancelled == 0) & (sle.posting_date <= to_date))
-        .run(as_dict=True)
-    )
-    rows.sort(key=lambda d: (d.posting_date, d.posting_time, d.creation))
-    return rows
 
 
 def get_price_list_rates(items, price_list):

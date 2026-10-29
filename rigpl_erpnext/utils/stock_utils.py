@@ -9,7 +9,7 @@ from datetime import date
 import frappe
 from frappe.query_builder.functions import Count, Max, Sum
 from frappe.utils import nowdate, nowtime, add_months, cstr, flt, getdate, now
-from pypika.terms import Case, Criterion
+from pypika.terms import Case, Criterion, Tuple
 from .batch_write_utils import bulk_insert_rows, bulk_insert_versions, clear_document_cache
 from .item_attribute_utils import chunks
 from .other_utils import auto_round_down, auto_round_up, round_up
@@ -1029,6 +1029,68 @@ def get_selling_data_for_items(item_names, from_date, to_date):
         .run(as_dict=True)
     )
     return {row.item_code: row for row in rows}
+
+
+def get_warehouses(warehouse=None):
+    """Return the enabled warehouses that are not groups. With `warehouse`, return only that
+    warehouse, or for a group warehouse the warehouses under it."""
+    wh = frappe.qb.DocType("Warehouse")
+    query = frappe.qb.from_(wh).select(wh.name).where((wh.is_group == 0) & (wh.disabled == 0))
+    if warehouse:
+        lft_rgt = frappe.db.get_value("Warehouse", warehouse, ["lft", "rgt"])
+        if not lft_rgt:
+            return []
+        query = query.where((wh.lft >= lft_rgt[0]) & (wh.rgt <= lft_rgt[1]))
+    return [d[0] for d in query.run()]
+
+
+def get_bin_qty(items, warehouses):
+    """Return {(item, warehouse): actual_qty} from the Bin."""
+    bin_qty = {}
+    if not warehouses:
+        return bin_qty
+    bin_tab = frappe.qb.DocType("Bin")
+    for chunk in chunks(items):
+        query = (
+            frappe.qb.from_(bin_tab)
+            .select(bin_tab.item_code, bin_tab.warehouse, bin_tab.actual_qty)
+            .where(bin_tab.item_code.isin(chunk) & bin_tab.warehouse.isin(warehouses))
+        )
+        for item, warehouse, qty in query.run():
+            bin_qty[(item, warehouse)] = flt(qty)
+    return bin_qty
+
+
+def get_sle_for_items(items, warehouses, to_date):
+    if not warehouses:
+        return []
+    sle = frappe.qb.DocType("Stock Ledger Entry")
+    return get_sle(sle.item_code.isin(items) & sle.warehouse.isin(warehouses), to_date)
+
+
+def get_sle_for_pairs(pairs, to_date):
+    """`pairs` are (item, warehouse) tuples. The tuple filter uses the item_warehouse index."""
+    sle = frappe.qb.DocType("Stock Ledger Entry")
+    return get_sle(Tuple(sle.item_code, sle.warehouse).isin([Tuple(*pair) for pair in pairs]), to_date)
+
+
+def get_sle(criterion, to_date):
+    """Return the SLE rows in time order, with the fields that ERPNext FIFOSlots uses.
+    Sort in Python: an SQL ORDER BY on these wide rows takes longer than the fetch."""
+    sle = frappe.qb.DocType("Stock Ledger Entry")
+    rows = (
+        frappe.qb.from_(sle)
+        .select(
+            sle.item_code.as_("name"), sle.warehouse, sle.voucher_type, sle.voucher_no,
+            sle.serial_no, sle.actual_qty, sle.qty_after_transaction, sle.valuation_rate,
+            sle.stock_value, sle.posting_date, sle.posting_time, sle.creation,
+        )
+        .where(criterion)
+        .where((sle.is_cancelled == 0) & (sle.posting_date <= to_date))
+        .run(as_dict=True)
+    )
+    rows.sort(key=lambda d: (d.posting_date, d.posting_time, d.creation))
+    return rows
 
 
 def make_sales_job_work_ste(so_no):

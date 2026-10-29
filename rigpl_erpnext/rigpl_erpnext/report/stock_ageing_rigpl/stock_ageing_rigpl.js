@@ -3,6 +3,7 @@
 /* eslint-disable */
 
 frappe.query_reports["Stock Ageing RIGPL"] = {
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 	"filters": [
 		{
 			"fieldname":"rm",

@@ -2,167 +2,116 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+from operator import itemgetter
 import frappe
+from erpnext.stock.report.stock_ageing.stock_ageing import FIFOSlots, get_average_age
 from frappe import _
-from frappe.utils import date_diff, flt
-from datetime import datetime
-from six import iteritems
+from frappe.query_builder.functions import IfNull
+from frappe.utils import date_diff, flt, getdate, nowdate
+from ....utils.item_attribute_utils import attribute_filters, chunks, get_attribute_map
+from ....utils.report_utils import blank_zeros
+from ....utils.stock_utils import get_bin_qty, get_sle_for_items, get_sle_for_pairs, \
+	get_warehouses
+
+FILTER_ATTS = {
+	"rm": "Is RM",
+	"bm": "Base Material",
+	"brand": "Brand",
+	"tt": "Tool Type",
+	"spl": "Special Treatment",
+}
+TEXT_ATTS = ["Is RM", "Base Material", "Tool Type", "Brand", "Special Treatment"]
+NUMERIC_ATTS = ["d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm", "Number of Flutes Zn"]
+QUALITY_ATTS = ["HSS Quality", "Carbide Quality"]
+
 
 def execute(filters=None):
+	filters = frappe._dict(filters or {})
+	return get_columns(filters), StockAgeing(filters).get_data()
 
-	columns = get_columns(filters)
-	items, item_map = get_item_details(filters)
-	item_details = get_fifo_queue(filters, items)
-	to_date = filters["to_date"]
-	data = []
-	for item, item_dict in iteritems(item_details):
-		fifo_queue = item_dict["fifo_queue"]
-		details = item_dict["details"]
-		if not fifo_queue: continue
 
-		average_age = get_average_age(fifo_queue, to_date)
-		earliest_age = date_diff(to_date, fifo_queue[0][1])
-		latest_age = date_diff(to_date, fifo_queue[-1][1])
-		item_detail_dict = item_map[details.name]
-		row = [details.name, item_detail_dict["desc"]]
+class StockAgeing:
+	"""FIFO ages of the stock per item, or per item and warehouse, on the As On Date.
+	The number of queries depends on the item count / 1000, not on the row count."""
 
-		if filters.get("show_ageing_warehouse_wise"):
-			row.append(details.warehouse)
+	def __init__(self, filters):
+		self.filters = filters
+		self.to_date = getdate(filters.to_date)
+		self.warehouse_wise = bool(filters.get("show_ageing_warehouse_wise"))
 
-		row.extend([item_dict.get("total_qty"), average_age,
-			earliest_age, latest_age,
-			item_detail_dict["stock_uom"], item_detail_dict["rm"], item_detail_dict["bm"],
-			item_detail_dict["tt"], item_detail_dict["brand"], item_detail_dict["quality"], item_detail_dict["spl"],
-			item_detail_dict["d1"], item_detail_dict["w1"], item_detail_dict["l1"], item_detail_dict["d2"],
-			item_detail_dict["l2"], item_detail_dict["zn"]])
+	def get_data(self):
+		self.item_map = {d.name: d for d in get_items(self.filters)}
+		warehouses = get_warehouses(self.filters.get("warehouse"))
+		pairs = self.get_stocked_pairs(warehouses)
 
-		data.append(row)
+		data = []
+		for chunk in chunks(self.item_map):
+			if pairs is None:
+				sle = get_sle_for_items(chunk, warehouses, self.to_date)
+			else:
+				# All the warehouses of an item stay in one chunk, so FIFOSlots can add them up
+				in_chunk = set(chunk)
+				chunk_pairs = [pair for pair in pairs if pair[0] in in_chunk]
+				sle = get_sle_for_pairs(chunk_pairs, self.to_date) if chunk_pairs else []
+			data += self.get_chunk_rows(sle)
+		wh_col = 2 if self.warehouse_wise else 0
+		data.sort(key=lambda row: (row[0].casefold(), row[wh_col].casefold()))
+		return [blank_zeros(row) for row in data]
 
-	return columns, data
+	def get_stocked_pairs(self, warehouses):
+		"""On today or a later date the Bin has the balance, so read only the pairs in stock.
+		Return None for a past date: it can have stock that the Bin does not show now."""
+		if self.to_date < getdate(nowdate()):
+			return None
+		bin_qty = get_bin_qty(list(self.item_map), warehouses)
+		return sorted(pair for pair, qty in bin_qty.items() if qty > 0)
 
-def get_average_age(fifo_queue, to_date):
-	batch_age = age_qty = total_qty = 0.0
-	for batch in fifo_queue:
-		batch_age = date_diff(to_date, batch[1])
-		age_qty += batch_age * batch[0]
-		total_qty += batch[0]
+	def get_chunk_rows(self, sle):
+		fifo = FIFOSlots(filters={"show_warehouse_wise_stock": self.warehouse_wise}, sle=sle).generate()
+		shown = {}
+		for key, fifo_dict in fifo.items():
+			fifo_queue = sorted(filter(itemgetter(1), fifo_dict["fifo_queue"]), key=itemgetter(1))
+			if fifo_queue and flt(fifo_dict.get("total_qty"), 3) > 0:
+				shown[key] = (fifo_dict["total_qty"], fifo_queue)
+		# Most items in the filters have no stock, so look up only the items that get a row
+		items = [key[0] if self.warehouse_wise else key for key in shown]
+		self.att_map = get_attribute_map(items, TEXT_ATTS + NUMERIC_ATTS + QUALITY_ATTS)
+		return [self.get_row(key, total_qty, fifo_queue) for key, (total_qty, fifo_queue) in shown.items()]
 
-	return (age_qty / total_qty) if total_qty else 0.0
+	def get_row(self, key, total_qty, fifo_queue):
+		item = key[0] if self.warehouse_wise else key
+		it = self.item_map[item]
+		atts = self.att_map.get(item, {})
+		text = {att: atts.get(att) or "-" for att in TEXT_ATTS}
+		quality = atts.get("HSS Quality") or atts.get("Carbide Quality") or "-"
+		numbers = {att: None if atts.get(att) is None else round(flt(atts[att]), 3) for att in NUMERIC_ATTS}
+		row = [item, it.description]
+		if self.warehouse_wise:
+			row.append(key[1])
+		row += [
+			total_qty, get_average_age(fifo_queue, self.to_date),
+			date_diff(self.to_date, fifo_queue[0][1]), date_diff(self.to_date, fifo_queue[-1][1]),
+			it.stock_uom, text["Is RM"], text["Base Material"], text["Tool Type"], text["Brand"],
+			quality, text["Special Treatment"], numbers["d1_mm"], numbers["w1_mm"], numbers["l1_mm"],
+			numbers["d2_mm"], numbers["l2_mm"], numbers["Number of Flutes Zn"],
+		]
+		return row
 
-def get_stock_ledger_entries(filters, items):
-	conditions, conditions_it = get_conditions(filters)
-	filters["to_date"] = datetime.strptime(filters["to_date"], '%Y-%m-%d').date()
 
-	wh = frappe.db.sql("""SELECT name FROM `tabWarehouse` WHERE disabled = 'No' AND is_group = 0
-		ORDER BY name""", as_list=1)
-
-	sle_entries = frappe.db.sql("""select
-		sle.item_code as name, sle.stock_uom,
-		sle.actual_qty, sle.posting_date, sle.posting_time, sle.voucher_type, sle.qty_after_transaction, sle.warehouse
-		FROM `tabStock Ledger Entry` sle, `tabWarehouse` wh
-		WHERE IFNULL(sle.is_cancelled, 'No') = 'No'
-		AND wh.name = sle.warehouse AND wh.is_group = 0
-		AND wh.disabled = 'No' {condition} AND sle.item_code IN (%s)
-		ORDER BY sle.item_code, sle.warehouse, posting_date, sle.posting_time ASC
-		""".format(condition=conditions) %(", ".join(['%s']*len(items))), \
-		tuple([d.name for d in items]), as_dict=1)
-
-	return sle_entries
-
-def get_fifo_queue(filters, items):
-	item_details = {}
-	for d in get_stock_ledger_entries(filters, items):
-		key = (d.name, d.warehouse) if filters.get('show_ageing_warehouse_wise') else d.name
-		item_details.setdefault(key, {"details": d, "fifo_queue": []})
-		fifo_queue = item_details[key]["fifo_queue"]
-
-		if d.voucher_type == "Stock Reconciliation":
-			d.actual_qty = flt(d.qty_after_transaction) - flt(item_details[key].get("qty_after_transaction", 0))
-
-		if d.actual_qty > 0:
-			fifo_queue.append([d.actual_qty, d.posting_date])
-		else:
-			qty_to_pop = abs(d.actual_qty)
-			while qty_to_pop:
-				batch = fifo_queue[0] if fifo_queue else [0, None]
-				if 0 < batch[0] <= qty_to_pop:
-					# if batch qty > 0
-					# not enough or exactly same qty in current batch, clear batch
-					qty_to_pop -= batch[0]
-					fifo_queue.pop(0)
-				else:
-					# all from current batch
-					batch[0] -= qty_to_pop
-					qty_to_pop = 0
-
-		item_details[key]["qty_after_transaction"] = d.qty_after_transaction
-
-		if "total_qty" not in item_details[key]:
-			item_details[key]["total_qty"] = d.actual_qty
-		else:
-			item_details[key]["total_qty"] += d.actual_qty
-	return item_details
-
-def get_item_details(filters):
-	conditions, conditions_it = get_conditions(filters)
-	item_map = {}
-	query = """SELECT it.name AS "name", it.description AS "desc", it.valuation_rate AS "vr", it.stock_uom,
-		IFNULL(bm.attribute_value, "-") AS "bm", IFNULL(brand.attribute_value, "-") AS "brand",
-		IFNULL(h_qual.attribute_value, IFNULL (c_qual.attribute_value, "-")) AS "quality",
-		IFNULL(tt.attribute_value, "-") AS "tt",
-		IFNULL (spl.attribute_value, "-") AS "spl",
-		CAST(d1.attribute_value AS DECIMAL(8,3)) AS "d1",
-		CAST(w1.attribute_value AS DECIMAL(8,3)) AS "w1",
-		CAST(l1.attribute_value AS DECIMAL(8,3)) AS "l1",
-		CAST(d2.attribute_value AS DECIMAL(8,3)) AS "d2",
-		CAST(l2.attribute_value AS DECIMAL(8,3)) AS "l2",
-		IFNULL(rm.attribute_value, "-") AS "rm", it.is_purchase_item,
-		CAST(zn.attribute_value AS DECIMAL(8,3)) AS "zn"
-		FROM `tabItem` it
-		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
-			AND rm.attribute = 'Is RM'
-		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-			AND bm.attribute = 'Base Material'
-		LEFT JOIN `tabItem Variant Attribute` h_qual ON it.name = h_qual.parent
-			AND h_qual.attribute = 'HSS Quality'
-		LEFT JOIN `tabItem Variant Attribute` c_qual ON it.name = c_qual.parent
-			AND c_qual.attribute = 'Carbide Quality'
-		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
-			AND brand.attribute = 'Brand'
-		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-			AND tt.attribute = 'Tool Type'
-		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-			AND spl.attribute = 'Special Treatment'
-		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-			AND d1.attribute = 'd1_mm'
-		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-			AND w1.attribute = 'w1_mm'
-		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-			AND l1.attribute = 'l1_mm'
-		LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
-			AND d2.attribute = 'd2_mm'
-		LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
-			AND l2.attribute = 'l2_mm'
-		LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent
-			AND zn.attribute = 'Number of Flutes Zn'
-		WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
-		ORDER BY 
-			rm.attribute_value, bm.attribute_value, h_qual.attribute_value,
-			c_qual.attribute_value, tt.attribute_value,
-			CAST(d1.attribute_value AS DECIMAL(8,3)),
-			CAST(w1.attribute_value AS DECIMAL(8,3)),
-			CAST(l1.attribute_value AS DECIMAL(8,3)),
-			CAST(d2.attribute_value AS DECIMAL(8,3)),
-			CAST(l2.attribute_value AS DECIMAL(8,3))""" %conditions_it
-	
-	items = frappe.db.sql(query , as_dict=1)
-	if items:
-		pass
-	else:
+def get_items(filters):
+	it = frappe.qb.DocType("Item")
+	query = (
+		frappe.qb.from_(it)
+		.select(it.name, it.description, it.stock_uom)
+		.where(IfNull(it.end_of_life, "2099-12-31") > nowdate())
+		.where(attribute_filters(it.name, {att: filters.get(key) for key, att in FILTER_ATTS.items()}))
+	)
+	if filters.get("item_code"):
+		query = query.where(it.name == filters["item_code"])
+	items = query.run(as_dict=True)
+	if not items:
 		frappe.throw("No Items Found in given Criterion")
-	for d in items:item_map.setdefault(d.name, d)
-
-	return items, item_map
+	return items
 
 
 def get_columns(filters):
@@ -178,52 +127,3 @@ def get_columns(filters):
 		_("D2") + ":Float:60", _("L2") + ":Float:60", _("Zn") + ":Float:60"])
 
 	return columns
-
-
-def get_item_conditions(filters):
-	conditions = []
-	if filters.get("item_code"):
-		conditions.append("item_code=%(item_code)s")
-	if filters.get("brand"):
-		conditions.append("brand=%(brand)s")
-
-	return "where {}".format(" and ".join(conditions)) if conditions else ""
-
-def get_conditions(filters):
-	conditions_sle = ""
-	conditions_it = ""
-	if filters.get("item_code"):
-		conditions_sle += " AND sle.item_code='%s'" % filters["item_code"]
-		conditions_it += " AND it.name ='%s'" % filters["item_code"]
-
-	if filters.get("warehouse"):
-		conditions_sle += " AND sle.warehouse='%s'" % filters["warehouse"]
-
-	if filters.get("to_date"):
-		conditions_sle += " AND sle.posting_date <= '%s'" % filters["to_date"]
-
-	if filters.get("rm"):
-		conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
-
-	if filters.get("bm"):
-		conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
-
-	if filters.get("brand"):
-		conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
-		
-	if filters.get("tt"):
-		conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
-
-	if filters.get("spl"):
-		conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
-		
-	return conditions_sle, conditions_it
-
-def get_sle_conditions(filters):
-	conditions = []
-	if filters.get("warehouse"):
-		lft, rgt = frappe.db.get_value('Warehouse', filters.get("warehouse"), ['lft', 'rgt'])
-		conditions.append("""warehouse in (select wh.name from `tabWarehouse` wh
-			where wh.lft >= {0} and rgt <= {1})""".format(lft, rgt))
-
-	return "and {}".format(" and ".join(conditions)) if conditions else ""
