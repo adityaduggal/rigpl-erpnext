@@ -1,4 +1,5 @@
 frappe.query_reports["Stock Ledger with Valuation"] = {
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 	"filters": [
 		{
 			"fieldname":"item",

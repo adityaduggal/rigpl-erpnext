@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 import datetime
+from ....utils.report_utils import blank_zeros
 
 
 def execute(filters=None):
@@ -47,74 +48,74 @@ def get_columns():
     ]
 
 
+# Voucher type: (link type, field) of the party. A Stock Entry links to the first field that is set.
+PARTY_LINKS = {
+    "Delivery Note": [("Customer", "customer")],
+    "Sales Invoice": [("Customer", "customer")],
+    "Purchase Receipt": [("Supplier", "supplier")],
+    "Purchase Invoice": [("Supplier", "supplier")],
+    "Stock Entry": [
+        ("Process Job Card RIGPL", "process_job_card"),
+        ("Sales Order", "sales_order"),
+        ("Delivery Note", "delivery_note_no"),
+        ("Sales Invoice", "sales_invoice_no"),
+        ("Purchase Order", "purchase_order"),
+        ("Purchase Receipt", "purchase_receipt_no"),
+    ],
+}
+
+
 def get_sl_entries(filters):
-    conditions = get_conditions(filters)
-    temp_data = frappe.db.sql("""SELECT sle.posting_date, sle.posting_time, 
-    sle.item_code, it.description, sle.actual_qty, sle.qty_after_transaction, sle.warehouse, sle.valuation_rate, 
-    sle.stock_value, sle.incoming_rate, sle.voucher_no, sle.voucher_type, 'X', sle.name, 'X' 
-    FROM `tabStock Ledger Entry` sle, `tabItem` it WHERE sle.is_cancelled = "No" AND it.name = sle.item_code %s 
-    ORDER BY sle.posting_date DESC, sle.posting_time DESC, sle.name DESC""" % conditions, as_dict=1)
+    if not filters.get("item"):
+        frappe.msgprint("Please select an Item Code first", raise_exception=1)
+    sle = frappe.qb.DocType("Stock Ledger Entry")
+    it = frappe.qb.DocType("Item")
+    query = (
+        frappe.qb.from_(sle)
+        .join(it)
+        .on(it.name == sle.item_code)
+        .select(
+            sle.posting_date, sle.posting_time, sle.item_code, it.description, sle.actual_qty,
+            sle.qty_after_transaction, sle.warehouse, sle.valuation_rate, sle.stock_value,
+            sle.incoming_rate, sle.voucher_no, sle.voucher_type, sle.name,
+        )
+        .where((sle.is_cancelled == 0) & (sle.item_code == filters["item"]))
+        .orderby(sle.posting_date, order=frappe.qb.desc)
+        .orderby(sle.posting_time, order=frappe.qb.desc)
+        .orderby(sle.name, order=frappe.qb.desc)
+    )
+    if filters.get("warehouse"):
+        query = query.where(sle.warehouse == filters["warehouse"])
+    if filters.get("from_date"):
+        query = query.where(sle.posting_date >= filters["from_date"])
+    if filters.get("to_date"):
+        query = query.where(sle.posting_date <= filters["to_date"])
+    temp_data = query.run(as_dict=True)
 
-    for d in temp_data:
-        d["posting_time"] = d["posting_time"] - datetime.timedelta(microseconds=d["posting_time"].microseconds)
-        if d.voucher_type in ('Delivery Note', 'Sales Invoice'):
-            dn_doc = frappe.get_doc(d.voucher_type, d.voucher_no)
-            d["linked_name"] = dn_doc.customer
-            d["link_type"] = "Customer"
-
-        elif d.voucher_type in ('Purchase Receipt', 'Purchase Invoice'):
-            dn_doc = frappe.get_doc(d.voucher_type, d.voucher_no)
-            d["linked_name"] = dn_doc.supplier
-            d["link_type"] = "Supplier"
-        elif d.voucher_type == "Stock Entry":
-            dn_doc = frappe.get_doc(d.voucher_type, d.voucher_no)
-            if dn_doc.process_job_card is not None:
-                d["link_type"] = "Process Job Card RIGPL"
-                d["linked_name"] = dn_doc.process_job_card
-            elif dn_doc.sales_order is not None:
-                d["link_type"] = "Sales Order"
-                d["linked_name"] = dn_doc.sales_order
-            elif dn_doc.delivery_note_no is not None:
-                d["link_type"] = "Delivery Note"
-                d["linked_name"] = dn_doc.delivery_note_no
-            elif dn_doc.sales_invoice_no is not None:
-                d["link_type"] = "Sales Invoice"
-                d["linked_name"] = dn_doc.sales_invoice_no
-            elif dn_doc.purchase_order is not None:
-                d["link_type"] = "Purchase Order"
-                d["linked_name"] = dn_doc.purchase_order
-            elif dn_doc.purchase_receipt_no is not None:
-                d["link_type"] = "Purchase Receipt"
-                d["linked_name"] = dn_doc.purchase_receipt_no
-            else:
-                d["link_type"] = None
-                d["linked_name"] = None
-        else:
-            d["link_type"] = None
-            d["linked_name"] = None
+    links = get_links(temp_data)
     data = []
     for d in temp_data:
-        row = [d.posting_date, d.posting_time, d.item_code, d.description, d.actual_qty, d.qty_after_transaction,
+        posting_time = d.posting_time - datetime.timedelta(microseconds=d.posting_time.microseconds)
+        link_type, linked_name = links.get((d.voucher_type, d.voucher_no), (None, None))
+        row = [d.posting_date, posting_time, d.item_code, d.description, d.actual_qty, d.qty_after_transaction,
                d.warehouse, d.valuation_rate, d.stock_value, d.incoming_rate, d.voucher_no, d.voucher_type,
-               d.linked_name, d.name, d.link_type]
-        data.append(row)
+               linked_name, d.name, link_type]
+        data.append(blank_zeros(row))
     return data
 
 
-def get_conditions(filters):
-    conditions = ""
-    if filters.get("item"):
-        conditions += " and sle.item_code = '%s'" % filters["item"]
-    else:
-        frappe.msgprint("Please select an Item Code first", raise_exception=1)
-
-    if filters.get("warehouse"):
-        conditions += " and sle.warehouse = '%s'" % filters["warehouse"]
-
-    if filters.get("from_date"):
-        conditions += " and sle.posting_date >= '%s'" % filters["from_date"]
-
-    if filters.get("to_date"):
-        conditions += " and sle.posting_date <= '%s'" % filters["to_date"]
-
-    return conditions
+def get_links(rows):
+    """Return {(voucher_type, voucher_no): (link_type, linked_name)}, one query per voucher type."""
+    vouchers = {}
+    for d in rows:
+        if d.voucher_type in PARTY_LINKS:
+            vouchers.setdefault(d.voucher_type, set()).add(d.voucher_no)
+    links = {}
+    for voucher_type, names in vouchers.items():
+        fields = [field for _, field in PARTY_LINKS[voucher_type]]
+        for doc in frappe.get_all(voucher_type, filters={"name": ("in", list(names))},
+                fields=["name"] + fields):
+            links[(voucher_type, doc.name)] = next(
+                ((link_type, doc[field]) for link_type, field in PARTY_LINKS[voucher_type] if doc[field]),
+                (None, None))
+    return links
