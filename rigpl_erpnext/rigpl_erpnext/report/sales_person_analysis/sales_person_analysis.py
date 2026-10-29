@@ -3,9 +3,8 @@
 
 from __future__ import unicode_literals
 import frappe
-import datetime
-import time
-from frappe import msgprint, _
+from frappe.query_builder.functions import Sum
+from ....utils.report_utils import blank_zeros
 
 def execute(filters=None):
     if not filters:
@@ -24,75 +23,51 @@ def get_columns(filters):
     ]
 
 def get_entries(filters):
-    date_field = filters["doc_type"] == "Sales Order" and "transaction_date" or "posting_date"
-    conditions_sperson = get_conditions(filters, date_field)[0]
-    conditions_so = get_conditions(filters, date_field)[1]
-    conditions_si = get_conditions(filters, date_field)[2]
-
-    query = """SELECT
-		sp.sales_person_name, spt.target_amount,
-
-		(SELECT SUM(so.base_net_total) FROM `tabSales Order` so, `tabSales Team` st
-		WHERE st.sales_person = sp.name AND st.parent = so.name AND so.docstatus = 1 %s),
-
-		(SELECT SUM(si.base_net_total) FROM `tabSales Invoice` si, `tabSales Team` st
-		WHERE st.sales_person = sp.name AND st.parent = si.name AND si.docstatus = 1 %s),
-
-		(SELECT SUM(si.outstanding_amount) FROM `tabSales Invoice` si, `tabSales Team` st
-		WHERE st.sales_person = sp.name AND st.parent = si.name AND si.docstatus = 1 %s)
-
-		FROM
-			`tabSales Person` sp
-			LEFT JOIN `tabTarget Detail` spt ON spt.parent = sp.name
-				AND spt.parenttype = 'Sales Person'
-
-		WHERE
-			sp.is_group = 'No' %s
-		ORDER BY sp.sales_person_name""" % (conditions_so, conditions_si, conditions_si, conditions_sperson)
-
-    #frappe.msgprint(query)
-
-    data = frappe.db.sql(query , as_list=1)
-
+    so_totals = get_totals(filters, "Sales Order", "transaction_date", ["base_net_total"])
+    si_totals = get_totals(filters, "Sales Invoice", "posting_date", ["base_net_total", "outstanding_amount"])
+    data = []
+    for person, name, target in get_persons(filters):
+        so = so_totals.get(person, (None,))
+        si = si_totals.get(person, (None, None))
+        data.append(blank_zeros([name, target, so[0], si[0], si[1]]))
     return data
 
-def get_conditions(filters, date_field):
-    conditions_sperson = ""
-    conditions_so = ""
-    conditions_si = ""
 
+def get_persons(filters):
+    """Return (name, sales_person_name, target_amount) of each Sales Person that is not a group."""
+    sp = frappe.qb.DocType("Sales Person")
+    spt = frappe.qb.DocType("Target Detail")
+    query = (
+        frappe.qb.from_(sp)
+        .left_join(spt)
+        .on((spt.parent == sp.name) & (spt.parenttype == "Sales Person"))
+        .select(sp.name, sp.sales_person_name, spt.target_amount)
+        .where(sp.is_group == 0)
+        .orderby(sp.sales_person_name)
+    )
     if filters.get("sales_person"):
-        conditions_sperson += " AND sp.name = '%s'" % \
-            filters["sales_person"].replace("'", "\'")
-
-        conditions_so += " AND st.sales_person = '%s'" % \
-            filters["sales_person"].replace("'", "\'")
-
-        conditions_si += " AND st.sales_person = '%s'" % \
-            filters["sales_person"].replace("'", "\'")
-
+        query = query.where(sp.name == filters["sales_person"])
     if filters.get("fiscal_year"):
-        conditions_sperson += " AND spt.fiscal_year = '%s'" % \
-            filters["fiscal_year"].replace("'", "\'")
+        query = query.where(spt.fiscal_year == filters["fiscal_year"])
+    return query.run()
 
-        #conditions_so += " AND so.fiscal_year = '%s'" % \
-        #filters["fiscal_year"].replace("'", "\'")
 
-        #conditions_si += " AND si.fiscal_year = '%s'" % \
-        #filters["fiscal_year"].replace("'", "\'")
-
+def get_totals(filters, doctype, date_field, fields):
+    """Return {sales_person: (sum of each field)} of the submitted documents in the dates."""
+    doc = frappe.qb.DocType(doctype)
+    st = frappe.qb.DocType("Sales Team")
+    query = (
+        frappe.qb.from_(st)
+        .join(doc)
+        .on(doc.name == st.parent)
+        .select(st.sales_person, *[Sum(doc[field]) for field in fields])
+        .where((st.parenttype == doctype) & (doc.docstatus == 1))
+        .groupby(st.sales_person)
+    )
+    if filters.get("sales_person"):
+        query = query.where(st.sales_person == filters["sales_person"])
     if filters.get("from_date"):
-        conditions_so += " AND so.transaction_date >= '%s'" % \
-            filters["from_date"].replace("'", "\'")
-
-        conditions_si += " AND si.posting_date >= '%s'" % \
-            filters["from_date"].replace("'", "\'")
-
+        query = query.where(doc[date_field] >= filters["from_date"])
     if filters.get("to_date"):
-        conditions_so += " AND so.transaction_date <= '%s'" % \
-            filters["to_date"].replace("'", "\'")
-
-        conditions_si += " AND si.posting_date <= '%s'" % \
-            filters["to_date"].replace("'", "\'")
-
-    return conditions_sperson, conditions_so, conditions_si
+        query = query.where(doc[date_field] <= filters["to_date"])
+    return {row[0]: row[1:] for row in query.run()}

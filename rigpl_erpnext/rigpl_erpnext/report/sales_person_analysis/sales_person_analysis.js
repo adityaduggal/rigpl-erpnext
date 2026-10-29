@@ -2,6 +2,7 @@
 // For license information, please see license.txt
 
 frappe.query_reports["Sales Person Analysis"] = {
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 	"filters": [
 		{
 			fieldname: "doc_type",
