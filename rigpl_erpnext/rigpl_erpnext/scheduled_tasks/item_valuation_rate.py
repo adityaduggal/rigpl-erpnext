@@ -3,12 +3,17 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe
+from datetime import date
 from time import time
-from datetime import datetime, date
-from ...utils.other_utils import round_down
+from typing import Dict, List, Optional, Tuple
+
+import frappe
+from frappe.utils import flt
 from rohit_common.utils.background_doc_processing import enqueue_once
-from ...utils.item_utils import get_item_attributes
+
+from ...utils.batch_write_utils import bulk_set_fields
+from ...utils.item_attribute_utils import chunks, get_attribute_rows
+from ...utils.other_utils import round_down
 
 '''
 This file would run regularly to update the valuation rate of all the items.
@@ -38,130 +43,121 @@ like HSP, CSP, JCNO etc and set the valuation rate.
 '''
 
 
+
+NO_DATE = date(1900, 1, 1)
+TEMPLATE_FIELDS = ["name", "is_sales_item", "is_purchase_item",
+    "valuation_as_percent_of_default_selling_price"]
+VARIANT_FIELDS = ["name", "disabled", "valuation_rate", "valuation_rate_date"]
+
+
 def enqueue_set_valuation_rate():
     enqueue_once("rigpl_erpnext.rigpl_erpnext.scheduled_tasks.item_valuation_rate.set_valuation_rate_for_all", queue="long", timeout=1500)
 
 
 def set_valuation_rate_for_all():
     st_time = time()
-    temp_list = get_templates()
-    for template in temp_list:
-        temp_doc = frappe.get_doc("Item", template[0])
-        set_valuation_rate_for_template(temp_doc)
+    templates = frappe.get_all("Item", filters={"has_variants": 1, "disabled": 0},
+        fields=TEMPLATE_FIELDS)
+    price_lists = get_default_price_lists([t.name for t in templates])
+    for template in templates:
+        changes = get_template_changes(template, price_lists.get(template.name))
+        write_changes(changes)
+        frappe.db.commit()
     tot_time = int(time() - st_time)
     print(f"Total Time Taken = {tot_time} seconds")
 
 
-def set_valuation_rate_for_template(temp_doc):
-    if temp_doc.is_sales_item == 1:
-        if temp_doc.valuation_as_percent_of_default_selling_price > 0:
-            selling_item_valuation_rate_template(temp_doc)
-        else:
-            pass
-    elif temp_doc.is_purchase_item == 1:
-        purchase_item_valuation_rate_template(temp_doc)
+def get_template_changes(template, def_pl: Optional[str]) -> Dict[str, Tuple]:
+    """
+    Returns {item: (old values, new values)} for the variants of a template whose valuation
+    rate or its date must change, with a fixed number of queries
+    """
+    if template.is_sales_item == 1:
+        if flt(template.valuation_as_percent_of_default_selling_price) > 0:
+            return get_selling_changes(template, def_pl)
+        return {}
+    if template.is_purchase_item == 1:
+        return get_purchase_changes(template)
+    return {}
 
 
-def get_templates():
-    temp_list = frappe.db.sql("""SELECT it.name, (SELECT count(name) FROM `tabItem`
-    WHERE variant_of = it.name) as variants FROM `tabItem` it WHERE it.has_variants = 1
-    ORDER BY variants DESC""", as_list=1)
-    return temp_list
+def get_variants(template_name):
+    return frappe.get_all("Item", filters={"variant_of": template_name}, fields=VARIANT_FIELDS)
 
 
-def selling_item_valuation_rate_template(template_doc):
-    variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'
-    AND disabled = 0""" % template_doc.name, as_list=1)
-    for item in variants:
-        item_doc = frappe.get_doc("Item", item[0])
-        selling_item_valuation_rate_variant(item_doc, template_doc)
+def get_selling_changes(template, def_pl):
+    variants = [v for v in get_variants(template.name) if not v.disabled]
+    if not def_pl:
+        for v in variants:
+            print(f"No Default PL found for item {v.name}")
+        return {}
+    prices = get_sp_rates([v.name for v in variants], def_pl)
+    changes = {}
+    for v in variants:
+        if v.name in prices:
+            it_price, date_of_price = prices[v.name]
+            add_change(changes, v, it_price, template, date_of_price.date())
+    return changes
 
 
-def selling_item_valuation_rate_variant(item_doc, template_doc):
-    def_pl = get_default_price_list(template_doc)
-    if def_pl != "Not Possible":
-        selling_rate_details = get_sp_rate(item_doc.name, def_pl)
-        if selling_rate_details:
-            it_price, date_of_price = get_sp_rate(item_doc.name, def_pl)
-            update_valuation_rate(item_doc, it_price, template_doc, date_of_price.date())
+def get_purchase_changes(template):
+    variants = get_variants(template.name)
+    names = [v.name for v in variants]
+    pp_rates = get_pp_rates(names)
+    attributes = {
+        name: {row.attribute: row.attribute_value for row in rows}
+        for name, rows in get_attribute_rows(names).items()
+    }
+    changes = {}
+    for v in variants:
+        if v.disabled:
+            continue
+        if v.name in pp_rates:
+            pp_rate, pp_date = pp_rates[v.name]
+            add_change(changes, v, pp_rate, template, pp_date)
+            continue
+        cut_pc = get_cut_pc_rate(v.name, variants, attributes, pp_rates)
+        if cut_pc:
+            add_change(changes, v, cut_pc[0], template, cut_pc[1])
+    return changes
+
+
+def get_cut_pc_rate(item_name, variants, attributes, pp_rates):
+    """
+    Returns (rate, purchase date) of a Carbide Round Tool Bit from the latest purchased
+    variant of the same template with a longer length and the same or the near diameter
+    (8.2 for 8, 8 for 8.2)
+    """
+    atts = attributes.get(item_name, {})
+    if atts.get("Base Material") != "Carbide" or atts.get("Tool Type") != "Round Tool Bits":
+        print(f"No Purchase Data found for Item {item_name}")
+        return None
+    base_len, base_dia = flt(atts.get("l1_mm")), flt(atts.get("d1_mm"))
+    if base_dia == int(base_dia):
+        base_dia1 = base_dia + 0.2
+    elif (base_dia - int(base_dia)) < 0.3:
+        base_dia1 = int(base_dia)
     else:
-        print(f"No Default PL found for item {item_doc.name}")
-
-
-def purchase_item_valuation_rate_template(temp_doc):
-    variants = frappe.db.sql("""SELECT name FROM `tabItem` WHERE variant_of = '%s'
-    AND disabled = 0""" % (temp_doc.name), as_list=1)
-    for item in variants:
-        it_doc = frappe.get_doc("Item", item[0])
-        get_pp_rate(it_doc, temp_doc)
-
-
-def get_pp_rate(item_doc, temp_doc):
-    pp_rate, pp_date, pinvoice = get_pp_rate_item(item_doc.name)
-    if pinvoice == 'Found':
-        update_valuation_rate(item_doc, pp_rate, temp_doc, pp_date)
-    else:
-        get_sim_variants(item_doc)
-
-
-def get_sim_variants(it_doc):
-    # Find all round Carbide Item Code with diff lengths and Radius 8.2 would
-    # also search for items with 8mm dia
-    template_doc = frappe.get_doc("Item", it_doc.variant_of)
-    attributes = get_item_attributes(it_doc.name)
-    check = 0
-    for att in attributes:
-        if att.attribute == 'Base Material' and att.attribute_value == 'Carbide':
-            check += 1
-        if att.attribute == 'Tool Type' and att.attribute_value == 'Round Tool Bits':
-            check += 1
-        if check == 2 and att.attribute == 'l1_mm':
-            base_len = att.attribute_value
-        if check == 2 and att.attribute == 'd1_mm':
-            base_dia = att.attribute_value
-    if check == 2:
-        if float(base_dia) == int(float(base_dia)):
-            base_dia1 = float(base_dia) + 0.2
-        elif (float(base_dia) - int(float(base_dia))) < 0.3:
-            base_dia1 = int(float(base_dia))
-        else:
-            base_dia1 = int(float(base_dia)) + 0.2
-        similar_variants = []
-        for d in [float(base_dia), float(base_dia1)]:
-            sim_variants = frappe.db.sql("""SELECT it.name FROM `tabItem` it, `tabItem Variant Attribute` iva
-            WHERE it.variant_of = '%s' AND iva.attribute = 'd1_mm' AND iva.attribute_value = %s
-            AND iva.parent = it.name""" % (it_doc.variant_of, d), as_list=1)
-            similar_variants.extend(sim_variants)
-        pp_similar = [{"item_code": it_doc.name, "length": float(base_len),
-                       "purchase_rate": 0, "purchase_date": conv_str_to_date('1900-01-01')}]
-        for items in similar_variants:
-            att_dict = get_item_attributes(items[0])
-            att_len = get_specific_attribute(att_dict, "l1_mm")
-            att_pp_rate, att_pp_date, pi_found = get_pp_rate_item(items[0])
-            pp_similar_dict = {"item_code": items[0], "length": float(att_len), "purchase_rate": float(att_pp_rate),
-                               "purchase_date": att_pp_date}
-
-            pp_similar.append(pp_similar_dict.copy())
-
-        if [x for x in pp_similar if x['length'] > float(base_len)]:
-            latest_rate_details = max([x for x in pp_similar if x['length'] > float(base_len)],
-                                      key=lambda x: x['purchase_date'])
-        else:
-            latest_rate_details = []
-        if latest_rate_details:
-            if latest_rate_details.get("purchase_date") > conv_str_to_date('1900-01-01'):
-                pur_date = latest_rate_details.get("purchase_date")
-                val_rate_cut_pc = latest_rate_details.get("purchase_rate") * float(base_len) / latest_rate_details.get(
-                    "length")
-                factor = get_cut_pcs_factor(base_len, latest_rate_details.get("length"))
-                val_rate_cut_pc = val_rate_cut_pc * factor
-                update_valuation_rate(it_doc, val_rate_cut_pc, template_doc, pur_date)
-            else:
-                print(f"No Purchase Data Found for {it_doc.name} or for similar items even")
-        else:
-            print(f"No Purchase Data for Items with Higher Length Found for Item Code: {it_doc.name}")
-    else:
-        print(f"No Purchase Data found for Item {it_doc.name}")
+        base_dia1 = int(base_dia) + 0.2
+    dias = (round(base_dia, 3), round(base_dia1, 3))
+    longer = []
+    for v in variants:
+        v_atts = attributes.get(v.name, {})
+        if "d1_mm" not in v_atts or round(flt(v_atts["d1_mm"]), 3) not in dias:
+            continue
+        length = flt(v_atts.get("l1_mm"))
+        if length > base_len:
+            rate, pur_date = pp_rates.get(v.name, (0, NO_DATE))
+            longer.append((pur_date, flt(rate), length))
+    if not longer:
+        print(f"No Purchase Data for Items with Higher Length Found for Item Code: {item_name}")
+        return None
+    # On the same purchase date, the shortest longer piece is the closest to the cut size
+    pur_date, rate, length = max(longer, key=lambda x: (x[0], -x[2]))
+    if pur_date <= NO_DATE:
+        print(f"No Purchase Data Found for {item_name} or for similar items even")
+        return None
+    return rate * base_len / length * get_cut_pcs_factor(base_len, length), pur_date
 
 
 def get_cut_pcs_factor(base_len, higher_length):
@@ -177,84 +173,109 @@ def get_cut_pcs_factor(base_len, higher_length):
     return factor
 
 
-def conv_str_to_date(string_date):
-    converted_date = datetime.strptime(string_date, "%Y-%m-%d").date()
-    return converted_date
+def get_pp_rates(item_codes: List[str]) -> Dict[str, Tuple]:
+    """
+    Returns {item_code: (base_rate, posting_date)} of the latest submitted Purchase Invoice,
+    the last created one if more are on the same date
+    """
+    rates = {}
+    for chunk in chunks(item_codes):
+        rows = frappe.db.sql("""SELECT pid.item_code, pid.base_rate, pi.posting_date
+            FROM `tabPurchase Invoice Item` pid
+            JOIN `tabPurchase Invoice` pi ON pi.name = pid.parent
+            JOIN (SELECT pid2.item_code, MAX(pi2.posting_date) AS last_date
+                FROM `tabPurchase Invoice Item` pid2
+                JOIN `tabPurchase Invoice` pi2 ON pi2.name = pid2.parent
+                WHERE pid2.item_code IN %(items)s AND pi2.docstatus = 1
+                GROUP BY pid2.item_code) last
+                ON last.item_code = pid.item_code AND last.last_date = pi.posting_date
+            WHERE pi.docstatus = 1
+            ORDER BY pi.creation DESC, pid.idx DESC""", {"items": chunk}, as_dict=1)
+        for row in rows:
+            rates.setdefault(row.item_code, (row.base_rate, row.posting_date))
+    return rates
 
 
-def get_pp_rate_item(item_code):
-    pinvoice = frappe.db.sql("""SELECT pid.base_rate, pid.item_code, pi.posting_date FROM `tabPurchase Invoice Item`
-    pid, `tabPurchase Invoice` pi WHERE pid.parent = pi.name AND pid.item_code = '%s' AND pi.docstatus = 1 ORDER BY
-    pi.posting_date DESC LIMIT 1""" % item_code, as_dict=1)
-    if pinvoice:
-        pur_rate = pinvoice[0].base_rate
-        pur_date = pinvoice[0].posting_date
-        pi_found = 'Found'
-    else:
-        pur_rate = 0
-        pur_date = conv_str_to_date('1900-01-01')
-        pi_found = 'Not Found'
-    return pur_rate, pur_date, pi_found
+def get_sp_rates(item_codes: List[str], price_list: str) -> Dict[str, Tuple]:
+    """
+    Returns {item_code: (price_list_rate, creation)} from the Price List
+    """
+    rates = {}
+    for chunk in chunks(item_codes):
+        for row in frappe.get_all("Item Price",
+                filters={"item_code": ["in", chunk], "price_list": price_list},
+                fields=["item_code", "price_list_rate", "creation"], order_by="creation"):
+            rates.setdefault(row.item_code, (row.price_list_rate, row.creation))
+    return rates
 
 
-def get_specific_attribute(attributes_dict, att_name):
-    for att in attributes_dict:
-        if att.attribute == att_name:
-            att_val = att.attribute_value
-    return att_val
+def get_default_price_lists(template_names: List[str]) -> Dict[str, Optional[str]]:
+    """
+    Returns {template: default price list} for templates with exactly one Item Default row
+    """
+    rows_by_template = {}
+    for chunk in chunks(template_names):
+        for row in frappe.get_all("Item Default",
+                filters={"parent": ["in", chunk], "parenttype": "Item"},
+                fields=["parent", "default_price_list"]):
+            rows_by_template.setdefault(row.parent, []).append(row.default_price_list)
+    return {name: pls[0] for name, pls in rows_by_template.items() if len(pls) == 1}
 
 
-def update_valuation_rate(it_doc, itpr, t_doc, date_of_price):
+def add_change(changes, item, itpr, t_doc, date_of_price):
+    new = get_new_valuation(item, itpr, t_doc, date_of_price)
+    if new:
+        changes[item.name] = (
+            {"valuation_rate": item.valuation_rate, "valuation_rate_date": item.valuation_rate_date},
+            new,
+        )
+
+
+def get_new_valuation(item, itpr, t_doc, date_of_price) -> Optional[Dict]:
+    """
+    Returns the new valuation_rate and valuation_rate_date of an item, or None if the price is
+    older than the current date or the rate is within 10% and the date is the same
+    """
     vrate = get_valuation_rate(t_doc, itpr)
-    if it_doc.valuation_rate_date:
-        set_date = it_doc.valuation_rate_date
-    else:
-        set_date = date(1900, 1, 1)
-    days_diff = (date_of_price - set_date).days
-    if days_diff >= 0:
-        if it_doc.valuation_rate > (1.1 * vrate) or \
-                it_doc.valuation_rate < (0.9 * vrate):
-            it_doc.valuation_rate = vrate
-            it_doc.valuation_rate_date = date_of_price
-            it_doc.save()
-            frappe.db.commit()
-            print("Saved Item Code: " + it_doc.name +
-                  " Changed Valuation Rate to " + str(it_doc.valuation_rate))
-        elif it_doc.valuation_rate_date != date_of_price:
-            it_doc.valuation_rate_date = date_of_price
-            it_doc.save()
-            frappe.db.commit()
-            print("Saved Item Code: " + it_doc.name +
-                  " Changed Valuation Rate Date to " + str(date_of_price))
+    set_date = item.valuation_rate_date or NO_DATE
+    if (date_of_price - set_date).days < 0:
+        return None
+    if flt(item.valuation_rate) > (1.1 * vrate) or flt(item.valuation_rate) < (0.9 * vrate):
+        return {"valuation_rate": vrate, "valuation_rate_date": date_of_price}
+    if item.valuation_rate_date != date_of_price:
+        return {"valuation_rate": item.valuation_rate, "valuation_rate_date": date_of_price}
+    return None
 
 
-def update_std_valuation_rate(it_doc):
-    if it_doc.valuation_rate > 1:
-        pass
-    else:
-        it_doc.valuation_rate = 1
-        it_doc.save()
-        frappe.db.commit()
-        print("Saved Item Code: " + it_doc.name +
-              " Changed Valuation Rate to " + "1")
+def write_changes(changes: Dict[str, Tuple]):
+    bulk_set_fields("Item", {name: new for name, (_old, new) in changes.items()},
+        {name: old for name, (old, _new) in changes.items()})
+    for name, (old, new) in changes.items():
+        if new["valuation_rate"] != old["valuation_rate"]:
+            print(f"Saved Item Code: {name} Changed Valuation Rate to {new['valuation_rate']}")
+        else:
+            print(f"Saved Item Code: {name} Changed Valuation Rate Date to {new['valuation_rate_date']}")
+
+
+def selling_item_valuation_rate_variant(item_doc, template_doc):
+    """
+    Updates the valuation rate of one selling variant from its Item Price (Item Price hook)
+    """
+    def_pl = get_default_price_list(template_doc)
+    if not def_pl or def_pl == "Not Possible":
+        print(f"No Default PL found for item {item_doc.name}")
+        return
+    price = get_sp_rates([item_doc.name], def_pl).get(item_doc.name)
+    if price:
+        changes = {}
+        add_change(changes, item_doc, price[0], template_doc, price[1].date())
+        write_changes(changes)
 
 
 def get_default_price_list(template_doc):
-    it_def = template_doc.item_defaults
-    def_pl = ""
     if len(template_doc.item_defaults) == 1:
-        for item_def_table in template_doc.item_defaults:
-            def_pl = item_def_table.default_price_list
-    else:
-        def_pl = "Not Possible"
-    return def_pl
-
-
-def get_sp_rate(item, price_list):
-    rate = frappe.db.sql("""SELECT price_list_rate, creation FROM `tabItem Price` WHERE item_code = '%s'  AND
-    price_list = '%s'""" % (item, price_list), as_list=1)
-    if rate:
-        return rate[0][0], rate[0][1]
+        return template_doc.item_defaults[0].default_price_list
+    return "Not Possible"
 
 
 def get_valuation_rate(t_doc, itpr):
