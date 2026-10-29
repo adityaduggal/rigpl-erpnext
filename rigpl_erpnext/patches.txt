@@ -74,3 +74,4 @@ rigpl_erpnext.patches.v13.remove_indiamart
 rigpl_erpnext.patches.v13.add_purchase_order_subcontracting_indexes
 rigpl_erpnext.patches.v13.add_communication_follow_up_index
 rigpl_erpnext.patches.v13.close_overdue_communication_follow_ups
+rigpl_erpnext.patches.v13.add_valuation_rate_rules

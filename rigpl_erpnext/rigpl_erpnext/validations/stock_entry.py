@@ -2,9 +2,11 @@
 from __future__ import unicode_literals
 import frappe
 import datetime as dt
-from frappe.utils import getdate, get_time
+from frappe.utils import flt, getdate, get_time
 from erpnext.stock.doctype.stock_entry.stock_entry import StockEntry
 from ...manufacturing_rigpl.utils.manufacturing_utils import get_bom_template_from_item
+from ...utils.item_attribute_utils import get_attribute_rows
+from ..scheduled_tasks.item_valuation_rate import get_cut_pcs_factor
 
 
 def validate(doc, method):
@@ -46,19 +48,66 @@ def update_valuation_rate(ste):
     """
     Updates the Valuation Rate for an Item some basic things to know
     - If Source Warehouse is Not ther then Get the Valuation Rate from Item Master
+    - A cut piece of a rod consumed in the same entry gets its rate from that rod (#155)
     """
+    item_codes = list({itm.item_code for itm in ste.items})
+    items = {
+        d.name: d
+        for d in frappe.get_all(
+            "Item", filters={"name": ["in", item_codes]},
+            fields=["name", "variant_of", "is_purchase_item", "valuation_rate"],
+        )
+    }
+    lengths = get_lengths(item_codes)
     for itm in ste.items:
         if not itm.s_warehouse:
-            itd = frappe.get_doc("Item", itm.item_code)
-            itm.basic_rate = itd.valuation_rate
-            itm.valuation_rate = itd.valuation_rate
-            itm.amount = itd.valuation_rate * itm.qty
-            itm.basic_amount = itd.valuation_rate * itm.qty
-            if itd.valuation_rate > 0:
+            vrate = get_cut_piece_rate(itm, ste.items, items, lengths)
+            if vrate is None:
+                vrate = flt(items[itm.item_code].valuation_rate)
+            itm.basic_rate = vrate
+            itm.valuation_rate = vrate
+            itm.amount = vrate * itm.qty
+            itm.basic_amount = vrate * itm.qty
+            if vrate > 0:
                 itm.allow_zero_valuation_rate = 0
             else:
                 itm.allow_zero_valuation_rate = 1
     StockEntry.set_total_incoming_outgoing_value(ste)
+
+
+def get_lengths(item_codes):
+    """
+    Returns {item_code: l1_mm} for the items which have the l1_mm attribute
+    """
+    lengths = {}
+    for item_code, rows in get_attribute_rows(item_codes).items():
+        for row in rows:
+            if row.attribute == "l1_mm" and flt(row.attribute_value) > 0:
+                lengths[item_code] = flt(row.attribute_value)
+    return lengths
+
+
+def get_cut_piece_rate(row, ste_rows, items, lengths):
+    """
+    Returns the rate of a purchase item cut from the longest rod of the same template that is
+    consumed in the same entry, as rod rate x length ratio x cut pieces factor. Returns None
+    if no such rod is consumed.
+    """
+    itd = items[row.item_code]
+    cut_len = lengths.get(row.item_code)
+    if not itd.is_purchase_item or not itd.variant_of or not cut_len:
+        return None
+    rods = [
+        d for d in ste_rows
+        if d.s_warehouse and not d.t_warehouse and flt(d.basic_rate) > 0
+        and items[d.item_code].variant_of == itd.variant_of
+        and lengths.get(d.item_code, 0) >= cut_len
+    ]
+    if not rods:
+        return None
+    rod = max(rods, key=lambda d: lengths[d.item_code])
+    rod_len = lengths[rod.item_code]
+    return flt(rod.basic_rate) * cut_len / rod_len * get_cut_pcs_factor(cut_len, rod_len)
 
 
 def check_stock_recon(ste):
