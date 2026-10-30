@@ -20,6 +20,7 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     split_allowed_values,
 )
 from rigpl_erpnext.tests.test_variant_table import insert_item
+from rigpl_erpnext.utils.guide_utils import get_user_guide
 from rohit_common.utils.query_guard import assert_max_queries
 
 
@@ -121,6 +122,18 @@ class TestRoundUpQty(FrappeTestCase):
         self.assertEqual(round_up_qty(26.06158079999999), 27)
         self.assertEqual(round_up_qty(26.0000001), 26)
         self.assertEqual(round_up_qty(26), 26)
+
+
+class TestUserGuide(FrappeTestCase):
+    def tearDown(self):
+        frappe.set_user("Administrator")
+
+    def test_guides(self):
+        self.assertIn("<h1", get_user_guide("bom_templates"))
+        self.assertIn("<h1", get_user_guide("process_sheet"))
+        self.assertRaises(frappe.ValidationError, get_user_guide, "../../hooks")
+        frappe.set_user("Guest")
+        self.assertRaises(frappe.PermissionError, get_user_guide, "process_sheet")
 
 
 class TestFgRulesCache(FrappeTestCase):

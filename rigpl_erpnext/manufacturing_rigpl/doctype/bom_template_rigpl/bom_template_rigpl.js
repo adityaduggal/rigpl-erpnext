@@ -15,6 +15,14 @@ frappe.ui.form.on('BOM Template RIGPL', {
 		});
 	},
 	refresh: function(frm){
+		frm.add_custom_button(__("BOM Template Guide"), function() {
+			frappe.call({method: "rigpl_erpnext.utils.guide_utils.get_user_guide", args: {guide: "bom_templates"}}).then(r => {
+				const dialog = new frappe.ui.Dialog({title: __("How to make a BOM Template"), size: "large",
+					fields: [{fieldtype: "HTML", fieldname: "guide"}]});
+				dialog.fields_dict.guide.$wrapper.html(r.message);
+				dialog.show();
+			});
+		}, __("Help"));
 		if (frm.is_new()) return;
 		const count = (docstatus) => frappe.db.count("Process Sheet", {filters: {bom_template: frm.doc.name, docstatus: docstatus}});
 		Promise.all([count(1), frm.doc.disabled ? count(0) : 0]).then(([submitted, drafts]) => {

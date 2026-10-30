@@ -3,6 +3,14 @@
 
 frappe.ui.form.on("Process Sheet", {
     refresh: function(frm) {
+        frm.add_custom_button(__("Process Sheet Guide"), function() {
+            frappe.call({method: "rigpl_erpnext.utils.guide_utils.get_user_guide", args: {guide: "process_sheet"}}).then(r => {
+                const dialog = new frappe.ui.Dialog({title: __("How to use a Process Sheet"), size: "large",
+                    fields: [{fieldtype: "HTML", fieldname: "guide"}]});
+                dialog.fields_dict.guide.$wrapper.html(r.message);
+                dialog.show();
+            });
+        }, __("Help"));
         if (frm.doc.show_unavailable_rm !== 1 && frm.doc.rm_consumed) {
             var rm = frm.doc.rm_consumed;
             var i = rm.length;
