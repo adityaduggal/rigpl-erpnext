@@ -91,6 +91,7 @@ class ProcessSheet(Document):
         self.validate_other_psheet(itd)
         if not self.flags.ignore_mandatory:
             disallow_templates(self, itd)
+            self.reset_disabled_template()
             # One template lookup per save: the list gives the template and
             # total_applicable_bom_templates
             bom_templates = get_bom_template_from_item(itd, self.sales_order_item)
@@ -103,6 +104,33 @@ class ProcessSheet(Document):
             else:
                 bom_tmp_doc = frappe.get_doc("BOM Template RIGPL", bom_tmp_name[0])
                 self.update_ps_fields(bom_tmp_doc, itd, bom_templates)
+
+    def before_submit(self):
+        if frappe.db.get_value("BOM Template RIGPL", self.bom_template, "disabled"):
+            frappe.throw(
+                f"{frappe.get_desk_link('BOM Template RIGPL', self.bom_template)} is disabled. "
+                f"Select another BOM Template to submit {self.name}.",
+                title="Disabled BOM Template",
+            )
+
+    def reset_disabled_template(self):
+        """
+        A disabled template is cleared with its operations, RM and WIP rows. The save then picks
+        the first active template that matches the item, and makes the rows again.
+        """
+        if not self.bom_template or not frappe.db.get_value(
+            "BOM Template RIGPL", self.bom_template, "disabled"
+        ):
+            return
+        frappe.msgprint(
+            f"{frappe.get_desk_link('BOM Template RIGPL', self.bom_template)} is disabled. "
+            f"The first active BOM Template for {self.production_item} is selected in its place.",
+            title="Disabled BOM Template Changed",
+        )
+        self.bom_template = None
+        self.routing = None
+        for table in ("operations", "rm_consumed", "item_manufactured"):
+            self.set(table, [])
 
     def validate_other_psheet(self, it_doc=None):
         if self.production_item:

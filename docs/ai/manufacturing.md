@@ -12,6 +12,7 @@
 - Reports: `manufacturing_rigpl/report/` (bom_templates, items_for_production, items_without_bom_templates, process_sheet_analysis, production_and_planning_report_rigpl).
 
 Work in progress: epic #165, "Manufacturing crons and BOM Templates", a sub-issue of #143.
-- Order: #166 → #145 → #160 → (#149, #146, #147) → #161, and #162 → #163 → #164.
+- Order: #166 → #145 → #160 → (#149, #146, #147) → #161, and #162 → #183 → #163 → #164 → #185. #184 after #162 and #183. #186 in parallel.
+- #183 RM rows must pass the template RM rules. #184 cost ranking of template + RM options (override needs a reason and a role). #185 merge warning on submit. #186 BOM Template guide as a Help Article.
 - Target design: one 30-minute long-queue pipeline that replaces the `all` and hourly hooks.
 - BOM Templates get multi-value rules. Old templates are disabled, never deleted.

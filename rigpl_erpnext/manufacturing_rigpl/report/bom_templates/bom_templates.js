@@ -39,6 +39,12 @@ frappe.query_reports["BOM Templates"] = {
 			"reqd": 0,
 			"ignore_link_validation": true,
 			"get_query": function(){ return {query: "rigpl_erpnext.utils.attribute_query.attribute_spl_query"}}
+		},
+		{
+			"fieldname":"show_disabled",
+			"label": "Show Disabled",
+			"fieldtype": "Check",
+			"default": 0
 		}
 	],
 	"formatter": rigpl_erpnext.report.blank_zero_formatter,

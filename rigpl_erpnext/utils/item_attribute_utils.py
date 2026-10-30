@@ -17,7 +17,7 @@ Made to Order Item Attributes; `get_attribute_rows(..., parenttype=...)` reads t
 """
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import frappe
 from frappe.query_builder.functions import CustomFunction, Max
@@ -43,19 +43,25 @@ ROW_FIELDS = (
 )
 
 
-def attribute_filters(item_field: Term, values: Dict[str, Optional[str]]) -> Criterion:
+def attribute_filters(
+    item_field: Term, values: Dict[str, Union[None, str, List[str]]]
+) -> Criterion:
     """Return a criterion: `item_field` is an item that has each attribute value in `values`.
-    An empty or None value is not a filter."""
+    A list value matches any of its values. An empty or None value is not a filter."""
     iva = frappe.qb.DocType("Item Variant Attribute")
     criteria = []
     for attribute, value in values.items():
         if not value:
             continue
+        if isinstance(value, (list, tuple, set)):
+            value_match = iva.attribute_value.isin(list(value))
+        else:
+            value_match = iva.attribute_value == value
         items = (
             frappe.qb.from_(iva)
             .select(iva.parent)
             .where(iva.attribute == attribute)
-            .where(iva.attribute_value == value)
+            .where(value_match)
             .where(iva.parenttype == "Item")
         )
         criteria.append(item_field.isin(items))

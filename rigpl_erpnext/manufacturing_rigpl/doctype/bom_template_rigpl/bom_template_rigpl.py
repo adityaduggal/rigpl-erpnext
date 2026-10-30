@@ -5,6 +5,10 @@
 from __future__ import unicode_literals
 import frappe
 from rigpl_erpnext.utils.item_utils import get_desc, check_text_attributes
+from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
+    clear_fg_rules_cache,
+    split_allowed_values,
+)
 from frappe.model.document import Document
 
 
@@ -71,6 +75,12 @@ class BOMTemplateRIGPL(Document):
                 frappe.msgprint("Please set the Final Warehouse in Row# {} of Operations Table for "
                                 "Operation {}".format(d.idx, d.operation))
 
+    def on_update(self):
+        clear_fg_rules_cache()
+
+    def on_trash(self):
+        clear_fg_rules_cache()
+
     def validate_length_oal(self):
         if self.length_formula == 1:
             fg_oal, rm_oal, wip_oal = 0, 0, 0
@@ -114,7 +124,10 @@ class BOMTemplateRIGPL(Document):
                 else:
                     if d.attribute not in att_docs:
                         att_docs[d.attribute] = frappe.get_doc("Item Attribute", d.attribute)
-                    check_text_attributes(att_doc=att_docs[d.attribute], att_value=d.allowed_values, error=0)
+                    values = sorted(split_allowed_values(d.allowed_values))
+                    for value in values:
+                        check_text_attributes(att_doc=att_docs[d.attribute], att_value=value, error=0)
+                    d.allowed_values = "\n".join(values)
                     d.rule = ""
 
     def validate_operations(self, operations):
@@ -133,7 +146,8 @@ class BOMTemplateRIGPL(Document):
         rule = 0
         for d in self.fg_restrictions:
             if d.is_numeric != 1:
-                desc = get_desc(d.attribute, d.allowed_values)
+                desc = " / ".join(get_desc(d.attribute, value) or value
+                                  for value in sorted(split_allowed_values(d.allowed_values)))
                 if d.idx == 1:
                     title += desc
                 else:

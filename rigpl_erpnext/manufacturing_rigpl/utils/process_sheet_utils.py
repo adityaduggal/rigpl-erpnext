@@ -10,10 +10,12 @@ from datetime import date
 import frappe
 from frappe import _
 from frappe.query_builder.functions import Sum
-from frappe.utils import flt
+from frappe.utils import cint, flt
+from pypika.terms import Criterion
 
 from ...utils.batch_write_utils import bulk_set_values
 from ...utils.item_attribute_utils import chunks
+from ...utils.item_utils import get_item_attributes
 from ...utils.stock_utils import get_quantities_for_item
 from .job_card_utils import (
     check_existing_job_card,
@@ -25,9 +27,9 @@ from .job_card_utils import (
 )
 from .manufacturing_utils import (
     check_jc_needed_for_ps,
-    convert_rule_to_mysql_statement,
-    convert_wip_rule_to_mysql_statement,
     get_bom_template_from_item,
+    get_items_for_rules,
+    get_known_item_attributes,
     update_planned_qty,
     update_qty_for_prod,
 )
@@ -353,94 +355,27 @@ def disallow_templates(doc, item_doc):
 def get_req_sizes_from_template(
     bom_temp_name, item_type_list, table_name, allow_zero_rol=None, ps_name=None
 ):
-    # Item Type List is in Format [{known_item: 'Item Name', known_type = 'fg'},{known_item: "Item Name2",
-    # known_type="rm"}]
-    if allow_zero_rol == 1:
-        rol_cond = ""
-    else:
-        rol_cond = " AND rol.warehouse_reorder_level > 0"
+    # Item Type List is in Format [{known_item: 'Item Name', 'Item Name': 'fg', unknown_type: 'rm'}]
     bt_doc = frappe.get_doc("BOM Template RIGPL", bom_temp_name)
-    att_join = ""
-    att_cond = ""
-    for d in bt_doc.get(table_name):
-        att_table = d.attribute.replace(" ", "")
-        if d.is_numeric != 1:
-            if d.allowed_values != "No":
-                att_cond += " AND %s.attribute_value = '%s'" % (
-                    att_table,
-                    d.allowed_values,
-                )
-                att_join += (
-                    " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent "
-                    "AND %s.parenttype = 'Item' AND %s.attribute = '%s'"
-                    % (att_table, att_table, att_table, att_table, d.attribute)
-                )
-        else:
-            for item in item_type_list:
-                att_cond += convert_rule_to_mysql_statement(
-                    d.rule, item, process_sheet_name=ps_name
-                )
-                att_join += (
-                    " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent AND %s.parenttype = "
-                    "'Item' AND %s.attribute = '%s'"
-                    % (att_table, att_table, att_table, att_table, d.attribute)
-                )
-
-    query = """SELECT it.name, it.description FROM `tabItem` it LEFT JOIN `tabItem Reorder` rol ON
-    it.parenttype = 'Item' AND it.parent = it.name %s WHERE it.disabled = 0 AND it.end_of_life >= CURDATE() %s %s""" % (
-        att_join,
-        att_cond,
-        rol_cond,
-    )
-    it_dict = frappe.db.sql(query, as_dict=1)
-    return it_dict
+    known, unknown_type = {}, None
+    for item in item_type_list:
+        it_name = item.get("known_item")
+        known[item.get(it_name)] = get_known_item_attributes(it_name, ps_name)
+        unknown_type = item.get("unknown_type")
+    return get_items_for_rules(bt_doc.get(table_name), known, unknown_type, allow_zero_rol)
 
 
 def get_req_wip_sizes_from_template(
     bom_temp_name, fg_item, rm_item, table_name, process_sheet_name, allow_zero_rol=None
 ):
-    if allow_zero_rol == 1:
-        rol_cond = ""
-    else:
-        rol_cond = " AND rol.warehouse_reorder_level > 0"
     bt_doc = frappe.get_doc("BOM Template RIGPL", bom_temp_name)
-    if bt_doc.get(table_name):
-        att_join = ""
-        att_cond = ""
-        for d in bt_doc.get(table_name):
-            att_table = d.attribute.replace(" ", "")
-            if d.is_numeric != 1:
-                if d.allowed_values != "No":
-                    att_cond += " AND %s.attribute_value = '%s'" % (
-                        att_table,
-                        d.allowed_values,
-                    )
-                    att_join += (
-                        " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent "
-                        "AND %s.parenttype = 'Item' AND %s.attribute = '%s'"
-                        % (att_table, att_table, att_table, att_table, d.attribute)
-                    )
-            else:
-                att_cond += convert_wip_rule_to_mysql_statement(
-                    d.rule, fg_item, rm_item, process_sheet_name
-                )
-                att_join += (
-                    " LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent "
-                    "AND %s.parenttype = 'Item' AND %s.attribute = '%s'"
-                    % (att_table, att_table, att_table, att_table, d.attribute)
-                )
-
-        query = """SELECT it.name, it.description FROM `tabItem` it LEFT JOIN `tabItem Reorder` rol ON
-        rol.parenttype = 'Item' AND rol.parent = it.name %s WHERE it.disabled = 0 AND it.end_of_life >= CURDATE() %s %s
-        """ % (
-            att_join,
-            att_cond,
-            rol_cond,
-        )
-        it_dict = frappe.db.sql(query, as_dict=1)
-    else:
-        it_dict = {}
-    return it_dict
+    if not bt_doc.get(table_name):
+        return {}
+    known = {
+        "fg": get_known_item_attributes(fg_item, process_sheet_name),
+        "rm": get_item_attributes(rm_item),
+    }
+    return get_items_for_rules(bt_doc.get(table_name), known, "wip", allow_zero_rol)
 
 
 def update_item_table(item_dict, table_name, document):
@@ -613,19 +548,41 @@ def unstop_process_sheet(ps_name):
 
 @frappe.whitelist()
 def get_bom_template_from_item_name(
-    doctype, txt, searchfield, start, page_len, filters, as_dict
+    doctype, txt, searchfield, start, page_len, filters, as_dict=False
 ):
-    so_detail = filters.get("so_detail")
+    """
+    Link query of the BOM Template dialog on the Process Sheet. Returns the templates that match
+    the item, in the matcher order. The typed text is searched in the name and in the search
+    fields of BOM Template RIGPL (Customize Form can change them).
+    """
+    if isinstance(filters, str):
+        filters = frappe.parse_json(filters)
+    filters = filters or {}
     it_doc = frappe.get_doc("Item", filters.get("it_name"))
-    bt_list = get_bom_template_from_item(it_doc, so_detail)
+    bt_list = get_bom_template_from_item(it_doc, filters.get("so_detail"))
     if not bt_list:
         frappe.throw("NO BOM Template Found")
+    meta = frappe.get_meta("BOM Template RIGPL")
+    fields = [
+        field.strip()
+        for field in (meta.search_fields or "").split(",")
+        if field.strip() and meta.has_field(field.strip())
+    ]
     bt = frappe.qb.DocType("BOM Template RIGPL")
-    return (
+    query = (
         frappe.qb.from_(bt)
-        .select(bt.name, bt.title, bt.remarks)
+        .select(bt.name, *[getattr(bt, field) for field in fields])
         .where(bt.name.isin(list(bt_list)))
-        .run(as_dict=as_dict)
     )
+    if txt:
+        like = "%{}%".format(txt)
+        query = query.where(
+            Criterion.any([bt.name.like(like)] + [getattr(bt, field).like(like) for field in fields])
+        )
+    rows = list(query.run(as_dict=cint(as_dict)))
+    order = {name: idx for idx, name in enumerate(bt_list)}
+    rows.sort(key=lambda row: order[row["name"] if cint(as_dict) else row[0]])
+    start = cint(start)
+    return rows[start : start + (cint(page_len) or 20)]
 
 

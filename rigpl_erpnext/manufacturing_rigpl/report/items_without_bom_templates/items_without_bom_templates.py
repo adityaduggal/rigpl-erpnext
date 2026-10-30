@@ -4,11 +4,7 @@
 from __future__ import unicode_literals
 
 import frappe
-from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
-    get_fg_restriction_rules,
-    match_bom_templates,
-)
-from rigpl_erpnext.utils.item_attribute_utils import get_attribute_rows
+from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import match_bom_templates_bulk
 
 
 def execute(filters=None):
@@ -33,10 +29,9 @@ def get_data(filters):
     """
     data = []
     items = get_items(filters)
-    rules = get_fg_restriction_rules()
-    att_rows = get_attribute_rows([d.name for d in items])
+    matched = match_bom_templates_bulk([d.name for d in items])
     for d in items:
-        bt_name = match_bom_templates(rules, att_rows.get(d.name, []))
+        bt_name = matched[d.name]
         bt_names_concat = " "
         if bt_name:
             if len(bt_name) == 1:

@@ -4,9 +4,21 @@ from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import match_existing_job_cards
 from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
+    FG_RULES_CACHE_KEY,
+    clear_fg_rules_cache,
+    get_candidate_templates,
+    get_fg_restriction_rules,
+    get_items_for_rules,
     get_produced_qty_changes,
+    get_template_usage,
     match_bom_templates,
+    match_bom_templates_bulk,
+    prepare_fg_rules,
+    rule_passes,
+    split_allowed_values,
 )
+from rigpl_erpnext.tests.test_variant_table import insert_item
+from rohit_common.utils.query_guard import assert_max_queries
 
 
 def att(attribute, value, numeric=0):
@@ -20,6 +32,10 @@ def rule(attribute, allowed="", numeric=0, formula=""):
 ITEM = [att("Base Material", "HSS"), att("Tool Type", "Drill"), att("d1_mm", "6", numeric=1)]
 
 
+def match(rules, item, priority=None, usage=None):
+    return match_bom_templates(prepare_fg_rules(rules, priority), item, usage)
+
+
 class TestMatchBomTemplates(FrappeTestCase):
     def test_text_rules(self):
         rules = {
@@ -27,26 +43,139 @@ class TestMatchBomTemplates(FrappeTestCase):
             "BT2": [rule("Base Material", "HSS"), rule("Tool Type", "Reamer")],
             "BT3": [rule("Base Material", "Carbide")],
         }
-        self.assertEqual(match_bom_templates(rules, ITEM), ["BT1"])
+        self.assertEqual(match(rules, ITEM), ["BT1"])
 
     def test_missing_attribute_does_not_match(self):
         rules = {"BT1": [rule("Base Material", "HSS"), rule("Series", "C3HS")]}
-        self.assertEqual(match_bom_templates(rules, ITEM), [])
+        self.assertEqual(match(rules, ITEM), [])
 
     def test_template_without_rules_matches_all(self):
-        self.assertEqual(match_bom_templates({"BT1": []}, ITEM), ["BT1"])
-        self.assertEqual(match_bom_templates({"BT1": []}, []), ["BT1"])
+        self.assertEqual(match({"BT1": []}, ITEM), ["BT1"])
+        self.assertEqual(match({"BT1": []}, []), ["BT1"])
 
     def test_numeric_rule(self):
         rules = {
             "BT1": [rule("Base Material", "HSS"), rule("d1_mm", numeric=1, formula="fg_d1_mm >= 5")],
             "BT2": [rule("Base Material", "HSS"), rule("d1_mm", numeric=1, formula="fg_d1_mm > 10")],
         }
-        self.assertEqual(match_bom_templates(rules, ITEM), ["BT1"])
+        self.assertEqual(match(rules, ITEM), ["BT1"])
 
-    def test_order_follows_rules(self):
-        rules = {"BT2": [rule("Tool Type", "Drill")], "BT1": [rule("Base Material", "HSS")]}
-        self.assertEqual(match_bom_templates(rules, ITEM), ["BT2", "BT1"])
+    def test_multi_value_rule(self):
+        rules = {
+            "BT1": [rule("Base Material", "Carbide\nHSS"), rule("Tool Type", "Reamer\n Drill ")],
+            "BT2": [rule("Base Material", "Carbide\nCobalt")],
+        }
+        self.assertEqual(match(rules, ITEM), ["BT1"])
+        self.assertEqual(split_allowed_values(" A\n\nB \n"), {"A", "B"})
+
+    def test_sort_priority_then_item_usage_then_name(self):
+        rules = {name: [rule("Base Material", "HSS")] for name in ("BT4", "BT3", "BT2", "BT1")}
+        self.assertEqual(match(rules, ITEM), ["BT1", "BT2", "BT3", "BT4"])
+        self.assertEqual(
+            match(rules, ITEM, priority={"BT4": 5}, usage={"BT3": 9, "BT2": 2, "BT4": 1}),
+            ["BT4", "BT3", "BT2", "BT1"],
+        )
+
+    def test_index_checks_only_the_item_key(self):
+        rules = {
+            "BT1": [rule("Base Material", "HSS"), rule("Tool Type", "Drill")],
+            "BT2": [rule("Base Material", "HSS"), rule("Tool Type", "Reamer\nTap")],
+            "BT3": [rule("Tool Type", "Drill")],
+            "BT4": [rule("Base Material", "Carbide")],
+            "BT5": [],
+        }
+        self.assertEqual(get_candidate_templates(prepare_fg_rules(rules), ITEM), {"BT1", "BT3", "BT5"})
+
+
+class TestRuleCheck(FrappeTestCase):
+    def test_rule_passes(self):
+        values = {"rm_d1_mm": 6.0, "fg_d1_mm": 4.5}
+        self.assertTrue(rule_passes("rm_d1_mm == fg_d1_mm + 1.5", values))
+        self.assertTrue(rule_passes("rm_d1_mm >= ceiling(fg_d1_mm)  and  rm_d1_mm <= 6", values))
+        self.assertFalse(rule_passes("rm_d1_mm < CEILING(fg_d1_mm)", values))
+
+    def test_missing_value_does_not_pass(self):
+        self.assertFalse(rule_passes("rm_l1_mm > 5", {"rm_d1_mm": 6.0}))
+
+
+class TestFgRulesCache(FrappeTestCase):
+    def tearDown(self):
+        clear_fg_rules_cache()
+
+    def test_cache_is_used_and_cleared(self):
+        clear_fg_rules_cache()
+        get_fg_restriction_rules()
+        self.assertIsNotNone(frappe.cache().get_value(FG_RULES_CACHE_KEY))
+        with assert_max_queries(0, test_case=self):
+            get_fg_restriction_rules()
+        clear_fg_rules_cache()
+        self.assertIsNone(frappe.cache().get_value(FG_RULES_CACHE_KEY))
+
+    def test_disabled_template_is_not_read(self):
+        disabled = frappe.get_all("BOM Template RIGPL", filters={"disabled": 1}, pluck="name")
+        if not disabled:
+            self.skipTest("No disabled BOM Template on this site")
+        clear_fg_rules_cache()
+        self.assertFalse(set(disabled) & set(get_fg_restriction_rules()["rules"]))
+
+
+class TestMatchBomTemplatesBulk(FrappeTestCase):
+    def test_bulk_is_same_as_single_with_fixed_queries(self):
+        items = frappe.get_all(
+            "Item",
+            filters={"disabled": 0, "include_item_in_manufacturing": 1, "variant_of": ("is", "set")},
+            pluck="name",
+            limit=50,
+        )
+        if not items:
+            self.skipTest("No manufacturing variants on this site")
+        match_bom_templates_bulk(items[:1])
+        # 1 attribute query and 1 usage query for the chunk; the rules come from the cache
+        with assert_max_queries(2, test_case=self):
+            bulk = match_bom_templates_bulk(items)
+        prepared = get_fg_restriction_rules()
+        usage = get_template_usage(items)
+        for item in items:
+            single = match_bom_templates(prepared, frappe.get_all(
+                "Item Variant Attribute",
+                filters={"parent": item, "parenttype": "Item"},
+                fields=["attribute", "attribute_value", "numeric_values"],
+                order_by="idx",
+            ), usage.get(item))
+            self.assertEqual(bulk[item], single, item)
+
+
+TEST_BM = "_Test RIGPL BM"
+
+
+class TestItemsForRules(FrappeTestCase):
+    def setUp(self):
+        for name, d1, l1 in (("_Test RIGPL RM 6x50", "6", "50"), ("_Test RIGPL RM 8x50", "8", "50"),
+                             ("_Test RIGPL RM 6x20", "6", "20")):
+            insert_item(name, variant_of="_Test RIGPL RM", attributes=[
+                ("Base Material", TEST_BM), ("d1_mm", d1), ("l1_mm", l1)])
+            frappe.db.set_value("Item", name, "end_of_life", "2099-12-31")
+        insert_item("_Test RIGPL RM other", variant_of="_Test RIGPL RM", attributes=[
+            ("Base Material", "_Test RIGPL other"), ("d1_mm", "6"), ("l1_mm", "50")])
+        frappe.db.set_value("Item", "_Test RIGPL RM other", "end_of_life", "2099-12-31")
+
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_text_and_numeric_rules(self):
+        restrictions = [
+            rule("Base Material", TEST_BM + "2\n" + TEST_BM),
+            rule("d1_mm", numeric=1, formula="rm_d1_mm == fg_d2_mm || rm_d1_mm == fg_d2_mm + 2"),
+            rule("l1_mm", numeric=1, formula="rm_l1_mm >= fg_l2_mm"),
+        ]
+        known = {"fg": [att("d2_mm", "6", 1), att("l2_mm", "40", 1)]}
+        names = [d.name for d in get_items_for_rules(restrictions, known, "rm", allow_zero_rol=1)]
+        self.assertEqual(names, ["_Test RIGPL RM 6x50", "_Test RIGPL RM 8x50"])
+
+    def test_no_value_is_not_a_filter_and_rol_filter(self):
+        restrictions = [rule("Base Material", TEST_BM), rule("Tool Type", "No")]
+        self.assertEqual(len(get_items_for_rules(restrictions, {}, "rm", allow_zero_rol=1)), 3)
+        self.assertEqual(get_items_for_rules(restrictions, {}, "rm", allow_zero_rol=0), [])
 
 
 def op(operation, consume=0):

@@ -10,10 +10,11 @@ import re
 import frappe
 from erpnext.stock.stock_balance import update_bin_qty
 from frappe import _
-from frappe.query_builder.functions import Sum
-from frappe.utils import flt
+from frappe.query_builder.functions import Count, Sum
+from frappe.utils import add_years, cint, flt, nowdate
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
+from ...utils.item_attribute_utils import attribute_filters, chunks, get_attribute_rows
 from ...utils.item_utils import get_item_attributes
 from ...utils.other_utils import auto_round_down, auto_round_up, round_up
 from ...utils.sales_utils import get_pending_so_qty_from_soitem
@@ -226,67 +227,86 @@ def find_item_quantities(item_dict):
     return availability
 
 
-def convert_wip_rule_to_mysql_statement(
-    rule, fg_item, rm_item, process_sheet_name=None
-):
-    new_rule = replace_java_to_mysql(rule)
-    fg_item_doc = frappe.get_doc("Item", fg_item)
-    if not fg_item_doc.variant_of:
-        ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(
-            item_name=fg_item, so_detail=ps_doc.sales_order_item, docstatus=1
-        )
-        fg_att_dict = get_special_item_attributes(
-            fg_item, special_item_attr_doc[0].name
-        )
-    else:
-        fg_att_dict = get_item_attributes(fg_item)
-    rm_att_dict = get_item_attributes(rm_item)
-    res = re.findall(r"\w+", rule)
-    for word in res:
-        if word[:3] == "fg_":
-            for d in fg_att_dict:
-                if d.attribute == word[3:]:
-                    new_rule = new_rule.replace(word, d.attribute_value)
-        elif word[:3] == "rm_":
-            for d in rm_att_dict:
-                if d.attribute == word[3:]:
-                    new_rule = new_rule.replace(word, d.attribute_value)
-        if word[:4] == "wip_":
-            new_rule = new_rule.replace(word, word[4:] + ".attribute_value")
-    new_rule = " AND " + new_rule
-    return new_rule
+# SQL functions that the RM and WIP rules use
+RULE_FUNCTIONS = {"ceiling": math.ceil, "CEILING": math.ceil}
+RULE_KEYWORDS = {"and", "or", "not", "True", "False"}
 
 
-def convert_rule_to_mysql_statement(rule, it_dict, process_sheet_name=None):
-    new_rule = replace_java_to_mysql(rule)
-    it_name = it_dict.get("known_item")
-    it_doc = frappe.get_doc("Item", it_name)
-    if not it_doc.variant_of:
-        ps_doc = frappe.get_doc("Process Sheet", process_sheet_name)
-        special_item_attr_doc = get_special_item_attribute_doc(
-            item_name=it_name, so_detail=ps_doc.sales_order_item, docstatus=1
-        )
-        known_it_att_dict = get_special_item_attributes(
-            it_name, special_item_attr_doc[0].name
-        )
-    else:
-        known_it_att_dict = get_item_attributes(it_name)
-    known_type = it_dict.get(it_name)
-    unknown_type = it_dict.get("unknown_type")
-    res = re.findall(r"\w+", rule)
-    for word in res:
-        if word[: len(known_type) + 1] == known_type + "_":
-            for d in known_it_att_dict:
-                if d.attribute == word[len(known_type) + 1 :]:
-                    new_rule = new_rule.replace(word, d.attribute_value)
+def get_known_item_attributes(item_name, process_sheet_name=None):
+    """
+    Returns the attribute rows of a known item of a rule. A special item (not a variant) uses the
+    submitted Made to Order Item Attributes of the Sales Order Item of the Process Sheet.
+    """
+    if frappe.db.get_value("Item", item_name, "variant_of"):
+        return get_item_attributes(item_name)
+    so_detail = frappe.db.get_value("Process Sheet", process_sheet_name, "sales_order_item")
+    special = get_special_item_attribute_doc(item_name=item_name, so_detail=so_detail, docstatus=1)
+    return get_special_item_attributes(item_name, special[0].name)
 
-        if word[: len(unknown_type) + 1] == unknown_type + "_":
-            new_rule = new_rule.replace(
-                word, word[len(unknown_type) + 1 :] + ".attribute_value"
+
+def get_items_for_rules(restrictions, known, unknown_prefix, allow_zero_rol=None):
+    """
+    Returns [{name, description}] of the active items that pass all `restrictions` (the RM or WIP
+    rows of a BOM Template). `known` is {prefix: attribute rows}, for example {"fg": rows}.
+    A non-numeric rule filters in SQL, and "No" is not a filter. A numeric rule is checked in
+    Python with the known values and the `<unknown_prefix>_` values of each item.
+    """
+    text_values, numeric_rules = {}, []
+    for row in restrictions:
+        if row.is_numeric == 1:
+            numeric_rules.append(replace_java_chars(row.rule or ""))
+        elif row.allowed_values != "No":
+            values = split_allowed_values(row.allowed_values)
+            if not values:
+                return []
+            text_values[row.attribute] = list(values)
+    it = frappe.qb.DocType("Item")
+    query = (
+        frappe.qb.from_(it)
+        .select(it.name, it.description)
+        .where(it.disabled == 0)
+        .where(it.end_of_life >= nowdate())
+        .where(attribute_filters(it.name, text_values))
+        .orderby(it.name)
+    )
+    if allow_zero_rol != 1:
+        rol = frappe.qb.DocType("Item Reorder")
+        query = query.where(
+            it.name.isin(
+                frappe.qb.from_(rol)
+                .select(rol.parent)
+                .where(rol.parenttype == "Item")
+                .where(rol.warehouse_reorder_level > 0)
             )
-    new_rule = " AND " + new_rule
-    return new_rule
+        )
+    items = query.run(as_dict=True)
+    if not numeric_rules or not items:
+        return items
+    known_values = {
+        f"{prefix}_{att.attribute}": flt(att.attribute_value)
+        for prefix, rows in known.items()
+        for att in rows
+    }
+    att_rows = get_attribute_rows([d.name for d in items])
+    passed = []
+    for item in items:
+        values = dict(known_values)
+        for att in att_rows.get(item.name, []):
+            values[f"{unknown_prefix}_{att.attribute}"] = flt(att.attribute_value)
+        if all(rule_passes(rule, values) for rule in numeric_rules):
+            passed.append(item)
+    return passed
+
+
+def rule_passes(rule, values):
+    """
+    Returns True when the Python `rule` is true for `values`. A rule that needs a value that is not
+    in `values` is false, as in SQL, where the missing attribute value is NULL.
+    """
+    names = set(re.findall(r"[A-Za-z_]\w*", rule)) - set(RULE_FUNCTIONS) - RULE_KEYWORDS
+    if names - values.keys():
+        return False
+    return bool(calculate_formula_values(rule, dict(values, **RULE_FUNCTIONS)))
 
 
 def get_special_item_attributes(it_name, special_item_attribute):
@@ -304,7 +324,9 @@ def get_bom_template_from_item(item_doc, so_detail=None, no_error=0):
     bom_template = {}
     if item_doc.variant_of:
         it_att_dict = get_item_attributes(item_doc.name)
-        bom_template = get_bom_temp_from_it_att(item_doc, it_att_dict)
+        bom_template = get_bom_temp_from_it_att(
+            item_doc, it_att_dict, get_template_usage([item_doc.name]).get(item_doc.name)
+        )
         if not bom_template:
             if no_error == 0:
                 frappe.throw("No BOM Template found for Item: {}".format(item_doc.name))
@@ -371,14 +393,60 @@ def get_special_item_attribute_doc(item_name, so_detail, docstatus=1):
     )
 
 
-def get_bom_temp_from_it_att(item_doc, att_dict):
-    return match_bom_templates(get_fg_restriction_rules(), att_dict)
+def get_bom_temp_from_it_att(item_doc, att_dict, usage=None):
+    return match_bom_templates(get_fg_restriction_rules(), att_dict, usage)
+
+
+USAGE_YEARS = 2
+
+
+def get_template_usage(items):
+    """
+    Returns {item: {template: count}} of the submitted Process Sheets of the last 2 years, in 1
+    grouped query per chunk.
+    """
+    ps = frappe.qb.DocType("Process Sheet")
+    usage = {}
+    for chunk in chunks(items):
+        for item, template, count in (
+            frappe.qb.from_(ps)
+            .select(ps.production_item, ps.bom_template, Count("*"))
+            .where(ps.docstatus == 1)
+            .where(ps.date >= add_years(nowdate(), -USAGE_YEARS))
+            .where(ps.production_item.isin(chunk))
+            .groupby(ps.production_item, ps.bom_template)
+            .run()
+        ):
+            usage.setdefault(item, {})[template] = count
+    return usage
+
+
+FG_RULES_CACHE_KEY = "bom_template_fg_rules"
+# Templates are indexed on the exact values of these FG attributes
+INDEX_ATTRIBUTES = ("Base Material", "Tool Type")
+
+
+def split_allowed_values(value):
+    """Returns the set of values of a non-numeric rule, one value on each line."""
+    return {line.strip() for line in (value or "").splitlines() if line.strip()}
 
 
 def get_fg_restriction_rules():
     """
-    Returns {template: [FG restriction rows by idx]} for all BOM Templates by name, in one query.
-    A template with no FG restrictions has an empty list (it matches all items).
+    Returns the FG rules of the active BOM Templates, prepared by `prepare_fg_rules`. They are
+    kept in the cache, and BOM Template RIGPL clears the cache on save and delete.
+    """
+    return frappe.cache().get_value(FG_RULES_CACHE_KEY, read_fg_restriction_rules)
+
+
+def clear_fg_rules_cache():
+    frappe.cache().delete_value(FG_RULES_CACHE_KEY)
+
+
+def read_fg_restriction_rules():
+    """
+    Reads {template: [FG restriction rows by idx]} and the priority of the active templates
+    in one query. A template with no FG restrictions has an empty list (it matches all items).
     """
     bt = frappe.qb.DocType("BOM Template RIGPL")
     ivr = frappe.qb.DocType("Item Variant Restrictions")
@@ -391,30 +459,107 @@ def get_fg_restriction_rules():
             & (ivr.parentfield == "fg_restrictions")
         )
         .select(
-            bt.name.as_("template"), ivr.name.as_("row_name"), ivr.attribute, ivr.is_numeric,
-            ivr.allowed_values, ivr.rule,
+            bt.name.as_("template"), bt.priority, ivr.name.as_("row_name"), ivr.attribute,
+            ivr.is_numeric, ivr.allowed_values, ivr.rule,
         )
+        .where(bt.disabled == 0)
         .orderby(bt.name)
         .orderby(ivr.idx)
         .run(as_dict=True)
     )
-    rules = {}
+    rules, priority = {}, {}
     for row in rows:
-        restrictions = rules.setdefault(row.pop("template"), [])
+        template = row.pop("template")
+        priority[template] = cint(row.pop("priority"))
+        restrictions = rules.setdefault(template, [])
         if row.pop("row_name") is not None:
             restrictions.append(row)
-    return rules
+    return prepare_fg_rules(rules, priority)
 
 
-def match_bom_templates(rules, att_dict):
+def prepare_fg_rules(rules, priority=None):
     """
-    Returns the templates in `rules` whose FG restrictions all match the item attributes in
-    `att_dict`. The loops are the same as when each template was loaded with get_doc: the order
-    decides when a formula is evaluated, and a formula can throw.
+    Returns {"rules", "priority", "index"} for `match_bom_templates`. The index maps a
+    (Base Material, Tool Type) key to its templates. None in a key means that the template has
+    no rule for that attribute, so it can match any value.
+    """
+    index = {}
+    for template, restrictions in rules.items():
+        key_values = []
+        for attribute in INDEX_ATTRIBUTES:
+            values = set()
+            for row in restrictions:
+                if row.attribute == attribute and row.is_numeric != 1:
+                    values |= split_allowed_values(row.allowed_values)
+            key_values.append(values or {None})
+        for base_material in key_values[0]:
+            for tool_type in key_values[1]:
+                index.setdefault((base_material, tool_type), []).append(template)
+    return {"rules": rules, "priority": priority or {}, "index": index}
+
+
+def get_candidate_templates(prepared, att_dict):
+    values = {att.attribute: att.attribute_value for att in att_dict}
+    base_materials = (values.get(INDEX_ATTRIBUTES[0]), None)
+    tool_types = (values.get(INDEX_ATTRIBUTES[1]), None)
+    candidates = set()
+    for base_material in set(base_materials):
+        for tool_type in set(tool_types):
+            candidates.update(prepared["index"].get((base_material, tool_type), []))
+    return candidates
+
+
+def match_bom_templates_bulk(items, so_details=None):
+    """
+    Returns {item: [templates]} for variant items in `items`, with 1 cached rules read, and 1
+    attribute query and 1 usage query per chunk. Pass `so_details` as {item: Sales Order Item}
+    for special items: they use the attributes of their submitted Made to Order Item Attributes.
+    A special item code is shared by many Sales Orders, so its usage is not used.
+    """
+    so_details = so_details or {}
+    prepared = get_fg_restriction_rules()
+    variants = [item for item in items if item not in so_details]
+    att_rows = get_attribute_rows(variants)
+    usage = get_template_usage(variants)
+    matched = {
+        item: match_bom_templates(prepared, att_rows.get(item, []), usage.get(item))
+        for item in variants
+    }
+    if so_details:
+        mto = frappe.qb.DocType("Made to Order Item Attributes")
+        special_docs = {}
+        for chunk in chunks(so_details.values()):
+            for name, item, so_detail in (
+                frappe.qb.from_(mto)
+                .select(mto.name, mto.item_code, mto.sales_order_item)
+                .where(mto.docstatus == 1)
+                .where(mto.sales_order_item.isin(chunk))
+                .run()
+            ):
+                if so_details.get(item) == so_detail:
+                    special_docs.setdefault(item, name)
+        special_rows = get_attribute_rows(
+            special_docs.values(), parenttype="Made to Order Item Attributes"
+        )
+        for item in so_details:
+            doc = special_docs.get(item)
+            matched[item] = match_bom_templates(prepared, special_rows.get(doc, [])) if doc else []
+    return matched
+
+
+def match_bom_templates(prepared, att_dict, usage=None):
+    """
+    Returns the templates whose FG restrictions all match the item attributes in `att_dict`.
+    `prepared` comes from `prepare_fg_rules`. Only the templates of the item's index key are
+    checked. A non-numeric rule matches when the item value is one of its values.
+    The order is: the higher priority first, then the template that this item used most
+    (`usage` is {template: count} from `get_template_usage`), then name.
     """
     bt_list = []
     item_attributes = {att.attribute for att in att_dict}
-    for bt_name, fg_restrictions in rules.items():
+    rules = prepared["rules"]
+    for bt_name in sorted(get_candidate_templates(prepared, att_dict)):
+        fg_restrictions = rules[bt_name]
         total_score = len(fg_restrictions)
         match_score = 0
         exit_bt = 0
@@ -450,7 +595,7 @@ def match_bom_templates(rules, att_dict):
                             break
                     else:
                         if att.attribute == bt_rule.attribute and exit_bt != 1:
-                            if att.attribute_value == bt_rule.allowed_values:
+                            if att.attribute_value in split_allowed_values(bt_rule.allowed_values):
                                 match_score += 1
                                 break
                             else:
@@ -458,24 +603,9 @@ def match_bom_templates(rules, att_dict):
                                 break
         if match_score == total_score:
             bt_list.append(bt_name)
+    priority, usage = prepared["priority"], usage or {}
+    bt_list.sort(key=lambda name: (-priority.get(name, 0), -usage.get(name, 0), name))
     return bt_list
-
-
-def replace_java_to_mysql(string):
-    replace_dict = {
-        "false": "False",
-        "true": "True",
-        "&&": " and ",
-        "||": " or ",
-        "&gt;": ">",
-        "&lt;": "<",
-        "==": "=",
-        "!=": "!=",
-    }
-
-    for k, v in replace_dict.items():
-        string = string.replace(k, v)
-    return string
 
 
 def calculate_operation_time(ps_doc, rt_dict, fg_it_doc, rm_it_dict):

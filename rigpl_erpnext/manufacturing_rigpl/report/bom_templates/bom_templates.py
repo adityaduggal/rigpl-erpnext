@@ -16,7 +16,7 @@ def execute(filters=None):
     values = get_restriction_values(filters)
     attributes = get_column_attributes(filters)
     columns = get_columns(attributes)
-    data = get_data(attributes, values)
+    data = get_data(attributes, values, filters.get("show_disabled"))
     return columns, data
 
 
@@ -58,7 +58,7 @@ def get_column_attributes(filters):
                     frappe.qb.from_(match)
                     .select(match.parent)
                     .where(match.attribute == attribute)
-                    .where(match.allowed_values == filters[key])
+                    .where(allowed_value_match(match.allowed_values, filters[key]))
                 )
             )
     return sorted(row[0] for row in query.run())
@@ -66,7 +66,7 @@ def get_column_attributes(filters):
 
 def get_columns(attributes):
     meta = get_attribute_meta(attributes)
-    columns = ["BT Name:Link/BOM Template RIGPL:100"]
+    columns = ["BT Name:Link/BOM Template RIGPL:100", "Disabled:Check:70"]
     for attribute in attributes:
         max_length = meta[attribute].max_length if attribute in meta else 0
         columns.append("%s::%s" % (attribute, (max_length or 6) * 8))
@@ -74,15 +74,17 @@ def get_columns(attributes):
     return columns
 
 
-def get_data(attributes, values):
+def get_data(attributes, values, show_disabled=None):
     bt = frappe.qb.DocType(BT)
-    templates = (
+    query = (
         frappe.qb.from_(bt)
-        .select(bt.name, bt.routing, bt.remarks, bt.formula)
+        .select(bt.name, bt.disabled, bt.routing, bt.remarks, bt.formula)
         .where(bt.docstatus == 0)
         .where(restriction_filters(bt.name, values))
-        .run(as_dict=True)
     )
+    if not show_disabled:
+        query = query.where(bt.disabled == 0)
+    templates = query.run(as_dict=True)
     names = [d.name for d in templates]
     restrictions = get_restriction_map(names, attributes)
     op_counts = get_operation_counts(names)
@@ -90,7 +92,7 @@ def get_data(attributes, values):
     data = []
     for d in templates:
         allowed = restrictions.get(d.name, {})
-        row = [d.name] + [allowed_or_dash(allowed.get(attribute)) for attribute in attributes]
+        row = [d.name, d.disabled] + [allowed_or_dash(allowed.get(attribute)) for attribute in attributes]
         row += [op_counts.get(d.name, 0), d.routing, d.remarks, d.formula]
         data.append(blank_zeros(row))
     return data
@@ -108,7 +110,7 @@ def restriction_filters(template_field, values):
             .select(ivr.parent)
             .where(ivr.parentfield == FG)
             .where(ivr.attribute == attribute)
-            .where(ivr.allowed_values == value)
+            .where(allowed_value_match(ivr.allowed_values, value))
         )
         criteria.append(template_field.isin(templates))
     return Criterion.all(criteria)
@@ -153,4 +155,18 @@ def get_operation_counts(templates):
 
 
 def allowed_or_dash(value):
-    return "-" if value is None else value
+    return "-" if value is None else " / ".join(value.splitlines())
+
+
+def allowed_value_match(field, value):
+    """
+    Returns a criterion: the allowed values in `field` hold `value`. A multi-value cell holds 1 value
+    on each line.
+    """
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return (
+        (field == value)
+        | field.like(escaped + "\n%")
+        | field.like("%\n" + escaped)
+        | field.like("%\n" + escaped + "\n%")
+    )
