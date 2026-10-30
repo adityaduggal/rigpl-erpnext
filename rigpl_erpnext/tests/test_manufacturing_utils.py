@@ -14,7 +14,9 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     match_bom_templates,
     match_bom_templates_bulk,
     prepare_fg_rules,
+    round_up_qty,
     rule_passes,
+    sort_rm_rows_by_cost,
     split_allowed_values,
 )
 from rigpl_erpnext.tests.test_variant_table import insert_item
@@ -96,6 +98,29 @@ class TestRuleCheck(FrappeTestCase):
 
     def test_missing_value_does_not_pass(self):
         self.assertFalse(rule_passes("rm_l1_mm > 5", {"rm_d1_mm": 6.0}))
+
+
+class TestSortRmRowsByCost(FrappeTestCase):
+    def test_lowest_cost_first_and_no_rate_last(self):
+        rows = [
+            frappe._dict(item_code="RM-A", calculated_qty=866),
+            frappe._dict(item_code="RM-B", calculated_qty=2600),
+            frappe._dict(item_code="RM-C", calculated_qty=100),
+            frappe._dict(item_code="RM-D", calculated_qty=2600),
+        ]
+        sort_rm_rows_by_cost(rows, {"RM-A": 2960, "RM-B": 200, "RM-D": 300})
+        self.assertEqual([d.item_code for d in rows], ["RM-B", "RM-D", "RM-A", "RM-C"])
+        self.assertEqual([d.idx for d in rows], [1, 2, 3, 4])
+        self.assertEqual(rows[0].rm_cost, 520000)
+        self.assertEqual(rows[3].valuation_rate, 0)
+
+
+class TestRoundUpQty(FrappeTestCase):
+    def test_round_up(self):
+        self.assertEqual(round_up_qty(25.7), 26)
+        self.assertEqual(round_up_qty(26.06158079999999), 27)
+        self.assertEqual(round_up_qty(26.0000001), 26)
+        self.assertEqual(round_up_qty(26), 26)
 
 
 class TestFgRulesCache(FrappeTestCase):

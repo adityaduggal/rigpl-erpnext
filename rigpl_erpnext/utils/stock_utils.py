@@ -1074,6 +1074,29 @@ def get_sle_for_pairs(pairs, to_date):
     return get_sle(Tuple(sle.item_code, sle.warehouse).isin([Tuple(*pair) for pair in pairs]), to_date)
 
 
+def get_stock_ages(pairs, to_date=None):
+    """
+    Returns {(item, warehouse): (oldest age, average age)} in days of the FIFO stock on `to_date`
+    (default today), with 1 SLE query per chunk. A pair with no stock is not in the result.
+    The ages are calculated as in the Stock Ageing RIGPL report.
+    """
+    from erpnext.stock.report.stock_ageing.stock_ageing import FIFOSlots, get_average_age
+
+    to_date = getdate(to_date or nowdate())
+    pairs = sorted(set(pairs))
+    ages = {}
+    for start in range(0, len(pairs), 1000):
+        sle = get_sle_for_pairs(pairs[start : start + 1000], to_date)
+        if not sle:
+            continue
+        fifo = FIFOSlots(filters={"show_warehouse_wise_stock": True}, sle=sle).generate()
+        for key, fifo_dict in fifo.items():
+            queue = sorted((slot for slot in fifo_dict["fifo_queue"] if slot[1]), key=lambda slot: slot[1])
+            if queue and flt(fifo_dict.get("total_qty"), 3) > 0:
+                ages[tuple(key)] = ((to_date - getdate(queue[0][1])).days, get_average_age(queue, to_date))
+    return ages
+
+
 def get_sle(criterion, to_date):
     """Return the SLE rows in time order, with the fields that ERPNext FIFOSlots uses.
     Sort in Python: an SQL ORDER BY on these wide rows takes longer than the fetch."""

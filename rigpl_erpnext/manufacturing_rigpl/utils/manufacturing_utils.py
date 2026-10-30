@@ -227,6 +227,24 @@ def find_item_quantities(item_dict):
     return availability
 
 
+def round_up_qty(qty):
+    """Returns the qty rounded up to a whole number. A float error such as 26.0000001 stays 26."""
+    return math.ceil(round(flt(qty), 6))
+
+
+def sort_rm_rows_by_cost(rows, rates):
+    """
+    Sets `valuation_rate` and `rm_cost` (calculated qty x rate) on the RM rows, and sorts them with
+    the lowest cost first. Rows with no rate come last. `rates` is {item_code: valuation rate}.
+    """
+    for row in rows:
+        row.valuation_rate = flt(rates.get(row.item_code))
+        row.rm_cost = flt(row.calculated_qty) * row.valuation_rate
+    rows.sort(key=lambda row: (row.valuation_rate <= 0, row.rm_cost, row.item_code))
+    for idx, row in enumerate(rows, start=1):
+        row.idx = idx
+
+
 # SQL functions that the RM and WIP rules use
 RULE_FUNCTIONS = {"ceiling": math.ceil, "CEILING": math.ceil}
 RULE_KEYWORDS = {"and", "or", "not", "True", "False"}

@@ -9,7 +9,7 @@ from frappe.query_builder.functions import Sum
 from frappe.utils import nowdate
 
 from ....utils.sales_utils import get_priority_for_so
-from ....utils.stock_utils import get_quantities_for_item
+from ....utils.stock_utils import get_quantities_for_item, get_stock_ages
 from ...utils.job_card_utils import delete_job_card
 from ...utils.manufacturing_utils import (
     calculate_batch_size,
@@ -19,12 +19,29 @@ from ...utils.manufacturing_utils import (
     find_item_quantities,
     get_priority_for_stock_prd,
     get_qty_to_manufacture,
+    round_up_qty,
+    sort_rm_rows_by_cost,
     update_warehouse_from_bt,
 )
 from ...utils.process_sheet_utils import *
 
 
 class ProcessSheet(Document):
+    def onload(self):
+        # The ages change each day, so a draft shows them as on today, not as on the last save
+        if self.docstatus == 0:
+            self.set_rm_stock_ages()
+
+    def set_rm_stock_ages(self):
+        """Sets the oldest and average FIFO stock age (days) of each RM row in its source warehouse."""
+        ages = get_stock_ages(
+            (rm.item_code, rm.source_warehouse) for rm in self.rm_consumed if rm.source_warehouse
+        )
+        for rm in self.rm_consumed:
+            rm.oldest_stock_age, rm.average_stock_age = ages.get(
+                (rm.item_code, rm.source_warehouse), (0, 0)
+            )
+
     def on_submit(self):
         bt_doc = frappe.get_doc("BOM Template RIGPL", self.bom_template)
         template_ops = [op.operation for op in bt_doc.operations]
@@ -305,9 +322,18 @@ class ProcessSheet(Document):
                             rm.projected_qty = (
                                 d.actual_qty - d.prd_qty - d.on_so + d.on_po + d.planned
                             )
-                        for rm_calc in rm_calc_qty_list:
-                            if rm.item_code == rm_calc.rm_item_code:
-                                rm.calculated_qty = int(rm_calc.qty)
+            calc_qty = {rm_calc.rm_item_code: round_up_qty(rm_calc.qty) for rm_calc in rm_calc_qty_list}
+            for rm in self.rm_consumed:
+                if rm.item_code in calc_qty:
+                    rm.calculated_qty = calc_qty[rm.item_code]
+            rates = dict(frappe.get_all(
+                "Item",
+                filters={"name": ("in", [rm.item_code for rm in self.rm_consumed])},
+                fields=["name", "valuation_rate"],
+                as_list=True,
+            ))
+            sort_rm_rows_by_cost(self.rm_consumed, rates)
+            self.set_rm_stock_ages()
         else:
             frappe.throw("No RM found as per Rules in BOM Template")
         if wip_list:
