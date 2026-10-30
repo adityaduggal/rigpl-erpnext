@@ -40,15 +40,17 @@ The RM table lists all RM items that pass the RM rules of the template.
 
 - **Calculated Qty** is the RM quantity for the Process Sheet quantity, from the template formula. It is in the stock UOM of the RM: Nos for rods and pieces, Kg for RM by weight. It is rounded up to a whole number.
 - **RM Cost** = Calculated Qty × Valuation Rate of the RM item.
-- The rows are sorted by RM Cost. **The lowest cost is at the top.** RM with no valuation rate is at the bottom.
+- **Age Adjusted Rate** = Valuation Rate less a discount for old stock. For each full **100 days** of **Average Stock Age**, the rate is **5%** less. For example, a rate of 100 at 1000 days of age is 50. The rate is never less than 0. The 100 days and the 5% are in **RIGPL Settings > Manufacturing Settings** (RM Stock Age Step and RM Rate Discount per Age Step).
+- **Adjusted RM Cost** = Calculated Qty × Age Adjusted Rate.
+- The rows are sorted by Adjusted RM Cost. **Rank 1 is at the top.** RM with no valuation rate is at the bottom. Thus old stock moves up, but an old RM that costs much more stays lower.
 - RM with no stock (Qty Available = 0) is hidden. Tick **Show Unavailable RM** to see it.
-- Click a row to see more: Projected Qty, Current Projected Qty, **Oldest Stock Age** and **Average Stock Age** (in days) of the RM in the source warehouse.
+- Click a row to see more: Valuation Rate, Age Adjusted Rate, Projected Qty, Current Projected Qty, **Oldest Stock Age** and **Average Stock Age** (in days) of the RM in the source warehouse.
 - Delete the rows that you will not use. On submit, the number of rows must be the **No of RM Items** of the template (usually 1).
 
 How to select:
 
 1. Use the first row that has enough stock for the Calculated Qty.
-2. **TIP: use old stock.** If an RM a little lower in the list has stock older than **1 year (500 days)**, look at its RM Cost. If the cost difference is small, use the old stock, so that it does not become dead stock. If the old stock costs much more (for example 2 times or more), use the cheaper RM.
+2. You can use an RM lower in the list, for example when the first RM has no stock. The submit is not stopped. But the system shows the message **Best RM Not Selected** and adds a comment with your name, the RM and the cost of rank 1. The section **RM Cost Audit** shows the **Best RM Item**, and **Best RM Bypassed** is ticked. These are kept for audit.
 
 ## 5. WIP items
 
@@ -91,3 +93,4 @@ After submit:
 | Not Allowed to Submit Quantity Equal to ZERO | Enter a quantity, or do not submit. |
 | Another Process Sheet with Same Item in Draft | Open the draft in the message and use it, or delete it. |
 | BOM Template ... is disabled | The save selected another template. Check the new RM and WIP rows and save again. |
+| Best RM Not Selected | Not an error. The submitted RM costs more than rank 1. If this was a mistake, cancel and amend the Process Sheet, and keep the rank 1 RM. |

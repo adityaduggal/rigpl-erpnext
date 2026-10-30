@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 
 from frappe.model.document import Document
 from frappe.query_builder.functions import Sum
-from frappe.utils import nowdate
+from frappe.utils import flt, nowdate
 
 from ....utils.sales_utils import get_priority_for_so
 from ....utils.stock_utils import get_quantities_for_item, get_stock_ages
@@ -17,12 +17,14 @@ from ...utils.manufacturing_utils import (
     calculate_operation_time,
     calculated_value_from_formula,
     find_item_quantities,
+    get_best_rm_bypass,
     get_priority_for_stock_prd,
     get_qty_to_manufacture,
     get_rm_rule_errors,
+    rank_rm_rows,
     round_up_qty,
+    set_rm_row_costs,
     set_wip_row_quantities,
-    sort_rm_rows_by_cost,
     update_qty_for_prod_rows,
     update_warehouse_from_bt,
 )
@@ -34,13 +36,15 @@ class ProcessSheet(Document):
         # The ages change each day, so a draft shows them as on today, not as on the last save
         if self.docstatus == 0:
             self.set_rm_stock_ages()
+            set_rm_row_costs(self.rm_consumed)
 
-    def set_rm_stock_ages(self):
+    def set_rm_stock_ages(self, rows=None):
         """Sets the oldest and average FIFO stock age (days) of each RM row in its source warehouse."""
+        rows = self.rm_consumed if rows is None else rows
         ages = get_stock_ages(
-            (rm.item_code, rm.source_warehouse) for rm in self.rm_consumed if rm.source_warehouse
+            (rm.item_code, rm.source_warehouse) for rm in rows if rm.source_warehouse
         )
-        for rm in self.rm_consumed:
+        for rm in rows:
             rm.oldest_stock_age, rm.average_stock_age = ages.get(
                 (rm.item_code, rm.source_warehouse), (0, 0)
             )
@@ -132,6 +136,33 @@ class ProcessSheet(Document):
                 f"Select another BOM Template to submit {self.name}.",
                 title="Disabled BOM Template",
             )
+        self.check_best_rm()
+
+    def check_best_rm(self):
+        """
+        Sets the Best RM Item at submit. An RM that ranks below the best RM is not blocked: the user
+        gets a message and the Process Sheet gets a comment for audit (#184).
+        """
+        self.best_rm_item, self.best_rm_bypassed = None, 0
+        bt_doc = frappe.get_doc("BOM Template RIGPL", self.bom_template)
+        if not self.rm_consumed or not any(op.allow_consumption_of_rm == 1 for op in bt_doc.operations):
+            return
+        ranked = self.get_ranked_rm_candidates(bt_doc)
+        if not ranked:
+            return
+        self.best_rm_item = ranked[0].item_code
+        bypass = get_best_rm_bypass(self.rm_consumed, ranked)
+        if not bypass:
+            return
+        best, kept = bypass
+        self.best_rm_bypassed = 1
+        text = (
+            f"Best RM not selected: {kept.item_code} (Adjusted RM Cost {flt(kept.adjusted_rm_cost, 2)}) "
+            f"was submitted, but {best.item_code} (Adjusted RM Cost {flt(best.adjusted_rm_cost, 2)}) "
+            f"is rank 1 for {self.bom_template}."
+        )
+        frappe.msgprint(text, title="Best RM Not Selected", indicator="orange")
+        self.add_comment("Comment", text)
 
     def reset_disabled_template(self):
         """
@@ -242,27 +273,8 @@ class ProcessSheet(Document):
         if get_rm != 1:
             return
 
-        def_rm_warehouse = ""
-        if self.raw_material_source_warehouse:
-            def_rm_warehouse = self.raw_material_source_warehouse
-        else:
-            for d in self.operations:
-                if d.allow_consumption_of_rm == 1:
-                    def_rm_warehouse = d.rm_warehouse
-        item_dict = frappe._dict({})
-        item_dict["known_item"] = self.production_item
-        item_dict["known_type"] = "fg"
-        item_list = self.get_item_list(
-            self.production_item, known_type="fg", unknown_type="rm"
-        )
         if not self.rm_consumed:
-            rm_item_dict = get_req_sizes_from_template(
-                bom_temp_name=self.bom_template,
-                item_type_list=item_list,
-                table_name="rm_restrictions",
-                allow_zero_rol=1,
-                ps_name=self.name,
-            )
+            rm_item_dict = self.get_rm_items_from_template()
         else:
             self.validate_rm_rules(bt_doc)
             rm_item_dict = self.make_rm_item_dict()
@@ -273,13 +285,6 @@ class ProcessSheet(Document):
                 "2. Change Raw Material Warehouse in the Process Sheet \n"
                 "3. Change the BOM Template from {}".format(self.bom_template)
             )
-        rm_calc_qty_list = calculated_value_from_formula(
-            rm_item_dict,
-            self.production_item,
-            fg_qty=self.quantity,
-            process_sheet_name=self.name,
-            bom_template_name=self.bom_template,
-        )
         wip_list = []
         for rm in rm_item_dict:
             wip_item_dict = get_req_wip_sizes_from_template(
@@ -306,38 +311,7 @@ class ProcessSheet(Document):
         if rm_item_dict:
             if not self.rm_consumed:
                 update_item_table(rm_item_dict, "rm_consumed", self)
-            for d in self.rm_consumed:
-                d.source_warehouse = def_rm_warehouse
-            qty_dict = find_item_quantities(rm_item_dict)
-            if qty_dict:
-                for d in qty_dict:
-                    for rm in self.rm_consumed:
-                        if (
-                            d.item_code == rm.item_code
-                            and d.warehouse == rm.source_warehouse
-                        ):
-                            rm.target_warehouse = ""
-                            rm.uom = d.stock_uom
-                            rm.qty = 0
-                            rm.qty_available = d.actual_qty
-                            rm.current_projected_qty = (
-                                d.actual_qty - d.prd_qty - d.on_so
-                            )
-                            rm.projected_qty = (
-                                d.actual_qty - d.prd_qty - d.on_so + d.on_po + d.planned
-                            )
-            calc_qty = {rm_calc.rm_item_code: round_up_qty(rm_calc.qty) for rm_calc in rm_calc_qty_list}
-            for rm in self.rm_consumed:
-                if rm.item_code in calc_qty:
-                    rm.calculated_qty = calc_qty[rm.item_code]
-            rates = dict(frappe.get_all(
-                "Item",
-                filters={"name": ("in", [rm.item_code for rm in self.rm_consumed])},
-                fields=["name", "valuation_rate"],
-                as_list=True,
-            ))
-            sort_rm_rows_by_cost(self.rm_consumed, rates)
-            self.set_rm_stock_ages()
+            self.fill_rm_rows(self.rm_consumed, rm_item_dict)
         else:
             frappe.throw("No RM found as per Rules in BOM Template")
         if wip_list:
@@ -353,6 +327,73 @@ class ProcessSheet(Document):
                     for wip in self.item_manufactured:
                         wip.target_warehouse = op.wip_material_warehouse
                         wip.source_warehouse = ""
+
+    def get_rm_warehouse(self):
+        if self.raw_material_source_warehouse:
+            return self.raw_material_source_warehouse
+        rm_warehouse = ""
+        for d in self.operations:
+            if d.allow_consumption_of_rm == 1:
+                rm_warehouse = d.rm_warehouse
+        return rm_warehouse
+
+    def get_rm_items_from_template(self):
+        item_list = self.get_item_list(
+            self.production_item, known_type="fg", unknown_type="rm"
+        )
+        return get_req_sizes_from_template(
+            bom_temp_name=self.bom_template,
+            item_type_list=item_list,
+            table_name="rm_restrictions",
+            allow_zero_rol=1,
+            ps_name=self.name,
+        )
+
+    def get_ranked_rm_candidates(self, bt_doc):
+        """Returns all RM sizes that the BOM Template allows, as RM rows in rank order. self is not changed."""
+        rm_item_dict = self.get_rm_items_from_template()
+        rows = [frappe._dict(item_code=d.name, description=d.description) for d in rm_item_dict]
+        if rows:
+            self.fill_rm_rows(rows, rm_item_dict)
+        return rows
+
+    def fill_rm_rows(self, rows, rm_item_dict):
+        """
+        Sets the source warehouse, stock quantities, Calculated Qty, stock ages and costs of the RM
+        rows, and sorts them by rank (rank_rm_rows).
+        """
+        rm_warehouse = self.get_rm_warehouse()
+        for d in rows:
+            d.source_warehouse = rm_warehouse
+        for d in find_item_quantities(rm_item_dict):
+            for rm in rows:
+                if d.item_code == rm.item_code and d.warehouse == rm.source_warehouse:
+                    rm.target_warehouse = ""
+                    rm.uom = d.stock_uom
+                    rm.qty = 0
+                    rm.qty_available = d.actual_qty
+                    rm.current_projected_qty = d.actual_qty - d.prd_qty - d.on_so
+                    rm.projected_qty = d.actual_qty - d.prd_qty - d.on_so + d.on_po + d.planned
+        rm_calc_qty_list = calculated_value_from_formula(
+            rm_item_dict,
+            self.production_item,
+            fg_qty=self.quantity,
+            process_sheet_name=self.name,
+            bom_template_name=self.bom_template,
+        )
+        calc_qty = {rm_calc.rm_item_code: round_up_qty(rm_calc.qty) for rm_calc in rm_calc_qty_list}
+        for rm in rows:
+            if rm.item_code in calc_qty:
+                rm.calculated_qty = calc_qty[rm.item_code]
+        rates = dict(frappe.get_all(
+            "Item",
+            filters={"name": ("in", [rm.item_code for rm in rows])},
+            fields=["name", "valuation_rate"],
+            as_list=True,
+        ))
+        # The stock age discount is a part of the rank, so the ages come first
+        self.set_rm_stock_ages(rows)
+        rank_rm_rows(rows, rates)
 
     def validate_qty_to_manufacture(self, it_doc):
         auto_qty, max_auto_qty = get_qty_to_manufacture(it_doc)

@@ -13,7 +13,7 @@
 
 Work in progress: epic #165, "Manufacturing crons and BOM Templates", a sub-issue of #143.
 - Order: #166 → #145 → #160 → (#149, #146, #147) → #161, and #162 → #183 → #163 → #164 → #185. #184 after #162 and #183. #186 in parallel.
-- #183 RM rows must pass the template RM rules. #184 cost ranking of template + RM options (override needs a reason and a role). #185 merge warning on submit. #186 BOM Template guide as a Help Article.
+- #183 RM rows must pass the template RM rules. #184 RM rows ranked by Adjusted RM Cost (stock age discount in RIGPL Settings); a submit with a lower-rank RM sets `best_rm_bypassed` and adds a comment (no block). #185 merge warning on submit. #186 BOM Template guide as a Help Article.
 - Target design: one 30-minute long-queue pipeline that replaces the `all` and hourly hooks.
 - BOM Templates get multi-value rules. Old templates are disabled, never deleted.
 - User guides: `rigpl_erpnext/docs/user/{bom_templates,process_sheet}.md`, shown in a desk dialog by `utils/guide_utils.get_user_guide` (login only, not a web page). Update them with each change to the BOM Template or Process Sheet flow (#186).

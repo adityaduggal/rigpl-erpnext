@@ -237,17 +237,59 @@ def round_up_qty(qty):
     return math.ceil(round(flt(qty), 6))
 
 
-def sort_rm_rows_by_cost(rows, rates):
+def get_rm_age_discount_settings():
+    """Returns (step days, discount % per step) of the RM stock age discount. Defaults 100 and 5."""
+    step_days = cint(frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "rm_age_step_days"))
+    step_pct = frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "rm_age_step_discount")
+    return step_days or 100, 5 if step_pct is None else flt(step_pct)
+
+
+def age_adjusted_rate(rate, average_age, step_days, step_pct):
+    """Returns the rate less step_pct % for each full step_days of age. It is never less than 0."""
+    steps = math.floor(flt(average_age) / step_days) if step_days > 0 else 0
+    return flt(rate) * max(0, 1 - flt(step_pct) / 100 * steps)
+
+
+def set_rm_row_costs(rows, rates=None, settings=None):
     """
-    Sets `valuation_rate` and `rm_cost` (calculated qty x rate) on the RM rows, and sorts them with
-    the lowest cost first. Rows with no rate come last. `rates` is {item_code: valuation rate}.
+    Sets `valuation_rate`, `rm_cost` (calculated qty x rate), `age_adjusted_rate` (from the
+    `average_stock_age` of the row) and `adjusted_rm_cost` on the RM rows. `rates` is
+    {item_code: valuation rate}; without it, the `valuation_rate` of each row is used.
     """
+    step_days, step_pct = settings or get_rm_age_discount_settings()
     for row in rows:
-        row.valuation_rate = flt(rates.get(row.item_code))
-        row.rm_cost = flt(row.calculated_qty) * row.valuation_rate
-    rows.sort(key=lambda row: (row.valuation_rate <= 0, row.rm_cost, row.item_code))
+        if rates is not None:
+            row.valuation_rate = flt(rates.get(row.item_code))
+        row.rm_cost = flt(row.calculated_qty) * flt(row.valuation_rate)
+        row.age_adjusted_rate = age_adjusted_rate(row.valuation_rate, row.average_stock_age, step_days, step_pct)
+        row.adjusted_rm_cost = flt(row.calculated_qty) * row.age_adjusted_rate
+
+
+def rank_rm_rows(rows, rates, settings=None):
+    """
+    Sets the costs of the RM rows (set_rm_row_costs) and sorts them with the lowest Adjusted RM
+    Cost first. Rows with no valuation rate come last.
+    """
+    set_rm_row_costs(rows, rates, settings)
+    rows.sort(key=lambda row: (flt(row.valuation_rate) <= 0, row.adjusted_rm_cost, row.item_code))
     for idx, row in enumerate(rows, start=1):
         row.idx = idx
+
+
+def get_best_rm_bypass(kept_rows, ranked_rows):
+    """
+    Returns (best row, kept row) when a kept RM row ranks below rank 1 of `ranked_rows` (a higher
+    Adjusted RM Cost, or no valuation rate), else None. The same cost as rank 1 is not a bypass.
+    """
+    if not ranked_rows or flt(ranked_rows[0].valuation_rate) <= 0:
+        return None
+    best = ranked_rows[0]
+    for row in kept_rows:
+        if row.item_code == best.item_code:
+            continue
+        if flt(row.valuation_rate) <= 0 or flt(row.adjusted_rm_cost) > flt(best.adjusted_rm_cost):
+            return best, row
+    return None
 
 
 # SQL functions that the RM and WIP rules use

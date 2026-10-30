@@ -7,6 +7,8 @@
   "sb1",
   "future_time_mins",
   "check_overlap_for_machines",
+  "rm_age_step_days",
+  "rm_age_step_discount",
   "rol_multiplier",
   "rol_value_percentages",
   "rol_qty_percentages",
@@ -61,6 +63,20 @@
    "fieldname": "check_overlap_for_machines",
    "fieldtype": "Check",
    "label": "Check Overlap for Machines"
+  },
+  {
+   "default": "100",
+   "description": "The RM rate gets the discount below for each full step of Average Stock Age.",
+   "fieldname": "rm_age_step_days",
+   "fieldtype": "Int",
+   "label": "RM Stock Age Step (Days)"
+  },
+  {
+   "default": "5",
+   "description": "Discount on the RM Valuation Rate for each age step, to rank old RM higher on a Process Sheet.",
+   "fieldname": "rm_age_step_discount",
+   "fieldtype": "Percent",
+   "label": "RM Rate Discount per Age Step"
   },
   {
    "collapsible": 1,
@@ -275,7 +291,7 @@
   }
  ],
  "issingle": 1,
- "modified": "2026-10-28 18:00:00.000000",
+ "modified": "2026-10-30 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

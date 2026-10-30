@@ -38,6 +38,9 @@
   "consumeables_issued",
   "allow_zero_rol_for_wip",
   "item_manufactured",
+  "sb_rm_cost_audit",
+  "best_rm_item",
+  "best_rm_bypassed",
   "amended_from"
  ],
  "fields": [
@@ -64,6 +67,31 @@
    "fieldtype": "Table",
    "label": "Item Manufactured",
    "options": "Process Sheet Items"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.best_rm_item",
+   "fieldname": "sb_rm_cost_audit",
+   "fieldtype": "Section Break",
+   "label": "RM Cost Audit"
+  },
+  {
+   "description": "The RM with the lowest Adjusted RM Cost when the Process Sheet was submitted.",
+   "fieldname": "best_rm_item",
+   "fieldtype": "Link",
+   "label": "Best RM Item",
+   "no_copy": 1,
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Set when the submitted RM has a higher Adjusted RM Cost than the Best RM Item.",
+   "fieldname": "best_rm_bypassed",
+   "fieldtype": "Check",
+   "label": "Best RM Bypassed",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "description": "To Automatically get RM Items Clear the RM Table and Save the Process Sheet",
@@ -281,7 +309,7 @@
    "link_fieldname": "process_sheet"
   }
  ],
- "modified": "2026-10-22 12:00:00.000000",
+ "modified": "2026-10-30 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Manufacturing-RIGPL",
  "name": "Process Sheet",

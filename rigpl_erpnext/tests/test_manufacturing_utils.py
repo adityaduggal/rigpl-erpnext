@@ -1,28 +1,31 @@
 
 import frappe
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests.utils import FrappeTestCase, change_settings
 
 from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import match_existing_job_cards
 from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     FG_RULES_CACHE_KEY,
+    age_adjusted_rate,
     clear_fg_rules_cache,
     find_item_quantities,
+    get_best_rm_bypass,
     get_candidate_templates,
     get_fg_restriction_rules,
     get_items_for_rules,
     get_produced_qty_changes,
     get_qty_for_prod,
     get_qty_for_prod_map,
+    get_rm_age_discount_settings,
     get_rm_rule_errors,
     get_rule_failures,
     get_template_usage,
     match_bom_templates,
     match_bom_templates_bulk,
     prepare_fg_rules,
+    rank_rm_rows,
     round_up_qty,
     rule_passes,
     set_wip_row_quantities,
-    sort_rm_rows_by_cost,
     split_allowed_values,
 )
 from rigpl_erpnext.tests.test_check_update_bin_values import insert_bin, insert_process_sheet, insert_stock_item
@@ -129,7 +132,7 @@ class TestRuleCheck(FrappeTestCase):
             ["Base Material = not set, allowed: Carbide, HSS"])
 
 
-class TestSortRmRowsByCost(FrappeTestCase):
+class TestRankRmRows(FrappeTestCase):
     def test_lowest_cost_first_and_no_rate_last(self):
         rows = [
             frappe._dict(item_code="RM-A", calculated_qty=866),
@@ -137,11 +140,66 @@ class TestSortRmRowsByCost(FrappeTestCase):
             frappe._dict(item_code="RM-C", calculated_qty=100),
             frappe._dict(item_code="RM-D", calculated_qty=2600),
         ]
-        sort_rm_rows_by_cost(rows, {"RM-A": 2960, "RM-B": 200, "RM-D": 300})
+        rank_rm_rows(rows, {"RM-A": 2960, "RM-B": 200, "RM-D": 300}, settings=(100, 5))
         self.assertEqual([d.item_code for d in rows], ["RM-B", "RM-D", "RM-A", "RM-C"])
         self.assertEqual([d.idx for d in rows], [1, 2, 3, 4])
         self.assertEqual(rows[0].rm_cost, 520000)
+        self.assertEqual(rows[0].adjusted_rm_cost, 520000)
         self.assertEqual(rows[3].valuation_rate, 0)
+
+    def test_old_stock_ranks_by_its_discount(self):
+        rows = [
+            frappe._dict(item_code="RM-NEW", calculated_qty=10, average_stock_age=30),
+            frappe._dict(item_code="RM-OLD", calculated_qty=10, average_stock_age=1000),
+            frappe._dict(item_code="RM-OLD-DEAR", calculated_qty=10, average_stock_age=1000),
+        ]
+        rank_rm_rows(rows, {"RM-NEW": 100, "RM-OLD": 150, "RM-OLD-DEAR": 250}, settings=(100, 5))
+        # 1000 days = 10 steps of 5%: 150 -> 75 is first, 250 -> 125 is after the new 100
+        self.assertEqual([d.item_code for d in rows], ["RM-OLD", "RM-NEW", "RM-OLD-DEAR"])
+        self.assertEqual(rows[0].age_adjusted_rate, 75)
+        self.assertEqual(rows[0].rm_cost, 1500)
+        self.assertEqual(rows[0].adjusted_rm_cost, 750)
+
+
+class TestAgeAdjustedRate(FrappeTestCase):
+    def test_full_steps_only_and_never_below_zero(self):
+        for age, rate in ((0, 100), (99, 100), (100, 95), (1000, 50), (1999, 5), (2500, 0)):
+            self.assertAlmostEqual(age_adjusted_rate(100, age, 100, 5), rate, msg=age)
+
+    def test_no_step_days_gives_no_discount(self):
+        self.assertEqual(age_adjusted_rate(100, 1000, 0, 5), 100)
+
+    @change_settings("RIGPL Settings", {"rm_age_step_days": 50, "rm_age_step_discount": 10})
+    def test_settings(self):
+        self.assertEqual(get_rm_age_discount_settings(), (50, 10))
+
+    @change_settings("RIGPL Settings", {"rm_age_step_days": 0})
+    def test_empty_step_days_uses_the_default(self):
+        self.assertEqual(get_rm_age_discount_settings()[0], 100)
+
+
+class TestBestRmBypass(FrappeTestCase):
+    def ranked(self):
+        return [
+            frappe._dict(item_code="RM-1", valuation_rate=10, adjusted_rm_cost=100),
+            frappe._dict(item_code="RM-2", valuation_rate=10, adjusted_rm_cost=100),
+            frappe._dict(item_code="RM-3", valuation_rate=10, adjusted_rm_cost=150),
+            frappe._dict(item_code="RM-4", valuation_rate=0, adjusted_rm_cost=0),
+        ]
+
+    def test_rank_one_or_same_cost_is_not_a_bypass(self):
+        ranked = self.ranked()
+        self.assertIsNone(get_best_rm_bypass([ranked[0]], ranked))
+        self.assertIsNone(get_best_rm_bypass([ranked[1]], ranked))
+
+    def test_higher_cost_or_no_rate_is_a_bypass(self):
+        ranked = self.ranked()
+        self.assertEqual(get_best_rm_bypass([ranked[2]], ranked), (ranked[0], ranked[2]))
+        self.assertEqual(get_best_rm_bypass([ranked[3]], ranked), (ranked[0], ranked[3]))
+
+    def test_no_rate_for_rank_one_is_not_checked(self):
+        ranked = [frappe._dict(item_code="RM-4", valuation_rate=0, adjusted_rm_cost=0)]
+        self.assertIsNone(get_best_rm_bypass([frappe._dict(item_code="RM-X", valuation_rate=5)], ranked))
 
 
 class TestRoundUpQty(FrappeTestCase):
