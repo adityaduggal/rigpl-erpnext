@@ -180,17 +180,3 @@ def get_avg_days_for_po_dict(po_dict):
             else:
                 po_dict["trans_min_days"] = sub.days_diff
     return po_dict
-
-
-def get_grn_for_po(po_detail_name):
-    """
-    Returns a dictonary for po detail name since there can be multiple GRN for a PO
-    """
-    grn_dict = frappe.db.sql(f"""SELECT pr.name as sub_trans_name,
-        'Purchase Receipt' as sub_trans_type,
-        pr.creation as sub_trans_creation, pr.posting_date as sub_trans_date,
-        pri.qty as sub_trans_qty
-        FROM `tabPurchase Receipt` pr, `tabPurchase Receipt Item` pri
-        WHERE pr.name = pri.parent AND pri.purchase_order_item = '{po_detail_name}'
-        ORDER BY pr.posting_date DESC""", as_dict=1)
-    return grn_dict

@@ -576,41 +576,6 @@ def get_rule_list_frm_txt(rule_txt):
     return per_rule_list
 
 
-def update_item_rol(item_doc, rol):
-    """
-    Changes the Re Order Level and Re Order Qty based on New ROL Value
-    """
-    row_dict = frappe._dict({})
-    def_wh = frappe.db.sql("""SELECT default_warehouse FROM `tabItem Default`
-        WHERE parenttype = 'Item' AND parentfield = 'item_defaults'
-        AND parent = '%s'""" % item_doc.name, as_dict=1)
-    def_wh = def_wh[0].default_warehouse
-    if item_doc.is_purchase_item == 1:
-        mt_type = "Purchase"
-    else:
-        mt_type = "Manufacture"
-    rol_table = []
-    wh_group = frappe.get_value("Warehouse", def_wh, "parent_warehouse")
-    row_dict["warehouse_group"] = wh_group
-    row_dict["warehouse"] = def_wh
-    row_dict["warehouse_reorder_level"] = get_actual_rol_based_on_min_rol_value(item_doc, rol)
-    row_dict["warehouse_reorder_qty"] = get_roq_from_rol(item_doc, rol)
-    row_dict["material_request_type"] = mt_type
-    if item_doc.reorder_levels:
-        for row in item_doc.reorder_levels:
-            org_row_dict = row.__dict__
-            del org_row_dict["modified"]
-            del org_row_dict["modified_by"]
-            for key in row_dict:
-                org_row_dict[key] = row_dict[key]
-            rol_table.append(org_row_dict.copy())
-        item_doc.set("reorder_levels", [])
-    else:
-        rol_table.append(row_dict.copy())
-    for row in rol_table:
-        item_doc.append("reorder_levels", row)
-
-
 REORDER_FIELDS = (
     "name",
     "creation",
@@ -633,8 +598,8 @@ REORDER_VALUE_FIELDS = REORDER_FIELDS[10:]
 
 def set_item_reorder_levels(item_rols):
     """
-    Writes the Re Order Level for [(item row from get_items_for_rol, rol)] like
-    update_item_rol and Item.save() would, with one query for each 1000 rows, and adds the
+    Writes the Re Order Level for [(item row from get_items_for_rol, rol)] like an Item.save()
+    of its reorder_levels would, with one query for each 1000 rows, and adds the
     Versions. Returns the names of the items without a Default Warehouse, which are skipped.
     """
     timestamp, user = now(), frappe.session.user
@@ -1196,22 +1161,18 @@ def cancel_delete_ste_from_name(ste_name):
     if ste_doc.docstatus == 1:
         ste_doc.cancel()
     frappe.delete_doc('Stock Entry', ste_name, for_reload=True)
-    sle_dict = frappe.db.sql("""SELECT name FROM `tabStock Ledger Entry`
-        WHERE voucher_type = 'Stock Entry' AND voucher_no = '%s'""" % ste_name, as_dict=1)
-    for sle in sle_dict:
-        frappe.delete_doc('Stock Ledger Entry', sle.name, for_reload=True)
+    sle_names = frappe.get_all("Stock Ledger Entry",
+        filters={"voucher_type": "Stock Entry", "voucher_no": ste_name}, pluck="name")
+    for sle_name in sle_names:
+        frappe.delete_doc('Stock Ledger Entry', sle_name, for_reload=True)
 
 
 def get_existing_rol_for_item(item_name):
     """
     Returns Existing ROL for Item Name
     """
-    rol_dict = frappe.db.sql("""SELECT warehouse_reorder_level FROM `tabItem Reorder`
-        WHERE parent = '%s' AND parenttype = 'Item'""" % (item_name), as_dict=1)
-    if rol_dict:
-        return flt(rol_dict[0].warehouse_reorder_level)
-    else:
-        return 0
+    return flt(frappe.db.get_value("Item Reorder", {"parent": item_name, "parenttype": "Item"},
+        "warehouse_reorder_level"))
 
 
 def get_wh_wise_qty(item_name):
@@ -1308,11 +1269,8 @@ def get_max_lead_times(item_name):
     to overcome this problem this function checks the maximum lead time for sister items
     which are within the same Template
     """
-    itd = frappe.get_doc("Item", item_name)
-    if itd.variant_of and itd.has_variants != 1:
-        max_ld_time = frappe.db.sql("""SELECT MAX(lead_time_days) as max_lead_time FROM `tabItem`
-            WHERE variant_of = '%s' AND disabled = 0 LIMIT 1""" % (itd.variant_of), as_dict=1)
-        return flt(max_ld_time[0].max_lead_time)
-    else:
-        print("Either Item has Variants or Is Not a Variant of Any Template in this Case Return 0")
+    variant_of, has_variants = frappe.db.get_value("Item", item_name,
+        ["variant_of", "has_variants"]) or (None, 0)
+    if not variant_of or has_variants == 1:
         return 0
+    return flt(get_template_max_lead_times([variant_of]).get(variant_of))
