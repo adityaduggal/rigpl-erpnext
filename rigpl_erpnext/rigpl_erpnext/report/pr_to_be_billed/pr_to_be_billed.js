@@ -17,5 +17,6 @@ frappe.query_reports["PR to be Billed"] = {
 			"fieldtype": "Date",
 			"default": frappe.datetime.get_today()
 		},
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter
 }

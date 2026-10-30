@@ -37,5 +37,6 @@ frappe.query_reports["Pending Orders"] = {
 			"fieldtype": "Date",
 			"default": frappe.datetime.get_today()
 		}
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter
 }

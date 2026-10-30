@@ -1,13 +1,16 @@
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import getdate
+from frappe.utils import flt
+from ....utils.pending_report_utils import check_dates, get_doc_values, get_pending_rows
+from ....utils.report_utils import blank_zeros
 
 
 def execute(filters=None):
 	if not filters: filters = {}
+	check_dates(filters)
 
 	columns = get_columns(filters)
-	data = get_dn_entries(filters)
+	data = [blank_zeros(row) for row in get_dn_entries(filters)]
 
 	return columns, data
 
@@ -29,81 +32,34 @@ def get_columns(filters):
 
 
 def get_dn_entries(filters):
-	if filters.get("summary") != 1:
-		conditions, si_cond, conditions_cu = get_conditions(filters)
-
-		query = """SELECT dn.name as dn, dn.customer as cust,
-		dn.posting_date as dn_posting, dni.item_code as dn_itemcode,
-		dni.description as dn_desc, dni.qty as dn_qty, dni.base_rate,
-		dni.base_amount, dni.against_sales_order, so.transaction_date,
-		IF(so.track_trial = 1, "Yes", "No")
-		FROM `tabDelivery Note` dn LEFT JOIN `tabCustomer` cu ON cu.name = dn.customer,
-		`tabDelivery Note Item` dni LEFT JOIN `tabSales Order` so ON so.name = dni.against_sales_order
-
-		WHERE dn.docstatus = 1 AND dn.customer = cu.name %s AND dn.status != 'Completed'
-			AND dn.name = dni.parent AND (dni.qty - ifnull((select sum(sid.qty)
-			FROM `tabSales Invoice Item` sid, `tabSales Invoice` si
-			WHERE sid.delivery_note = dn.name AND sid.parent = si.name AND sid.qty > 0
-			AND sid.dn_detail = dni.name %s), 0)>=0.01) %s
-		ORDER BY dn.posting_date asc """ % (conditions_cu, si_cond, conditions)
-
-		dn = frappe.db.sql(query, as_list=1)
-	else:
-		query = """SELECT dn.customer, cu.payment_terms, cu.customer_rating,
-			COUNT(DISTINCT(dn.name)), COUNT(dni.item_code), MIN(dn.posting_date) as pdate,
-			SUM(dni.qty), SUM(dni.base_amount)
-			FROM `tabDelivery Note` dn LEFT JOIN `tabCustomer` cu ON cu.name = dn.customer,
-				`tabDelivery Note Item` dni
-			WHERE dn.docstatus = 1 AND dni.parent = dn.name AND dn.status != 'Completed'
-				AND (dni.qty - ifnull((SELECT SUM(sid.qty) FROM `tabSales Invoice Item` sid,
-				`tabSales Invoice` si WHERE sid.delivery_note = dn.name AND sid.parent = si.name
-				AND sid.qty > 0 AND sid.dn_detail = dni.name AND si.docstatus = 1), 0)>=0.01)
-			GROUP BY dn.customer ORDER BY pdate"""
-		dn = frappe.db.sql(query, as_list=1)
-	return dn
+	dn_filters = {key: filters.get(key) for key in ("customer", "from_date", "to_date", "territory", "draft")}
+	rows = get_pending_rows("dn_billing", dn_filters, fields=["child.against_sales_order"])
+	if filters.get("summary") == 1:
+		return get_summary(rows)
+	sales_orders = get_doc_values("Sales Order", [dn.against_sales_order for dn in rows],
+		["transaction_date", "track_trial"])
+	data = []
+	for dn in rows:
+		so = sales_orders.get(dn.against_sales_order) or frappe._dict()
+		data.append([dn.parent, dn.party, dn.date, dn.item_code, dn.description, dn.qty, dn.base_rate,
+			dn.base_amount, dn.against_sales_order, so.transaction_date, "Yes" if so.track_trial == 1 else "No"])
+	return data
 
 
-def get_conditions(filters):
-	conditions = ""
-	si_cond = ""
-	conditions_cu = ""
-
-	if filters.get("customer"):
-		conditions += " and dn.customer = '%s'" % filters["customer"]
-		conditions_cu += " AND cu.name = '%s'" % filters["customer"]
-
-	if filters.get("from_date"):
-		if filters.get("to_date"):
-			if getdate(filters.get("from_date")) > getdate(filters.get("to_date")):
-				frappe.msgprint("From Date cannot be greater than To Date", raise_exception=1)
-		conditions += " and dn.posting_date >= '%s'" % filters["from_date"]
-		si_cond += " AND si.posting_date >= '%s'" % filters["from_date"]
-
-	if filters.get("to_date"):
-		conditions += " and dn.posting_date <= '%s'" % filters["to_date"]
-		si_cond += " AND si.posting_date <= '%s'" % filters["to_date"]
-
-	if filters.get("territory"):
-		territory = frappe.get_doc("Territory", filters["territory"])
-		if territory.is_group == 1:
-			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory`
-				WHERE lft >= %s AND rgt <= %s""" % (territory.lft, territory.rgt), as_list=1)
-			for i in child_territories:
-				if child_territories[0] == i:
-					conditions_cu += " AND (cu.territory = '%s'" % i[0]
-				elif child_territories[len(child_territories) - 1] == i:
-					conditions_cu += " OR cu.territory = '%s')" % i[0]
-				else:
-					conditions_cu += " OR cu.territory = '%s'" % i[0]
-		else:
-			conditions_cu += " and cu.territory = '%s'" % filters["territory"]
-
-	# if filters.get("sales_person"):
-	# conditions += "AND st.sales_person = '%s'" % filters["sales_person"]
-
-	if filters.get("draft") == 1:
-		si_cond += " and si.docstatus != 2"
-	else:
-		si_cond += " and si.docstatus = 1"
-
-	return conditions, si_cond, conditions_cu
+def get_summary(rows):
+	"""One row for each Customer, the Customer with the oldest DN first"""
+	customers = {}
+	for dn in rows:
+		cust = customers.setdefault(dn.party, frappe._dict(dns=set(), rows=0, date=dn.date, qty=0, amount=0))
+		cust.dns.add(dn.parent)
+		cust.rows += 1
+		cust.date = min(cust.date, dn.date)
+		cust.qty += flt(dn.qty)
+		cust.amount += flt(dn.base_amount)
+	details = get_doc_values("Customer", customers, ["payment_terms", "customer_rating"])
+	data = []
+	for name, cust in sorted(customers.items(), key=lambda item: item[1].date):
+		cu = details.get(name) or frappe._dict()
+		data.append([name, cu.payment_terms, cu.customer_rating, len(cust.dns), cust.rows, cust.date,
+			cust.qty, cust.amount])
+	return data

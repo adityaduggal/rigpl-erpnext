@@ -3,23 +3,30 @@
 
 from __future__ import unicode_literals
 import frappe
-from ....manufacturing_rigpl.utils.job_card_utils import get_last_jc_for_so
+from frappe.query_builder import Order
+from frappe.utils import add_days, flt, getdate, nowdate
+from ....manufacturing_rigpl.utils.job_card_utils import get_last_jc_for_so_items
+from ....utils.pending_report_utils import check_dates, get_bin_qtys, get_pending_rows, get_process_sheets
+from ....utils.report_utils import blank_zeros
+
+DELAYED_AFTER_DAYS = 45
 
 
 def execute(filters=None):
 	if not filters: filters = {}
+	if filters.get("stock_status") == 1 and filters.get("made_to_order") == 1:
+		frappe.throw("Both Check boxes checked is Not Allowed")
+	check_dates(filters, required="date")
 
 	columns = get_columns(filters)
-	data = get_so_entries(filters)
+	data = [blank_zeros(row) for row in get_so_entries(filters)]
 
 	return columns, data
 
 
 def get_columns(filters):
 	if filters.get("stock_status") == 1:
-		return ["SO #:Link/Sales Order:100", "Date:Date:80", "Item Code:Link/Item:160",
-				"Description::300", "Pending:Float:60", "Warehouse:Link/Warehouse:100", "Actual Qty:Float:60",
-				"Reserved:Float:60", "Customer:Link/Customer:200"]
+		return get_stock_status_columns()
 	elif filters.get("made_to_order") == 1:
 		return [
 			"SO#:Link/Sales Order:150", "Customer:Link/Customer:150", "SO Date:Date:80", "Item:Link/Item:120",
@@ -38,91 +45,70 @@ def get_columns(filters):
 		]
 
 
+def get_stock_status_columns():
+	return ["SO #:Link/Sales Order:100", "Date:Date:80", "Item Code:Link/Item:160",
+			"Description::300", "Pending:Float:60", "Warehouse:Link/Warehouse:100", "Actual Qty:Float:60",
+			"Reserved:Float:60", "Customer:Link/Customer:200"]
+
+
+def get_so_filters(filters):
+	return {"customer": filters.get("customer"), "item": filters.get("item"), "bm": filters.get("bm"),
+		"to_date": filters.get("date")}
+
+
 def get_so_entries(filters):
-	conditions = get_conditions(filters)
-	tbl_join = ""
-	if filters.get("bm"):
-		conditions += " AND bm.attribute_value = '%s'" % filters["bm"]
-		tbl_join += " LEFT JOIN `tabItem Variant Attribute` bm ON soi.item_code = bm.parent " \
-					"AND bm.attribute = 'Base Material'"
-
 	if filters.get("stock_status") == 1:
-		query = """SELECT so.name, so.transaction_date, soi.item_code, soi.description, 
-		(soi.qty - IFNULL(soi.delivered_qty, 0)), soi.warehouse, bn.actual_qty, bn.reserved_qty, so.customer
-		FROM `tabSales Order` so, `tabSales Order Item` soi
-		LEFT JOIN `tabBin` bn ON (bn.item_code=soi.item_code)
-		LEFT JOIN `tabItem` it ON soi.item_code = it.name
-		WHERE soi.`parent` = so.`name` AND bn.warehouse=soi.warehouse AND so.status != "Closed" AND so.docstatus = 1 
-		AND so.transaction_date <= curdate() AND it.made_to_order != 1 AND bn.actual_qty >0 
-		AND IFNULL(soi.delivered_qty,0) < IFNULL(soi.qty,0) %s ORDER BY so.transaction_date ASC""" % conditions
+		return get_stock_status_rows(filters)
 	elif filters.get("made_to_order") == 1:
-		query = """SELECT so.name, so.customer, so.transaction_date, soi.item_code, soi.description, 
-		(soi.qty - ifnull(soi.delivered_qty, 0)) as pend_qty, soi.qty, "" as jc_name, "NO JC" as jc_status, 
-		"" as jc_operation, 0 as jc_priority, 0 as planned_qty, 0 as qty_avail, "Not in Production" as remarks, 
-		soi.name as so_item
-		FROM `tabSales Order` so, `tabSales Order Item` soi, `tabItem` it
-		WHERE soi.parent = so.name AND so.docstatus = 1 AND (soi.qty - ifnull(soi.delivered_qty, 0)) > 0 
-		AND so.status != "Closed" AND so.transaction_date <= curdate() AND soi.item_code = it.name 
-		AND it.made_to_order = 1 %s ORDER BY so.transaction_date, so.name, soi.item_code, 
-		soi.description""" % conditions
-		so_data = frappe.db.sql(query, as_dict=1)
-		so = update_so_data_with_job_card(so_data)
-	else:
-		query = """SELECT so.transaction_date, so.name, soi.delivery_date, so.customer, soi.item_code, soi.description, 
-		(IFNULL(soi.qty,0) - IFNULL(soi.delivered_qty,0)), soi.qty, soi.delivered_qty, soi.base_rate, 
-		((IFNULL(soi.qty,0) - IFNULL(soi.delivered_qty,0)) * soi.base_rate), so.po_no, soi.prd_notes, 
-		if( so.transaction_date < date_sub(curdate(),interval 45 day),"DELAYED","OK"), 100-IFNULL(so.per_delivered,0), 
-		((IFNULL(soi.qty,0) - IFNULL(soi.delivered_qty,0))/IFNULL(soi.qty,0)*100)
-		FROM `tabSales Order` so, `tabSales Order Item` soi %s 
-		WHERE soi.parent = so.name AND so.docstatus = 1
-		AND so.status != "Closed" AND IFNULL(soi.delivered_qty,0) < IFNULL(soi.qty,0) %s 
-		ORDER BY so.transaction_date DESC """ % (tbl_join, conditions)
-	if filters.get("made_to_order") != 1:
-		so = frappe.db.sql(query, as_list =1)
-	if filters.get("made_to_order") != 1 and filters.get("stock_status") != 1:
-		for i in range(len(so)):
-			so[i][10] = so[i][6]*so[i][9]
-	return so
+		return get_made_to_order_rows(filters)
+	return get_pending_order_rows(filters)
 
 
-def get_conditions(filters):
-	conditions = ""
-	if filters.get("stock_status") == 1 and filters.get("made_to_order") == 1:
-		frappe.throw("Both Check boxes checked is Not Allowed")
-	if filters.get("customer"):
-		conditions += " and so.customer = '%s'" % filters["customer"]
-
-	if filters.get("item"):
-		conditions += " and soi.item_code = '%s'" % filters["item"]
-	
-	if filters.get("date"):
-		conditions += " and so.transaction_date <= '%s'" % filters["date"]
-	else:
-		frappe.msgprint("Please select a Date first", raise_exception=1)
-
-	return conditions
-
-
-def update_so_data_with_job_card(so_dict):
+def get_pending_order_rows(filters):
+	delayed_before = add_days(nowdate(), -DELAYED_AFTER_DAYS)
 	data = []
-	for so in so_dict:
-		line_data = []
-		ps_dict = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` 
-			WHERE docstatus != 2 AND sales_order_item = '%s' ORDER BY creation""" % so.so_item, as_dict=1)
-		so["ps_name"] = ""
-		for ps in ps_dict:
-			ps_link = """<a href="#Form/Process Sheet/%s" target="_blank">%s</a>""" % (ps.name, ps.name)
-			so["ps_name"] += ps_link + "\n"
-		so_jc = get_last_jc_for_so(so.so_item)
-		if so_jc:
-			so["jc_name"] = so_jc.name
-			so["jc_status"] = so_jc.status
-			so["jc_operation"] = so_jc.operation
-			so["jc_priority"] = so_jc.priority
-			so["planned_qty"] = so_jc.for_quantity
-			so["qty_avail"] = so_jc.qty_available
-			so["remarks"] = so_jc.remarks
-		line_data = [so.name, so.customer, so.transaction_date, so.item_code, so.description, so.pend_qty, so.qty, so.jc_name,
-					 so.ps_name, so.jc_status, so.jc_operation, so.jc_priority, so.planned_qty, so.qty_avail, so.remarks]
-		data.append(line_data)
+	for so in get_pending_rows("so_delivery", get_so_filters(filters), order=Order.desc,
+			fields=["child.delivery_date", "child.delivered_qty", "child.prd_notes", "parent.po_no",
+				"parent.per_delivered"]):
+		data.append([
+			so.date, so.parent, so.delivery_date, so.party, so.item_code, so.description, so.pending_qty,
+			so.qty, so.delivered_qty, so.base_rate, so.pending_amount, so.po_no, so.prd_notes,
+			"DELAYED" if getdate(so.date) < getdate(delayed_before) else "OK", 100 - flt(so.per_delivered),
+			so.pending_qty / so.qty * 100 if so.qty else None,
+		])
+	return data
+
+
+def get_stock_status_rows(filters):
+	"""Rows of stock items that have stock in the warehouse of the Sales Order row"""
+	so_filters = dict(get_so_filters(filters), made_to_order=0)
+	so_filters["to_date"] = min(getdate(filters.get("date")), getdate(nowdate()))
+	rows = get_pending_rows("so_delivery", so_filters, fields=["child.warehouse"])
+	bins = get_bin_qtys([(so.item_code, so.warehouse) for so in rows])
+	data = []
+	for so in rows:
+		bn = bins.get((so.item_code, so.warehouse))
+		if bn and flt(bn.actual_qty) > 0:
+			data.append([so.parent, so.date, so.item_code, so.description, so.pending_qty, so.warehouse,
+				bn.actual_qty, bn.reserved_qty, so.party])
+	return data
+
+
+def get_made_to_order_rows(filters):
+	so_filters = dict(get_so_filters(filters), made_to_order=1)
+	so_filters["to_date"] = min(getdate(filters.get("date")), getdate(nowdate()))
+	rows = get_pending_rows("so_delivery", so_filters)
+	rows.sort(key=lambda so: (so.date, so.parent, so.item_code, so.description or ""))
+	so_items = [so.row_name for so in rows]
+	sheets = get_process_sheets(so_items)
+	last_jcs = get_last_jc_for_so_items(so_items)
+	data = []
+	for so in rows:
+		ps_name = "".join('<a href="#Form/Process Sheet/{0}" target="_blank">{0}</a>\n'.format(ps)
+			for ps in sheets.get(so.row_name, []))
+		jc = last_jcs.get(so.row_name) or frappe._dict(name="", status="NO JC", operation="", priority=0,
+			for_quantity=0, qty_available=0, remarks="Not in Production")
+		data.append([so.parent, so.party, so.date, so.item_code, so.description, so.pending_qty, so.qty,
+			jc.name, ps_name, jc.status, jc.operation, jc.priority, jc.for_quantity, jc.qty_available,
+			jc.remarks])
 	return data

@@ -35,4 +35,5 @@ frappe.query_reports["DN To Be Billed"] = {
 			"default": 1
 		},
 	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter
 };
