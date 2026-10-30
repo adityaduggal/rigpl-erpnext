@@ -12,6 +12,7 @@ from erpnext.stock.stock_balance import update_bin_qty
 from frappe import _
 from frappe.query_builder.functions import Count, Sum
 from frappe.utils import add_years, cint, flt, nowdate
+from pypika.terms import Tuple
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 from ...utils.item_attribute_utils import attribute_filters, chunks, get_attribute_rows
@@ -19,6 +20,7 @@ from ...utils.item_utils import get_item_attributes
 from ...utils.other_utils import auto_round_down, auto_round_up, round_up
 from ...utils.sales_utils import get_pending_so_qty_from_soitem
 from ...utils.stock_utils import get_quantities_for_item
+from .batch_qty_utils import get_bin_map
 
 
 def get_items_from_process_sheet_for_job_card(document, table_name, pro_sheet=None):
@@ -188,43 +190,45 @@ def get_oal_frm_item_code(item_code, qty, oal_field, so_detail=None):
 
 
 def find_item_quantities(item_dict):
+    """
+    Returns a row for each Bin of the items with its actual_qty and the item totals prd_qty,
+    on_so, on_po and planned. on_po adds the subcontracting warehouse stock, because on_po is wrong
+    for Job Work items.
+    """
+    items = [d.get("name") or d.get("item_code") for d in item_dict]
+    bins, totals = get_bin_map(items)
     availability = []
-    for d in item_dict:
-        one_item_availability = frappe.db.sql(
-            """SELECT name, warehouse, item_code, stock_uom, valuation_rate,
-        actual_qty,
-        (SELECT SUM(reserved_qty_for_production) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as prd_qty,
-        (SELECT SUM(reserved_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as on_so,
-        (SELECT SUM(ordered_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as on_po,
-        (SELECT SUM(planned_qty) FROM `tabBin` WHERE docstatus = 0 AND item_code = '%s') as planned
-        FROM `tabBin` WHERE docstatus = 0
-        AND item_code = '%s'"""
-            % (
-                (d.get("name") or d.get("item_code")),
-                (d.get("name") or d.get("item_code")),
-                (d.get("name") or d.get("item_code")),
-                (d.get("name") or d.get("item_code")),
-                (d.get("name") or d.get("item_code")),
-            ),
-            as_dict=1,
-        )
-        # If Item is for Job Work then need to get the PO Items for that as well since on_po is wrong in that case
-        # In that case get the quantity of the Material in Sub-Contracting Warehouse
-        subcon = frappe.db.sql(
-            """SELECT bn.item_code, bn.actual_qty, wh.name FROM `tabBin` bn, `tabWarehouse` wh
-        WHERE wh.name = bn.warehouse AND wh.is_subcontracting_warehouse = 1 AND bn.actual_qty > 0
-        AND bn.item_code = '%s'"""
-            % d.get("item_code"),
-            as_dict=1,
-        )
-
-        if one_item_availability:
-            if subcon:
-                for available in one_item_availability:
-                    available.on_po += subcon[0].actual_qty
-            for available in one_item_availability:
-                availability.append(available)
+    for (item_code, warehouse), bin_row in bins.items():
+        tot = totals[item_code]
+        availability.append(frappe._dict(
+            item_code=item_code,
+            warehouse=warehouse,
+            stock_uom=bin_row.stock_uom,
+            actual_qty=bin_row.actual_qty,
+            prd_qty=tot.prd_qty,
+            on_so=tot.on_so,
+            on_po=tot.on_po + flt(tot.subcon_qty),
+            planned=tot.planned,
+        ))
     return availability
+
+
+def set_wip_row_quantities(wip, qty_rows):
+    """
+    Sets the stock quantities of an item_manufactured row from find_item_quantities rows. Only
+    actual_qty is per Bin; the other quantities are item totals, the same in each Bin row.
+    """
+    act_qty, so_qty, po_qty, prd_qty, plan_qty = 0, 0, 0, 0, 0
+    for d in qty_rows:
+        if d.item_code == wip.item_code:
+            wip.uom = d.stock_uom
+            act_qty += d.actual_qty
+            so_qty, po_qty, prd_qty, plan_qty = d.on_so, d.on_po, d.prd_qty, d.planned
+    cur_proj = act_qty - so_qty - prd_qty
+    wip.qty_available = act_qty
+    wip.current_projected_qty = cur_proj
+    wip.projected_qty = cur_proj + po_qty + plan_qty
+    wip.qty = 0
 
 
 def round_up_qty(qty):
@@ -866,28 +870,45 @@ def get_comp_qty_operation(op_id):
 
 
 def update_qty_for_prod(item_code, warehouse, table_name):
-    update_bin_qty(
-        item_code,
-        warehouse,
-        {
-            "reserved_qty_for_production": get_qty_for_prod(
-                item_code, warehouse, table_name
-            )
-        },
-    )
+    update_qty_for_prod_rows([(item_code, warehouse)], table_name)
+
+
+def update_qty_for_prod_rows(pairs, table_name):
+    """
+    Sets reserved_qty_for_production in the Bin of each (item_code, warehouse) with one read
+    """
+    pairs = list(dict.fromkeys(pairs))
+    qtys = get_qty_for_prod_map(pairs, table_name)
+    for item_code, warehouse in pairs:
+        update_bin_qty(item_code, warehouse,
+            {"reserved_qty_for_production": qtys.get((item_code, warehouse), 0)})
+
+
+def get_qty_for_prod_map(pairs, table_name):
+    """
+    Returns {(item_code, source_warehouse): qty still to consume in open Process Sheets}
+    """
+    ps = frappe.qb.DocType("Process Sheet")
+    psi = frappe.qb.DocType("Process Sheet Items")
+    qtys = {}
+    for chunk in chunks(pairs):
+        for item_code, warehouse, qty in (
+            frappe.qb.from_(psi)
+            .join(ps).on(ps.name == psi.parent)
+            .select(psi.item_code, psi.source_warehouse, Sum(psi.calculated_qty - psi.qty))
+            .where((psi.parenttype == "Process Sheet") & (psi.parentfield == table_name))
+            .where((ps.docstatus == 1) & ps.status.notin(["Stopped", "Completed", "Short Closed"]))
+            .where(psi.donot_consider_rm_for_production != 1)
+            .where(Tuple(psi.item_code, psi.source_warehouse).isin([Tuple(*pair) for pair in chunk]))
+            .groupby(psi.item_code, psi.source_warehouse)
+            .run()
+        ):
+            qtys[(item_code, warehouse)] = flt(qty)
+    return qtys
 
 
 def get_qty_for_prod(item_code, warehouse, table_name):
-    qty_res_for_prod = frappe.db.sql(
-        """SELECT SUM(psi.calculated_qty - psi.qty) FROM `tabProcess Sheet Items` psi,
-    `tabProcess Sheet` ps
-    WHERE ps.name = psi.parent AND psi.parenttype = 'Process Sheet' AND ps.docstatus = 1 AND psi.parentfield = '%s' AND
-    ps.status NOT IN ("Stopped", "Completed", "Short Closed") AND psi.donot_consider_rm_for_production != 1
-    AND psi.item_code = '%s' AND psi.source_warehouse = '%s'"""
-        % (table_name, item_code, warehouse)
-    )
-
-    return flt(qty_res_for_prod[0][0]) if qty_res_for_prod else 0
+    return get_qty_for_prod_map([(item_code, warehouse)], table_name).get((item_code, warehouse), 0)
 
 
 def update_planned_qty(item_code, warehouse):
@@ -946,6 +967,7 @@ def get_min_max_ps_qty(qty):
 
 def update_pro_sheet_rm_from_jc(jc_doc, status="Submit", pro_sheet=None):
     pro_sheet_doc = pro_sheet or frappe.get_doc("Process Sheet", jc_doc.process_sheet)
+    changed = []
     for rm in jc_doc.rm_consumed:
         for row in pro_sheet_doc.rm_consumed:
             if row.item_code == rm.item_code:
@@ -964,10 +986,9 @@ def update_pro_sheet_rm_from_jc(jc_doc, status="Submit", pro_sheet=None):
                     frappe.db.set_value(
                         "Process Sheet Items", row.name, "qty", row.calculated_qty
                     )
-                # Reserved qty for production of the row that changed
-                update_qty_for_prod(
-                    row.item_code, row.source_warehouse, table_name="rm_consumed"
-                )
+                changed.append((row.item_code, row.source_warehouse))
+    # Reserved qty for production of the rows that changed
+    update_qty_for_prod_rows(changed, table_name="rm_consumed")
 
 
 def get_produced_qty_changes(jc_doc, status, pro_sheet, ps_r, tc_comp_qty):

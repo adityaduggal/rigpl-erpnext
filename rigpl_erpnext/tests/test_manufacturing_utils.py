@@ -6,19 +6,24 @@ from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import match_existin
 from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     FG_RULES_CACHE_KEY,
     clear_fg_rules_cache,
+    find_item_quantities,
     get_candidate_templates,
     get_fg_restriction_rules,
     get_items_for_rules,
     get_produced_qty_changes,
+    get_qty_for_prod,
+    get_qty_for_prod_map,
     get_template_usage,
     match_bom_templates,
     match_bom_templates_bulk,
     prepare_fg_rules,
     round_up_qty,
     rule_passes,
+    set_wip_row_quantities,
     sort_rm_rows_by_cost,
     split_allowed_values,
 )
+from rigpl_erpnext.tests.test_check_update_bin_values import insert_bin, insert_process_sheet, insert_stock_item
 from rigpl_erpnext.tests.test_variant_table import insert_item
 from rigpl_erpnext.utils.guide_utils import get_user_guide
 from rohit_common.utils.query_guard import assert_max_queries
@@ -366,3 +371,47 @@ class TestBatchQtyHelpers(FrappeTestCase):
         from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import get_open_job_cards_for_item
 
         self.assertEqual(get_open_job_cards_for_item("No Such Item's Name"), [])
+
+
+QTY_ITEM = "_Test RIGPL O'Brien RM"
+QTY_WH = "_Test RIGPL O'Brien RM WH"
+SUBCON_WH = "_Test RIGPL O'Brien Subcon WH"
+
+
+class TestItemQuantityQueries(FrappeTestCase):
+    def setUp(self):
+        insert_stock_item(QTY_ITEM)
+        for name, subcon in ((QTY_WH, 0), (SUBCON_WH, 1)):
+            frappe.get_doc(doctype="Warehouse", name=name, warehouse_name=name, short_code=name[-4:],
+                is_subcontracting_warehouse=subcon).db_insert()
+
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_find_item_quantities_adds_subcon_stock_for_name_rows(self):
+        insert_bin(QTY_ITEM, QTY_WH, actual_qty=10, reserved_qty=2, ordered_qty=3)
+        insert_bin(QTY_ITEM, SUBCON_WH, actual_qty=4)
+
+        rows = find_item_quantities([{"name": QTY_ITEM}])
+
+        self.assertEqual(sorted((r.warehouse, r.actual_qty) for r in rows), [(QTY_WH, 10), (SUBCON_WH, 4)])
+        self.assertEqual({(r.on_so, r.on_po) for r in rows}, {(2, 7)})
+
+    def test_wip_totals_are_not_added_per_bin(self):
+        wip = frappe._dict(item_code=QTY_ITEM)
+        qty_rows = [frappe._dict(item_code=QTY_ITEM, stock_uom="Nos", actual_qty=qty, on_so=2, on_po=3,
+            prd_qty=1, planned=4) for qty in (10, 4)]
+
+        set_wip_row_quantities(wip, qty_rows)
+
+        self.assertEqual((wip.qty_available, wip.current_projected_qty, wip.projected_qty), (14, 11, 18))
+
+    def test_qty_for_prod_of_open_process_sheets(self):
+        insert_process_sheet("_Test RIGPL O'Brien FG", QTY_WH, 1, rm_item=QTY_ITEM, rm_warehouse=QTY_WH, rm_qty=5)
+        insert_process_sheet("_Test RIGPL O'Brien FG", QTY_WH, 1, rm_item=QTY_ITEM, rm_warehouse=SUBCON_WH,
+            rm_qty=2)
+
+        self.assertEqual(get_qty_for_prod(QTY_ITEM, QTY_WH, "rm_consumed"), 5)
+        with assert_max_queries(1, test_case=self):
+            qtys = get_qty_for_prod_map([(QTY_ITEM, QTY_WH), (QTY_ITEM, SUBCON_WH)], "rm_consumed")
+        self.assertEqual(qtys, {(QTY_ITEM, QTY_WH): 5, (QTY_ITEM, SUBCON_WH): 2})

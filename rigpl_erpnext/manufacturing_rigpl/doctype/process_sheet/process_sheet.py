@@ -20,7 +20,9 @@ from ...utils.manufacturing_utils import (
     get_priority_for_stock_prd,
     get_qty_to_manufacture,
     round_up_qty,
+    set_wip_row_quantities,
     sort_rm_rows_by_cost,
+    update_qty_for_prod_rows,
     update_warehouse_from_bt,
 )
 from ...utils.process_sheet_utils import *
@@ -62,19 +64,19 @@ class ProcessSheet(Document):
         if self.quantity == 0:
             frappe.throw("Not Allowed to Submit Quantity Equal to ZERO")
         update_planned_qty(self.production_item, self.fg_warehouse)
-        for d in self.rm_consumed:
-            update_qty_for_prod(
-                d.item_code, d.source_warehouse, table_name="rm_consumed"
-            )
+        update_qty_for_prod_rows(
+            [(d.item_code, d.source_warehouse) for d in self.rm_consumed],
+            table_name="rm_consumed",
+        )
         make_jc_for_process_sheet(self, template_ops=template_ops)
 
     def on_cancel(self):
         frappe.db.set_value("Process Sheet", self.name, "status", "Cancelled")
         update_planned_qty(self.production_item, self.fg_warehouse)
-        for d in self.rm_consumed:
-            update_qty_for_prod(
-                d.item_code, d.source_warehouse, table_name="rm_consumed"
-            )
+        update_qty_for_prod_rows(
+            [(d.item_code, d.source_warehouse) for d in self.rm_consumed],
+            table_name="rm_consumed",
+        )
         existing = get_existing_job_cards(
             self.production_item,
             [row.operation for row in self.operations],
@@ -343,20 +345,7 @@ class ProcessSheet(Document):
             else:
                 for wip in self.item_manufactured:
                     if wip_qty_dict:
-                        act_qty, so_qty, po_qty, prd_qty, plan_qty = 0, 0, 0, 0, 0
-                        for d in wip_qty_dict:
-                            if d.item_code == wip.item_code:
-                                wip.uom = d.stock_uom
-                                act_qty += d.actual_qty
-                                so_qty += d.on_so
-                                po_qty += d.on_po
-                                prd_qty += d.prd_qty
-                                plan_qty += d.planned
-                        cur_proj = act_qty - so_qty - prd_qty
-                        wip.qty_available = act_qty
-                        wip.current_projected_qty = cur_proj
-                        wip.projected_qty = cur_proj + po_qty + plan_qty
-                        wip.qty = 0
+                        set_wip_row_quantities(wip, wip_qty_dict)
             for op in self.operations:
                 if op.allow_production_of_wip_materials == 1:
                     for wip in self.item_manufactured:

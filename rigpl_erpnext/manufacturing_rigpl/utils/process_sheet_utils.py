@@ -31,7 +31,7 @@ from .manufacturing_utils import (
     get_items_for_rules,
     get_known_item_attributes,
     update_planned_qty,
-    update_qty_for_prod,
+    update_qty_for_prod_rows,
 )
 
 
@@ -297,12 +297,10 @@ def get_operation_values(opd, jc, ps_status, template_ops):
 
 def update_process_sheet_quantities(ps_doc):
     update_planned_qty(item_code=ps_doc.production_item, warehouse=ps_doc.fg_warehouse)
-    for rm in ps_doc.rm_consumed:
-        update_qty_for_prod(
-            item_code=rm.item_code,
-            warehouse=rm.source_warehouse,
-            table_name="rm_consumed",
-        )
+    update_qty_for_prod_rows(
+        [(rm.item_code, rm.source_warehouse) for rm in ps_doc.rm_consumed],
+        table_name="rm_consumed",
+    )
 
 
 def make_jc_for_process_sheet(ps_doc, template_ops=None):
