@@ -7,11 +7,14 @@ from rohit_common.utils.query_guard import assert_max_queries
 from rigpl_erpnext.tests.test_check_update_bin_values import insert_bin, insert_doc, insert_stock_item
 from rigpl_erpnext.utils.sales_utils import (
     check_get_pl_rates,
+    check_strict_po_rules,
+    copy_address_and_check,
     dead_stock_order_booking,
     get_completed_qty_of_jc_for_operation,
     get_contacts,
     get_email_from_contact,
     get_item_price,
+    get_linked_so_data,
     get_pending_so_qty_from_soitem,
     get_phone_from_contact,
     get_sales_comm_for_cust,
@@ -34,6 +37,9 @@ SO_DETAIL = "_Test RIGPL O'Brien SOI"
 PRICE_LIST = "_Test RIGPL O'Brien Price List"
 FINISHED_WH = "_Test RIGPL O'Brien FS WH"
 DEAD_WH = "_Test RIGPL O'Brien Dead WH"
+SO_1 = "_Test RIGPL O'Brien SO 1"
+SO_2 = "_Test RIGPL O'Brien SO 2"
+ADDRESS = "_Test RIGPL O'Brien Address"
 
 
 def insert_customer(name):
@@ -217,3 +223,79 @@ class TestSalesValidations(FrappeTestCase):
         frappe.db.set_value("Price List", PRICE_LIST, "disable_so", 1, update_modified=False)
         self.assertRaisesRegex(frappe.ValidationError, "Sales Order Booking Disabled",
             check_get_pl_rates, doc, [quote_row])
+
+
+def insert_sales_order(name, strict=0, address=ADDRESS):
+    frappe.get_doc(doctype="Sales Order", name=name, customer=CUSTOMER, docstatus=1, follow_strict_po_rules=strict,
+        customer_address=address, shipping_address_name=address).db_insert()
+
+
+class TestDeliveryNoteSoChecks(FrappeTestCase):
+    def setUp(self):
+        insert_customer(CUSTOMER)
+        frappe.clear_document_cache("Customer", CUSTOMER)
+        insert_stock_item(ITEM)
+        insert_warehouse(FINISHED_WH, "Finished Stock")
+        insert_warehouse(DEAD_WH, "Dead Stock")
+        insert_sales_order(SO_1)
+        insert_sales_order(SO_2)
+
+    def tearDown(self):
+        frappe.db.rollback()
+        frappe.clear_document_cache("Customer", CUSTOMER)
+
+    def dn(self, sales_orders, warehouse=FINISHED_WH):
+        return SimpleNamespace(doctype="Delivery Note", name="_Test RIGPL DN", customer=CUSTOMER,
+            customer_address=ADDRESS, shipping_address_name=ADDRESS, bypass_made_to_order_check=0,
+            items=[row(idx=idx, item_code=ITEM, warehouse=warehouse, against_sales_order=so)
+                for idx, so in enumerate(sales_orders, start=1)])
+
+    def check(self, doc):
+        so_data = get_linked_so_data(doc)
+        check_strict_po_rules(doc, so_data)
+        copy_address_and_check(doc, so_data)
+
+    def test_two_sales_orders_pass_without_strict_rules(self):
+        self.check(self.dn([SO_1, SO_2]))
+
+    def test_strict_customer_allows_one_sales_order(self):
+        frappe.db.set_value("Customer", CUSTOMER, "follow_strict_po_rules", 1, update_modified=False)
+        frappe.clear_document_cache("Customer", CUSTOMER)
+        self.check(self.dn([SO_1, SO_1]))
+        self.assertRaisesRegex(frappe.ValidationError, "Row 2 is Rejected", self.check, self.dn([SO_1, SO_2]))
+
+    def test_strict_sales_order_on_a_later_row(self):
+        frappe.db.set_value("Sales Order", SO_2, "follow_strict_po_rules", 1, update_modified=False)
+        self.assertRaisesRegex(frappe.ValidationError, "Row 3 is Rejected", self.check,
+            self.dn([SO_1, SO_1, SO_2]))
+
+    def test_strict_rule_when_row_one_has_no_sales_order(self):
+        frappe.db.set_value("Sales Order", SO_1, "follow_strict_po_rules", 1, update_modified=False)
+        self.check(self.dn([None, SO_1, SO_1]))
+        self.assertRaisesRegex(frappe.ValidationError, "Row 3 is Rejected", self.check,
+            self.dn([None, SO_1, SO_2]))
+
+    def test_address_must_match_the_sales_order(self):
+        doc = self.dn([SO_1, SO_2])
+        doc.shipping_address_name = "_Test RIGPL Other Address"
+        self.assertRaisesRegex(frappe.ValidationError, "Shipping Address mentioned", self.check, doc)
+
+    def test_other_doctype_is_refused(self):
+        doc = self.dn([SO_1])
+        doc.doctype = "Quotation"
+        self.assertRaisesRegex(frappe.ValidationError, "not for Quotation", self.check, doc)
+
+    def test_warehouse_must_be_finished_stock(self):
+        self.assertRaisesRegex(frappe.ValidationError, "Not Finished Stock Warehouse",
+            validate_made_to_order_items, self.dn([SO_1], warehouse=DEAD_WH))
+
+    def test_query_count_does_not_depend_on_rows(self):
+        # The first calls load the Sales Order, Item and Warehouse meta into the cache
+        self.check(self.dn([SO_1]))
+        validate_made_to_order_items(self.dn([SO_1]))
+        for sales_orders in ([SO_1], [SO_1, SO_2, SO_1, SO_2]):
+            doc = self.dn(sales_orders)
+            with assert_max_queries(2, test_case=self):
+                self.check(doc)
+            with assert_max_queries(2, test_case=self):
+                validate_made_to_order_items(doc)

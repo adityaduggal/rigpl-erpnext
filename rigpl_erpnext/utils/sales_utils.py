@@ -650,11 +650,12 @@ def validate_made_to_order_items(doc):
     made_to_order = set(frappe.get_all("Item", pluck="name", filters={
         "name": ["in", [it.item_code for it in doc.items]], "made_to_order": 1}))
     special = get_special_item_data([it for it in doc.items if it.item_code in made_to_order])
+    warehouses = get_warehouse_data([it.warehouse for it in doc.items])
     for it in doc.items:
         if it.item_code in made_to_order:
             # Check if the Item as per the Process Sheet or Not
             check_special_item(doc, it, special)
-        validate_warehouse(doc, it)
+        validate_warehouse(doc, it, warehouses)
 
 
 def get_special_item_data(rows):
@@ -662,6 +663,8 @@ def get_special_item_data(rows):
     Returns {"pro_sheets": {(item, so_detail): Process Sheet}, "final_ops": {Process Sheet:
     [final operations]}, "completed": get_completed_jc_qtys} for the made to order rows
     """
+    if not rows:
+        return {"pro_sheets": {}, "final_ops": {}, "completed": {}}
     ps = frappe.qb.DocType("Process Sheet")
     pairs = [(row.item_code, row.so_detail) for row in rows]
     pro_sheets = {}
@@ -702,9 +705,19 @@ def validate_special_items(doc, row):
     check_special_item(doc, row, get_special_item_data([row]))
 
 
-def validate_warehouse(doc, row):
+def get_warehouse_data(warehouses):
+    """
+    Returns {warehouse: {warehouse_type, disabled}}
+    """
+    return {wh.name: wh for wh in frappe.get_all("Warehouse", fields=["name", "warehouse_type", "disabled"],
+        filters={"name": ["in", list(set(warehouses)) or [""]]})}
+
+
+def validate_warehouse(doc, row, warehouses=None):
     """Only Allow from Finished Stock Warehouse"""
-    wh_doc = frappe.get_doc('Warehouse', row.warehouse)
+    if warehouses is None:
+        warehouses = get_warehouse_data([row.warehouse])
+    wh_doc = warehouses.get(row.warehouse) or frappe._dict()
     if wh_doc.warehouse_type != 'Finished Stock':
         frappe.throw("In {}, Row# {} and {} the {} selected is Not Finished Stock Warehouse".
             format(frappe.get_desk_link(doc.doctype, doc.name), row.idx, frappe.get_desk_link('Item', row.item_code),
@@ -722,14 +735,35 @@ def validate_address_google_update(add_doc_name):
                      'the Address once'.format(add_doc.name))
 
 
-def copy_address_and_check(document):
-    if document.doctype == 'Delivery Note':
-        so_field = "against_sales_order"
-    elif document.doctype == 'Sales Invoice':
-        so_field = 'sales_order'
+def get_so_field(doctype):
+    """Returns the Sales Order field of the item rows of a Delivery Note or Sales Invoice"""
+    so_fields = {"Delivery Note": "against_sales_order", "Sales Invoice": "sales_order"}
+    if doctype not in so_fields:
+        frappe.throw("Sales Order checks are only for Delivery Note and Sales Invoice, not for {}".format(doctype))
+    return so_fields[doctype]
+
+
+def get_linked_so_data(document):
+    """
+    Returns {"customer_rule": follow_strict_po_rules of the Customer, "sales_orders": {Sales Order:
+    {follow_strict_po_rules, customer_address, shipping_address_name}}} for the rows of the document
+    """
+    so_field = get_so_field(document.doctype)
+    so_names = list({it.get(so_field) for it in document.items if it.get(so_field)})
+    sales_orders = {so.name: so for so in frappe.get_all("Sales Order", filters={"name": ["in", so_names or [""]]},
+        fields=["name", "follow_strict_po_rules", "customer_address", "shipping_address_name"])}
+    return {
+        "customer_rule": frappe.db.get_value("Customer", document.customer, "follow_strict_po_rules"),
+        "sales_orders": sales_orders,
+    }
+
+
+def copy_address_and_check(document, so_data=None):
+    so_field = get_so_field(document.doctype)
+    so_data = so_data or get_linked_so_data(document)
     for items in document.items:
         if items.get(so_field):
-            so_doc = frappe.get_doc("Sales Order", items.get(so_field))
+            so_doc = so_data["sales_orders"].get(items.get(so_field)) or frappe._dict()
             if document.customer_address != so_doc.customer_address:
                 frappe.throw("Customer Address mentioned in {} {} does not match with Customer Address of SO# {} "
                              "mentioned in Row# {}".format(document.doctype, document.name, items.get(so_field),
@@ -740,36 +774,24 @@ def copy_address_and_check(document):
                                                            items.idx))
 
 
-def check_strict_po_rules(document):
-    follow_rules = 0
-    cust_rule = 0
-    so_rule = 0
-    so_list = []
-    if document.doctype == 'Delivery Note':
-        so_field = "against_sales_order"
-    elif document.doctype == 'Sales Invoice':
-        so_field = 'sales_order'
-    cust_doc = frappe.get_doc("Customer", document.customer)
-
-    if cust_doc.follow_strict_po_rules == 1:
-        follow_rules = 1
-        cust_rule = 1
-
-    for it in document.items:
-        if it.get(so_field):
-            so_doc = frappe.get_doc('Sales Order', it.get(so_field))
-            if so_doc.follow_strict_po_rules == 1:
-                follow_rules = 1
-                so_rule = 1
-            if it.idx == 1:
-                so_list.append(it.get(so_field))
-            elif it.idx > 1 and follow_rules == 1:
-                if it.get(so_field) not in so_list:
-                    frappe.throw("{} Follows Strict PO Rules for {} hence Row {} is Rejected. Make new {} "
-                                 "for SO# {}".
-                                 format(frappe.get_desk_link("Customer", document.customer),
-                                        frappe.get_desk_link("Sales Order", it.get(so_field)), it.idx, document.doctype,
-                                        frappe.get_desk_link("Sales Order", it.get(so_field))))
+def check_strict_po_rules(document, so_data=None):
+    """If the Customer or any Sales Order of the rows follows Strict PO Rules, all rows with a Sales Order
+    must be against the first Sales Order"""
+    so_field = get_so_field(document.doctype)
+    so_data = so_data or get_linked_so_data(document)
+    rows = [it for it in document.items if it.get(so_field)]
+    follow_rules = so_data["customer_rule"] == 1 or any(
+        so.follow_strict_po_rules == 1 for so in so_data["sales_orders"].values())
+    if not follow_rules or not rows:
+        return
+    first_so = rows[0].get(so_field)
+    for it in rows:
+        if it.get(so_field) != first_so:
+            frappe.throw("{} Follows Strict PO Rules for {} hence Row {} is Rejected. Make new {} "
+                         "for SO# {}".
+                         format(frappe.get_desk_link("Customer", document.customer),
+                                frappe.get_desk_link("Sales Order", it.get(so_field)), it.idx, document.doctype,
+                                frappe.get_desk_link("Sales Order", it.get(so_field))))
 
 
 def get_hsn_code(row_dict):

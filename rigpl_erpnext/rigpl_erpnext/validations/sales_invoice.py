@@ -10,8 +10,9 @@ def validate(doc, method):
     update_fields(doc)
     check_gst_rules(doc, doc.customer_address, doc.taxes_and_charges)
     validate_price_list(doc, method)
-    check_strict_po_rules(doc)
-    copy_address_and_check(doc)
+    so_data = get_linked_so_data(doc)
+    check_strict_po_rules(doc, so_data)
+    copy_address_and_check(doc, so_data)
 
 
 def on_submit(doc, method):

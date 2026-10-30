@@ -4,7 +4,8 @@ import frappe
 from datetime import datetime as dt
 from datetime import date
 from frappe.utils import getdate
-from ...utils.sales_utils import check_strict_po_rules, copy_address_and_check, validate_made_to_order_items
+from ...utils.sales_utils import check_strict_po_rules, copy_address_and_check, get_linked_so_data, \
+    validate_made_to_order_items
 from ...utils.stock_utils import get_reconciliations_after
 
 
@@ -13,8 +14,9 @@ def validate(doc, method):
     # if there is a Stock Reconciliation then the Update would FAIL
     # Also check if the items are from Same Price List SO as is the PL mentioned in the DN
     check_draft_dn(doc)
-    check_strict_po_rules(doc)
-    copy_address_and_check(doc)
+    so_data = get_linked_so_data(doc)
+    check_strict_po_rules(doc, so_data)
+    copy_address_and_check(doc, so_data)
     check_price_list(doc, method)
     for dnd in doc.get("items"):
         if not dnd.against_sales_order:

@@ -76,6 +76,7 @@ class TestValidationMessages(FrappeTestCase):
 
     def check_dn(self, srs):
         with patch.object(delivery_note, "check_draft_dn"), \
+                patch.object(delivery_note, "get_linked_so_data"), \
                 patch.object(delivery_note, "check_strict_po_rules"), \
                 patch.object(delivery_note, "copy_address_and_check"), \
                 patch.object(delivery_note, "check_price_list"), \
