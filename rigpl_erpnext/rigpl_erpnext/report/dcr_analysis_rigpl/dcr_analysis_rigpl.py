@@ -4,9 +4,10 @@
 from __future__ import unicode_literals
 import frappe
 from datetime import datetime
-from ....utils.sales_utils import get_total_sales_orders, get_sales_comm_for_lead, get_sales_comm_for_cust, \
-	get_phone_from_contact, get_email_from_contact
-from frappe.utils import flt
+from frappe.query_builder.functions import Count, IfNull, Sum
+from frappe.utils import add_days, flt, getdate
+from ....utils.sales_utils import get_contact_emails, get_contact_phones, get_sales_comms_for_customers, \
+	get_sales_comms_for_leads, get_sales_order_totals
 
 
 def execute(filters=None):
@@ -80,151 +81,142 @@ def get_columns(filters):
 
 
 def get_data(filters):
-	cond_dcr, cond_lead, cond_cust = get_conditions(filters)
-
 	if filters.get("analysis_summary") == 1:
-		query = """SELECT dcr.created_by, dcrd.type_of_communication, COUNT(dcrd.name),
-			SUM(dcrd.duration)
-			FROM `tabDaily Call` dcr,  `tabDaily Call Details` dcrd 
-			WHERE dcr.docstatus = 1 
-			AND dcrd.parent = dcr.name %s 
-			GROUP BY dcr.created_by, dcrd.type_of_communication""" % (cond_dcr)
-		data = frappe.db.sql(query, as_list=1)
-	elif filters.get("comm_summary") == 1:
+		return get_analysis_summary(filters)
+	if filters.get("comm_summary") == 1:
 		if filters.get("document") == 'Customer':
-			data = []
-			cust_dict = get_customers(filters)
-			for cust in cust_dict:
-				row = [cust.name, cust.territory, cust.customer_group, cust.customer_rating,
-					   cust.customer_primary_contact]
-				phone_dict = get_phone_from_contact(cust.customer_primary_contact)
-				numbers = ""
-				if phone_dict:
-					for mob in phone_dict:
-						numbers += mob.phone + " "
-				emails = ""
-				email_dict = get_email_from_contact(cust.customer_primary_contact)
-				if email_dict:
-					for email in email_dict:
-						emails += email.email_id + " "
-				total_so = get_total_sales_orders(cust.name, filters.get("from_date"), filters.get("to_date"))
-				row += [numbers, emails, flt(total_so[0].total_net_amt)]
-				comm_dict = get_sales_comm_for_cust(cust.name)
-				if comm_dict:
-					days_since = (datetime.today() - comm_dict[0].communication_date).days
-					row += [days_since, comm_dict[0].contacts, comm_dict[0].communication_date,
-							comm_dict[0].next_action_date, comm_dict[0].content, comm_dict[0].name, cust.sales_person]
-				else:
-					row += [-1, 0, '1900-01-01', '1900-01-01', "No Communication", "", cust.sales_person]
-				data.append(row)
-
-		elif filters.get("document") == 'Lead':
-			data = []
-			lead_dict = get_leads(filters)
-			for lead in lead_dict:
-				row = [lead.name, lead.company_name, lead.lead_name, lead.mobile, lead.email, lead.status,
-					   lead.requirement, lead.territory]
-				comm_dict = get_sales_comm_for_lead(lead.name)
-				if comm_dict:
-					days_since = (datetime.today() - comm_dict[0].communication_date).days
-					row += [days_since, comm_dict[0].contacts, comm_dict[0].communication_date,
-							comm_dict[0].next_action_date, comm_dict[0].content, comm_dict[0].name, lead.owner,
-							lead.contact_by]
-				else:
-					row += [-1, 0, '1900-01-01', '1900-01-01', "No Communication", "", lead.owner, lead.contact_by]
-				data.append(row)
+			return get_customer_rows(filters, summary=True)
+		if filters.get("document") == 'Lead':
+			return get_lead_rows(filters, summary=True)
 	elif filters.get("comm_details") == 1:
-		data = []
 		if filters.get("document") == "Lead":
-			lead_dict = get_leads(filters)
-			for lead in lead_dict:
-				main_row = [lead.name, lead.company_name, lead.lead_name, lead.mobile, lead.email]
-				comm_dict = get_sales_comm_for_lead(lead_name=lead.name, frm_date=filters.get("from_date"),
-													to_date=filters.get("to_date"))
-				if comm_dict:
-					for comm in comm_dict:
-						rowcomm = [comm.communication_date, comm.next_action_date, comm.communication_medium,
-								comm.content, comm.name, comm.owner]
-						new_row = main_row + rowcomm
-						data.append(new_row)
-		elif filters.get("document") == "Customer":
-			cust_dict = get_customers(filters)
-			for cust in cust_dict:
-				main_row = [cust.name, cust.customer_primary_contact]
-				phone_dict = get_phone_from_contact(cust.customer_primary_contact)
-				numbers = ""
-				if phone_dict:
-					for mob in phone_dict:
-						numbers += mob.phone + " "
-				emails = ""
-				email_dict = get_email_from_contact(cust.customer_primary_contact)
-				if email_dict:
-					for email in email_dict:
-						emails += email.email_id + " "
-				main_row += [numbers, emails]
-				comm_dict = get_sales_comm_for_cust(cust_name=cust.name, frm_date=filters.get("from_date"),
-													to_date=filters.get("to_date"))
-				if comm_dict:
-					for comm in comm_dict:
-						rowcomm = [comm.communication_date, comm.next_action_date, comm.communication_medium,
-								comm.content, comm.name, comm.owner]
-						new_row = main_row + rowcomm
-						data.append(new_row)
+			return get_lead_rows(filters, summary=False)
+		if filters.get("document") == "Customer":
+			return get_customer_rows(filters, summary=False)
+	return []
+
+
+def get_analysis_summary(filters):
+	dcr = frappe.qb.DocType("Daily Call")
+	dcrd = frappe.qb.DocType("Daily Call Details")
+	query = (
+		frappe.qb.from_(dcr)
+		.join(dcrd).on(dcrd.parent == dcr.name)
+		.select(dcr.created_by, dcrd.type_of_communication, Count(dcrd.name), Sum(dcrd.duration))
+		.where(dcr.docstatus == 1)
+		.groupby(dcr.created_by, dcrd.type_of_communication)
+	)
+	# communication_date is a Datetime, so to_date takes the full day
+	if filters.get("from_date"):
+		query = query.where(dcrd.communication_date >= getdate(filters["from_date"]))
+	if filters.get("to_date"):
+		query = query.where(dcrd.communication_date < add_days(getdate(filters["to_date"]), 1))
+	if filters.get("document"):
+		query = query.where(dcrd.document == filters["document"])
+	if filters.get("docname"):
+		query = query.where(dcrd.document_name == filters["docname"])
+	return query.run(as_list=1)
+
+
+def join_values(rows, field):
+	return "".join(row[field] + " " for row in rows)
+
+
+def get_customer_rows(filters, summary):
+	data = []
+	cust_dict = get_customers(filters)
+	names = [cust.name for cust in cust_dict]
+	contacts = [cust.customer_primary_contact for cust in cust_dict if cust.customer_primary_contact]
+	phones, emails = get_contact_phones(contacts), get_contact_emails(contacts)
+	if summary:
+		so_totals = get_sales_order_totals(names, filters.get("from_date"), filters.get("to_date"))
+		comms = get_sales_comms_for_customers(names)
+	else:
+		comms = get_sales_comms_for_customers(names, filters.get("from_date"), filters.get("to_date"))
+	for cust in cust_dict:
+		numbers = join_values(phones.get(cust.customer_primary_contact, []), "phone")
+		emails_txt = join_values(emails.get(cust.customer_primary_contact, []), "email_id")
+		comm_dict = comms.get(cust.name, [])
+		if summary:
+			row = [cust.name, cust.territory, cust.customer_group, cust.customer_rating,
+				   cust.customer_primary_contact, numbers, emails_txt,
+				   flt(so_totals.get(cust.name, {}).get("total_net_amt"))]
+			data.append(row + get_last_comm(comm_dict, [cust.sales_person]))
+		else:
+			main_row = [cust.name, cust.customer_primary_contact, numbers, emails_txt]
+			data.extend(main_row + get_comm_detail(comm) for comm in comm_dict)
 	return data
 
 
+def get_lead_rows(filters, summary):
+	data = []
+	lead_dict = get_leads(filters)
+	names = [lead.name for lead in lead_dict]
+	if summary:
+		comms = get_sales_comms_for_leads(names)
+	else:
+		comms = get_sales_comms_for_leads(names, filters.get("from_date"), filters.get("to_date"))
+	for lead in lead_dict:
+		comm_dict = comms.get(lead.name, [])
+		if summary:
+			row = [lead.name, lead.company_name, lead.lead_name, lead.mobile, lead.email, lead.status,
+				   lead.requirement, lead.territory]
+			data.append(row + get_last_comm(comm_dict, [lead.owner, lead.contact_by]))
+		else:
+			main_row = [lead.name, lead.company_name, lead.lead_name, lead.mobile, lead.email]
+			data.extend(main_row + get_comm_detail(comm) for comm in comm_dict)
+	return data
+
+
+def get_last_comm(comm_dict, owners):
+	if not comm_dict:
+		return [-1, 0, '1900-01-01', '1900-01-01', "No Communication", ""] + owners
+	last = comm_dict[0]
+	days_since = (datetime.today() - last.communication_date).days
+	return [days_since, last.contacts, last.communication_date, last.next_action_date, last.content,
+			last.name] + owners
+
+
+def get_comm_detail(comm):
+	return [comm.communication_date, comm.next_action_date, comm.communication_medium, comm.content,
+			comm.name, comm.owner]
+
+
 def get_customers(filters):
-	cond_cust = get_conditions(filters)[2]
-	cust_query = """SELECT cu.name, cu.territory, cu.customer_group, cu.customer_rating, cu.account_manager, 
-	cu.customer_primary_contact, st.email_id as sales_person
-	FROM `tabCustomer` cu, `tabSales Team` st 
-	WHERE cu.docstatus = 0 AND st.parenttype = '%s' AND st.parent = cu.name %s 
-	ORDER BY cu.name""" % (filters.get('document'), cond_cust)
-	cust_dict = frappe.db.sql(cust_query, as_dict=1)
-	return cust_dict
+	cu = frappe.qb.DocType("Customer")
+	st = frappe.qb.DocType("Sales Team")
+	query = (
+		frappe.qb.from_(cu)
+		.join(st).on(st.parent == cu.name)
+		.select(cu.name, cu.territory, cu.customer_group, cu.customer_rating, cu.account_manager,
+			cu.customer_primary_contact, st.email_id.as_("sales_person"))
+		.where((cu.docstatus == 0) & (st.parenttype == filters.get("document")))
+		.orderby(cu.name)
+	)
+	if filters.get("docname"):
+		query = query.where(cu.name == filters["docname"])
+	if filters.get("owner"):
+		query = query.where(st.email_id == filters["owner"])
+	if filters.get("territory"):
+		query = query.where(cu.territory == filters["territory"])
+	return query.run(as_dict=1)
+
 
 def get_leads(filters):
-	cond_lead = get_conditions(filters)[1]
-	ld_query = """SELECT ld.name, ld.company_name, ld.lead_name, IFNULL(ld.mobile_no,"-") as mobile,
-	IFNULL(ld.email_id,"-") as email, ld.status, ld.requirement, IFNULL(ld.territory,"-") as territory, 
-	IFNULL(ld.lead_owner,"-") as owner, IFNULL(ld.contact_by,"-") as contact_by
-	FROM `tabLead` ld WHERE ld.docstatus=0 %s ORDER BY ld.name""" % (cond_lead)
-	lead_dict = frappe.db.sql(ld_query, as_dict=1)
-	return lead_dict
-
-
-def get_conditions(filters):
-	cond_dcr = ""
-	cond_lead = ""
-	cond_cust = ""
-
-	if filters.get("from_date"):
-		cond_dcr += " AND dcrd.communication_date >= '%s'" % filters["from_date"]
-
-	if filters.get("to_date"):
-		cond_dcr += " AND dcrd.communication_date <= '%s'" % filters["to_date"]
-
-	if filters.get("document"):
-		cond_dcr += " AND dcrd.document = '%s'" % filters["document"]
-
+	ld = frappe.qb.DocType("Lead")
+	query = (
+		frappe.qb.from_(ld)
+		.select(ld.name, ld.company_name, ld.lead_name, IfNull(ld.mobile_no, "-").as_("mobile"),
+			IfNull(ld.email_id, "-").as_("email"), ld.status, ld.requirement,
+			IfNull(ld.territory, "-").as_("territory"), IfNull(ld.lead_owner, "-").as_("owner"),
+			IfNull(ld.contact_by, "-").as_("contact_by"))
+		.where(ld.docstatus == 0)
+		.orderby(ld.name)
+	)
 	if filters.get("docname"):
-		cond_dcr += " AND dcrd.document = '%s' AND dcrd.document_name = '%s'" % (filters["document"],
-																				 filters["docname"])
-		if filters.get("document") == 'Lead':
-			cond_lead += " AND ld.name = '%s'" % filters["docname"]
-		elif filters.get("document") == 'Customer':
-			cond_cust += " AND cu.name = '%s'" % filters["docname"]
-
+		query = query.where(ld.name == filters["docname"])
 	if filters.get("owner"):
-		if filters.get("document") == "Lead":
-			cond_lead += " AND ld.lead_owner = '%s'" % filters["owner"]
-		elif filters.get("document") == "Customer":
-			cond_cust += " AND st.email_id = '%s' " % filters["owner"]
-
+		query = query.where(ld.lead_owner == filters["owner"])
 	if filters.get("territory"):
-		if filters.get("document") == "Lead":
-			cond_lead += " AND ld.territory = '%s'" % filters["territory"]
-		elif filters.get("document") == "Customer":
-			cond_cust += " AND "
-
-	return cond_dcr, cond_lead, cond_cust
+		query = query.where(ld.territory == filters["territory"])
+	return query.run(as_dict=1)
