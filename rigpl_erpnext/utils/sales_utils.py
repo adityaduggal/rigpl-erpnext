@@ -896,16 +896,3 @@ def disallow_qty_change(so_doc):
         for itm in so_doc.items:
             old_qty = frappe.db.get_value("Sales Order Item", itm.name, "qty")
             frappe.msgprint(f"For Row# {itm.idx} Previous Qty = {old_qty} and New Qty = {itm.qty} and SOI name = {itm.name}")
-
-
-
-@frappe.whitelist()
-def get_pending_so_with_items(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql("""SELECT so.name, so.customer, soi.item_code, soi.description, soi.qty,
-        soi.delivered_qty, soi.name FROM `tabSales Order` so, `tabSales Order Item` soi WHERE so.docstatus = 1 AND
-        soi.parent = so.name AND so.status != "Closed" AND soi.qty > soi.delivered_qty AND (so.name like %(txt)s or
-        so.customer like %(txt)s) {get_match_cond(doctype)} ORDER BY  if(locate(%(_txt)s, so.name),
-        locate(%(_txt)s, so.name), 1) LIMIT %(start)s, %(page_len)s""", {'txt': "%%%s%%" % txt,
-                                                                         '_txt': txt.replace("%", ""),
-                                                                         'start': start,
-                                                                         'page_len': page_len, })
