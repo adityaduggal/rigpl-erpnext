@@ -13,6 +13,8 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     get_produced_qty_changes,
     get_qty_for_prod,
     get_qty_for_prod_map,
+    get_rm_rule_errors,
+    get_rule_failures,
     get_template_usage,
     match_bom_templates,
     match_bom_templates_bulk,
@@ -104,6 +106,27 @@ class TestRuleCheck(FrappeTestCase):
 
     def test_missing_value_does_not_pass(self):
         self.assertFalse(rule_passes("rm_l1_mm > 5", {"rm_d1_mm": 6.0}))
+
+    def test_decimal_values_on_the_limit_pass(self):
+        # In float 2.2 + 0.2 is 2.4000000000000004, which is more than 2.4 (PS2701163)
+        values = {"rm_d1_mm": 2.4, "fg_d1_mm": 2.2}
+        self.assertTrue(rule_passes("rm_d1_mm <= (fg_d1_mm + 2) and rm_d1_mm >= (fg_d1_mm + 0.2)", values))
+        self.assertTrue(rule_passes("rm_d1_mm == fg_d1_mm + .2", values))
+        self.assertFalse(rule_passes("rm_d1_mm > fg_d1_mm + 0.2", values))
+
+    def test_rule_failures_of_one_item(self):
+        restrictions = [
+            rule("Base Material", "HSS\nCarbide"), rule("Tool Type", "No"),
+            rule("d1_mm", numeric=1, formula="rm_d1_mm >= fg_d1_mm && rm_d1_mm <= fg_d1_mm + 2"),
+        ]
+        known = {"fg_d1_mm": 6.0}
+        self.assertEqual(get_rule_failures(restrictions, known, "rm",
+            [att("Base Material", "HSS"), att("d1_mm", "7", 1)]), [])
+        self.assertEqual(get_rule_failures(restrictions, known, "rm",
+            [att("Base Material", "Cobalt"), att("d1_mm", "9", 1)]),
+            ["Base Material = Cobalt, allowed: Carbide, HSS", "rm_d1_mm >= fg_d1_mm && rm_d1_mm <= fg_d1_mm + 2"])
+        self.assertEqual(get_rule_failures(restrictions, known, "rm", [att("d1_mm", "7", 1)]),
+            ["Base Material = not set, allowed: Carbide, HSS"])
 
 
 class TestSortRmRowsByCost(FrappeTestCase):
@@ -214,6 +237,28 @@ class TestItemsForRules(FrappeTestCase):
         known = {"fg": [att("d2_mm", "6", 1), att("l2_mm", "40", 1)]}
         names = [d.name for d in get_items_for_rules(restrictions, known, "rm", allow_zero_rol=1)]
         self.assertEqual(names, ["_Test RIGPL RM 6x50", "_Test RIGPL RM 8x50"])
+
+    def test_rm_rows_that_fail_the_rules(self):
+        insert_item("_Test RIGPL FG 6x40", variant_of="_Test RIGPL FG", attributes=[("d2_mm", "6"), ("l2_mm", "40")])
+        bt_doc = frappe._dict(name="_Test RIGPL BT", rm_restrictions=[
+            rule("Base Material", TEST_BM),
+            rule("d1_mm", numeric=1, formula="rm_d1_mm == fg_d2_mm"),
+            rule("l1_mm", numeric=1, formula="rm_l1_mm >= fg_l2_mm"),
+        ])
+        rows = [frappe._dict(idx=1, item_code="_Test RIGPL RM 6x50")]
+        get_rm_rule_errors(bt_doc, "_Test RIGPL FG 6x40", None, rows)  # loads the meta into the cache
+        with assert_max_queries(3, test_case=self):
+            self.assertEqual(get_rm_rule_errors(bt_doc, "_Test RIGPL FG 6x40", None, rows), [])
+
+        rows += [frappe._dict(idx=2, item_code="_Test RIGPL RM 8x50"), frappe._dict(idx=3, item_code="_Test RIGPL RM 6x20"),
+            frappe._dict(idx=4, item_code="_Test RIGPL RM other")]
+        with assert_max_queries(3, test_case=self):
+            errors = get_rm_rule_errors(bt_doc, "_Test RIGPL FG 6x40", None, rows)
+        self.assertEqual([(row.idx, failures) for row, failures in errors], [
+            (2, ["rm_d1_mm == fg_d2_mm"]),
+            (3, ["rm_l1_mm >= fg_l2_mm"]),
+            (4, ["Base Material = _Test RIGPL other, allowed: " + TEST_BM]),
+        ])
 
     def test_no_value_is_not_a_filter_and_rol_filter(self):
         restrictions = [rule("Base Material", TEST_BM), rule("Tool Type", "No")]

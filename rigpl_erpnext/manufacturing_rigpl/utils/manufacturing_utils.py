@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 
 import math
 import re
+from decimal import Decimal
 
 import frappe
 from erpnext.stock.stock_balance import update_bin_qty
@@ -252,6 +253,8 @@ def sort_rm_rows_by_cost(rows, rates):
 # SQL functions that the RM and WIP rules use
 RULE_FUNCTIONS = {"ceiling": math.ceil, "CEILING": math.ceil}
 RULE_KEYWORDS = {"and", "or", "not", "True", "False"}
+# A number in a rule that is not a part of a name, for example the 0.2 in "fg_d1_mm + 0.2"
+RULE_NUMBER = re.compile(r"(?<![\w.])(\d+(?:\.\d*)?|\.\d+)(?![\w.])")
 
 
 def get_known_item_attributes(item_name, process_sheet_name=None):
@@ -328,7 +331,53 @@ def rule_passes(rule, values):
     names = set(re.findall(r"[A-Za-z_]\w*", rule)) - set(RULE_FUNCTIONS) - RULE_KEYWORDS
     if names - values.keys():
         return False
-    return bool(calculate_formula_values(rule, dict(values, **RULE_FUNCTIONS)))
+    # Decimal maths, so 2.2 + 0.2 >= 2.4 is true (in float 2.2 + 0.2 is 2.4000000000000004)
+    exact_values = {name: Decimal(str(values[name])) for name in names}
+    exact_rule = RULE_NUMBER.sub(r'Decimal("\1")', rule)
+    return bool(calculate_formula_values(exact_rule, dict(exact_values, Decimal=Decimal, **RULE_FUNCTIONS)))
+
+
+def get_rule_failures(restrictions, known_values, unknown_prefix, item_attrs):
+    """
+    Returns the rules of `restrictions` that one item fails, as text. `known_values` is
+    {"fg_<attribute>": value} and `item_attrs` are the attribute rows of the item. Same check as
+    `get_items_for_rules`: a non-numeric rule needs the item's value in its allowed values, and
+    "No" is not a filter.
+    """
+    text_values = {att.attribute: att.attribute_value for att in item_attrs}
+    values = dict(known_values)
+    for att in item_attrs:
+        values[f"{unknown_prefix}_{att.attribute}"] = flt(att.attribute_value)
+    failures = []
+    for row in restrictions:
+        if row.is_numeric == 1:
+            if not rule_passes(replace_java_chars(row.rule or ""), values):
+                failures.append((row.rule or "").strip())
+        elif row.allowed_values != "No":
+            if text_values.get(row.attribute) not in split_allowed_values(row.allowed_values):
+                failures.append(f"{row.attribute} = {text_values.get(row.attribute) or 'not set'}, allowed: "
+                    + ", ".join(sorted(split_allowed_values(row.allowed_values))))
+    return failures
+
+
+def get_rm_rule_errors(bt_doc, fg_item, ps_name, rm_rows):
+    """
+    Returns [(RM row, [failed rules])] for the RM rows that fail the RM rules of the BOM Template.
+    Reads the FG attributes once and the attributes of all RM rows in one query per chunk.
+    """
+    if not bt_doc.get("rm_restrictions") or not rm_rows:
+        return []
+    known_values = {
+        f"fg_{att.attribute}": flt(att.attribute_value)
+        for att in get_known_item_attributes(fg_item, ps_name)
+    }
+    att_rows = get_attribute_rows([row.item_code for row in rm_rows])
+    errors = []
+    for row in rm_rows:
+        failures = get_rule_failures(bt_doc.rm_restrictions, known_values, "rm", att_rows.get(row.item_code, []))
+        if failures:
+            errors.append((row, failures))
+    return errors
 
 
 def get_special_item_attributes(it_name, special_item_attribute):

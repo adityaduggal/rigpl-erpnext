@@ -19,6 +19,7 @@ from ...utils.manufacturing_utils import (
     find_item_quantities,
     get_priority_for_stock_prd,
     get_qty_to_manufacture,
+    get_rm_rule_errors,
     round_up_qty,
     set_wip_row_quantities,
     sort_rm_rows_by_cost,
@@ -263,6 +264,7 @@ class ProcessSheet(Document):
                 ps_name=self.name,
             )
         else:
+            self.validate_rm_rules(bt_doc)
             rm_item_dict = self.make_rm_item_dict()
         if not rm_item_dict:
             frappe.throw(
@@ -560,6 +562,21 @@ class ProcessSheet(Document):
                     ),
                     "Error: No of RM Selected is Wrong",
                 )
+
+    def validate_rm_rules(self, bt_doc):
+        """Each RM row must pass the RM rules of the BOM Template. There is no override (#183)."""
+        errors = get_rm_rule_errors(bt_doc, self.production_item, self.name, self.rm_consumed)
+        if errors:
+            frappe.throw(
+                "The RM rules of {} do not allow:<br>{}".format(
+                    frappe.get_desk_link("BOM Template RIGPL", bt_doc.name),
+                    "<br>".join(
+                        "Row# {}: {} fails {}".format(row.idx, row.item_code, "; ".join(failures))
+                        for row, failures in errors
+                    ),
+                ),
+                title="RM Not Allowed by BOM Template",
+            )
 
     def make_rm_item_dict(self):
         rm_item_dict = []
