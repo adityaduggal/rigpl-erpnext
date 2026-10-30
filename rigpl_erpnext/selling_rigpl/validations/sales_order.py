@@ -54,13 +54,18 @@ def check_price_list(doc):
     2. Also base net rate cannot be lower than item valuation rate
     """
     for it in doc.items:
-        itd = frappe.get_doc("Item", it.item_code)
         it.description = remove_html(it.description)
         if not it.price_list:
             it.price_list = doc.selling_price_list
-        if itd.made_to_order != 1 and itd.variant_of:
-            it_price = get_item_price(it.item_code, it.price_list)
-            if not it_price:
+    items = {itd.name: itd for itd in frappe.get_all("Item",
+        filters={"name": ["in", [it.item_code for it in doc.items]]},
+        fields=["name", "made_to_order", "variant_of", "valuation_rate"])}
+    prices = get_item_price_rows([(it.item_code, it.price_list) for it in doc.items])
+    for it in doc.items:
+        # An unknown Item is left to the Link validation
+        itd = items.get(it.item_code)
+        if itd and itd.made_to_order != 1 and itd.variant_of:
+            if not prices.get((it.item_code, it.price_list), {}).get("price_list_rate"):
                 frappe.throw(f"In Row# {it.idx} for Item: {it.item_code} No Price List Rate "
                     f"for {it.price_list} Create a Price List Rate to Proceed or Remove Item.")
             if it.base_net_rate < itd.valuation_rate:

@@ -6,7 +6,8 @@ import re
 import frappe
 import datetime
 from frappe.query_builder.functions import Count, Min, Sum
-from frappe.utils import flt, today, add_months, getdate
+from frappe.utils import add_days, add_months, flt, getdate, today
+from pypika.terms import Tuple
 from .item_attribute_utils import chunks
 from .other_utils import get_base_doc, round_up, auto_round_up, compute_lcm
 from .stock_utils import get_qty_available_to_sell
@@ -87,109 +88,178 @@ def validate_item_mov(so_doc, enforce=1):
 
 
 
+def get_contact_child_rows(child_doctype, field, contacts):
+    """
+    Returns {contact: [rows with field]} of a Contact child table (Contact Email, Contact Phone)
+    """
+    tab = frappe.qb.DocType(child_doctype)
+    rows_by_contact = {}
+    for chunk in chunks(contacts):
+        for row in (
+            frappe.qb.from_(tab)
+            .select(tab.parent, tab[field])
+            .where((tab.parenttype == "Contact") & tab.parent.isin(chunk))
+            .orderby(tab.parent)
+            .orderby(tab.idx)
+            .run(as_dict=True)
+        ):
+            rows_by_contact.setdefault(row.pop("parent"), []).append(row)
+    return rows_by_contact
+
+
+def get_contact_emails(contacts):
+    return get_contact_child_rows("Contact Email", "email_id", contacts)
+
+
+def get_contact_phones(contacts):
+    return get_contact_child_rows("Contact Phone", "phone", contacts)
+
+
 def get_email_from_contact(contact_name):
-    email_dict = frappe._dict({})
-    if contact_name:
-        email_query = """SELECT email_id FROM `tabContact Email` WHERE parent = '%s'
-        AND parenttype = 'Contact'""" % contact_name
-        email_dict = frappe.db.sql(email_query, as_dict=1)
-    return email_dict
+    if not contact_name:
+        return frappe._dict({})
+    return get_contact_emails([contact_name]).get(contact_name, [])
 
 
 def get_phone_from_contact(contact_name):
-    phone_dict = frappe._dict({})
-    if contact_name:
-        phone_query = """SELECT phone FROM `tabContact Phone` WHERE parent = '%s'
-        AND parenttype = 'Contact'""" % (contact_name)
-        phone_dict = frappe.db.sql(phone_query, as_dict=1)
-    return phone_dict
+    if not contact_name:
+        return frappe._dict({})
+    return get_contact_phones([contact_name]).get(contact_name, [])
 
 
-def get_sales_comm_for_cust(cust_name, frm_date=None, to_date=None):
-    if frm_date:
-        frm_date_cond = " AND comm.communication_date >= '%s'" % frm_date
-    else:
-        frm_date_cond = ""
-    if to_date:
-        to_date_cond = " AND comm.communication_date <= '%s'" % to_date
-    else:
-        to_date_cond = ""
-    all_comm_dict = []
-    cont_list = []
-    cont_dict = frappe._dict({})
-    cont_dict["type"] = "Customer"
-    cont_dict["name"] = cust_name
-    cont_list.append(cont_dict.copy())
-    contacts = get_contacts(name=cust_name, type='Customer')
-    if contacts:
-        for con in contacts:
-            cont_dict["type"] = "Contact"
-            cont_dict["name"] = con.name
-            cont_list.append(cont_dict.copy())
-    for d in cont_list:
-        comm_query = """SELECT comm.name, comm.communication_date, comm.communication_medium,
-        comm.content, comm.next_action_date, comm.owner
-        FROM `tabCommunication` comm WHERE comm.reference_doctype = '%s'
-        AND comm.communication_subtype = 'Sales Related'
-        AND comm.reference_name = '%s' %s %s
-        ORDER BY comm.communication_date DESC""" % (d.type, d.name, frm_date_cond, to_date_cond)
-        comm_dict = frappe.db.sql(comm_query, as_dict=1)
-        if comm_dict:
-            for comm in comm_dict:
-                all_comm_dict.append(comm.copy())
-    for comm in all_comm_dict:
-        comm["contacts"] = len(all_comm_dict)
-    return all_comm_dict
-
-
-def get_sales_comm_for_lead(lead_name, frm_date=None, to_date=None):
-    if frm_date:
-        frm_date_cond = " AND comm.communication_date >= '%s'" % frm_date
-    else:
-        frm_date_cond = ""
-    if to_date:
-        to_date_cond = " AND comm.communication_date <= '%s'" % to_date
-    else:
-        to_date_cond = ""
-
-    comm_query = """SELECT comm.name, comm.communication_date, (SELECT COUNT(name) FROM `tabCommunication`
-    WHERE reference_doctype = 'Lead' AND reference_name = '%s') as contacts, comm.owner, comm.communication_medium,
-    comm.content, comm.next_action_date
-    FROM `tabCommunication` comm WHERE comm.reference_doctype = 'Lead'
-    AND comm.communication_subtype = 'Sales Related'
-    AND comm.reference_name = '%s' %s %s
-    ORDER BY comm.communication_date DESC""" % (lead_name, lead_name, frm_date_cond, to_date_cond)
-    comm_dict = frappe.db.sql(comm_query, as_dict=1)
-    return comm_dict
+def get_link_contacts(link_doctype, link_names):
+    """
+    Returns {link_name: [Contact rows]} for the Contacts linked to the documents
+    """
+    con = frappe.qb.DocType("Contact")
+    dl = frappe.qb.DocType("Dynamic Link")
+    contacts = {}
+    for chunk in chunks(link_names):
+        for row in (
+            frappe.qb.from_(dl)
+            .join(con).on(con.name == dl.parent)
+            .select(dl.link_name, con.name)
+            .where((dl.parenttype == "Contact") & (dl.link_doctype == link_doctype))
+            .where(dl.link_name.isin(chunk))
+            .orderby(con.name)
+            .run(as_dict=True)
+        ):
+            contacts.setdefault(row.pop("link_name"), []).append(row)
+    return contacts
 
 
 def get_contacts(name, type):
-    contacts_dict = frappe.db.sql("""SELECT con.name FROM `tabContact` con, `tabDynamic Link` dl
-    WHERE dl.parenttype = 'Contact' AND dl.parent = con.name AND dl.link_doctype = '%s'
-    AND dl.link_name = '%s'""" % (type, name), as_dict=1)
-    return contacts_dict
+    return get_link_contacts(type, [name]).get(name, [])
+
+
+def get_sales_comms(refs, frm_date=None, to_date=None):
+    """
+    Returns {(reference_doctype, reference_name): [Sales Related Communications, latest first]}.
+    communication_date is a Datetime, so to_date takes the full day.
+    """
+    comm = frappe.qb.DocType("Communication")
+    comms = {}
+    for chunk in chunks(refs):
+        query = (
+            frappe.qb.from_(comm)
+            .select(
+                comm.reference_doctype, comm.reference_name, comm.name, comm.communication_date,
+                comm.communication_medium, comm.content, comm.next_action_date, comm.owner,
+            )
+            .where(comm.communication_subtype == "Sales Related")
+            .where(Tuple(comm.reference_doctype, comm.reference_name).isin(
+                [Tuple(*ref) for ref in chunk]))
+            .orderby(comm.communication_date, order=frappe.qb.desc)
+        )
+        if frm_date:
+            query = query.where(comm.communication_date >= getdate(frm_date))
+        if to_date:
+            query = query.where(comm.communication_date < add_days(getdate(to_date), 1))
+        for row in query.run(as_dict=True):
+            key = (row.pop("reference_doctype"), row.pop("reference_name"))
+            comms.setdefault(key, []).append(row)
+    return comms
+
+
+def get_sales_comms_for_customers(customers, frm_date=None, to_date=None):
+    """
+    Returns {customer: [Communications]} with the Customer's own Communications first, then the
+    ones of all its linked Contacts, latest first. Each row has contacts = the number of rows of
+    the customer.
+    """
+    contacts = get_link_contacts("Customer", customers)
+    refs = {cust: [("Contact", con.name) for con in contacts.get(cust, [])] for cust in customers}
+    comms = get_sales_comms([("Customer", cust) for cust in refs]
+        + [ref for cust_refs in refs.values() for ref in cust_refs], frm_date, to_date)
+    result = {}
+    for cust, cust_refs in refs.items():
+        contact_rows = sorted((row for ref in cust_refs for row in comms.get(ref, [])),
+            key=lambda row: row.communication_date or datetime.datetime.min, reverse=True)
+        rows = [frappe._dict(row) for row in comms.get(("Customer", cust), []) + contact_rows]
+        for row in rows:
+            row["contacts"] = len(rows)
+        result[cust] = rows
+    return result
+
+
+def get_lead_comm_counts(leads):
+    """
+    Returns {lead: number of all its Communications}
+    """
+    comm = frappe.qb.DocType("Communication")
+    counts = {}
+    for chunk in chunks(leads):
+        counts.update(dict(
+            frappe.qb.from_(comm)
+            .select(comm.reference_name, Count(comm.name))
+            .where((comm.reference_doctype == "Lead") & comm.reference_name.isin(chunk))
+            .groupby(comm.reference_name)
+            .run()
+        ))
+    return counts
+
+
+def get_sales_comms_for_leads(leads, frm_date=None, to_date=None):
+    """
+    Returns {lead: [Communications]}. Each row has contacts = the number of all the
+    Communications of the lead.
+    """
+    comms = get_sales_comms([("Lead", lead) for lead in leads], frm_date, to_date)
+    counts = get_lead_comm_counts(leads)
+    result = {}
+    for lead in leads:
+        rows = comms.get(("Lead", lead), [])
+        for row in rows:
+            row["contacts"] = counts.get(lead, 0)
+        result[lead] = rows
+    return result
+
+
+def get_sales_comm_for_cust(cust_name, frm_date=None, to_date=None):
+    return get_sales_comms_for_customers([cust_name], frm_date, to_date)[cust_name]
+
+
+def get_sales_comm_for_lead(lead_name, frm_date=None, to_date=None):
+    return get_sales_comms_for_leads([lead_name], frm_date, to_date)[lead_name]
 
 
 def get_pending_so_qty_from_soitem(so_item):
-    pending_so = frappe.db.sql("""SELECT SUM(sod.qty - sod.delivered_qty) AS pend_qty FROM `tabSales Order` so,
-    `tabSales Order Item` sod WHERE sod.parent = so.name AND sod.parenttype = 'Sales Order' AND so.docstatus = 1
-    AND so.status != 'Closed' AND sod.qty > sod.delivered_qty AND sod.name = '%s'""" % so_item, as_list=1)
-    if pending_so:
-        return flt(pending_so[0][0])
-    else:
-        return 0
+    so = frappe.qb.DocType("Sales Order")
+    sod = frappe.qb.DocType("Sales Order Item")
+    pending_so = (
+        frappe.qb.from_(sod)
+        .join(so).on(so.name == sod.parent)
+        .select(Sum(sod.qty - sod.delivered_qty))
+        .where((sod.parenttype == "Sales Order") & (so.docstatus == 1) & (so.status != "Closed"))
+        .where((sod.qty > sod.delivered_qty) & (sod.name == so_item))
+        .run()
+    )
+    return flt(pending_so[0][0]) if pending_so else 0
 
 
 def get_total_sales_orders(customer, frm_date, to_date):
-    sales_orders = frappe.db.sql("""SELECT SUM(base_net_total) AS total_net_amt, COUNT(name) AS so
-    FROM `tabSales Order` WHERE docstatus = 1 AND base_net_total > 0 AND customer = '%s' AND transaction_date >= '%s'
-    AND transaction_date <= '%s'""" % (customer, frm_date, to_date), as_dict=1)
-    return sales_orders
-
-def get_first_order(customer, amt=0):
-    first_order = frappe.db.sql("""SELECT transaction_date as date FROM `tabSales Order` WHERE docstatus = 1
-    AND customer = '%s' AND base_net_total > %s ORDER BY transaction_date LIMIT 1""" % (customer, amt), as_dict=1)
-    return first_order
+    totals = get_sales_order_totals([customer], frm_date, to_date)
+    return [totals.get(customer) or frappe._dict(total_net_amt=None, so=0)]
 
 
 def compare_cust_pmt_terms(custd, enforce=0):
@@ -361,8 +431,7 @@ def get_invoice_totals(customers, from_date, to_date):
 
 def get_first_order_dates(customers, amt=0):
     """
-    Returns {customer: date of the first submitted Sales Order above amt}, like get_first_order
-    but for many customers
+    Returns {customer: date of the first submitted Sales Order above amt}
     """
     so = frappe.qb.DocType("Sales Order")
     first_orders = {}
@@ -500,24 +569,58 @@ def prioritize_sales_order(so_dict):
         return 11
 
 
+def get_completed_jc_qtys(keys):
+    """
+    Returns {(production_item, operation, sales_order_item): completed qty of the submitted
+    Process Job Cards}
+    """
+    jc = frappe.qb.DocType("Process Job Card RIGPL")
+    qtys = {}
+    for chunk in chunks(keys):
+        for item, operation, so_detail, qty in (
+            frappe.qb.from_(jc)
+            .select(jc.production_item, jc.operation, jc.sales_order_item, Sum(jc.total_completed_qty))
+            .where(jc.docstatus == 1)
+            .where(Tuple(jc.production_item, jc.operation, jc.sales_order_item).isin(
+                [Tuple(*key) for key in chunk]))
+            .groupby(jc.production_item, jc.operation, jc.sales_order_item)
+            .run()
+        ):
+            qtys[(item, operation, so_detail)] = flt(qty)
+    return qtys
+
+
 def get_completed_qty_of_jc_for_operation(item, operation, so_detail=None):
-    query = """SELECT SUM(total_completed_qty) FROM `tabProcess Job Card RIGPL`
-    WHERE docstatus = 1 AND production_item = '%s' AND operation = '%s'
-    AND sales_order_item = '%s'""" % (item, operation, so_detail)
-    completed_qty = frappe.db.sql(query, as_list=1)
-    if completed_qty[0][0]:
-        return flt(completed_qty[0][0])
-    else:
-        return 0
+    return get_completed_jc_qtys([(item, operation, so_detail)]).get((item, operation, so_detail), 0)
+
+
+def get_bins_with_wh_type(items):
+    """
+    Returns {item: [Bin rows of enabled warehouses with warehouse_type]}
+    """
+    bn = frappe.qb.DocType("Bin")
+    wh = frappe.qb.DocType("Warehouse")
+    bins = {}
+    for chunk in chunks(items):
+        for row in (
+            frappe.qb.from_(bn)
+            .join(wh).on(bn.warehouse == wh.name)
+            .select(
+                bn.item_code, bn.warehouse, bn.reserved_qty, bn.actual_qty,
+                bn.reserved_qty_for_production, wh.warehouse_type,
+            )
+            .where((wh.disabled == 0) & bn.item_code.isin(chunk))
+            .run(as_dict=True)
+        ):
+            bins.setdefault(row.item_code, []).append(row)
+    return bins
 
 
 def dead_stock_order_booking(doc):
     """Validation to Disallow Booking of Orders for More than Available Quantity for Items in Dead Stock"""
+    bins = get_bins_with_wh_type([it.item_code for it in doc.items])
     for it in doc.items:
-        qty_dict = frappe.db.sql("""SELECT bn.warehouse, bn.reserved_qty, bn.actual_qty, bn.reserved_qty_for_production,
-            wh.warehouse_type
-            FROM `tabBin` bn, `tabWarehouse` wh
-            WHERE bn.warehouse = wh.name AND wh.disabled =0 AND bn.item_code = '%s'"""% it.item_code, as_dict=1)
+        qty_dict = bins.get(it.item_code, [])
         check_dead = 0
         for wh in qty_dict:
             if wh.warehouse_type == 'Dead Stock' and wh.actual_qty > 0:
@@ -542,32 +645,61 @@ def validate_made_to_order_items(doc):
     This validation basically checks if an Item is Made to Order or Not if Item is Made to Order or Special Item
     Then the system would check if all the Process Sheet Job Cards are completed or Not.
     '''
+    if doc.bypass_made_to_order_check == 1:
+        return
+    made_to_order = set(frappe.get_all("Item", pluck="name", filters={
+        "name": ["in", [it.item_code for it in doc.items]], "made_to_order": 1}))
+    special = get_special_item_data([it for it in doc.items if it.item_code in made_to_order])
     for it in doc.items:
-        made_to_order = frappe.get_value('Item', it.item_code, 'made_to_order')
-        if made_to_order == 1 and doc.bypass_made_to_order_check != 1:
+        if it.item_code in made_to_order:
             # Check if the Item as per the Process Sheet or Not
-            validate_special_items(doc, it)
-            validate_warehouse(doc, it)
-        elif doc.bypass_made_to_order_check != 1:
-            validate_warehouse(doc, it)
+            check_special_item(doc, it, special)
+        validate_warehouse(doc, it)
 
 
-def validate_special_items(doc, row):
-    pro_sheet = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE production_item = '%s'
-        AND sales_order_item = '%s' AND docstatus = 1""" %(row.item_code, row.so_detail), as_list=1)
+def get_special_item_data(rows):
+    """
+    Returns {"pro_sheets": {(item, so_detail): Process Sheet}, "final_ops": {Process Sheet:
+    [final operations]}, "completed": get_completed_jc_qtys} for the made to order rows
+    """
+    ps = frappe.qb.DocType("Process Sheet")
+    pairs = [(row.item_code, row.so_detail) for row in rows]
+    pro_sheets = {}
+    for chunk in chunks(pairs):
+        for name, item, so_detail in (
+            frappe.qb.from_(ps)
+            .select(ps.name, ps.production_item, ps.sales_order_item)
+            .where(ps.docstatus == 1)
+            .where(Tuple(ps.production_item, ps.sales_order_item).isin([Tuple(*pair) for pair in chunk]))
+            .orderby(ps.name)
+            .run()
+        ):
+            pro_sheets.setdefault((item, so_detail), name)
+    final_ops = {}
+    for op in frappe.get_all("BOM Operation", fields=["parent", "operation"], order_by="idx",
+            filters={"parenttype": "Process Sheet", "final_operation": 1,
+                "parent": ["in", list(pro_sheets.values()) or [""]]}):
+        final_ops.setdefault(op.parent, []).append(op.operation)
+    keys = [(item, operation, so_detail) for (item, so_detail), name in pro_sheets.items()
+        for operation in final_ops.get(name, [])]
+    return {"pro_sheets": pro_sheets, "final_ops": final_ops, "completed": get_completed_jc_qtys(keys)}
+
+
+def check_special_item(doc, row, special):
+    pro_sheet = special["pro_sheets"].get((row.item_code, row.so_detail))
     if not pro_sheet:
         frappe.throw("There is No Processing Done for {} in Row# {} for {}".
                      format(row.item_code, row.idx, frappe.get_desk_link(doc.doctype, doc.name)))
-    else:
-        # If there is a Submitted Process Sheet then Check if all the Job Cards are Submitted for the Same Quantity
-        ps_doc = frappe.get_doc('Process Sheet', pro_sheet[0][0])
-        for d in ps_doc.operations:
-            if d.final_operation == 1:
-                qty_completed = get_completed_qty_of_jc_for_operation(item=row.item_code, operation=d.operation,
-                                                                      so_detail=row.so_detail)
-                if row.qty > flt(qty_completed):
-                    frappe.throw("Only allowed to Submit Qty= {} for Row# {} for {}".
-                                 format(flt(qty_completed), row.idx, frappe.get_desk_link(doc.doctype, doc.name)))
+    # If there is a Submitted Process Sheet then Check if all the Job Cards are Submitted for the Same Quantity
+    for operation in special["final_ops"].get(pro_sheet, []):
+        qty_completed = special["completed"].get((row.item_code, operation, row.so_detail), 0)
+        if row.qty > flt(qty_completed):
+            frappe.throw("Only allowed to Submit Qty= {} for Row# {} for {}".
+                         format(flt(qty_completed), row.idx, frappe.get_desk_link(doc.doctype, doc.name)))
+
+
+def validate_special_items(doc, row):
+    check_special_item(doc, row, get_special_item_data([row]))
 
 
 def validate_warehouse(doc, row):
@@ -653,41 +785,59 @@ def get_hsn_code(row_dict):
             row_dict.item_code, row_dict.idx))
 
 
+def get_item_price_rows(pairs, selling_only=False):
+    """
+    Returns {(item_code, price_list): first Item Price row (price_list_rate, currency)}
+    """
+    ip = frappe.qb.DocType("Item Price")
+    prices = {}
+    for chunk in chunks([pair for pair in pairs if all(pair)]):
+        query = (
+            frappe.qb.from_(ip)
+            .select(ip.item_code, ip.price_list, ip.price_list_rate, ip.currency)
+            .where(Tuple(ip.item_code, ip.price_list).isin([Tuple(*pair) for pair in chunk]))
+        )
+        if selling_only:
+            query = query.where(ip.selling == 1)
+        for row in query.run(as_dict=True):
+            prices.setdefault((row.item_code, row.price_list), row)
+    return prices
+
+
 def get_item_price(item_name, price_list):
     """
     If Price List Rate exists then returns the Price List Rate else returns False
     """
-    itp_dict = frappe.db.sql("""SELECT name, item_code, price_list, currency, price_list_rate
-        FROM `tabItem Price` WHERE item_code ='%s' AND price_list = '%s'""" %
-        (item_name, price_list), as_dict=1)
-    if not itp_dict:
-        return False
-    else:
-        return itp_dict[0].price_list_rate
+    row = get_item_price_rows([(item_name, price_list)]).get((item_name, price_list))
+    return row.price_list_rate if row else False
 
+
+def check_get_pl_rates(document, rows):
+    pl = frappe.qb.DocType("Price List")
+    disabled = set()
+    for chunk in chunks([row.price_list for row in rows]):
+        disabled.update(name for (name,) in frappe.qb.from_(pl).select(pl.name)
+            .where(pl.name.isin(chunk) & (pl.disable_so == 1)).run())
+    prices = get_item_price_rows([(row.item_code, row.price_list) for row in rows], selling_only=True)
+    for row_dict in rows:
+        if row_dict.price_list in disabled:
+            frappe.throw("Sales Order Booking Disabled for {} at Row# {}".format(row_dict.price_list, row_dict.idx))
+        item_pl_rate = prices.get((row_dict.item_code, row_dict.price_list))
+        if item_pl_rate:
+            if row_dict.price_list_rate != item_pl_rate.price_list_rate and document.currency == item_pl_rate.currency:
+                row_dict.price_list_rate = item_pl_rate.price_list_rate
+        else:
+            frappe.msgprint("In {}# {} at Row# {} and Item Code: {} Price List Rate is Not Defined".format(
+                document.doctype, document.name, row_dict.idx, row_dict.item_code))
 
 
 def check_get_pl_rate(document, row_dict):
-    pl_doc = frappe.get_doc("Price List", row_dict.price_list)
-    if pl_doc.disable_so == 1:
-        frappe.throw("Sales Order Booking Disabled for {} at Row# {}".format(row_dict.price_list, row_dict.idx))
-    item_pl_rate = frappe.db.sql("""SELECT price_list_rate, currency FROM `tabItem Price`
-            WHERE price_list = '%s' AND item_code = '%s'
-            AND selling = 1""" % (row_dict.price_list, row_dict.item_code), as_dict=1)
-
-    if item_pl_rate:
-        if row_dict.price_list_rate != item_pl_rate[0].price_list_rate and document.currency == item_pl_rate[0].currency:
-            row_dict.price_list_rate = item_pl_rate[0].price_list_rate
-    else:
-        frappe.msgprint("In {}# {} at Row# {} and Item Code: {} Price List Rate is Not Defined".format(
-            document.doctype, document.name, row_dict.idx, row_dict.item_code))
+    check_get_pl_rates(document, [row_dict])
 
 
 def get_total_invoices_and_amount(customer, from_date, to_date):
-    invoices = frappe.db.sql("""SELECT SUM(base_net_total) AS total_net_amt, COUNT(name) AS invoices
-    FROM `tabSales Invoice` WHERE docstatus = 1 AND base_net_total > 0 AND customer = '%s' AND posting_date >= '%s'
-    AND posting_date <= '%s'""" % (customer, from_date, to_date), as_dict=1)
-    return invoices
+    totals = get_invoice_totals([customer], from_date, to_date)
+    return [totals.get(customer) or frappe._dict(total_net_amt=None, invoices=0)]
 
 
 def check_gst_rules(doc, bill_add_name, taxes_name):
