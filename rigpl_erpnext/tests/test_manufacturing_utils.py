@@ -10,7 +10,9 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     find_item_quantities,
     get_best_rm_bypass,
     get_candidate_templates,
+    get_fg_failures,
     get_fg_restriction_rules,
+    group_text_rules,
     get_items_for_rules,
     get_produced_qty_changes,
     get_qty_for_prod,
@@ -21,7 +23,9 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     get_template_usage,
     match_bom_templates,
     match_bom_templates_bulk,
+    operation_applies,
     prepare_fg_rules,
+    prepare_template_fg_rules,
     rank_rm_rows,
     round_up_qty,
     rule_passes,
@@ -38,8 +42,13 @@ def att(attribute, value, numeric=0):
     return frappe._dict(attribute=attribute, attribute_value=value, numeric_values=numeric)
 
 
-def rule(attribute, allowed="", numeric=0, formula=""):
-    return frappe._dict(attribute=attribute, allowed_values=allowed, is_numeric=numeric, rule=formula)
+def rule(attribute, allowed="", numeric=0, formula="", source=None):
+    return frappe._dict(attribute=attribute, allowed_values=allowed, is_numeric=numeric, rule=formula,
+        value_source=source)
+
+
+def rm_map(fg_attribute, fg_value, rm_attribute, rm_values):
+    return frappe._dict(fg_attribute=fg_attribute, fg_value=fg_value, rm_attribute=rm_attribute, rm_values=rm_values)
 
 
 ITEM = [att("Base Material", "HSS"), att("Tool Type", "Drill"), att("d1_mm", "6", numeric=1)]
@@ -80,6 +89,27 @@ class TestMatchBomTemplates(FrappeTestCase):
         }
         self.assertEqual(match(rules, ITEM), ["BT1"])
         self.assertEqual(split_allowed_values(" A\n\nB \n"), {"A", "B"})
+
+    def test_repeated_attribute_is_or_other_attribute_is_and(self):
+        rules = {
+            "BT1": [rule("Base Material", "Carbide"), rule("Base Material", "HSS"), rule("Tool Type", "Reamer"),
+                    rule("Tool Type", "Drill")],
+            "BT2": [rule("Base Material", "Carbide"), rule("Base Material", "HSS"), rule("Tool Type", "Reamer")],
+            "BT3": [rule("Base Material", "HSS"), rule("d1_mm", numeric=1, formula="fg_d1_mm > 2"),
+                    rule("d1_mm", numeric=1, formula="fg_d1_mm < 5")],
+        }
+        self.assertEqual(match(rules, ITEM), ["BT1"])
+
+    def test_fg_failures(self):
+        template = prepare_template_fg_rules([rule("Base Material", "Carbide"), rule("Base Material", "Cobalt"),
+            rule("d1_mm", numeric=1, formula="fg_d1_mm > 10")])
+        self.assertEqual(get_fg_failures(template, ITEM),
+            ["Base Material = HSS, allowed: Carbide, Cobalt", "fg_d1_mm > 10"])
+        missing = prepare_template_fg_rules([rule("Series", "C3HS")])
+        self.assertEqual(get_fg_failures(missing, ITEM), ["Series is not an attribute of the item"])
+
+    def test_no_is_a_value_in_the_fg_rules(self):
+        self.assertEqual(match({"BT1": [rule("Tool Type", "No")]}, ITEM), [])
 
     def test_sort_priority_then_item_usage_then_name(self):
         rules = {name: [rule("Base Material", "HSS")] for name in ("BT4", "BT3", "BT2", "BT1")}
@@ -130,6 +160,50 @@ class TestRuleCheck(FrappeTestCase):
             ["Base Material = Cobalt, allowed: Carbide, HSS", "rm_d1_mm >= fg_d1_mm && rm_d1_mm <= fg_d1_mm + 2"])
         self.assertEqual(get_rule_failures(restrictions, known, "rm", [att("d1_mm", "7", 1)]),
             ["Base Material = not set, allowed: Carbide, HSS"])
+
+
+class TestGroupTextRules(FrappeTestCase):
+    MAP = [
+        rm_map("Carbide Quality", "C-3X", "Carbide Quality", "C-3X\nRC-XF1"),
+        rm_map("Carbide Quality", "C-3X", "Carbide Quality", "RC-TCHE"),
+        rm_map("Carbide Quality", "C-4X", "Carbide Quality", "C-4X"),
+    ]
+    FG = {"fg": {"Carbide Quality": "C-3X", "Base Material": "Carbide"}, "rm": {"Carbide Quality": "RC-XF1"}}
+
+    def test_repeated_rows_are_joined_and_no_is_any(self):
+        rows = [rule("Tool Type", "Drill"), rule("Tool Type", "Tap\nReamer"), rule("Series", "No"),
+                rule("d1_mm", numeric=1, formula="rm_d1_mm > 1")]
+        self.assertEqual(group_text_rules(rows), {"Tool Type": {"Drill", "Tap", "Reamer"}, "Series": None})
+        self.assertEqual(group_text_rules([rule("Series", "No")], no_means_any=False), {"Series": {"No"}})
+
+    def test_same_as_fg_and_same_as_rm(self):
+        self.assertEqual(group_text_rules([rule("Carbide Quality", source="Same as FG")], self.FG),
+            {"Carbide Quality": {"C-3X"}})
+        self.assertEqual(group_text_rules([rule("Carbide Quality", source="Same as RM")], self.FG),
+            {"Carbide Quality": {"RC-XF1"}})
+        self.assertEqual(group_text_rules([rule("Grade", source="Same as FG")], self.FG), {"Grade": set()})
+
+    def test_rm_map(self):
+        self.assertEqual(group_text_rules([rule("Base Material", "Carbide")], self.FG, self.MAP),
+            {"Base Material": {"Carbide"}, "Carbide Quality": {"C-3X", "RC-XF1", "RC-TCHE"}})
+        other = {"fg": {"Carbide Quality": "C-1X"}}
+        self.assertEqual(group_text_rules([], other, self.MAP), {"Carbide Quality": set()})
+        # A rule row and the map for the same attribute: both must pass (the save refuses this)
+        self.assertEqual(group_text_rules([rule("Carbide Quality", "C-3X")], self.FG, self.MAP),
+            {"Carbide Quality": {"C-3X"}})
+
+
+class TestOperationApplies(FrappeTestCase):
+    def test_conditions(self):
+        coating = frappe._dict(condition_attribute="Special Treatment", condition_type="Not In",
+            condition_values="None")
+        self.assertTrue(operation_applies(coating, {"Special Treatment": "TiAlN"}))
+        self.assertFalse(operation_applies(coating, {"Special Treatment": "None"}))
+        self.assertTrue(operation_applies(coating, {}))
+        only = frappe._dict(condition_attribute="Purpose", condition_type="In", condition_values="General\nSteel")
+        self.assertTrue(operation_applies(only, {"Purpose": "Steel"}))
+        self.assertFalse(operation_applies(only, {}))
+        self.assertTrue(operation_applies(frappe._dict(operation="Marking"), {}))
 
 
 class TestRankRmRows(FrappeTestCase):
@@ -317,6 +391,31 @@ class TestItemsForRules(FrappeTestCase):
             (3, ["rm_l1_mm >= fg_l2_mm"]),
             (4, ["Base Material = _Test RIGPL other, allowed: " + TEST_BM]),
         ])
+
+    def test_repeated_rows_same_as_and_rm_map(self):
+        known = {"fg": [att("Base Material", TEST_BM)], "rm": [att("Base Material", "_Test RIGPL other")]}
+        both = [rule("Base Material", TEST_BM), rule("Base Material", "_Test RIGPL other"),
+                rule("l1_mm", numeric=1, formula="rm_l1_mm >= 50")]
+        names = [d.name for d in get_items_for_rules(both, known, "rm", allow_zero_rol=1)]
+        self.assertEqual(names, ["_Test RIGPL RM 6x50", "_Test RIGPL RM 8x50", "_Test RIGPL RM other"])
+        same = [rule("Base Material", source="Same as FG")]
+        names = [d.name for d in get_items_for_rules(same, known, "rm", allow_zero_rol=1)]
+        self.assertEqual(names, ["_Test RIGPL RM 6x20", "_Test RIGPL RM 6x50", "_Test RIGPL RM 8x50"])
+        wip = [rule("Base Material", source="Same as RM")]
+        names = [d.name for d in get_items_for_rules(wip, known, "wip", allow_zero_rol=1)]
+        self.assertEqual(names, ["_Test RIGPL RM other"])
+        mapping = [rm_map("Base Material", TEST_BM, "Base Material", "_Test RIGPL other")]
+        names = [d.name for d in get_items_for_rules([], known, "rm", allow_zero_rol=1, rm_map=mapping)]
+        self.assertEqual(names, ["_Test RIGPL RM other"])
+        self.assertEqual(get_items_for_rules([], {"fg": []}, "rm", allow_zero_rol=1, rm_map=mapping), [])
+
+    def test_rule_failures_with_a_map(self):
+        mapping = [rm_map("Base Material", TEST_BM, "Base Material", "_Test RIGPL other")]
+        known_text = {"fg": {"Base Material": TEST_BM}}
+        failures = get_rule_failures([], {}, "rm", [att("Base Material", TEST_BM)], known_text, mapping)
+        self.assertEqual(failures, [f"Base Material = {TEST_BM}, allowed: _Test RIGPL other"])
+        self.assertEqual(get_rule_failures([], {}, "rm", [att("Base Material", "_Test RIGPL other")], known_text,
+            mapping), [])
 
     def test_no_value_is_not_a_filter_and_rol_filter(self):
         restrictions = [rule("Base Material", TEST_BM), rule("Tool Type", "No")]

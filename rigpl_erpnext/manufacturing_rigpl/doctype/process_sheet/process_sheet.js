@@ -11,6 +11,9 @@ frappe.ui.form.on("Process Sheet", {
                 dialog.show();
             });
         }, __("Help"));
+        if (frm.doc.production_item) {
+            frm.add_custom_button(__("BOM Template Match"), () => show_bom_template_match(frm), __("Help"));
+        }
         if (frm.doc.show_unavailable_rm !== 1 && frm.doc.rm_consumed) {
             var rm = frm.doc.rm_consumed;
             var i = rm.length;
@@ -96,6 +99,12 @@ frappe.ui.form.on("Process Sheet", {
                             "fieldtype": "Button",
                             "label": __("Select"),
                             "fieldname": "select"
+                        },
+                        {
+                            "fieldtype": "Button",
+                            "label": __("Why not other templates?"),
+                            "fieldname": "why_not",
+                            "click": () => show_bom_template_match(frm)
                         }
                     ],
 
@@ -242,3 +251,32 @@ frappe.ui.form.on("BOM Operation", {
         }
     },
 });
+
+function show_bom_template_match(frm) {
+    // Each template of the item's Base Material and Tool Type, and the FG checks that it fails (#163)
+    frappe.call({
+        method: "rigpl_erpnext.manufacturing_rigpl.utils.process_sheet_utils.explain_bom_template_match",
+        args: {item_code: frm.doc.production_item, so_detail: frm.doc.sales_order_item || null},
+    }).then(r => {
+        const data = r.message;
+        const key = Object.entries(data.key).map(([k, v]) => `${frappe.utils.escape_html(k)}: ${frappe.utils.escape_html(v || __("not set"))}`).join(", ");
+        let html = `<p>${__("Templates for")} ${key}</p>`;
+        if (!data.templates.length) {
+            html += `<p class="text-danger">${__("No active BOM Template has these values.")}</p>`;
+        } else {
+            html += `<table class="table table-bordered table-condensed"><thead><tr><th>${__("Template")}</th>
+                <th>${__("Title")}</th><th>${__("Match")}</th><th>${__("Why not")}</th></tr></thead><tbody>`;
+            data.templates.forEach(d => {
+                html += `<tr><td><a href="/app/bom-template-rigpl/${encodeURIComponent(d.template)}">${frappe.utils.escape_html(d.template)}</a></td>
+                    <td>${frappe.utils.escape_html(d.title || "")}</td>
+                    <td>${d.matched ? `<span class="indicator-pill green">${__("Yes")}</span>` : `<span class="indicator-pill red">${__("No")}</span>`}</td>
+                    <td>${d.failures.map(f => frappe.utils.escape_html(f)).join("<br>")}</td></tr>`;
+            });
+            html += "</tbody></table>";
+        }
+        const dialog = new frappe.ui.Dialog({title: __("BOM Template Match: {0}", [frm.doc.production_item]), size: "extra-large",
+            fields: [{fieldtype: "HTML", fieldname: "match"}]});
+        dialog.fields_dict.match.$wrapper.html(html);
+        dialog.show();
+    });
+}

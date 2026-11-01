@@ -7,6 +7,7 @@ import frappe
 from rigpl_erpnext.utils.item_utils import get_desc, check_text_attributes
 from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     clear_fg_rules_cache,
+    group_text_rules,
     split_allowed_values,
 )
 from frappe.model.document import Document
@@ -26,6 +27,7 @@ class BOMTemplateRIGPL(Document):
         self.validate_restriction_rules("rm_restrictions")
         self.validate_restriction_rules("fg_restrictions")
         self.validate_restriction_rules("wip_restrictions")
+        self.validate_rm_map()
         operations = get_operation_details([d.operation for d in self.operations])
         self.validate_operations(operations)
         self.generate_title()
@@ -74,6 +76,7 @@ class BOMTemplateRIGPL(Document):
             if d.final_operation == 1 and not d.final_warehouse:
                 frappe.msgprint("Please set the Final Warehouse in Row# {} of Operations Table for "
                                 "Operation {}".format(d.idx, d.operation))
+        self.validate_operation_conditions()
 
     def on_update(self):
         clear_fg_rules_cache()
@@ -119,8 +122,15 @@ class BOMTemplateRIGPL(Document):
                 if d.item_number == 0:
                     d.item_number = 1
                 d.is_numeric = numeric.get(d.attribute)
+                if d.value_source and (d.is_numeric == 1 or table_name == "fg_restrictions"):
+                    frappe.throw(f"Row# {d.idx} of {table_name}: "
+                                 f"Value Source is only for the non-numeric RM and WIP rules.")
+                if d.value_source == "Same as RM" and table_name != "wip_restrictions":
+                    frappe.throw(f"Row# {d.idx} of {table_name}: Same as RM is only for the WIP rules.")
                 if d.is_numeric == 1:
                     d.allowed_values = ""
+                elif d.value_source:
+                    d.allowed_values, d.rule = "", ""
                 else:
                     if d.attribute not in att_docs:
                         att_docs[d.attribute] = frappe.get_doc("Item Attribute", d.attribute)
@@ -129,6 +139,82 @@ class BOMTemplateRIGPL(Document):
                         check_text_attributes(att_doc=att_docs[d.attribute], att_value=value, error=0)
                     d.allowed_values = "\n".join(values)
                     d.rule = ""
+            self.validate_value_source_rows(table_name)
+
+    def validate_value_source_rows(self, table_name):
+        """
+        The rows of the same attribute are joined (OR). An attribute with a Value Source row must
+        have only that row, because "the FG value or C-1X" is not a clear rule.
+        """
+        rows = {}
+        for d in self.get(table_name):
+            if d.is_numeric != 1:
+                rows.setdefault(d.attribute, []).append(d)
+        for attribute, att_rows in rows.items():
+            if len(att_rows) > 1 and any(d.value_source for d in att_rows):
+                frappe.throw(f"{attribute} in {table_name}, rows {', '.join(str(d.idx) for d in att_rows)}: "
+                             f"a row with a Value Source must be the only row of its attribute.")
+
+    def validate_rm_map(self):
+        """
+        Checks the FG to RM Map (#163). The map defines the RM values of its RM attributes, so:
+        - 1 row for each FG value and RM attribute, and 1 FG attribute for each RM attribute;
+        - an RM attribute of the map has no rows in the RM rules;
+        - each FG value that the FG rules allow has a map row.
+        """
+        att_docs, seen, fg_of_rm = {}, set(), {}
+        for d in self.get("fg_rm_map"):
+            key = (d.fg_attribute, d.fg_value, d.rm_attribute)
+            if key in seen:
+                frappe.throw(f"Row# {d.idx} of the FG to RM Map: {d.fg_attribute} = {d.fg_value} "
+                             f"for {d.rm_attribute} is already in the table.")
+            seen.add(key)
+            if fg_of_rm.setdefault(d.rm_attribute, d.fg_attribute) != d.fg_attribute:
+                frappe.throw(f"Row# {d.idx} of the FG to RM Map: {d.rm_attribute} is already mapped from "
+                             f"{fg_of_rm[d.rm_attribute]}. Use 1 FG attribute for each RM attribute.")
+            values = sorted(split_allowed_values(d.rm_values))
+            for attribute, check in [(d.fg_attribute, [d.fg_value]), (d.rm_attribute, values)]:
+                if attribute not in att_docs:
+                    att_docs[attribute] = frappe.get_doc("Item Attribute", attribute)
+                for value in check:
+                    check_text_attributes(att_doc=att_docs[attribute], att_value=value, error=0)
+            d.rm_values = "\n".join(values)
+        rm_rule_attributes = {d.attribute for d in self.get("rm_restrictions") if d.is_numeric != 1}
+        fg_allowed = group_text_rules(self.get("fg_restrictions"), no_means_any=False)
+        for rm_attribute, fg_attribute in fg_of_rm.items():
+            if rm_attribute in rm_rule_attributes:
+                frappe.throw(f"{rm_attribute} is in the FG to RM Map, so the map defines its RM values. "
+                             f"Delete the rows of {rm_attribute} in the Raw Material Restriction table.")
+            mapped = {d.fg_value for d in self.get("fg_rm_map") if d.rm_attribute == rm_attribute}
+            missing = sorted((fg_allowed.get(fg_attribute) or set()) - mapped)
+            if missing:
+                frappe.throw(f"The FG rules allow {fg_attribute} = {', '.join(missing)}, but the FG to RM Map "
+                             f"has no {rm_attribute} for them. Add the map rows, or no RM is found for these items.")
+
+    def validate_operation_conditions(self):
+        """
+        Checks the Operation Condition of the operations (#163). The RM operation and the final
+        operation cannot have a condition: the RM and the FG warehouse come from them.
+        """
+        att_docs = {}
+        for d in self.operations:
+            if not (d.condition_attribute or d.condition_type or (d.condition_values or "").strip()):
+                continue
+            if not (d.condition_attribute and d.condition_type and split_allowed_values(d.condition_values)):
+                frappe.throw(f"Row# {d.idx} of the Operations: set the Condition Attribute, Type and Values, "
+                             f"or clear all 3.")
+            if d.allow_consumption_of_rm == 1 or d.final_operation == 1:
+                frappe.throw(f"Row# {d.idx} of the Operations: {d.operation} consumes the RM or is the final "
+                             f"operation, so it cannot have a condition.")
+            if d.condition_attribute not in att_docs:
+                att_docs[d.condition_attribute] = frappe.get_doc("Item Attribute", d.condition_attribute)
+            att_doc = att_docs[d.condition_attribute]
+            if att_doc.numeric_values == 1:
+                frappe.throw(f"Row# {d.idx} of the Operations: the Condition Attribute {att_doc.name} must not be numeric.")
+            values = sorted(split_allowed_values(d.condition_values))
+            for value in values:
+                check_text_attributes(att_doc=att_doc, att_value=value, error=0)
+            d.condition_values = "\n".join(values)
 
     def validate_operations(self, operations):
         for d in self.operations:
@@ -142,22 +228,15 @@ class BOMTemplateRIGPL(Document):
                     frappe.throw("Sub-Contracting Operation cannot be Last Operation.")
 
     def generate_title(self):
-        title = ""
-        rule = 0
-        for d in self.fg_restrictions:
-            if d.is_numeric != 1:
-                desc = " / ".join(get_desc(d.attribute, value) or value
-                                  for value in sorted(split_allowed_values(d.allowed_values)))
-                if d.idx == 1:
-                    title += desc
-                else:
-                    title += " " + desc
-            else:
-                if rule == 0:
-                    title += ", Rules For: " + d.attribute
-                    rule = 1
-                else:
-                    title += ", " + d.attribute
+        """The FG text values, joined for each attribute, then the attributes of the numeric rules."""
+        groups = group_text_rules(self.fg_restrictions, no_means_any=False)
+        title = " ".join(
+            " / ".join(get_desc(attribute, value) or value for value in sorted(values))
+            for attribute, values in groups.items()
+        )
+        rule_attributes = list(dict.fromkeys(d.attribute for d in self.fg_restrictions if d.is_numeric == 1))
+        if rule_attributes:
+            title += ", Rules For: " + ", ".join(rule_attributes)
         self.title = title
 
 

@@ -26,10 +26,17 @@ from .job_card_utils import (
     update_job_card_total_qty,
 )
 from .manufacturing_utils import (
+    INDEX_ATTRIBUTES,
     check_jc_needed_for_ps,
     get_bom_template_from_item,
+    get_candidate_templates,
+    get_fg_attribute_rows,
+    get_fg_failures,
+    get_fg_restriction_rules,
     get_items_for_rules,
     get_known_item_attributes,
+    get_template_usage,
+    match_bom_templates,
     update_planned_qty,
     update_qty_for_prod_rows,
 )
@@ -360,7 +367,10 @@ def get_req_sizes_from_template(
         it_name = item.get("known_item")
         known[item.get(it_name)] = get_known_item_attributes(it_name, ps_name)
         unknown_type = item.get("unknown_type")
-    return get_items_for_rules(bt_doc.get(table_name), known, unknown_type, allow_zero_rol)
+    return get_items_for_rules(
+        bt_doc.get(table_name), known, unknown_type, allow_zero_rol,
+        bt_doc.get("fg_rm_map") if table_name == "rm_restrictions" else None,
+    )
 
 
 def get_req_wip_sizes_from_template(
@@ -583,4 +593,34 @@ def get_bom_template_from_item_name(
     start = cint(start)
     return rows[start : start + (cint(page_len) or 20)]
 
+
+@frappe.whitelist()
+def explain_bom_template_match(item_code, so_detail=None):
+    """
+    Returns {key, templates} for the BOM Template Match dialog: each active template of the item's
+    Base Material and Tool Type, the matched ones first in the matcher order, with the FG checks
+    that it fails (get_fg_failures, the same check as match_bom_templates).
+    """
+    if not frappe.has_permission("BOM Template RIGPL", "read"):
+        frappe.throw(_("Not permitted"), frappe.PermissionError)
+    att_dict = get_fg_attribute_rows(item_code, so_detail or None)
+    values = {att.attribute: att.attribute_value for att in att_dict}
+    prepared = get_fg_restriction_rules()
+    candidates = sorted(get_candidate_templates(prepared, att_dict))
+    matched = match_bom_templates(prepared, att_dict, get_template_usage([item_code]).get(item_code))
+    order = {name: idx for idx, name in enumerate(matched)}
+    titles = dict(frappe.get_all(
+        "BOM Template RIGPL", filters={"name": ("in", candidates)}, fields=["name", "title"], as_list=True
+    )) if candidates else {}
+    templates = [
+        frappe._dict(
+            template=name,
+            title=titles.get(name),
+            matched=name in order,
+            failures=get_fg_failures(prepared["templates"][name], att_dict),
+        )
+        for name in candidates
+    ]
+    templates.sort(key=lambda d: (not d.matched, order.get(d.template, 0), d.template))
+    return frappe._dict(key={attribute: values.get(attribute) for attribute in INDEX_ATTRIBUTES}, templates=templates)
 

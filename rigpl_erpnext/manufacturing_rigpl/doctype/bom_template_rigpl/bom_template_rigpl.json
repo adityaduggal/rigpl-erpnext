@@ -26,7 +26,9 @@
   "routing",
   "operations",
   "rm_restrictions",
-  "wip_restrictions"
+  "wip_restrictions",
+  "sb_grade_map",
+  "fg_rm_map"
  ],
  "fields": [
   {
@@ -77,6 +79,20 @@
    "fieldtype": "Table",
    "label": "Work In Progress Restrictions",
    "options": "Item Variant Restrictions"
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:doc.fg_rm_map && doc.fg_rm_map.length",
+   "fieldname": "sb_grade_map",
+   "fieldtype": "Section Break",
+   "label": "FG to RM Map"
+  },
+  {
+   "description": "Defines the RM values for each FG value. For example FG Carbide Quality C-3X: RM Carbide Quality C-3X, RC-XF1. An RM attribute in this map must not have rows in the Raw Material Restriction table.",
+   "fieldname": "fg_rm_map",
+   "fieldtype": "Table",
+   "label": "FG to RM Map",
+   "options": "FG RM Grade Map"
   },
   {
    "description": "Formula for variants should only contain Finished Items and Raw Material attributes. For example d1_mm should be written as fg_d1_mm (prepend with fg_) for Finished Items and for Raw Material Items prepend the attribute with rm_ like rm_d1_mm\n\nWhere d1_mm is the attribute name",
@@ -139,7 +155,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-30 12:00:00.000000",
+ "modified": "2026-11-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Manufacturing-RIGPL",
  "name": "BOM Template RIGPL",

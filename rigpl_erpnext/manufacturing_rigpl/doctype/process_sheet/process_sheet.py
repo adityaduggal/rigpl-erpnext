@@ -18,9 +18,11 @@ from ...utils.manufacturing_utils import (
     calculated_value_from_formula,
     find_item_quantities,
     get_best_rm_bypass,
+    get_fg_attribute_rows,
     get_priority_for_stock_prd,
     get_qty_to_manufacture,
     get_rm_rule_errors,
+    operation_applies,
     rank_rm_rows,
     round_up_qty,
     set_rm_row_costs,
@@ -539,13 +541,23 @@ class ProcessSheet(Document):
                 update_warehouse_from_bt(self)
 
     def get_routing(self):
+        """Copies the operations of the BOM Template. An operation whose condition fails for the FG is left out (#163)."""
         self.set("operations", [])
-        for d in frappe.get_all(
+        bt_ops = frappe.get_all(
             "BOM Operation",
             fields=["*"],
             filters={"parenttype": "BOM Template RIGPL", "parent": self.bom_template},
             order_by="idx",
-        ):
+        )
+        fg_text = {}
+        if any(d.condition_attribute for d in bt_ops):
+            fg_text = {
+                att.attribute: att.attribute_value
+                for att in get_fg_attribute_rows(self.production_item, self.sales_order_item)
+            }
+        for d in bt_ops:
+            if not operation_applies(d, fg_text):
+                continue
             child = self.append(
                 "operations",
                 {
@@ -567,7 +579,6 @@ class ProcessSheet(Document):
                     "transfer_entry": d.transfer_entry,
                     "final_operation": d.final_operation,
                     "final_warehouse": d.final_warehouse,
-                    "idx": d.idx,
                 },
             )
             if d.final_warehouse:

@@ -23,6 +23,7 @@ Only 1 draft Process Sheet is allowed for each item (or for each item and Sales 
 
 - The system selects the first active template that matches the item. **Total Applicable BOM Templates** shows how many templates match.
 - To use a different template, click **Select BOM Template Manually**. The list shows only the templates that match the item. You can search by the name, the title or the remarks.
+- To see why a template does not match, click **Help > BOM Template Match** (or **Why not other templates?** in the Select dialog). It lists each template of the item's Base Material and Tool Type and the rule that it fails.
 - If the selected template is disabled, the save selects the first active template and shows a message. You cannot submit with a disabled template.
 
 ## 3. Quantity

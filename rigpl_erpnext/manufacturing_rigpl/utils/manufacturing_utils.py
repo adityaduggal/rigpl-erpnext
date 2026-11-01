@@ -307,26 +307,108 @@ def get_known_item_attributes(item_name, process_sheet_name=None):
     if frappe.db.get_value("Item", item_name, "variant_of"):
         return get_item_attributes(item_name)
     so_detail = frappe.db.get_value("Process Sheet", process_sheet_name, "sales_order_item")
+    return get_special_fg_attribute_rows(item_name, so_detail)
+
+
+def get_fg_attribute_rows(item_name, so_detail=None):
+    """
+    Returns the attribute rows of an FG item. A special item (not a variant) uses the submitted
+    Made to Order Item Attributes of the Sales Order Item `so_detail`.
+    """
+    if frappe.db.get_value("Item", item_name, "variant_of"):
+        return get_item_attributes(item_name)
+    return get_special_fg_attribute_rows(item_name, so_detail)
+
+
+def get_special_fg_attribute_rows(item_name, so_detail):
     special = get_special_item_attribute_doc(item_name=item_name, so_detail=so_detail, docstatus=1)
+    if not special:
+        frappe.throw(f"{item_name} is not a variant and has no submitted Made to Order Item Attributes "
+                     f"for the Sales Order Item {so_detail or '(not set)'}.")
     return get_special_item_attributes(item_name, special[0].name)
 
 
-def get_items_for_rules(restrictions, known, unknown_prefix, allow_zero_rol=None):
+# Value Source of a non-numeric RM or WIP rule row, and the known item that gives the value
+VALUE_SOURCES = {"Same as FG": "fg", "Same as RM": "rm"}
+
+
+def group_text_rules(restrictions, known_text=None, rm_map=None, no_means_any=True):
+    """
+    Returns {attribute: set of allowed values, or None for no filter} for the non-numeric rows of
+    a rule table. The rows of the same attribute are joined (OR); different attributes are all
+    checked (AND). `known_text` is {"fg": {attribute: value}, "rm": {...}} for the rows with a
+    Value Source (Same as FG / Same as RM). `rm_map` are the FG to RM Map rows of the template:
+    each RM attribute in it gets the RM values of the FG value of the item. With `no_means_any`
+    (RM and WIP tables), the value "No" is not a filter. An empty set means that no item passes.
+    """
+    known_text = known_text or {}
+    groups, any_value = {}, set()
+    for row in restrictions:
+        if row.is_numeric == 1:
+            continue
+        source = VALUE_SOURCES.get(row.get("value_source"))
+        if source:
+            value = known_text.get(source, {}).get(row.attribute)
+            values = {value} if value else set()
+        elif no_means_any and row.allowed_values == "No":
+            any_value.add(row.attribute)
+            continue
+        else:
+            values = split_allowed_values(row.allowed_values)
+        groups.setdefault(row.attribute, set()).update(values)
+    for attribute in any_value:
+        groups[attribute] = None
+    fg_text = known_text.get("fg", {})
+    mapped = {}
+    for gm in rm_map or []:
+        values = mapped.setdefault(gm.rm_attribute, set())
+        if gm.fg_value == fg_text.get(gm.fg_attribute):
+            values |= split_allowed_values(gm.rm_values)
+    for attribute, values in mapped.items():
+        groups[attribute] = values if groups.get(attribute) is None else groups[attribute] & values
+    return groups
+
+
+def get_numeric_rules(restrictions):
+    """Returns the Python rules of the numeric rows. All of them must pass (AND)."""
+    return [replace_java_chars(row.rule or "") for row in restrictions if row.is_numeric == 1]
+
+
+def get_known_text(known):
+    """Returns {prefix: {attribute: value}} from `known` = {prefix: attribute rows}."""
+    return {prefix: {att.attribute: att.attribute_value for att in rows} for prefix, rows in known.items()}
+
+
+def text_rule_failure(attribute, value, allowed):
+    return f"{attribute} = {value or 'not set'}, allowed: " + (", ".join(sorted(allowed)) or "none")
+
+
+def operation_applies(op, fg_text):
+    """
+    Returns True when a BOM Template operation applies to the FG item. An operation with no
+    Condition Attribute always applies. A missing FG value counts as an empty value.
+    """
+    if not op.get("condition_attribute"):
+        return True
+    in_values = (fg_text.get(op.condition_attribute) or "") in split_allowed_values(op.condition_values)
+    return not in_values if op.condition_type == "Not In" else in_values
+
+
+def get_items_for_rules(restrictions, known, unknown_prefix, allow_zero_rol=None, rm_map=None):
     """
     Returns [{name, description}] of the active items that pass all `restrictions` (the RM or WIP
     rows of a BOM Template). `known` is {prefix: attribute rows}, for example {"fg": rows}.
-    A non-numeric rule filters in SQL, and "No" is not a filter. A numeric rule is checked in
-    Python with the known values and the `<unknown_prefix>_` values of each item.
+    The non-numeric rules (group_text_rules) filter in SQL. A numeric rule is checked in Python
+    with the known values and the `<unknown_prefix>_` values of each item.
     """
-    text_values, numeric_rules = {}, []
-    for row in restrictions:
-        if row.is_numeric == 1:
-            numeric_rules.append(replace_java_chars(row.rule or ""))
-        elif row.allowed_values != "No":
-            values = split_allowed_values(row.allowed_values)
-            if not values:
-                return []
-            text_values[row.attribute] = list(values)
+    text_values = {}
+    for attribute, values in group_text_rules(restrictions, get_known_text(known), rm_map).items():
+        if values is None:
+            continue
+        if not values:
+            return []
+        text_values[attribute] = sorted(values)
+    numeric_rules = get_numeric_rules(restrictions)
     it = frappe.qb.DocType("Item")
     query = (
         frappe.qb.from_(it)
@@ -379,26 +461,29 @@ def rule_passes(rule, values):
     return bool(calculate_formula_values(exact_rule, dict(exact_values, Decimal=Decimal, **RULE_FUNCTIONS)))
 
 
-def get_rule_failures(restrictions, known_values, unknown_prefix, item_attrs):
+def get_rule_failures(restrictions, known_values, unknown_prefix, item_attrs, known_text=None, rm_map=None):
     """
     Returns the rules of `restrictions` that one item fails, as text. `known_values` is
-    {"fg_<attribute>": value} and `item_attrs` are the attribute rows of the item. Same check as
-    `get_items_for_rules`: a non-numeric rule needs the item's value in its allowed values, and
-    "No" is not a filter.
+    {"fg_<attribute>": value}, `known_text` is {"fg": {attribute: value}} and `item_attrs` are the
+    attribute rows of the item. Same check as `get_items_for_rules` (group_text_rules).
     """
     text_values = {att.attribute: att.attribute_value for att in item_attrs}
     values = dict(known_values)
     for att in item_attrs:
         values[f"{unknown_prefix}_{att.attribute}"] = flt(att.attribute_value)
-    failures = []
-    for row in restrictions:
+    groups = group_text_rules(restrictions, known_text, rm_map)
+    failures, checked = [], set()
+    for row in list(restrictions) + [frappe._dict(attribute=a, is_numeric=0) for a in groups]:
         if row.is_numeric == 1:
             if not rule_passes(replace_java_chars(row.rule or ""), values):
                 failures.append((row.rule or "").strip())
-        elif row.allowed_values != "No":
-            if text_values.get(row.attribute) not in split_allowed_values(row.allowed_values):
-                failures.append(f"{row.attribute} = {text_values.get(row.attribute) or 'not set'}, allowed: "
-                    + ", ".join(sorted(split_allowed_values(row.allowed_values))))
+            continue
+        if row.attribute in checked:
+            continue
+        checked.add(row.attribute)
+        allowed = groups.get(row.attribute)
+        if allowed is not None and text_values.get(row.attribute) not in allowed:
+            failures.append(text_rule_failure(row.attribute, text_values.get(row.attribute), allowed))
     return failures
 
 
@@ -409,14 +494,14 @@ def get_rm_rule_errors(bt_doc, fg_item, ps_name, rm_rows):
     """
     if not bt_doc.get("rm_restrictions") or not rm_rows:
         return []
-    known_values = {
-        f"fg_{att.attribute}": flt(att.attribute_value)
-        for att in get_known_item_attributes(fg_item, ps_name)
-    }
+    fg_rows = get_known_item_attributes(fg_item, ps_name)
+    known_values = {f"fg_{att.attribute}": flt(att.attribute_value) for att in fg_rows}
+    known_text = get_known_text({"fg": fg_rows})
     att_rows = get_attribute_rows([row.item_code for row in rm_rows])
     errors = []
     for row in rm_rows:
-        failures = get_rule_failures(bt_doc.rm_restrictions, known_values, "rm", att_rows.get(row.item_code, []))
+        failures = get_rule_failures(bt_doc.rm_restrictions, known_values, "rm", att_rows.get(row.item_code, []),
+            known_text=known_text, rm_map=bt_doc.get("fg_rm_map"))
         if failures:
             errors.append((row, failures))
     return errors
@@ -534,7 +619,8 @@ def get_template_usage(items):
     return usage
 
 
-FG_RULES_CACHE_KEY = "bom_template_fg_rules"
+# v2: the prepared rules have "templates" (#163)
+FG_RULES_CACHE_KEY = "bom_template_fg_rules_v2"
 # Templates are indexed on the exact values of these FG attributes
 INDEX_ATTRIBUTES = ("Base Material", "Tool Type")
 
@@ -592,11 +678,13 @@ def read_fg_restriction_rules():
 
 def prepare_fg_rules(rules, priority=None):
     """
-    Returns {"rules", "priority", "index"} for `match_bom_templates`. The index maps a
+    Returns {"rules", "templates", "priority", "index"} for `match_bom_templates`. `templates` has
+    the grouped rules of each template (prepare_template_fg_rules). The index maps a
     (Base Material, Tool Type) key to its templates. None in a key means that the template has
     no rule for that attribute, so it can match any value.
     """
     index = {}
+    templates = {template: prepare_template_fg_rules(restrictions) for template, restrictions in rules.items()}
     for template, restrictions in rules.items():
         key_values = []
         for attribute in INDEX_ATTRIBUTES:
@@ -608,7 +696,40 @@ def prepare_fg_rules(rules, priority=None):
         for base_material in key_values[0]:
             for tool_type in key_values[1]:
                 index.setdefault((base_material, tool_type), []).append(template)
-    return {"rules": rules, "priority": priority or {}, "index": index}
+    return {"rules": rules, "templates": templates, "priority": priority or {}, "index": index}
+
+
+def prepare_template_fg_rules(restrictions):
+    """
+    Returns the FG rules of 1 template as {attributes, text, numeric}. The text rows of the same
+    attribute are joined (OR). In the FG table, "No" is a value, not "any value".
+    """
+    return frappe._dict(
+        attributes={row.attribute for row in restrictions},
+        text=group_text_rules(restrictions, no_means_any=False),
+        numeric=get_numeric_rules(restrictions),
+    )
+
+
+def get_fg_failures(template_rules, att_dict):
+    """
+    Returns the FG checks of 1 template (prepare_template_fg_rules) that the item attributes
+    `att_dict` fail, as text. No failures means that the template matches the item: each attribute
+    of the rules is an attribute of the item, its value is one of the allowed values, and each
+    numeric rule passes.
+    """
+    values = {att.attribute: att.attribute_value for att in att_dict}
+    missing = sorted(template_rules.attributes - values.keys())
+    if missing:
+        return [f"{attribute} is not an attribute of the item" for attribute in missing]
+    failures = [
+        text_rule_failure(attribute, values[attribute], allowed)
+        for attribute, allowed in template_rules.text.items()
+        if values[attribute] not in allowed
+    ]
+    numeric_values = {f"fg_{att.attribute}": flt(att.attribute_value) for att in att_dict}
+    failures += [rule.strip() for rule in template_rules.numeric if not rule_passes(rule, numeric_values)]
+    return failures
 
 
 def get_candidate_templates(prepared, att_dict):
@@ -662,60 +783,16 @@ def match_bom_templates_bulk(items, so_details=None):
 
 def match_bom_templates(prepared, att_dict, usage=None):
     """
-    Returns the templates whose FG restrictions all match the item attributes in `att_dict`.
-    `prepared` comes from `prepare_fg_rules`. Only the templates of the item's index key are
-    checked. A non-numeric rule matches when the item value is one of its values.
-    The order is: the higher priority first, then the template that this item used most
-    (`usage` is {template: count} from `get_template_usage`), then name.
+    Returns the templates whose FG rules all match the item attributes in `att_dict`
+    (get_fg_failures). `prepared` comes from `prepare_fg_rules`. Only the templates of the item's
+    index key are checked. The order is: the higher priority first, then the template that this
+    item used most (`usage` is {template: count} from `get_template_usage`), then name.
     """
-    bt_list = []
-    item_attributes = {att.attribute for att in att_dict}
-    rules = prepared["rules"]
-    for bt_name in sorted(get_candidate_templates(prepared, att_dict)):
-        fg_restrictions = rules[bt_name]
-        total_score = len(fg_restrictions)
-        match_score = 0
-        exit_bt = 0
-        # Before checking the formula always check if the attributes are there in the Item Attributes
-        for bt_row in fg_restrictions:
-            if bt_row.attribute not in item_attributes:
-                exit_bt = 1
-        if exit_bt == 0:
-            for bt_rule in fg_restrictions:
-                if exit_bt == 1:
-                    break
-                for att in att_dict:
-                    if (
-                        bt_rule.is_numeric == 1
-                        and att.numeric_values == 1
-                        and exit_bt != 1
-                    ):
-                        formula = replace_java_chars(bt_rule.rule)
-                        formula_values = get_formula_values(att_dict, formula, "fg")
-                        dont_calculate_formula = 0
-                        for key in formula_values.keys():
-                            if key not in formula:
-                                dont_calculate_formula = 1
-                                break
-                        if dont_calculate_formula == 0:
-                            calculated_value = calculate_formula_values(
-                                formula, formula_values
-                            )
-                        else:
-                            break
-                        if calculated_value == 1:
-                            match_score += 1
-                            break
-                    else:
-                        if att.attribute == bt_rule.attribute and exit_bt != 1:
-                            if att.attribute_value in split_allowed_values(bt_rule.allowed_values):
-                                match_score += 1
-                                break
-                            else:
-                                exit_bt = 1
-                                break
-        if match_score == total_score:
-            bt_list.append(bt_name)
+    templates = prepared["templates"]
+    bt_list = [
+        bt_name for bt_name in get_candidate_templates(prepared, att_dict)
+        if not get_fg_failures(templates[bt_name], att_dict)
+    ]
     priority, usage = prepared["priority"], usage or {}
     bt_list.sort(key=lambda name: (-priority.get(name, 0), -usage.get(name, 0), name))
     return bt_list

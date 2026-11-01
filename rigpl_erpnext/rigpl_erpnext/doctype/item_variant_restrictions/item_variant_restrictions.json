@@ -9,6 +9,7 @@
   "rename_field",
   "renamed_field_name",
   "column_break",
+  "value_source",
   "allowed_values",
   "rule",
   "item_number"
@@ -36,9 +37,17 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:!doc.is_numeric && doc.parenttype==\"BOM Template RIGPL\" && doc.parentfield!=\"fg_restrictions\"",
+   "description": "Same as FG: the value of the same attribute of the FG item. Same as RM (WIP rows only): the value of the same attribute of the RM item. Empty: the Allowed Values. Rows of the same attribute are joined (OR).",
+   "fieldname": "value_source",
+   "fieldtype": "Select",
+   "label": "Value Source",
+   "options": "\nSame as FG\nSame as RM"
+  },
+  {
    "bold": 1,
    "columns": 2,
-   "depends_on": "eval:!doc.is_numeric",
+   "depends_on": "eval:!doc.is_numeric && !doc.value_source",
    "description": "In BOM Template RIGPL, enter more than 1 value with 1 value on each line.",
    "fieldname": "allowed_values",
    "fieldtype": "Small Text",
@@ -77,7 +86,7 @@
   }
  ],
  "istable": 1,
- "modified": "2026-10-30 12:00:00.000000",
+ "modified": "2026-11-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Item Variant Restrictions",

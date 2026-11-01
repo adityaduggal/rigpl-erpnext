@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "creation": "2026-10-30 19:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "fg_attribute",
+  "fg_value",
+  "cb0",
+  "rm_attribute",
+  "rm_values"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "fg_attribute",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "FG Attribute",
+   "options": "Item Attribute",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "fg_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "FG Value",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb0",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 2,
+   "description": "The RM attribute that the map defines.",
+   "fieldname": "rm_attribute",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "RM Attribute",
+   "options": "Item Attribute",
+   "reqd": 1
+  },
+  {
+   "columns": 4,
+   "description": "The RM values allowed for the FG Value, one value on each line.",
+   "fieldname": "rm_values",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "RM Values",
+   "reqd": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-01 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Manufacturing-RIGPL",
+ "name": "FG RM Grade Map",
+ "owner": "Administrator",
+ "permissions": [],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

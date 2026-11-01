@@ -118,7 +118,8 @@ def restriction_filters(template_field, values):
 
 def get_restriction_map(templates, attributes):
     """
-    Returns {template: {attribute: allowed values}} from the FG restrictions
+    Returns {template: {attribute: allowed values}} from the FG restrictions. The values of the
+    rows of the same attribute are joined, because the rows are OR (#163).
     """
     restrictions = {}
     if not attributes:
@@ -134,7 +135,8 @@ def get_restriction_map(templates, attributes):
             .run()
         )
         for parent, attribute, allowed_values in rows:
-            restrictions.setdefault(parent, {})[attribute] = allowed_values
+            allowed = restrictions.setdefault(parent, {})
+            allowed[attribute] = "\n".join(v for v in (allowed.get(attribute), allowed_values) if v)
     return restrictions
 
 
