@@ -88,6 +88,7 @@ After submit:
 - Reports:
   - **RM Wastage Analysis**: the excess of each Job Card, or by BOM Template, FG item or RM item, with the real RM cost. Use it to find where RM is lost and to set the 2 limits.
   - **RM Cost of Items Made**: the real RM cost per piece of the items made in 2 periods, grouped by FG attributes (for example HSS Punches in 2025 against 2026).
+- On submit of a Process Sheet, a message (not an error) shows when 2 or more matched BOM Templates do the same work, with the merged rule. Give it to the person who maintains the templates.
 
 ## 7. Troubleshooting
 
@@ -104,5 +105,6 @@ After submit:
 | Not Allowed to Submit Quantity Equal to ZERO | Enter a quantity, or do not submit. |
 | Another Process Sheet with Same Item in Draft | Open the draft in the message and use it, or delete it. |
 | RM used above the Calculated Qty | The excess value is more than the allowed excess. Check the RM qty. If the use is right, ask a manager to tick Bypass Qty Check. |
+| These BOM Templates Can Merge | Not an error. Tell the person who maintains the BOM Templates. |
 | BOM Template ... is disabled | The save selected another template. Check the new RM and WIP rows and save again. |
 | Best RM Not Selected | Not an error. The submitted RM costs more than rank 1. If this was a mistake, cancel and amend the Process Sheet, and keep the rank 1 RM. |

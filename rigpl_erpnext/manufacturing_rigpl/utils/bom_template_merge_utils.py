@@ -315,3 +315,44 @@ def disable_similar_templates(bom_template, templates):
     clear_fg_rules_cache()
     return done
 
+
+def get_merge_hint(templates):
+    """
+    Returns the HTML of the merge message of a Process Sheet submit (#185), or None: for each group
+    of 2 or more of the matched `templates` with the same work, the templates, the FG values that
+    differ and the merged FG rule. It does not stop the submit.
+    """
+    if len(templates or []) < 2:
+        return None
+    data = read_template_data(templates)
+    groups = {}
+    for name in templates:
+        if name in data:
+            groups.setdefault(work_signature(data[name]), []).append(data[name])
+    parts = []
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        values = [joined_values(bt, "fg_restrictions") for bt in group]
+        attributes = list(dict.fromkeys(a for v in values for a in v))
+        rows = []
+        for attribute in attributes:
+            per_template = [tuple(v.get(attribute, [])) for v in values]
+            if len(set(per_template)) > 1:
+                joined = sorted({value for t in per_template for value in t})
+                found = ", ".join(f"{' / '.join(t) or 'not set'} in {bt.name}" for t, bt in zip(per_template, group))
+                rows.append(f"<li>{frappe.utils.escape_html(attribute)}: {frappe.utils.escape_html(found)}. "
+                            f"Merged rule: <b>{frappe.utils.escape_html(attribute)}: "
+                            f"{frappe.utils.escape_html(' / '.join(joined))}</b></li>")
+        if not rows:
+            rows.append("<li>" + _("The FG rules are the same: the templates are duplicates. Keep 1 of them.") + "</li>")
+        for other in group[1:]:
+            for diff in template_differences(group[0], other):
+                rows.append(f"<li>{frappe.utils.escape_html(other.name)}: {frappe.utils.escape_html(diff)} "
+                            f"({frappe.utils.escape_html(group[0].name)})</li>")
+        links = ", ".join(frappe.get_desk_link(BT, bt.name) for bt in group)
+        parts.append(f"<p>{links} do the same work.</p><ul>{''.join(rows)}</ul>")
+    if not parts:
+        return None
+    return ("".join(parts) + "<p>" + _("To merge them, see Help > BOM Template Guide (section 9) on the BOM "
+            "Template form, then use Disable Similar Templates. The submit continues.") + "</p>")

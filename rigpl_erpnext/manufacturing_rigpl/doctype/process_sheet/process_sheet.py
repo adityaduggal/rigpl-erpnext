@@ -139,6 +139,18 @@ class ProcessSheet(Document):
                 title="Disabled BOM Template",
             )
         self.check_best_rm()
+        self.show_merge_hint()
+
+    def show_merge_hint(self):
+        """A message (not an error) when matched templates do the same work and can merge (#185)."""
+        if (self.total_applicable_bom_templates or 0) < 2:
+            return
+        from ...utils.bom_template_merge_utils import get_merge_hint
+
+        templates = get_bom_template_from_item(frappe.get_doc("Item", self.production_item), self.sales_order_item, no_error=1)
+        hint = get_merge_hint(templates)
+        if hint:
+            frappe.msgprint(hint, title="These BOM Templates Can Merge", indicator="blue")
 
     def check_best_rm(self):
         """
