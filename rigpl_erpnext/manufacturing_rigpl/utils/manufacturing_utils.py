@@ -276,6 +276,48 @@ def rank_rm_rows(rows, rates, settings=None):
         row.idx = idx
 
 
+def get_rm_excess_settings():
+    """Returns (Min RM Excess Value, RM Excess %) from RIGPL Settings. Defaults 5000 and 5."""
+    min_value = frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "min_rm_excess_value")
+    percent = frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "rm_excess_percent")
+    return 5000 if min_value is None else flt(min_value), 5 if percent is None else flt(percent)
+
+
+def get_rm_excess(rows, rates, settings=None):
+    """
+    Returns {excess_qty, excess_value, used_value, allowed} of the RM rows of a Job Card. The excess
+    of a row is the qty used above its Calculated Qty (the template formula for the completed and
+    rejected qty, which already counts the pieces of each RM). The allowed excess is the higher of
+    Min RM Excess Value and RM Excess % of the value of the RM used. `rates` is {item: rate}.
+    """
+    min_value, percent = settings or get_rm_excess_settings()
+    excess_qty = excess_value = used_value = 0
+    for row in rows:
+        rate = flt(rates.get(row.item_code))
+        excess = max(0, flt(row.qty) - flt(row.calculated_qty))
+        excess_qty += excess
+        excess_value += excess * rate
+        used_value += flt(row.qty) * rate
+    return frappe._dict(
+        excess_qty=excess_qty,
+        excess_value=excess_value,
+        used_value=used_value,
+        allowed=max(min_value, percent / 100 * used_value),
+    )
+
+
+def calculate_scrap_qty(formula, qty, fg_atts, rm_atts, wip_atts, rm_qty=0, wip_qty=0):
+    """
+    Returns the scrap qty of the Scrap Qty Formula of an operation (#164). The formula can use
+    qty, rm_qty, wip_qty and the fg_, rm_ and wip_ attributes (renamed by the template).
+    """
+    formula = replace_java_chars(formula)
+    values = frappe._dict(qty=flt(qty), rm_qty=flt(rm_qty), wip_qty=flt(wip_qty))
+    for prefix, atts in (("fg", fg_atts), ("rm", rm_atts), ("wip", wip_atts)):
+        values.update(get_formula_values(atts or [], formula, prefix))
+    return max(0, flt(calculate_formula_values(formula, values), 3))
+
+
 def get_best_rm_bypass(kept_rows, ranked_rows):
     """
     Returns (best row, kept row) when a kept RM row ranks below rank 1 of `ranked_rows` (a higher

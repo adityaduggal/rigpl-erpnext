@@ -5,6 +5,7 @@ from frappe.tests.utils import FrappeTestCase, change_settings
 from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import match_existing_job_cards
 from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     FG_RULES_CACHE_KEY,
+    calculate_scrap_qty,
     age_adjusted_rate,
     clear_fg_rules_cache,
     find_item_quantities,
@@ -18,6 +19,8 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     get_qty_for_prod,
     get_qty_for_prod_map,
     get_rm_age_discount_settings,
+    get_rm_excess,
+    get_rm_excess_settings,
     get_rm_rule_errors,
     get_rule_failures,
     get_template_usage,
@@ -274,6 +277,33 @@ class TestBestRmBypass(FrappeTestCase):
     def test_no_rate_for_rank_one_is_not_checked(self):
         ranked = [frappe._dict(item_code="RM-4", valuation_rate=0, adjusted_rm_cost=0)]
         self.assertIsNone(get_best_rm_bypass([frappe._dict(item_code="RM-X", valuation_rate=5)], ranked))
+
+
+class TestRmExcess(FrappeTestCase):
+    def rows(self, *rows):
+        return [frappe._dict(item_code=item, qty=qty, calculated_qty=calc) for item, qty, calc in rows]
+
+    def test_only_use_above_the_calculated_qty_is_excess(self):
+        excess = get_rm_excess(self.rows(("RM-A", 12, 10), ("RM-B", 3, 5)), {"RM-A": 1000, "RM-B": 50}, (5000, 5))
+        self.assertEqual((excess.excess_qty, excess.excess_value, excess.used_value), (2, 2000, 12150))
+        self.assertEqual(excess.allowed, 5000)
+
+    def test_allowed_grows_with_the_rm_value(self):
+        self.assertEqual(get_rm_excess(self.rows(("RM-A", 1000, 1000)), {"RM-A": 1000}, (5000, 5)).allowed, 50000)
+        self.assertEqual(get_rm_excess(self.rows(("RM-A", 100, 100)), {"RM-A": 1000}, (5000, 10)).allowed, 10000)
+
+    @change_settings("RIGPL Settings", {"min_rm_excess_value": 2000, "rm_excess_percent": 3})
+    def test_settings(self):
+        self.assertEqual(get_rm_excess_settings(), (2000, 3))
+
+
+class TestScrapQty(FrappeTestCase):
+    def test_formula_with_qty_and_attributes(self):
+        fg, rm = [att("oal", "120", 1)], [att("oal", "150", 1), att("d1_mm", "10", 1)]
+        formula = "rm_qty * (rm_oal - fg_oal * int(rm_oal / fg_oal)) * rm_d1_mm * rm_d1_mm * 0.0001"
+        self.assertEqual(calculate_scrap_qty(formula, 8, fg, rm, [], rm_qty=8), 2.4)
+        self.assertEqual(calculate_scrap_qty("qty * 0.01", 250, fg, rm, []), 2.5)
+        self.assertEqual(calculate_scrap_qty("qty - 1000", 5, [], [], []), 0)
 
 
 class TestRoundUpQty(FrappeTestCase):

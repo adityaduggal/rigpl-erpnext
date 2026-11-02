@@ -130,6 +130,12 @@ Use it when the RM value depends on the FG value, and it is not the same value. 
   - Example: Coating, Special Treatment, **Not In**, None. An FG with Special Treatment = None gets no Coating operation.
   - The operation that consumes the RM and the final operation cannot have a condition.
   - With no condition, the operation is always used.
+- **Scrap** (open the operation row): the scrap that the operation makes, as an estimate. Set **Scrap Item**, **Scrap Qty Formula** and **Scrap Warehouse** (all 3, or none).
+  - Example: ROD Cutting makes Carbide Solid Scrap; CNC Grinding makes Carbide Sludge Scrap; Marking makes no scrap (leave it empty).
+  - 1 scrap item for each operation. A small scrap that is not worth tracking (for example the sludge of ROD Cutting) is left out.
+  - The formula gives the scrap qty in the stock UOM of the scrap item (usually Kg). It can use `qty` (completed + rejected), `rm_qty` (RM used), `wip_qty`, `fg_`, `rm_`, `wip_` attributes and the renamed fields, for example `rm_oal`.
+  - Example (Kg of rod cut-off): `rm_qty * (rm_oal - fg_oal * int(rm_oal / fg_oal)) * rm_d1_mm * rm_d1_mm * 0.0000123`.
+  - The Job Card of the operation shows the **Estimated Scrap** (read only). On submit, its Stock Entry receives the scrap into the Scrap Warehouse at the valuation rate of the scrap item. Nobody enters it.
 
 Example, BT0000027: ROD Cutting (uses RM, makes WIP) > CNC Grinding > Coating (subcontracting) > Marking (final warehouse BGH655 - RIGPL).
 

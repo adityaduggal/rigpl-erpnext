@@ -77,3 +77,4 @@ rigpl_erpnext.patches.v13.close_overdue_communication_follow_ups
 rigpl_erpnext.patches.v13.add_valuation_rate_rules
 rigpl_erpnext.patches.v13.delete_old_pending_query_reports
 rigpl_erpnext.patches.v13.move_fg_rm_grade_map_rows
+rigpl_erpnext.patches.v13.add_rm_cost_report_indexes

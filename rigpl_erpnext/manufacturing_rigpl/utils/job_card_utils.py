@@ -21,18 +21,21 @@ from frappe.utils import (
 )
 
 from ...utils.item_attribute_utils import chunks
-from ...utils.other_utils import auto_round_down, auto_round_up
+from ...utils.item_utils import get_item_attributes
+from ...utils.other_utils import auto_round_down
 from ...utils.sales_utils import get_priority_for_so
 from ...utils.stock_utils import cancel_delete_ste_from_name, get_quantities_for_item
 from .batch_qty_utils import get_first_po_items, get_grn_rows
 from .manufacturing_utils import (
+    calculate_scrap_qty,
+    change_att_if_needed,
     check_jc_needed_for_ps,
     convert_qty_per_uom,
+    get_fg_attribute_rows,
     get_items_from_process_sheet_for_job_card,
     get_min_max_ps_qty,
-    get_oal_field,
-    get_oal_frm_item_code,
     get_priority_for_stock_prd,
+    get_rm_excess,
 )
 
 
@@ -691,76 +694,107 @@ def validate_qty_decimal(document, table_name):
         row.qty = convert_qty_per_uom(row.qty, row.item_code)
 
 
-def check_qty_job_card(jc_doc, row, calculated_qty, qty, uom, bypass=0):
+def get_item_rates(items):
+    """{item: valuation rate of the Item} in 1 query."""
+    items = list({d for d in items if d})
+    return dict(frappe.get_all(
+        "Item", filters={"name": ("in", items)}, fields=["name", "valuation_rate"], as_list=True
+    )) if items else {}
+
+
+def set_rm_excess(jc_doc):
     """
-    Checks the Job Card Quantities as per the BOM templates formula
+    Sets RM Excess Qty, RM Excess Value and Allowed RM Excess of a Job Card from its RM rows
+    (get_rm_excess). The excess is the RM used above the Calculated Qty, so a cut-off that the
+    template formula plans (120 mm pieces from a 150 mm rod) is not an excess.
     """
-    bt_name = frappe.get_value("Process Sheet", jc_doc.process_sheet, "bom_template")
-    bt_doc = frappe.get_doc("BOM Template RIGPL", bt_name)
-    uom_doc = frappe.get_doc("UOM", uom)
-    error_title = "Error for Raw Material Quantity Entered"
-    warning_title = "Warning for Raw Material Quantity Entered"
-    if bt_doc.length_formula == 1:
-        fg_oal_field = get_oal_field(btd=bt_doc, table="fg_restrictions")
-        # Check total length of WIP + FG vs Total Length of RM
-        rm_oal, fg_oal, wastage = 0, 0, 0
-        fg_oal += get_oal_frm_item_code(
-            item_code=jc_doc.production_item,
-            qty=(jc_doc.total_completed_qty + jc_doc.total_rejected_qty),
-            oal_field=fg_oal_field,
-            so_detail=jc_doc.sales_order_item,
-        )
-        for d in jc_doc.rm_consumed:
-            rm_oal_field = get_oal_field(btd=bt_doc, table="rm_restrictions")
-            if d.qty > 0:
-                rm_oal += get_oal_frm_item_code(
-                    item_code=d.item_code, qty=d.qty, oal_field=rm_oal_field
-                )
-            else:
-                rm_oal += 0
-        for d in jc_doc.item_manufactured:
-            wip_oal_field = get_oal_field(btd=bt_doc, table="wip_restrictions")
-            fg_oal += get_oal_frm_item_code(
-                item_code=d.item_code, qty=d.qty, oal_field=wip_oal_field
-            )
-        if rm_oal > 0:
-            wastage = abs(int(((rm_oal - fg_oal) / rm_oal) * 100))
-        else:
-            wastage = abs(int(((rm_oal - fg_oal) / 1) * 100))
-        if wastage > uom_doc.variance_allowed:
-            message_oal = (
-                f"RM OAL Consume = {rm_oal} whereas FG OAL Produced = {fg_oal} With Wastage = {wastage}% "
-                f"Which is Not Allowed. Ask Someone to Bypass Qty Check if this is Authorized Usage."
-            )
-            if bypass == 0:
-                frappe.throw(message_oal, title=error_title)
-            else:
-                frappe.msgprint(message_oal, title=warning_title)
+    excess = get_rm_excess(jc_doc.rm_consumed, get_item_rates(d.item_code for d in jc_doc.rm_consumed))
+    jc_doc.rm_excess_qty = excess.excess_qty
+    jc_doc.rm_excess_value = excess.excess_value
+    jc_doc.rm_allowed_excess = excess.allowed
+    return excess
+
+
+def check_rm_excess(jc_doc):
+    """
+    On submit: an RM Excess Value above the Allowed RM Excess stops the submit, unless an RM row
+    has Bypass Qty Check. Then it is a message only.
+    """
+    excess = set_rm_excess(jc_doc)
+    if excess.excess_value <= excess.allowed:
+        return
+    message = (
+        f"RM used above the Calculated Qty: {flt(excess.excess_qty, 3)} worth {flt(excess.excess_value, 2)}. "
+        f"The RM used is worth {flt(excess.used_value, 2)}, so the allowed excess is {flt(excess.allowed, 2)} "
+        f"(Min RM Excess Value or RM Excess % in RIGPL Settings)."
+    )
+    if any(row.bypass_qty_check for row in jc_doc.rm_consumed):
+        frappe.msgprint(message, title="Warning for Raw Material Quantity Entered")
     else:
-        if uom_doc.variance_allowed > 0:
-            variance = uom_doc.variance_allowed / 100
-            upper_limit = auto_round_up((1 + variance) * flt(calculated_qty))
-            lower_limit = auto_round_down((1 - variance) * flt(calculated_qty))
-            if flt(qty) > upper_limit or flt(qty) < lower_limit:
-                message = (
-                    f"Entered Quantity {row.qty} in Row# {row.idx} for {row.parent} is Not in Range and "
-                    f"must be between {lower_limit} and {upper_limit}"
-                )
-                if bypass == 0:
-                    frappe.throw(message, title=error_title)
-                else:
-                    frappe.msgprint(message, title=warning_title)
-        else:
-            calculated_qty = convert_qty_per_uom(calculated_qty, row.item_code)
-            if flt(qty) != calculated_qty:
-                message = (
-                    f"Entered Quantity = {row.qty} is Not Equal to the Calculated Qty = {row.calculated_qty} "
-                    f"for RM Size = {row.item_code} in Row# {row.idx}"
-                )
-                if bypass == 0:
-                    frappe.throw(message, title=error_title)
-                else:
-                    frappe.msgprint(message, title=warning_title)
+        frappe.throw(message + " Ask someone to tick Bypass Qty Check if this is authorized.",
+            title="Error for Raw Material Quantity Entered")
+
+
+def set_scrap_estimate(jc_doc, pro_doc):
+    """
+    Sets the Estimated Scrap table of a Job Card from the Scrap Item and Scrap Qty Formula of its
+    operation in the BOM Template (#164). The user cannot edit it. No rule: an empty table.
+    """
+    jc_doc.set("scrap_items", [])
+    bop = frappe.get_all(
+        "BOM Operation",
+        filters={"parenttype": "BOM Template RIGPL", "parent": pro_doc.bom_template, "operation": jc_doc.operation},
+        fields=["scrap_item", "scrap_qty_formula", "scrap_warehouse"],
+        order_by="idx",
+        limit=1,
+    )
+    if not bop or not bop[0].scrap_item or not bop[0].scrap_qty_formula:
+        return
+    rule = bop[0]
+    bt_doc = frappe.get_doc("BOM Template RIGPL", pro_doc.bom_template)
+    rm_rows = [d for d in jc_doc.rm_consumed if flt(d.qty) > 0] or list(pro_doc.rm_consumed)
+    wip_rows = [d for d in jc_doc.item_manufactured if flt(d.qty) > 0]
+    fg_atts = change_att_if_needed(get_fg_attribute_rows(jc_doc.production_item, jc_doc.sales_order_item), bt_doc, "fg")
+    rm_atts = change_att_if_needed(get_item_attributes(rm_rows[0].item_code), bt_doc, "rm") if rm_rows else []
+    wip_atts = change_att_if_needed(get_item_attributes(wip_rows[0].item_code), bt_doc, "wip") if wip_rows else []
+    qty = calculate_scrap_qty(
+        rule.scrap_qty_formula,
+        flt(jc_doc.total_completed_qty) + flt(jc_doc.total_rejected_qty),
+        fg_atts, rm_atts, wip_atts,
+        rm_qty=sum(flt(d.qty) for d in jc_doc.rm_consumed),
+        wip_qty=sum(flt(d.qty) for d in wip_rows),
+    )
+    if qty <= 0:
+        return
+    item = frappe.get_cached_value("Item", rule.scrap_item, ["description", "stock_uom"], as_dict=True)
+    jc_doc.append("scrap_items", {
+        "item_code": rule.scrap_item,
+        "description": item.description,
+        "uom": item.stock_uom,
+        "qty": qty,
+        "calculated_qty": qty,
+        "target_warehouse": rule.scrap_warehouse,
+    })
+
+
+def get_scrap_ste_rows(jc_doc):
+    """The Stock Entry rows of the Estimated Scrap: received at the valuation rate of the scrap item."""
+    rows = []
+    rates = get_item_rates(d.item_code for d in jc_doc.get("scrap_items") or [])
+    for d in jc_doc.get("scrap_items") or []:
+        if flt(d.qty) <= 0 or not d.target_warehouse:
+            continue
+        rate = flt(rates.get(d.item_code))
+        rows.append({
+            "item_code": d.item_code,
+            "qty": d.qty,
+            "t_warehouse": d.target_warehouse,
+            "is_scrap_item": 1,
+            "set_basic_rate_manually": 1,
+            "basic_rate": rate,
+            "allow_zero_valuation_rate": 0 if rate else 1,
+        })
+    return rows
 
 
 def validate_job_card_time_logs(jc_doc):
@@ -1057,6 +1091,13 @@ def create_submit_ste_from_job_card(jc_doc):
                     it_dict.setdefault("s_warehouse", row.source_warehouse)
                     it_dict.setdefault("t_warehouse", row.target_warehouse)
                     item_table.append(it_dict.copy())
+        scrap_rows = get_scrap_ste_rows(jc_doc)
+        if scrap_rows and item_table:
+            # The other incoming rows are the finished items, so ERPNext does not mark the scrap as finished
+            for i in item_table:
+                if i.get("t_warehouse") and not i.get("s_warehouse"):
+                    i["is_finished_item"] = 1
+            item_table += scrap_rows
         ste_type = "Repack"
         ste = frappe.new_doc("Stock Entry")
         ste.flags.ignore_permissions = True

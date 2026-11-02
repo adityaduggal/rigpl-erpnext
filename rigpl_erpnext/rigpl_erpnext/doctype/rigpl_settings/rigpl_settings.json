@@ -9,6 +9,8 @@
   "check_overlap_for_machines",
   "rm_age_step_days",
   "rm_age_step_discount",
+  "min_rm_excess_value",
+  "rm_excess_percent",
   "rol_multiplier",
   "rol_value_percentages",
   "rol_qty_percentages",
@@ -77,6 +79,20 @@
    "fieldname": "rm_age_step_discount",
    "fieldtype": "Percent",
    "label": "RM Rate Discount per Age Step"
+  },
+  {
+   "default": "5000",
+   "description": "A Job Card can use RM above its Calculated Qty up to this value, or up to RM Excess % of its RM value when that is higher. Above it, Bypass Qty Check is needed.",
+   "fieldname": "min_rm_excess_value",
+   "fieldtype": "Currency",
+   "label": "Min RM Excess Value"
+  },
+  {
+   "default": "5",
+   "description": "Allowed RM excess as a % of the value of the RM that the Job Card used.",
+   "fieldname": "rm_excess_percent",
+   "fieldtype": "Percent",
+   "label": "RM Excess %"
   },
   {
    "collapsible": 1,
@@ -291,7 +307,7 @@
   }
  ],
  "issingle": 1,
- "modified": "2026-10-30 18:00:00.000000",
+ "modified": "2026-11-01 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

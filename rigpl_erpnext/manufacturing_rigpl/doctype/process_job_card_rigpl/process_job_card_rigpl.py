@@ -12,6 +12,7 @@ from ...utils.job_card_utils import *
 from ...utils.manufacturing_utils import (
     calculated_value_from_formula,
     check_warehouse_in_child_tables,
+    round_up_qty,
     update_planned_qty,
     update_pro_sheet_rm_from_jc,
     update_produced_qty,
@@ -119,6 +120,7 @@ class ProcessJobCardRIGPL(Document):
                 self.update_calculated_qty(rm_item_dict, pro_doc)
                 bins, totals = get_bin_map([d.item_code for d in rm_item_dict])
                 update_row_quantities(self.rm_consumed, "source_warehouse", bins, totals)
+                set_rm_excess(self)
 
             if self.allow_production_of_wip_materials != 1:
                 self.set("item_manufactured", [])
@@ -130,6 +132,7 @@ class ProcessJobCardRIGPL(Document):
             if self.item_manufactured:
                 bins, totals = get_bin_map([d.item_code for d in self.item_manufactured])
                 update_row_quantities(self.item_manufactured, "target_warehouse", bins, totals)
+            set_scrap_estimate(self, pro_doc)
             update_jc_rm_status(self)
 
     def update_job_card_qty_text(self, it_doc=None, qty_dict=None):
@@ -179,7 +182,8 @@ class ProcessJobCardRIGPL(Document):
             for rm_it in rm_calc_qty_dict:
                 if rmr.item_code == rm_it.rm_item_code:
                     wip_rm_consume += rm_it.qty
-                    rmr.calculated_qty = int(wip_rm_consume)
+                    # Rounded up, as on the Process Sheet: 3.2 rods means 4 rods
+                    rmr.calculated_qty = round_up_qty(wip_rm_consume)
 
     @frappe.whitelist()
     def get_items_from_process_sheet(self):
@@ -194,7 +198,7 @@ class ProcessJobCardRIGPL(Document):
     def validate_rm_qty_consumed(self):
         """
         Validates the Raw Material Consumed Quantity can never be more than the Quantity
-        Available when Submitting a JCR. Also checks a function of check qty Job Card
+        Available when Submitting a JCR. Then checks the RM excess by value (check_rm_excess).
         """
         for row in self.rm_consumed:
             if flt(row.qty) > flt(row.qty_available):
@@ -204,9 +208,8 @@ class ProcessJobCardRIGPL(Document):
                     f"{row.source_warehouse}",
                     title="Warehouse Shortage",
                 )
-            check_qty_job_card(
-                self, row, row.calculated_qty, row.qty, row.uom, row.bypass_qty_check
-            )
+        if self.rm_consumed:
+            check_rm_excess(self)
 
     def update_next_jc_status(self, ps_doc=None):
         if ps_doc is None:

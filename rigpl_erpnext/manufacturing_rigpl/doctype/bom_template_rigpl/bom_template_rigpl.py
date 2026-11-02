@@ -77,6 +77,7 @@ class BOMTemplateRIGPL(Document):
                 frappe.msgprint("Please set the Final Warehouse in Row# {} of Operations Table for "
                                 "Operation {}".format(d.idx, d.operation))
         self.validate_operation_conditions()
+        self.validate_scrap_rules()
 
     def on_update(self):
         clear_fg_rules_cache()
@@ -215,6 +216,13 @@ class BOMTemplateRIGPL(Document):
             for value in values:
                 check_text_attributes(att_doc=att_doc, att_value=value, error=0)
             d.condition_values = "\n".join(values)
+
+    def validate_scrap_rules(self):
+        """An operation with a Scrap Item needs its Scrap Qty Formula and Scrap Warehouse (#164)."""
+        for d in self.operations:
+            if (d.scrap_item or d.scrap_qty_formula) and not (d.scrap_item and d.scrap_qty_formula and d.scrap_warehouse):
+                frappe.throw(f"Row# {d.idx} of the Operations: set the Scrap Item, Scrap Qty Formula and Scrap "
+                             f"Warehouse, or clear them.")
 
     def validate_operations(self, operations):
         for d in self.operations:

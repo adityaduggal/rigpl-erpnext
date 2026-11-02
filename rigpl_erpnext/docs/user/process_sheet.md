@@ -79,6 +79,16 @@ After submit:
   4. updates the Job Card status;
   5. updates the Process Sheet priority.
 
+### RM check on the Job Card
+
+- **Calculated Qty** of an RM row is the template formula for the completed + rejected qty, rounded up. The formula already counts the pieces of each RM, so a planned cut-off (120 mm pieces from a 150 mm rod) is not waste.
+- **RM Excess Qty** and **RM Excess Value**: the RM used above the Calculated Qty, and its value.
+- **Allowed RM Excess** = the higher of **Min RM Excess Value** (default 5,000) and **RM Excess %** (default 5%) of the value of the RM used. Both are in RIGPL Settings > Manufacturing Settings. Examples: RM worth 20,000 → 5,000; worth 1,000,000 → 50,000.
+- The submit stops only when the excess value is more than the allowed excess. Then a manager ticks **Bypass Qty Check** on the RM row. Using less RM than calculated does not stop the submit.
+- Reports:
+  - **RM Wastage Analysis**: the excess of each Job Card, or by BOM Template, FG item or RM item, with the real RM cost. Use it to find where RM is lost and to set the 2 limits.
+  - **RM Cost of Items Made**: the real RM cost per piece of the items made in 2 periods, grouped by FG attributes (for example HSS Punches in 2025 against 2026).
+
 ## 7. Troubleshooting
 
 | Message | What to do |
@@ -93,5 +103,6 @@ After submit:
 | Raw Material Consumption is Required | The template uses RM. Keep the RM rows. |
 | Not Allowed to Submit Quantity Equal to ZERO | Enter a quantity, or do not submit. |
 | Another Process Sheet with Same Item in Draft | Open the draft in the message and use it, or delete it. |
+| RM used above the Calculated Qty | The excess value is more than the allowed excess. Check the RM qty. If the use is right, ask a manager to tick Bypass Qty Check. |
 | BOM Template ... is disabled | The save selected another template. Check the new RM and WIP rows and save again. |
 | Best RM Not Selected | Not an error. The submitted RM costs more than rank 1. If this was a mistake, cancel and amend the Process Sheet, and keep the rank 1 RM. |

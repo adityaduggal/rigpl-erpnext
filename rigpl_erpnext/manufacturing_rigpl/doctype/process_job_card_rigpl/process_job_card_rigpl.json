@@ -50,8 +50,15 @@
   "time_logs",
   "sb3",
   "rm_consumed",
+  "cb_rm_excess",
+  "rm_excess_qty",
+  "rm_excess_value",
+  "cb_rm_excess_2",
+  "rm_allowed_excess",
   "sb4",
   "item_manufactured",
+  "sb_scrap",
+  "scrap_items",
   "sb5",
   "sb6",
   "operation_id",
@@ -110,6 +117,43 @@
    "options": "Process Sheet Items"
   },
   {
+   "depends_on": "eval:doc.allow_consumption_of_rm === 1",
+   "fieldname": "cb_rm_excess",
+   "fieldtype": "Section Break",
+   "label": "RM Excess"
+  },
+  {
+   "depends_on": "eval:doc.allow_consumption_of_rm === 1",
+   "description": "RM used above the Calculated Qty (the template formula for the completed and rejected qty).",
+   "fieldname": "rm_excess_qty",
+   "fieldtype": "Float",
+   "label": "RM Excess Qty",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.allow_consumption_of_rm === 1",
+   "fieldname": "rm_excess_value",
+   "fieldtype": "Currency",
+   "label": "RM Excess Value",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.allow_consumption_of_rm === 1",
+   "fieldname": "cb_rm_excess_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.allow_consumption_of_rm === 1",
+   "description": "The higher of Min RM Excess Value and RM Excess % of the RM value used (RIGPL Settings). A higher excess needs Bypass Qty Check.",
+   "fieldname": "rm_allowed_excess",
+   "fieldtype": "Currency",
+   "label": "Allowed RM Excess",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "sb1",
    "fieldtype": "Section Break",
    "label": "Production Details"
@@ -119,6 +163,22 @@
    "fieldtype": "Table",
    "label": "Extra Items Manufactured",
    "options": "Process Sheet Items"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.scrap_items && doc.scrap_items.length",
+   "fieldname": "sb_scrap",
+   "fieldtype": "Section Break",
+   "label": "Estimated Scrap"
+  },
+  {
+   "description": "Calculated from the Scrap Qty Formula of the operation in the BOM Template. The Stock Entry receives it into the scrap warehouse.",
+   "fieldname": "scrap_items",
+   "fieldtype": "Table",
+   "label": "Estimated Scrap",
+   "no_copy": 1,
+   "options": "Process Sheet Items",
+   "read_only": 1
   },
   {
    "fieldname": "sb2",
@@ -454,7 +514,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-10-22 18:00:00.000000",
+ "modified": "2026-11-01 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Manufacturing-RIGPL",
  "name": "Process Job Card RIGPL",
