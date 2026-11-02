@@ -175,8 +175,10 @@ class ProcessSheet(Document):
             "BOM Template RIGPL", self.bom_template, "disabled"
         ):
             return
+        merged_into = frappe.db.get_value("BOM Template RIGPL", self.bom_template, "merged_into")
+        replaced = f" It is replaced by {frappe.get_desk_link('BOM Template RIGPL', merged_into)}." if merged_into else ""
         frappe.msgprint(
-            f"{frappe.get_desk_link('BOM Template RIGPL', self.bom_template)} is disabled. "
+            f"{frappe.get_desk_link('BOM Template RIGPL', self.bom_template)} is disabled.{replaced} "
             f"The first active BOM Template for {self.production_item} is selected in its place.",
             title="Disabled BOM Template Changed",
         )

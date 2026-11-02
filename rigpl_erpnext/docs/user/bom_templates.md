@@ -166,8 +166,21 @@ When the work is the same and only the FG values are different, add the values t
 - Example: the H-1X Rectangular Tool Bit templates that do the same work become 1 template with all their FG values.
 - When the RM grade changes with the FG grade, use **Same as FG** on the RM row, or the **FG to RM Map** (section 3). For WIP, use **Same as FG** or **Same as RM**.
 - When an operation is only for some FG values (for example Coating only when Special Treatment is not None), give it an **Operation Condition** (section 5). Then the templates with and without Coating can be 1 template.
-- Before you disable the old templates, make a Process Sheet for 1 item of each old template, and check that it gets the same operations, RM and WIP items from the new template.
 - Disable the old templates. Do not delete them, because old Process Sheets use them.
+
+### Find and disable the templates that can merge
+
+1. Open the report **BOM Template Overlaps**. **Match Level**:
+   - **Exact**: the same work. Only the FG values (and the RM/WIP values) differ.
+   - **Almost**: only the numbers in the rules differ, for example `+ 0.5` and `+ 1.5`.
+   - **Same Operations**: the same operations, No of RM Items and Length Formula. This is the process view.
+   Each group lists its templates, their FG values (what the merged template must hold), the Process Sheets of the last 2 years and the differences from the first template.
+2. Make or change 1 template so that it holds all the FG values of the group (section 3).
+3. On that template, click **Disable Similar Templates**. The dialog lists the active templates with the same operations, closest first (Exact, Almost, Similar), with:
+   - the rule differences;
+   - the **merge check**: the system takes up to 20 items of the Process Sheets of the last 2 years of each old template, and checks that this template gives them the same operations, RM sizes and WIP sizes. "0 differ" means it is safe.
+4. Tick the templates to replace, and click **Disable Selected**. If a ticked template has differences, the system asks you to confirm. Each ticked template is disabled, gets **Merged Into** = this template, and a comment with your name.
+5. A Process Sheet on a disabled template shows the template that replaces it.
 
 ## 10. Checklist before you save
 
