@@ -857,6 +857,18 @@ def check_get_pl_rate(document, row_dict):
     check_get_pl_rates(document, [row_dict])
 
 
+def copy_so_price_lists(document):
+    """Sets the price_list of each row with a Sales Order Item to the price_list of that Sales Order Item"""
+    so_details = [it.so_detail for it in document.items if it.so_detail]
+    if not so_details:
+        return
+    price_lists = dict(frappe.get_all("Sales Order Item", filters={"name": ("in", so_details)},
+        fields=["name", "price_list"], as_list=1))
+    for it in document.items:
+        if it.so_detail:
+            it.price_list = price_lists.get(it.so_detail)
+
+
 def get_total_invoices_and_amount(customer, from_date, to_date):
     totals = get_invoice_totals([customer], from_date, to_date)
     return [totals.get(customer) or frappe._dict(total_net_amt=None, invoices=0)]

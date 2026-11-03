@@ -4,8 +4,8 @@ import frappe
 from datetime import datetime as dt
 from datetime import date
 from frappe.utils import getdate
-from ...utils.sales_utils import check_strict_po_rules, copy_address_and_check, get_linked_so_data, \
-    validate_made_to_order_items
+from ...utils.sales_utils import check_strict_po_rules, copy_address_and_check, copy_so_price_lists, \
+    get_linked_so_data, validate_made_to_order_items
 from ...utils.stock_utils import get_reconciliations_after
 
 
@@ -44,14 +44,7 @@ def check_draft_dn(dn_doc):
 
 
 def check_price_list(doc, method):
-    so_details = [it.so_detail for it in doc.items if it.so_detail]
-    if not so_details:
-        return
-    price_lists = dict(frappe.get_all("Sales Order Item", filters={"name": ("in", so_details)},
-        fields=["name", "price_list"], as_list=1))
-    for it in doc.items:
-        if it.so_detail:
-            it.price_list = price_lists.get(it.so_detail)
+    copy_so_price_lists(doc)
 
 
 def on_submit(doc, method):
