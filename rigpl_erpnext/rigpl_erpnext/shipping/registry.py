@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, Optional, Tuple
 
 import frappe
-from frappe.utils.password import get_decrypted_password
+from frappe.utils.password import Auth, decrypt
 
 from .accounts import BOOKING, NONE, TRACKING_ONLY
 from .base import Account, NotSupported, ShippingProvider
@@ -42,17 +42,38 @@ class Carrier:
         return self.api_mode in (BOOKING, TRACKING_ONLY)
 
 
+def load_secrets(names: Iterable[str]) -> Dict[str, Dict[str, str]]:
+    """{account: {field: secret}} of the accounts: 1 query for all of them. A secret that is
+    not set is ""."""
+    names = list(names)
+    secrets = {name: dict.fromkeys(SECRET_FIELDS, "") for name in names}
+    if not names:
+        return secrets
+    rows = (
+        frappe.qb.from_(Auth)
+        .select(Auth.name, Auth.fieldname, Auth.password)
+        .where(Auth.doctype == "Shipping Provider Account")
+        .where(Auth.name.isin(names))
+        .where(Auth.fieldname.isin(SECRET_FIELDS))
+        .where(Auth.encrypted == 1)
+    ).run()
+    for name, fieldname, value in rows:
+        if value:
+            secrets[name][fieldname] = decrypt(value) or ""
+    return secrets
+
+
 def load_accounts(names: Iterable[str]) -> Dict[str, Account]:
-    """The enabled accounts with their secrets: 1 query, plus 1 for each secret that is set."""
+    """The enabled accounts with their secrets: 2 queries for any number of accounts."""
     names = [n for n in set(names) if n]
     if not names:
         return {}
     rows = frappe.get_all("Shipping Provider Account", filters={"name": ["in", names], "enabled": 1},
                           fields=list(ACCOUNT_FIELDS))
+    all_secrets = load_secrets(row.name for row in rows)
     accounts = {}
     for row in rows:
-        secrets = {f: get_decrypted_password("Shipping Provider Account", row.name, f, raise_exception=False) or ""
-                   for f in SECRET_FIELDS}
+        secrets = all_secrets[row.name]
         values = {k: row.get(k) or "" for k in ACCOUNT_FIELDS if k != "enabled"}
         values["is_sandbox"] = bool(row.is_sandbox)
         values["webhook_enabled"] = bool(row.webhook_enabled)
@@ -62,7 +83,7 @@ def load_accounts(names: Iterable[str]) -> Dict[str, Account]:
 
 def get_carriers(transporters: Iterable[str]) -> Dict[str, Carrier]:
     """{transporter: Carrier} for the Transporters with an API mode and an enabled account.
-    2 queries for any number of Transporters (plus the secrets of each account)."""
+    3 queries for any number of Transporters and accounts."""
     transporters = [t for t in set(transporters) if t]
     if not transporters:
         return {}

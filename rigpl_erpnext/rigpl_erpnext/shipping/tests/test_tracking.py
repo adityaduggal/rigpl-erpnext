@@ -168,3 +168,53 @@ class TestUnpublishAndClose(TrackingCase):
                 patch.object(frappe.db, "commit"):
             tracking.daily_shipping_jobs()
         close.assert_not_called()
+
+
+class TestPollQueries(TrackingCase):
+    """The whole hourly poll: the number of queries does not grow with the number of trackings."""
+
+    def poll_count(self, per_carrier: int, prefix: str) -> int:
+        from rigpl_erpnext.rigpl_erpnext.shipping.providers.dtdc import DTDC
+        from rigpl_erpnext.rigpl_erpnext.shipping.providers.shipway import Shipway
+        from rigpl_erpnext.rigpl_erpnext.shipping.status_map import load_rules
+
+        for i in range(per_carrier):
+            ctrack(f"_Test RIGPL {prefix}d{i}")
+            ctrack(f"_Test RIGPL {prefix}s{i}", carrier=TPT_SHIPWAY, posted_to_shipway=1)
+
+        def track_many(provider, shipments):
+            return {awb: result(awb, st.IN_TRANSIT, scans=2) for awb in shipments}
+
+        load_rules()  # the status map comes from Redis after the first read
+        with patch.object(DTDC, "track_many", autospec=True, side_effect=track_many), \
+                patch.object(Shipway, "track_many", autospec=True, side_effect=track_many), \
+                patch.object(frappe.db, "commit"), assert_max_queries(100, test_case=self) as guard:
+            tracking.poll_open_shipments(SETTINGS)
+        frappe.db.rollback()
+        self.setUp()
+        return guard.count
+
+    def test_poll_query_count_is_fixed(self):
+        small, large = self.poll_count(3, "a"), self.poll_count(12, "b")
+        self.assertEqual(small, large)
+        # 1 select, 3 for the carriers, and for each carrier 1 UPDATE and 3 for the scans
+        self.assertLessEqual(large, 13)
+
+
+class TestSecrets(FrappeTestCase):
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_secrets_of_all_accounts_in_one_query(self):
+        from frappe.utils.password import set_encrypted_password
+
+        from rigpl_erpnext.rigpl_erpnext.shipping import registry
+
+        names = [f"_Test RIGPL Secret {i}" for i in range(3)]
+        for name in names:
+            insert("Shipping Provider Account", name, account_name=name, provider="DTDC", enabled=1)
+            set_encrypted_password("Shipping Provider Account", name, f"key-{name}", "api_key")
+        with assert_max_queries(2, test_case=self):
+            accounts = registry.load_accounts(names)
+        self.assertEqual({n: a.api_key for n, a in accounts.items()}, {n: f"key-{n}" for n in names})
+        self.assertEqual(accounts[names[0]].password, "")
