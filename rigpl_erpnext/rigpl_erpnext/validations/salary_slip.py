@@ -9,6 +9,9 @@ from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_ent
 from erpnext.accounts.utils import get_fiscal_years
 from erpnext.payroll.doctype.payroll_entry.payroll_entry import get_start_end_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
+from frappe.query_builder.functions import Count, Sum
+
+from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_half_day_fraction
 
 
 def post_gl_entry(doc):
@@ -244,40 +247,33 @@ def validate_ec_posting(doc):
 
 def calculate_net_salary(doc, msd, med):
     gross_pay = 0
-    net_pay = 0
     tot_ded = 0
     tot_cont = 0
     tot_books = 0
     emp = frappe.get_doc("Employee", doc.employee)
     tdim, twd = get_total_days(doc, emp, msd, med)
-    holidays = get_holidays(doc, msd, med, emp)
-    lwp, plw = get_leaves(doc, msd, med, emp)
+    holiday_dates = get_holiday_dates(doc, msd, med, emp)
+    holidays = flt(len(holiday_dates))
+    hd_fraction = get_half_day_fraction()
+    lwp, plw = get_leaves(doc, msd, med, holiday_dates, hd_fraction)
     doc.leave_without_pay = lwp
     doc.posting_date = med
     wd = twd - holidays  # total working days
     doc.total_days_in_month = tdim
-    att = frappe.db.sql("""SELECT sum(overtime), count(name) FROM `tabAttendance` WHERE employee = '%s'
-    AND attendance_date >= '%s' AND attendance_date <= '%s' AND status = 'Present'
-    AND docstatus=1""" % (doc.employee, msd, med), as_list=1)
 
-    half_day = frappe.db.sql("""SELECT count(name) FROM `tabAttendance` WHERE employee = '%s'
-    AND attendance_date >= '%s' AND attendance_date <= '%s' AND status = 'Half Day'
-    AND docstatus=1""" % (doc.employee, msd, med), as_list=1)
-
-    t_hd = flt(half_day[0][0])
-    t_ot = flt(att[0][0])
+    att = get_attendance_summary(doc.employee, msd, med)
+    t_ot = att.overtime
     doc.total_overtime = t_ot
-    tpres = flt(att[0][1])
+    worked = att.present + att.half_day * hd_fraction
 
-    ual = twd - tpres - lwp - holidays - plw - (t_hd / 2)
+    ual = twd - worked - lwp - holidays - plw
 
     if ual < 0:
         frappe.throw("Unauthorized Leave cannot be Negative for Employee {0}".format(
             doc.employee_name))
 
-    paydays = tpres + (t_hd / 2) + plw + \
-        math.ceil((tpres + (t_hd / 2)) / wd * holidays)
-    pd_ded = flt(doc.payment_days_for_deductions)
+    # Paid leave is a payment day and earns its share of the holidays, as in ERPNext
+    paydays = worked + plw + math.ceil((worked + plw) / wd * holidays)
     doc.payment_days = paydays
 
     if doc.change_deductions == 0:
@@ -294,21 +290,23 @@ def calculate_net_salary(doc, msd, med):
     doc.overtime_deducted = ot_ded
     d_ual = int(ot_ded / 8)
 
+    comps = get_component_flags([d.salary_component for d in doc.get("earnings") + doc.get("deductions")])
+
     # Calculate Earnings
     chk_ot = 0  # Check if there is an Overtime Rate
-    for d in doc.earnings:
+    for d in doc.get("earnings"):
         if d.salary_component == "Overtime Rate":
             chk_ot = 1
 
-    for d in doc.earnings:
-        earn = frappe.get_doc("Salary Component", d.salary_component)
+    for d in doc.get("earnings"):
+        earn = comps[d.salary_component]
         if earn.depends_on_lwp == 1:
             d.depends_on_lwp = 1
         else:
             d.depends_on_lwp = 0
 
         if earn.based_on_earning:
-            for d2 in doc.earnings:
+            for d2 in doc.get("earnings"):
                 # Calculate Overtime Value
                 if earn.earning == d2.salary_component:
                     d.default_amount = flt(d2.amount) * t_ot
@@ -339,10 +337,9 @@ def calculate_net_salary(doc, msd, med):
             emp.employee_name))
 
     # Calculate Deductions
-    for d in doc.deductions:
+    for d in doc.get("deductions"):
         if d.salary_component != 'Loan Deduction':
-            sal_comp_doc = frappe.get_doc(
-                "Salary Component", d.salary_component)
+            sal_comp_doc = comps[d.salary_component]
             if sal_comp_doc.depends_on_lwp == 1:
                 if sal_comp_doc.round_up == 1:
                     d.amount = int(flt(d.default_amount) *
@@ -353,7 +350,7 @@ def calculate_net_salary(doc, msd, med):
         tot_ded += flt(d.amount)
 
     # Calculate Contributions
-    for c in doc.contributions:
+    for c in doc.get("contributions"):
         c.amount = round(
             (flt(c.default_amount) * flt(doc.payment_days_for_deductions) / tdim), 0)
         tot_cont += c.amount
@@ -370,52 +367,97 @@ def calculate_net_salary(doc, msd, med):
     doc.total_ctc = doc.gross_pay + tot_cont
 
 
-def get_leaves(doc, start_date, end_date, emp):
-    # Find out the number of leaves applied by the employee only working days
-    lwp = 0  # Leaves without pay
-    plw = 0  # paid leaves
-    diff = (end_date - start_date).days + 1
-    for day in range(0, diff):
+def get_attendance_summary(employee, start_date, end_date):
+    """Present and Half Day counts and their total overtime"""
+    att = frappe.qb.DocType("Attendance")
+    rows = (
+        frappe.qb.from_(att)
+        .select(att.status, Count(att.name).as_("days"), Sum(att.overtime).as_("overtime"))
+        .where((att.employee == employee) & (att.docstatus == 1)
+            & att.attendance_date.between(start_date, end_date) & att.status.isin(["Present", "Half Day"]))
+        .groupby(att.status)
+    ).run(as_dict=True)
+    by_status = {row.status: row for row in rows}
+    present, half_day = by_status.get("Present", {}), by_status.get("Half Day", {})
+    return frappe._dict(present=flt(present.get("days")), half_day=flt(half_day.get("days")),
+        overtime=flt(present.get("overtime")) + flt(half_day.get("overtime")))
+
+
+def get_component_flags(components):
+    fields = ["name", "depends_on_lwp", "based_on_earning", "earning", "books", "manual",
+        "only_for_deductions", "round_up"]
+    rows = frappe.get_all("Salary Component", filters={"name": ("in", list(set(components)) or [""])},
+        fields=fields)
+    flags = {row.name: row for row in rows}
+    missing = set(components) - set(flags)
+    if missing:
+        frappe.throw("Salary Component {0} does not exist".format(", ".join(sorted(missing))))
+    return flags
+
+
+def get_leaves(doc, start_date, end_date, holiday_dates, hd_fraction):
+    """Returns (leave without pay, paid leave) days from the approved Leave Applications.
+
+    LWP is never counted on a holiday (rigpl rule). Paid leave is counted on a holiday only if the
+    Leave Type includes holidays (ERPNext rule). A half day counts 1 - hd_fraction.
+    """
+    leaves = get_approved_leaves(doc.employee, start_date, end_date)
+    lwp = 0
+    plw = 0
+    for day in range((end_date - start_date).days + 1):
         date = start_date + datetime.timedelta(days=day)
-        auth_leaves = frappe.db.sql("""SELECT la.name FROM `tabLeave Application` la WHERE la.status = 'Approved'
-        AND la.docstatus = 1 AND la.employee = '%s' AND la.from_date <= '%s'
-        AND la.to_date >= '%s'""" % (doc.employee, date, date), as_list=1)
-        if auth_leaves:
-            auth_leaves = auth_leaves[0][0]
-            lap = frappe.get_doc("Leave Application", auth_leaves)
-            ltype = frappe.get_doc("Leave Type", lap.leave_type)
-            hol = get_holidays(doc, date, date, emp)
-            if hol:
-                pass
-            else:
-                if ltype.is_lwp == 1:
-                    lwp += 1
-                else:
-                    plw += 1
-    lwp = flt(lwp)
-    plw = flt(plw)
-    return lwp, plw
+        leave = next((la for la in leaves if la.from_date <= date <= la.to_date), None)
+        if not leave:
+            continue
+        if leave.is_ppl:
+            frappe.throw("Partially paid leave {0} ({1}) is not supported in the Salary Slip".format(
+                leave.name, leave.leave_type))
+        if date in holiday_dates and (leave.is_lwp or not leave.include_holiday):
+            continue
+        days = (1 - hd_fraction) if is_half_day_leave(leave, date) else 1
+        if leave.is_lwp:
+            lwp += days
+        else:
+            plw += days
+    return flt(lwp), flt(plw)
 
 
-def get_holidays(doc, start_date, end_date, emp):
-    if emp.relieving_date is None:
-        relieving_date = datetime.date(2099, 12, 31)
-    else:
-        relieving_date = emp.relieving_date
+def get_approved_leaves(employee, start_date, end_date):
+    la = frappe.qb.DocType("Leave Application")
+    lt = frappe.qb.DocType("Leave Type")
+    return (
+        frappe.qb.from_(la)
+        .inner_join(lt).on(lt.name == la.leave_type)
+        .select(la.name, la.leave_type, la.from_date, la.to_date, la.half_day, la.half_day_date,
+            lt.is_lwp, lt.is_ppl, lt.include_holiday)
+        .where((la.employee == employee) & (la.status == "Approved") & (la.docstatus == 1)
+            & (la.from_date <= end_date) & (la.to_date >= start_date))
+        .orderby(la.from_date).orderby(la.name)
+    ).run(as_dict=True)
 
+
+def is_half_day_leave(leave, date):
+    # Same rule as ERPNext get_lwp_or_ppl_for_date
+    return bool(leave.half_day) and (leave.half_day_date == date or leave.from_date == leave.to_date)
+
+
+def get_holiday_dates(doc, start_date, end_date, emp):
+    """Holiday dates of the employee's Holiday List between joining and relieving"""
     if emp.date_of_joining > start_date:
         start_date = emp.date_of_joining
-
-    if relieving_date < end_date:
-        end_date = relieving_date
+    if emp.relieving_date and emp.relieving_date < end_date:
+        end_date = emp.relieving_date
+    if start_date > end_date:
+        return set()
 
     holiday_list = get_holiday_list_for_employee(doc.employee)
-    holidays = frappe.db.sql("""SELECT count(name) FROM `tabHoliday` WHERE parent = '%s' AND holiday_date >= '%s'
-    AND holiday_date <= '%s'""" % (holiday_list, start_date, end_date), as_list=1)
-
-    # no of holidays in a month from the holiday list
-    holidays = flt(holidays[0][0])
-    return holidays
+    hol = frappe.qb.DocType("Holiday")
+    rows = (
+        frappe.qb.from_(hol)
+        .select(hol.holiday_date)
+        .where((hol.parent == holiday_list) & hol.holiday_date.between(start_date, end_date))
+    ).run()
+    return {row[0] for row in rows}
 
 
 def get_total_days(doc, emp, msd, med):

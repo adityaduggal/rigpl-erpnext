@@ -4,7 +4,7 @@
 from typing import Dict, Iterable, List, Optional
 
 import frappe
-from frappe.utils import getdate
+from frappe.utils import flt, getdate
 
 from rigpl_erpnext.utils.item_attribute_utils import chunks
 
@@ -153,3 +153,8 @@ def validate_payroll_entry(doc, method):
     doc.number_of_employees = len(doc.employees)
     frappe.msgprint("<br>".join(block_message(emp, others, "a Salary Slip is made. Removed from this Payroll Entry")
         for emp, others in blocked.items()), title="Duplicate Aadhaar", indicator="orange")
+
+
+def get_half_day_fraction() -> float:
+    """Part of a day that a Half Day counts as worked (Payroll Settings, 0.5 when blank)"""
+    return flt(frappe.db.get_single_value("Payroll Settings", "daily_wages_fraction_for_half_day")) or 0.5

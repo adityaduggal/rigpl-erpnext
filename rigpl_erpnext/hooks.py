@@ -198,7 +198,6 @@ doc_events = {
     },
     "Leave Application": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate",
-        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.on_submit",
     },
     "Leave Policy": {
         "validate": "rigpl_erpnext.hr_rigpl.validations.leave_policy.validate"
