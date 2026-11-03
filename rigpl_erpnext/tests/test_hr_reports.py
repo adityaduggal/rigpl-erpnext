@@ -9,6 +9,7 @@ from rigpl_erpnext.hr_rigpl.utils.attendance_report_utils import get_holidays_by
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_base_list_holiday_counts
 from rigpl_erpnext.rigpl_erpnext.report.attendance_performance_analysis import attendance_performance_analysis
 from rigpl_erpnext.rigpl_erpnext.report.employee_attendance import employee_attendance
+from rigpl_erpnext.rigpl_erpnext.report.list_of_holidays import list_of_holidays
 from rigpl_erpnext.rigpl_erpnext.report.monthly_attendance_time_based import monthly_attendance_time_based
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
 
@@ -134,3 +135,14 @@ class TestAttendancePerformanceAnalysis(ReportTestCase):
     def test_wrong_period(self):
         filters = frappe._dict(from_date="2026-09-10", to_date="2026-09-01")
         self.assertRaises(frappe.ValidationError, attendance_performance_analysis.execute, filters)
+
+
+class TestListOfHolidays(ReportTestCase):
+    def test_weekly_off_without_case(self):
+        insert_holiday_list([("2026-09-06", "SUNDAY"), ("2026-10-02", "O'Gandhi Jayanti")])
+
+        data = self.assert_queries(1, lambda: list_of_holidays.execute(frappe._dict(name=BASE_LIST,
+            from_date="2026-01-01", to_date="2026-12-31"))[1])
+
+        self.assertEqual([(row[1], row[2], row[4]) for row in data],
+            [(getdate("2026-09-06"), "Sunday", "Yes"), (getdate("2026-10-02"), "Friday", "No")])
