@@ -105,8 +105,8 @@ def get_overdue_si(cust_name):
     si_dict = frappe.db.sql("""SELECT name, posting_date, outstanding_amount,
         DATEDIFF(CURDATE(), posting_date) as since_days
         FROM `tabSales Invoice` WHERE docstatus=1
-        AND outstanding_amount > %s AND customer='%s'
-        ORDER BY posting_date ASC""" % (out_amt, cust_name), as_dict=1)
+        AND outstanding_amount > %(out_amt)s AND customer = %(customer)s
+        ORDER BY posting_date ASC""", {"out_amt": out_amt, "customer": cust_name}, as_dict=1)
     return si_dict
 
 

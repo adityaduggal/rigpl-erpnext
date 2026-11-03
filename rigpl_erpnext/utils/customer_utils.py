@@ -6,8 +6,7 @@ import frappe
 
 
 def disable_pricing_rule(cu_name):
-    pr_rule = frappe.db.sql("""SELECT name, customer FROM `tabPricing Rule` 
-    WHERE customer ='%s'""" %(cu_name), as_dict=1)
+    pr_rule = frappe.get_all("Pricing Rule", filters={"customer": cu_name}, fields=["name", "customer"])
     for pr in pr_rule:
         prd = frappe.get_doc("Pricing Rule", pr.name)
         prd.disable = 1
@@ -20,21 +19,23 @@ def disable_pricing_rule(cu_name):
 
 
 def get_contact(link_type, link_name):
-    cont_list = frappe.db.sql("""SELECT con.name, con.is_primary_contact, con.accounts_related 
-    FROM `tabContact` con, `tabDynamic Link` dl 
-    WHERE dl.parent = con.name AND dl.parenttype = 'Contact' AND dl.link_doctype = '%s' 
-    AND dl.link_name = '%s' ORDER BY con.is_primary_contact, con.accounts_related, 
-    con.name""" % (link_type, link_name), as_dict=1)
-    return cont_list
+    con = frappe.qb.DocType("Contact")
+    dl = frappe.qb.DocType("Dynamic Link")
+    return (
+        frappe.qb.from_(con)
+        .join(dl).on(dl.parent == con.name)
+        .select(con.name, con.is_primary_contact, con.accounts_related)
+        .where(dl.parenttype == "Contact")
+        .where(dl.link_doctype == link_type)
+        .where(dl.link_name == link_name)
+        .orderby(con.is_primary_contact)
+        .orderby(con.accounts_related)
+        .orderby(con.name)
+        .run(as_dict=True)
+    )
 
 
 def return_email_verified_for_contact(contact_name):
-    emails = frappe.db.sql("""SELECT email_id, is_primary, validated FROM `tabContact Email` 
-    WHERE parenttype = 'Contact' AND parent = '%s'""" % contact_name, as_dict=1)
-    if not emails:
-        return 0
-    else:
-        for em in emails:
-            if em.validated == 1:
-                return 1
-    return 0
+    validated = frappe.db.exists("Contact Email", {"parenttype": "Contact", "parent": contact_name,
+        "validated": 1})
+    return 1 if validated else 0
