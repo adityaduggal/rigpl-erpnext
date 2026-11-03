@@ -61,3 +61,4 @@ rigpl_erpnext.patches.v13.cancel_duplicate_leave_attendance
 rigpl_erpnext.patches.v13.merge_shift_assignments
 rigpl_erpnext.patches.v13.stop_time_based_earned_leave
 rigpl_erpnext.patches.v13.delete_unused_selling_reports
+rigpl_erpnext.patches.v13.delete_pending_production_orders_report
