@@ -8,6 +8,7 @@ from frappe.utils import add_days, getdate, nowdate
 from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.rigpl_erpnext.report.brc_tracking import brc_tracking
+from rigpl_erpnext.rigpl_erpnext.report.cforms_analysis import cforms_analysis
 from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transactions
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
@@ -150,3 +151,22 @@ class TestBrcTracking(ReportTestCase):
         self.assertFalse(brc_tracking.execute(frappe._dict(brc_status="O'Brien"))[1])
         meis = brc_tracking.execute(frappe._dict(docstatus="Submitted", meis_status="MEIS Pending", to_date=DATE))[1]
         self.assertIn(brc, [row[0] for row in meis])
+
+
+class TestCformsAnalysis(ReportTestCase):
+    def test_detail_quarter_and_summary(self):
+        insert_customer(CUSTOMER)
+        fy = frappe.db.get_value("Fiscal Year", {"year_start_date": ("<=", DATE), "year_end_date": (">=", DATE)})
+        insert_invoice(CUSTOMER, [], c_form_applicable="Yes", net_total=100, grand_total=118, letter_head="O'Head")
+        insert_invoice(CUSTOMER, [], posting_date="2026-02-15", c_form_applicable="Yes", net_total=50,
+            grand_total=59, letter_head="O'Head")
+        filters = dict(status="Not Received", customer=CUSTOMER, letter_head="O'Head")
+
+        detail = cforms_analysis.execute(frappe._dict(filters))[1]
+        summary = cforms_analysis.execute(frappe._dict(filters, summary=1))[1]
+
+        self.assertEqual([(row[2], row[7], row[8]) for row in detail], [(CUSTOMER, fy, "Q4"), (CUSTOMER, fy, "Q4")])
+        self.assertEqual([row[:4] for row in summary], [[CUSTOMER, 150, 177, fy]])
+        if fy:
+            q1 = cforms_analysis.execute(frappe._dict(filters, fiscal_year=fy, quarter="Q1"))[1]
+            self.assertEqual(q1, [])

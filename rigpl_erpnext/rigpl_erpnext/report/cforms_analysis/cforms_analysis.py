@@ -2,6 +2,8 @@ from __future__ import unicode_literals
 import frappe
 import datetime
 import math
+from frappe.utils import flt, getdate
+from ....utils.item_attribute_utils import chunks
 
 
 def execute(filters=None):
@@ -30,116 +32,96 @@ def get_columns(filters):
 
 
 def get_va_entries(filters):
-	if filters.get("status") is None:
-		frappe.msgprint("Please Select the Status of C-Form first", raise_exception=1)
+	if not filters.get("status"):
+		frappe.throw("Please Select the Status of C-Form first")
+	received = filters.get("status") == "Received"
+	rows = get_invoices(filters, received)
+	cust_taxes = get_customer_taxes({row.customer for row in rows})
+	years = frappe.get_all("Fiscal Year", fields=["name", "year_start_date", "year_end_date"])
+	for row in rows:
+		row.fy = next((fy.name for fy in years if fy.year_start_date <= row.posting_date <= fy.year_end_date), None)
+		row.cust_taxes = cust_taxes.get(row.customer)
+	rows = [row for row in rows if row.fy and row.customer in cust_taxes]
 
-	conditions = get_conditions(filters)
+	if filters.get("summary") == 1:
+		totals = {}
+		for row in rows:
+			total = totals.setdefault((row.fy, row.customer), [row.customer, 0, 0, row.fy, row.cust_taxes])
+			total[1] += flt(row.net_total)
+			total[2] += flt(row.grand_total)
+		return [totals[key] for key in sorted(totals, key=lambda k: (k[0], k[1].casefold()))]
 
-	if filters.get("status") == "Received" and filters.get("summary") is None:
-		query = """select si.posting_date, si.name, si.customer, si.taxes_and_charges, cu.default_taxes_and_charges, 
-			si.net_total, si.grand_total, fy.name, cf.name,
-			cf.c_form_no, cf.state, cf.received_date
-			FROM `tabSales Invoice` si, `tabC-Form` cf, `tabCustomer` cu, `tabFiscal Year` fy
-			WHERE si.docstatus = 1 AND si.customer=cu.name AND
-			fy.year_start_date <= si.posting_date AND
-			fy.year_end_date >= si.posting_date AND
-			si.c_form_applicable = 'Yes' AND si.c_form_no = cf.name %s
-			ORDER BY si.customer, si.name""" % conditions
+	si = []
+	for row in rows:
+		cform = [row.cform, row.c_form_no, row.state, row.received_date] if received else [None, None, None]
+		si.append([row.posting_date, row.name, row.customer, row.taxes_and_charges, row.cust_taxes, row.net_total,
+			row.grand_total, row.fy, get_quarter(row.posting_date)] + cform)
+	return sorted(si, key=lambda k: (k[0], k[1], k[2], k[3] or ""))
 
-	elif filters.get("status") == "Not Received" and filters.get("summary") is None:
-		query = """ select si.posting_date, si.name, si.customer, 
-			si.taxes_and_charges, cu.default_taxes_and_charges, 
-			si.net_total, si.grand_total, fy.name,
-			null, null, null
-			FROM `tabSales Invoice` si, `tabCustomer` cu, `tabFiscal Year` fy
-			WHERE si.docstatus = 1 AND si.customer=cu.name AND
-			fy.year_start_date <= si.posting_date AND
-			fy.year_end_date >= si.posting_date AND
-			si.c_form_applicable = 'Yes' AND
-			si.c_form_no is NULL %s
-			ORDER BY si.customer, si.name""" % conditions
 
-	elif filters.get("status") == "Not Received" and filters.get("summary") == 1:
-		query = """select si.customer, sum(si.net_total), sum(si.grand_total), fy.name,
-			cu.default_taxes_and_charges
-			FROM `tabSales Invoice` si, `tabCustomer` cu, `tabFiscal Year` fy
-			WHERE si.docstatus=1 AND si.c_form_applicable = 'Yes' AND
-			fy.year_start_date <= si.posting_date AND
-			fy.year_end_date >= si.posting_date AND
-			si.c_form_no is NULL AND si.customer = cu.name %s
-			GROUP BY si.customer, fy.name
-			ORDER BY fy.name, si.customer""" % conditions
+def get_quarter(posting_date):
+	mo = posting_date.month
+	if mo < 4:
+		return "Q4"
+	elif mo < 7:
+		return "Q1"
+	elif mo < 10:
+		return "Q2"
+	return "Q3"
 
-	elif filters.get("status") == "Received" and filters.get("summary") == 1:
-		query = """select si.customer, sum(si.net_total), sum(si.grand_total), fy.name,
-			cu.default_taxes_and_charges
-			FROM `tabSales Invoice` si, `tabCustomer` cu, `tabFiscal Year` fy
-			WHERE si.docstatus=1 AND si.c_form_applicable = 'Yes' AND
-			fy.year_start_date <= si.posting_date AND
-			fy.year_end_date >= si.posting_date AND
-			si.c_form_no is NOT NULL AND si.customer = cu.name %s
-			GROUP BY si.customer, fy.name
-			ORDER BY fy.name, si.customer""" % conditions
 
+def get_customer_taxes(customers):
+	"""{customer: default_taxes_and_charges}. A join to Customer made MariaDB read all Customers
+	first (about 3s)."""
+	taxes = {}
+	for chunk in chunks(customers):
+		taxes.update(frappe.get_all("Customer", filters={"name": ("in", chunk)},
+			fields=["name", "default_taxes_and_charges"], as_list=1))
+	return taxes
+
+
+def get_invoices(filters, received):
+	si = frappe.qb.DocType("Sales Invoice")
+	query = (
+		frappe.qb.from_(si)
+		.select(si.posting_date, si.name, si.customer, si.taxes_and_charges, si.net_total, si.grand_total)
+		.where((si.docstatus == 1) & (si.c_form_applicable == "Yes"))
+		.orderby(si.customer)
+		.orderby(si.name)
+	)
+	if received:
+		cf = frappe.qb.DocType("C-Form")
+		query = query.where(si.c_form_no.isnotnull())
+		if filters.get("summary") != 1:
+			query = (query.join(cf).on(cf.name == si.c_form_no)
+				.select(cf.name.as_("cform"), cf.c_form_no, cf.state, cf.received_date))
 	else:
-		query = """"""
-
-	si = frappe.db.sql(query, as_list=1)
-
-	if filters.get("summary") is None:
-		for i in range(0, len(si)):
-			mo = (si[i][0]).month
-			if mo < 4:
-				qtr = "Q4"
-			elif mo < 7:
-				qtr = "Q1"
-			elif mo < 10:
-				qtr = "Q2"
-			elif mo <= 12:
-				qtr = "Q3"
-			si[i].insert(8, qtr)
-
-		si = sorted(si, key=lambda k: (k[0], k[1], k[2], k[3]))
-
-	return si
-
-
-def get_conditions(filters):
-	conditions = ""
-	if filters.get("fiscal_year"):
-		frm_date = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_start_date")
-		to_date = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_end_date")
-		conditions += "and si.posting_date >= '%s'" % frm_date
-		conditions += "and si.posting_date <= '%s'" % to_date
-
-	if filters.get("quarter"):
-		if filters.get("fiscal_year"):
-			year = frappe.db.get_value("Fiscal Year", filters.get("fiscal_year"), "year_start_date").year
-			quarter = filters.get("quarter")
-			if quarter == "Q1":
-				start_date = datetime.datetime.strptime(str(year) + "-04-01", '%Y-%m-%d').date()
-				end_date = datetime.datetime.strptime(str(year) + "-06-30", '%Y-%m-%d').date()
-			elif quarter == "Q2":
-				start_date = datetime.datetime.strptime(str(year) + "-07-01", '%Y-%m-%d').date()
-				end_date = datetime.datetime.strptime(str(year) + "-09-30", '%Y-%m-%d').date()
-			elif quarter == "Q3":
-				start_date = datetime.datetime.strptime(str(year) + "-10-01", '%Y-%m-%d').date()
-				end_date = datetime.datetime.strptime(str(year) + "-12-31", '%Y-%m-%d').date()
-			elif quarter == "Q4":
-				start_date = datetime.datetime.strptime(str(year + 1) + "-01-01", '%Y-%m-%d').date()
-				end_date = datetime.datetime.strptime(str(year + 1) + "-03-31", '%Y-%m-%d').date()
-			conditions += "and si.posting_date >= '%s'" % start_date
-			conditions += "and si.posting_date <= '%s'" % end_date
-		else:
-			frappe.msgprint("Please select fiscal year before selecting Quarter", raise_exception=1)
-
+		query = query.where(si.c_form_no.isnull())
+	for start, end in get_date_ranges(filters):
+		query = query.where(si.posting_date[start:end])
 	if filters.get("customer"):
-		conditions += "and si.customer = '%s'" % filters["customer"]
-
+		query = query.where(si.customer == filters["customer"])
 	if filters.get("date"):
-		conditions += "and si.posting_date <= '%s'" % filters["date"]
-
+		query = query.where(si.posting_date <= filters["date"])
 	if filters.get("letter_head"):
-		conditions += "and si.letter_head = '%s'" % filters["letter_head"]
+		query = query.where(si.letter_head == filters["letter_head"])
+	return query.run(as_dict=1)
 
-	return conditions
+
+QUARTERS = {"Q1": ((0, 4, 1), (0, 6, 30)), "Q2": ((0, 7, 1), (0, 9, 30)), "Q3": ((0, 10, 1), (0, 12, 31)),
+	"Q4": ((1, 1, 1), (1, 3, 31))}
+
+
+def get_date_ranges(filters):
+	"""The (start, end) ranges of the Fiscal Year and Quarter filters."""
+	if filters.get("quarter") and not filters.get("fiscal_year"):
+		frappe.throw("Please select fiscal year before selecting Quarter")
+	if not filters.get("fiscal_year"):
+		return []
+	start, end = frappe.db.get_value("Fiscal Year", filters["fiscal_year"], ["year_start_date", "year_end_date"])
+	ranges = [(start, end)]
+	if filters.get("quarter") in QUARTERS:
+		year = getdate(start).year
+		(add_from, m_from, d_from), (add_to, m_to, d_to) = QUARTERS[filters["quarter"]]
+		ranges.append((datetime.date(year + add_from, m_from, d_from), datetime.date(year + add_to, m_to, d_to)))
+	return ranges
