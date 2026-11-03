@@ -13,6 +13,7 @@ from rigpl_erpnext.rigpl_erpnext.report.employee_balances_rigpl import employee_
 from rigpl_erpnext.rigpl_erpnext.report.leave_application_report import leave_application_report
 from rigpl_erpnext.rigpl_erpnext.report.list_of_holidays import list_of_holidays
 from rigpl_erpnext.rigpl_erpnext.report.monthly_attendance_time_based import monthly_attendance_time_based
+from rigpl_erpnext.rigpl_erpnext.report.roster import roster
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
 
 EMP = "_Test RIGPL O'Brien Employee"
@@ -175,3 +176,21 @@ class TestEmployeeBalances(ReportTestCase):
         self.assertEqual([[row[0]] + row[8:] for row in data], [[EMP, 1000, 500, 300, 1200]])
         all_rows = employee_balances_rigpl.execute(frappe._dict(filters))[1]
         self.assertEqual([row[0] for row in all_rows], [EMP, EMP_2])
+
+
+class TestRoster(ReportTestCase):
+    def test_shift_assignments_and_without_roster(self):
+        insert_employee(EMP)
+        insert_employee(EMP_2)
+        raw("Shift Type", name=SHIFT, start_time="09:00:00", end_time="18:00:00")
+        open_ended = raw("Shift Assignment", employee=EMP, shift_type=SHIFT, start_date="2026-08-01", docstatus=1,
+            status="Active")
+        raw("Shift Assignment", employee=EMP_2, shift_type=SHIFT, start_date="2026-09-05", end_date="2026-09-05",
+            docstatus=2, status="Active")
+        filters = dict(from_date="2026-09-01", to_date="2026-09-30", branch=BRANCH)
+
+        data = roster.execute(frappe._dict(filters, shift=SHIFT))[1]
+        without = roster.execute(frappe._dict(filters, without_roster=1))[1]
+
+        self.assertEqual([(row[0], row[5]) for row in data], [(open_ended, EMP)])
+        self.assertEqual([row[0] for row in without], [EMP_2])
