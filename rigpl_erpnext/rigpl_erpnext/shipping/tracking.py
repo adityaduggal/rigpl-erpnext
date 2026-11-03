@@ -14,7 +14,7 @@ Tracking jobs and the one writer of tracking data (#168, #152, #169).
 """
 from collections import defaultdict
 from datetime import timedelta
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import frappe
 from frappe.query_builder.functions import Coalesce, Count, Max
@@ -356,27 +356,126 @@ def refresh_and_close_stale(limit: Optional[int] = None, settings: Optional[Ship
         {r["name"]: {"status": r["status"], "published": r["published"]} for r in still_open},
         add_versions=False,
     )
-    add_close_comments(still_open)
+    add_comments([(r["name"], f"Closed - No Update by the stale clean-up (#169). Status before: {r['status'] or 'empty'}.")
+                  for r in still_open])
     frappe.db.commit()
     counts["closed"] = len(still_open)
     message = f"Stale trackings: {len(rows)} checked. " + ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
     print(message)
     if account:
-        frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": "Shipping Provider Account",
-                        "reference_name": account, "content": message}).insert(ignore_permissions=True)
-        frappe.db.commit()
-        frappe.publish_realtime("msgprint", message, user=frappe.session.user)
+        report_to_account(account, message)
     return dict(counts)
 
 
-def add_close_comments(rows: List[dict]) -> None:
-    """One Comment for each closed tracking with its old status, so a close can be undone.
-    Carrier Tracking does not track changes, so no Version is written. 1 INSERT per chunk."""
+def add_comments(rows: List[Tuple[str, str]], doctype: str = DOCTYPE) -> None:
+    """One Info Comment for each (document, text), so a bulk change can be undone by hand.
+    Carrier Tracking does not track changes, so no Version is written. 1 INSERT per 1000,
+    without the Comment hooks (a Comment insert with hooks costs about 20 queries)."""
     ts, user = now_datetime(), frappe.session.user
-    comments = [
-        (frappe.generate_hash(length=10), ts, ts, user, user, "Info", DOCTYPE, r["name"],
-         f"Closed - No Update by the stale clean-up (#169). Status before: {r['status'] or 'empty'}.")
-        for r in rows
-    ]
+    comments = [(frappe.generate_hash(length=10), ts, ts, user, user, "Info", doctype, name, text)
+                for name, text in rows]
     bulk_insert_rows("Comment", ("name", "creation", "modified", "owner", "modified_by", "comment_type",
                                  "reference_doctype", "reference_name", "content"), comments)
+
+
+def report_to_account(account: str, message: str) -> None:
+    """The result of an account job: a Comment on the account and a message to the user."""
+    add_comments([(account, message)], doctype="Shipping Provider Account")
+    frappe.db.commit()
+    frappe.publish_realtime("msgprint", message, user=frappe.session.user)
+
+
+# ------------------------------------------------------------------- re-apply the status map
+
+# Final statuses are never changed by a re-apply: Delivered was confirmed, RTO and Cancelled
+# and Not Booked were set by the carrier, a user or the booking. Closed may only become final.
+SKIP_REAPPLY = (st.DELIVERED, st.RTO, st.CANCELLED, st.NOT_BOOKED)
+CLOSED_MAY_BECOME = (st.DELIVERED, st.RTO)
+SCANS_SQL = """
+SELECT ct.name, ct.status, ct.status_code, ct.delivery_date_time, s.time AS scan_time, s.status_detail
+FROM `tabCarrier Tracking` ct
+JOIN `tabTransporters` tpt ON tpt.name = ct.carrier_name
+JOIN `tabCourier Tracking Scans` s ON s.parent = ct.name AND s.parenttype = 'Carrier Tracking'
+WHERE tpt.shipping_provider_account = %(account)s AND ct.docstatus = 1
+    AND IFNULL(ct.status, '') NOT IN %(skip)s
+ORDER BY ct.name, s.time, s.idx
+"""
+
+
+def stored_scans(account: str) -> Dict[str, List[dict]]:
+    """{tracking: [scans, oldest first]} of the submitted trackings of the account that are
+    not final: 1 query."""
+    scans: Dict[str, List[dict]] = {}
+    for row in frappe.db.sql(SCANS_SQL, {"account": account, "skip": SKIP_REAPPLY}, as_dict=True):
+        scans.setdefault(row.name, []).append(row)
+    return scans
+
+
+def scan_code(status_detail: str) -> str:
+    """"DLV: OTP Based Delivered-..." gives "DLV". Text with no "CODE:" gives ""."""
+    head, sep, _rest = (status_detail or "").partition(":")
+    head = head.strip()
+    return head.upper() if sep and head and " " not in head and len(head) <= 20 else ""
+
+
+def status_from_scans(scans: List[dict], resolve) -> Optional[Tuple[str, str, object]]:
+    """(status, code, scan time) from the stored scans, or None. The scan times of old
+    trackings are often out of order, so a Delivered scan anywhere wins, then an RTO scan,
+    then the latest scan with a mapped code."""
+    mapped = []
+    for scan in scans:
+        code = scan_code(scan["status_detail"])
+        status = resolve(code, scan["status_detail"] or "")
+        if status:
+            mapped.append((status, code, scan["scan_time"]))
+    for final in (st.DELIVERED, st.RTO):
+        found = [m for m in mapped if m[0] == final]
+        if found:
+            return found[-1]
+    return mapped[-1] if mapped else None
+
+
+def plan_status_changes(scans_by_name: Dict[str, List[dict]], resolve) -> Dict[str, Tuple[str, dict]]:
+    """Pure: {name: (old status, new values)} for the trackings whose scans map to another
+    status. A tracking with no mapped scan is not changed."""
+    changes = {}
+    for name, scans in scans_by_name.items():
+        head = scans[0]
+        old = head["status"] or ""
+        found = status_from_scans(scans, resolve)
+        if not found or found[0] == old:
+            continue
+        new, code, scan_time = found
+        if old == st.CLOSED and new not in CLOSED_MAY_BECOME:
+            continue
+        values = {"status": new, "status_code": code or head["status_code"]}
+        if new == st.DELIVERED and not head["delivery_date_time"]:
+            values["delivery_date_time"] = scan_time
+        elif new != st.DELIVERED and head["delivery_date_time"]:
+            values["delivery_date_time"] = None
+        changes[name] = (old, values)
+    return changes
+
+
+def reapply_status_map(account: str, dry_run: bool = False) -> Dict[str, int]:
+    """Works out the status of each open or closed tracking of the account again from its
+    stored scans and the Shipping Status Map (see status_from_scans). No carrier API is
+    called. Returns {"old -> new": count}."""
+    from .status_map import StatusResolver
+
+    provider = frappe.db.get_value("Shipping Provider Account", account, "provider")
+    resolver = StatusResolver(provider)
+    changes = plan_status_changes(stored_scans(account), resolver)
+    counts = defaultdict(int)
+    for old, values in changes.values():
+        counts[f"{old or 'empty'} -> {values['status']}"] += 1
+    if dry_run:
+        return dict(counts)
+    bulk_update_rows(DOCTYPE, {name: values for name, (_old, values) in changes.items()})
+    add_comments([(name, f"Status from the stored scans (Re-apply Status Map): {old or 'empty'} -> "
+                         f"{values['status']} ({values['status_code']})") for name, (old, values) in changes.items()])
+    record_unknown([resolver])
+    message = f"Re-apply Status Map of {account}: {len(changes)} trackings changed. " + \
+        ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
+    report_to_account(account, message)
+    return dict(counts)

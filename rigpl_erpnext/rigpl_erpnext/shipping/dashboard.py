@@ -16,6 +16,7 @@ NO_STATUS = "No Status"
 # MariaDB DATEDIFF(end, start). pypika DateDiff writes DATEDIFF(interval, start, end).
 DATEDIFF = CustomFunction("DATEDIFF", ["end_date", "start_date"])
 CLOSE_JOB = "rigpl_erpnext.rigpl_erpnext.shipping.tracking.refresh_and_close_stale"
+REAPPLY_JOB = "rigpl_erpnext.rigpl_erpnext.shipping.tracking.reapply_status_map"
 
 
 @frappe.whitelist()
@@ -64,15 +65,23 @@ def close_job_name(account: str) -> str:
     return f"close_stale:{account}"
 
 
-@frappe.whitelist()
-def close_stale_trackings(account) -> str:
-    """Starts the stale clean-up of the account in the long queue, once at a time."""
+def enqueue_account_job(account: str, method: str, job_name: str, what: str) -> str:
+    """Starts a job of one account in the long queue, once at a time."""
     frappe.has_permission("Shipping Provider Account", "write", account, throw=True)
     from frappe.utils.background_jobs import get_jobs
 
-    job_name = close_job_name(account)
     site = frappe.local.site
     if job_name in get_jobs(site=site, queue="long", key="job_name").get(site, []):
-        frappe.throw(f"The stale clean-up of {account} is already queued or running.", title="Already Running")
-    frappe.enqueue(CLOSE_JOB, queue="long", timeout=3600, job_name=job_name, account=account)
-    return f"The stale clean-up of {account} has started. You get a message when it ends."
+        frappe.throw(f"The {what} of {account} is already queued or running.", title="Already Running")
+    frappe.enqueue(method, queue="long", timeout=3600, job_name=job_name, account=account)
+    return f"The {what} of {account} has started. You get a message when it ends."
+
+
+@frappe.whitelist()
+def close_stale_trackings(account) -> str:
+    return enqueue_account_job(account, CLOSE_JOB, close_job_name(account), "stale clean-up")
+
+
+@frappe.whitelist()
+def reapply_status_map(account) -> str:
+    return enqueue_account_job(account, REAPPLY_JOB, f"reapply_status:{account}", "Re-apply Status Map")

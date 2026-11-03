@@ -4,6 +4,7 @@
 
 const SUMMARY = "rigpl_erpnext.rigpl_erpnext.shipping.dashboard.get_account_summary";
 const CLOSE_STALE = "rigpl_erpnext.rigpl_erpnext.shipping.dashboard.close_stale_trackings";
+const REAPPLY = "rigpl_erpnext.rigpl_erpnext.shipping.dashboard.reapply_status_map";
 const STATUS_COLORS = {
 	"Delivered": "green", "In Transit": "blue", "Out for Delivery": "blue", "Booked": "blue",
 	"Exception": "orange", "RTO": "orange", "No Information": "orange", "No Status": "grey",
@@ -15,6 +16,7 @@ frappe.ui.form.on("Shipping Provider Account", {
 		if (frm.is_new()) return;
 		rigpl_shipping_dashboard(frm);
 		frm.add_custom_button(__("Close Stale Trackings"), () => rigpl_close_stale(frm), __("Actions"));
+		frm.add_custom_button(__("Re-apply Status Map"), () => rigpl_reapply_status_map(frm), __("Actions"));
 	},
 });
 
@@ -93,6 +95,16 @@ function rigpl_close_stale(frm) {
 		__("{0} open trackings are older than {1} days. Poll each one once, then close the rest as Closed - No Update?",
 			[count, frm.__auto_close_days]),
 		() => frappe.call({ method: CLOSE_STALE, args: { account: frm.doc.name } }).then((r) => {
+			if (r.message) frappe.show_alert({ message: r.message, indicator: "blue" });
+		})
+	);
+}
+
+function rigpl_reapply_status_map(frm) {
+	frappe.confirm(
+		__("Work out the status of each tracking of {0} again from its latest stored scan and the Shipping Status Map? No carrier API is called.",
+			[frm.doc.name]),
+		() => frappe.call({ method: REAPPLY, args: { account: frm.doc.name } }).then((r) => {
 			if (r.message) frappe.show_alert({ message: r.message, indicator: "blue" });
 		})
 	);
