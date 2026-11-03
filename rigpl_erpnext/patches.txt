@@ -1,48 +1,22 @@
 rigpl_erpnext.patches.cform_letterhead_si_so
-rigpl_erpnext.patches.inclusive_excise_conversion
 rigpl_erpnext.patches.20151013_delete_obsolete_items
-rigpl_erpnext.patches.20160106_update_invoice_trial_tracking
-rigpl_erpnext.patches.20160325_xss_removal
-rigpl_erpnext.patches.20160224_update_rol_table
-rigpl_erpnext.patches.20160505_update_overtime_attendance
 rigpl_erpnext.patches.20160730_copy_contribution_ss_ss
-rigpl_erpnext.patches.20160819_create_valuation_rate_carbide_rm
-rigpl_erpnext.patches.20161016_insert_sales_person_in_customer
-rigpl_erpnext.patches.20170103_salary_slip_fields
 rigpl_erpnext.patches.20170415_emp_loan_changes
-rigpl_erpnext.patches.20170415_expense_claim_status_update
-rigpl_erpnext.patches.20170518_emp_adv_direct_post
-rigpl_erpnext.patches.20170519_salary_slip_direct_post
-rigpl_erpnext.patches.20170616_salary_slip_direct_post_all
-rigpl_erpnext.patches.20170630_link_items_with_customs
-rigpl_erpnext.patches.20170706_roster_move_dates_to_child
-rigpl_erpnext.patches.item_master.20170720_set_customs_tariff_template
-rigpl_erpnext.patches.20170726_create_tracking_details_old_invoice
-rigpl_erpnext.patches.item_master.20170730_item_route_without_special_characters
-rigpl_erpnext.patches.20170914_create_brc_tracking
-rigpl_erpnext.patches.20171116_update_expiry_date_quotation
 execute:frappe.delete_doc("DocType", "Shift Details")
 execute:frappe.delete_doc("DocType", "Quality")
 execute:frappe.delete_doc("DocType", "Roster")
 execute:frappe.delete_doc("DocType", "Roster Details")
 execute:frappe.delete_doc("DocType", "Tool Type")
 execute:frappe.delete_doc("DocType", "Salary Slip Payment")
-rigpl_erpnext.patches.20181222_update_gst_hsn_code_q_so_dn
 execute:frappe.delete_doc("DocType", "Valuation Rate")
-rigpl_erpnext.patches.20190924_daily_call_communication
-rigpl_erpnext.patches.item_master.20200716_update_numeric_field_in_variants
 execute:frappe.delete_doc("DocType", "Create Bulk Production Orders") #2020-11-30
-rigpl_erpnext.patches.customer_rating_field
-rigpl_erpnext.patches.update_email_id_sales_team
 execute:frappe.delete_doc("Report", "Dynamic Items for Production")
 execute:frappe.delete_doc("DocType", "Homepage Settings") #2023-08-10
 execute:frappe.delete_doc("DocType", "Homepage Section Content") #2023-08-10
 execute:frappe.delete_doc("Module Def", "RIGPL Theme")
 execute:frappe.delete_doc("Report", "Pending So (Prd)")
-rigpl_erpnext.patches.correct_ssa_dates
 execute:frappe.delete_doc("Report", "Item Report")
 execute:frappe.delete_doc("Report", "Salary Register")
-rigpl_erpnext.patches.delete_custom_fields
 rigpl_erpnext.patches.v13.reset_client_scripts #2026-11-03
 execute:frappe.delete_doc("DocType", "Contribution Formula")
 execute:frappe.delete_doc("DocType", "Contribution Type")
