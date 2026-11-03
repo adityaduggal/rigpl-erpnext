@@ -96,48 +96,55 @@ def get_columns(filters):
 
 
 def get_data(filters):
+	values = get_values(filters)
 	conditions = get_conditions(filters)
 	if not filters.get("meis_status"):
 		data = frappe.db.sql("""SELECT brc.name, brc.shipping_bill_number, brc.shipping_bill_date,
 			brc.bank_ifsc_code, brc.customer_or_supplier_name, brc.reference_name, si.posting_date,
-			brc.brc_status, brc.brc_number, brc.brc_date,  
+			brc.brc_status, brc.brc_number, brc.brc_date,
 			DATEDIFF(IFNULL(brc.brc_date, CURDATE()), brc.shipping_bill_date),
-			si.base_net_total, brc.grand_total, brc.brc_realised_value, brc.reference_currency, 
+			si.base_net_total, brc.grand_total, brc.brc_realised_value, brc.reference_currency,
 			brc.brc_bill_id, brc.notes, brc.export_or_import, brc.export_invoice_number,
 			brc.reference_doctype, brc.customer_or_supplier
 			FROM `tabBRC MEIS Tracking` brc, `tabSales Invoice` si
-			WHERE si.name = brc.reference_name AND brc.reference_doctype = 'Sales Invoice' 
-				AND brc.docstatus !=2 %s""" % conditions, as_list=1)
+			WHERE si.name = brc.reference_name AND brc.reference_doctype = 'Sales Invoice'
+				AND brc.docstatus !=2 {0}""".format(conditions), values, as_list=1)
 	else:
 		data = frappe.db.sql("""SELECT brc.name, brc.shipping_bill_number, brc.shipping_bill_date,
 			brc.customer_or_supplier_name, brc.reference_name, brc.meis_status,
-			brc.meis_authorization_no, brc.meis_date, 
+			brc.meis_authorization_no, brc.meis_date,
 			DATEDIFF(IFNULL(brc.meis_date, CURDATE()), brc.shipping_bill_date),
-			brc.meis_amount, si.base_net_total, 
+			brc.meis_amount, si.base_net_total,
 			brc.meis_reference_name,
-			IF (brc.docstatus=0, "Draft", "Submitted"), 
+			IF (brc.docstatus=0, "Draft", "Submitted"),
 			brc.reference_doctype, brc.customer_or_supplier, brc.meis_reference_type
 			FROM `tabBRC MEIS Tracking` brc, `tabSales Invoice` si
 			WHERE si.name = brc.reference_name AND brc.reference_doctype = 'Sales Invoice'
-				AND brc.docstatus !=2 AND brc.brc_status = 'BRC Issued' %s""" % conditions, as_list=1)
+				AND brc.docstatus !=2 AND brc.brc_status = 'BRC Issued' {0}""".format(conditions), values,
+			as_list=1)
 
 	return data
 
 
+def get_values(filters):
+	return {key: filters.get(key) for key in ("from_date", "to_date", "brc_status", "meis_status")}
+
+
 def get_conditions(filters):
+	"""Fixed SQL text only: the values are passed as parameters (get_values)."""
 	conditions = ""
 	if filters.get("from_date"):
-		conditions += " AND brc.shipping_bill_date >= '%s'" % filters["from_date"]
+		conditions += " AND brc.shipping_bill_date >= %(from_date)s"
 
 	if filters.get("to_date"):
-		conditions += " AND brc.shipping_bill_date <= '%s'" % filters["to_date"]
+		conditions += " AND brc.shipping_bill_date <= %(to_date)s"
 
 	if filters.get("brc_status"):
-		conditions += " AND brc.brc_status = '%s'" % filters["brc_status"]
+		conditions += " AND brc.brc_status = %(brc_status)s"
 
 	if filters.get("meis_status"):
 		if filters.get("meis_status") != "All MEIS":
-			conditions += " AND brc.meis_status = '%s'" % filters["meis_status"]
+			conditions += " AND brc.meis_status = %(meis_status)s"
 
 	if filters.get("docstatus") == "Submitted":
 		conditions += " AND brc.docstatus = 1"

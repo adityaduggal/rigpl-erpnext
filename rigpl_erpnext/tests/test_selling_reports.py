@@ -7,6 +7,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, getdate, nowdate
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.rigpl_erpnext.report.brc_tracking import brc_tracking
 from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transactions
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
@@ -136,3 +137,16 @@ class TestForexTransactions(ReportTestCase):
         data = forex_transactions.execute(filters)[1]
 
         self.assertIn([name, getdate(DATE), CUSTOMER], [list(row[:3]) for row in data])
+
+
+class TestBrcTracking(ReportTestCase):
+    def test_quoted_status_filter(self):
+        si = insert_invoice(CUSTOMER, [], base_net_total=500)
+        brc = raw("BRC MEIS Tracking", reference_doctype="Sales Invoice", reference_name=si, docstatus=1,
+            brc_status="BRC Issued", shipping_bill_date=DATE, meis_status="MEIS Pending")
+
+        data = brc_tracking.execute(frappe._dict(docstatus="Submitted", from_date=DATE, brc_status="BRC Issued"))[1]
+        self.assertIn(brc, [row[0] for row in data])
+        self.assertFalse(brc_tracking.execute(frappe._dict(brc_status="O'Brien"))[1])
+        meis = brc_tracking.execute(frappe._dict(docstatus="Submitted", meis_status="MEIS Pending", to_date=DATE))[1]
+        self.assertIn(brc, [row[0] for row in meis])
