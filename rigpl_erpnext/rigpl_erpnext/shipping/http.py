@@ -51,7 +51,9 @@ def cached_token(key: str, fetch: Callable[[], Tuple[str, int]]) -> str:
     """The token in Redis for `key`, or a new one from `fetch()` -> (token, seconds valid).
     It is kept 60 seconds less than its life, so it never expires during a call."""
     cache_key = f"rigpl_shipping_token:{key}"
-    token: Optional[str] = frappe.cache().get_value(cache_key)
+    # expires=True: without it v13 keeps the first miss (None) in frappe.local.cache, and
+    # every later call in the same job logs in again
+    token: Optional[str] = frappe.cache().get_value(cache_key, expires=True)
     if token:
         return token
     token, seconds = fetch()

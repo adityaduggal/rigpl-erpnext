@@ -1,0 +1,58 @@
+{
+ "transactionId": "fixture",
+ "output": {
+  "rateReplyDetails": [
+   {
+    "serviceType": "INTERNATIONAL_PRIORITY",
+    "serviceName": "FedEx International Priority",
+    "operationalDetail": {
+     "transitTime": "THREE_DAYS",
+     "deliveryDate": "2026-11-06T17:00:00"
+    },
+    "ratedShipmentDetails": [
+     {
+      "rateType": "ACCOUNT",
+      "totalNetFedExCharge": 8450.5,
+      "currency": "INR",
+      "shipmentRateDetail": {
+       "currency": "INR",
+       "surCharges": [
+        {
+         "type": "FUEL",
+         "amount": 1200.0
+        },
+        {
+         "type": "OUT_OF_DELIVERY_AREA",
+         "amount": 1500.0
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "serviceType": "INTERNATIONAL_ECONOMY",
+    "commit": {
+     "transitDays": {
+      "minimumTransitTime": "FIVE_DAYS"
+     }
+    },
+    "ratedShipmentDetails": [
+     {
+      "rateType": "ACCOUNT",
+      "totalNetFedExCharge": 6100,
+      "currency": "INR",
+      "shipmentRateDetail": {
+       "surCharges": [
+        {
+         "type": "FUEL",
+         "amount": 900.0
+        }
+       ]
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

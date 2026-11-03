@@ -1,0 +1,226 @@
+{
+ "transactionId": "fixture",
+ "output": {
+  "completeTrackResults": [
+   {
+    "trackingNumber": "100000000001",
+    "trackResults": [
+     {
+      "trackingNumberInfo": {
+       "trackingNumber": "100000000001"
+      },
+      "recipientInformation": {
+       "contact": {},
+       "address": {
+        "city": "SPRINGFIELD",
+        "stateOrProvinceCode": "MA",
+        "countryCode": "US",
+        "residential": false,
+        "countryName": "United States"
+       }
+      },
+      "latestStatusDetail": {
+       "code": "DL",
+       "derivedCode": "DL",
+       "statusByLocale": "Delivered",
+       "description": "Delivered",
+       "scanLocation": {
+        "city": "SPRINGFIELD",
+        "stateOrProvinceCode": "MA",
+        "countryCode": "US",
+        "residential": false,
+        "countryName": "United States"
+       }
+      },
+      "dateAndTimes": [
+       {
+        "type": "ACTUAL_DELIVERY",
+        "dateTime": "2026-10-16T11:47:00-04:00"
+       },
+       {
+        "type": "ACTUAL_PICKUP",
+        "dateTime": "2026-10-12T15:26:00+05:30"
+       },
+       {
+        "type": "SHIP",
+        "dateTime": "2026-10-13T00:00:00+00:00"
+       },
+       {
+        "type": "ACTUAL_TENDER",
+        "dateTime": "2026-10-12T15:26:00+05:30"
+       }
+      ],
+      "availableImages": [
+       {
+        "type": "SIGNATURE_PROOF_OF_DELIVERY"
+       }
+      ],
+      "scanEvents": [
+       {
+        "date": "2026-10-16T11:47:00-04:00",
+        "eventType": "DL",
+        "eventDescription": "Delivered",
+        "exceptionCode": "",
+        "exceptionDescription": "",
+        "scanLocation": {
+         "city": "SPRINGFIELD",
+         "stateOrProvinceCode": "MA",
+         "postalCode": "01101",
+         "countryCode": "US",
+         "residential": false,
+         "countryName": "United States"
+        },
+        "derivedStatusCode": "DL"
+       },
+       {
+        "date": "2026-10-16T08:49:50-04:00",
+        "eventType": "OD",
+        "eventDescription": "On FedEx vehicle for delivery",
+        "exceptionCode": "",
+        "exceptionDescription": "",
+        "scanLocation": {
+         "city": "WATERTOWN",
+         "stateOrProvinceCode": "MA",
+         "postalCode": "06795",
+         "countryCode": "US",
+         "residential": false,
+         "countryName": "United States"
+        },
+        "derivedStatusCode": "IT"
+       },
+       {
+        "date": "2026-10-16T08:24:08-04:00",
+        "eventType": "AR",
+        "eventDescription": "At local FedEx facility",
+        "exceptionCode": "",
+        "exceptionDescription": "",
+        "scanLocation": {
+         "city": "WATERTOWN",
+         "stateOrProvinceCode": "MA",
+         "postalCode": "06795",
+         "countryCode": "US",
+         "residential": false,
+         "countryName": "United States"
+        },
+        "derivedStatusCode": "IT"
+       },
+       {
+        "date": "2026-10-12T15:26:00+05:30",
+        "eventType": "PU",
+        "eventDescription": "Picked up",
+        "exceptionCode": "",
+        "exceptionDescription": "",
+        "scanLocation": {
+         "city": "NEW DELHI",
+         "stateOrProvinceCode": "DL",
+         "postalCode": "110001",
+         "countryCode": "IN",
+         "countryName": "India"
+        },
+        "derivedStatusCode": "PU"
+       }
+      ],
+      "deliveryDetails": {
+       "receivedByName": "A.PERSON",
+       "deliveryAttempts": "0"
+      }
+     }
+    ]
+   },
+   {
+    "trackingNumber": "100000000002",
+    "trackResults": [
+     {
+      "trackingNumberInfo": {
+       "trackingNumber": "100000000002"
+      },
+      "recipientInformation": {
+       "contact": {},
+       "address": {
+        "city": "SPRINGFIELD",
+        "stateOrProvinceCode": "MA",
+        "countryCode": "US",
+        "residential": false,
+        "countryName": "United States"
+       }
+      },
+      "latestStatusDetail": {
+       "code": "IT",
+       "derivedCode": "IT",
+       "description": "In transit",
+       "scanLocation": {
+        "city": "MEMPHIS",
+        "countryCode": "US"
+       }
+      },
+      "dateAndTimes": [
+       {
+        "type": "ACTUAL_PICKUP",
+        "dateTime": "2026-10-12T15:26:00+05:30"
+       },
+       {
+        "type": "SHIP",
+        "dateTime": "2026-10-13T00:00:00+00:00"
+       },
+       {
+        "type": "ACTUAL_TENDER",
+        "dateTime": "2026-10-12T15:26:00+05:30"
+       },
+       {
+        "type": "ESTIMATED_DELIVERY",
+        "dateTime": "2026-10-17T18:00:00-04:00"
+       }
+      ],
+      "availableImages": [],
+      "scanEvents": [
+       {
+        "date": "2026-10-12T15:26:00+05:30",
+        "eventType": "PU",
+        "eventDescription": "Picked up",
+        "exceptionCode": "",
+        "exceptionDescription": "",
+        "scanLocation": {
+         "city": "NEW DELHI",
+         "stateOrProvinceCode": "DL",
+         "postalCode": "110001",
+         "countryCode": "IN",
+         "countryName": "India"
+        },
+        "derivedStatusCode": "PU"
+       },
+       {
+        "date": "2026-10-14T02:10:00-05:00",
+        "eventType": "AR",
+        "eventDescription": "Arrived at FedEx location",
+        "exceptionCode": "08",
+        "exceptionDescription": "Recipient not in",
+        "scanLocation": {
+         "city": "MEMPHIS",
+         "stateOrProvinceCode": "TN",
+         "postalCode": "38118",
+         "countryCode": "US",
+         "countryName": "United States"
+        },
+        "derivedStatusCode": "IT"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "trackingNumber": "100000000003",
+    "trackResults": [
+     {
+      "trackingNumberInfo": {
+       "trackingNumber": "100000000003"
+      },
+      "error": {
+       "code": "TRACKING.TRACKINGNUMBER.INVALID",
+       "message": "We can\u2019t find that tracking number. Please check with the shipper to make sure it\u2019s the correct one."
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

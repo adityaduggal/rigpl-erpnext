@@ -1,0 +1,10 @@
+{
+ "transactionId": "fixture",
+ "output": {
+  "documentType": "SIGNATURE_PROOF_OF_DELIVERY",
+  "documentFormat": "PDF",
+  "documents": [
+   "JVBERi0xLjQgZml4dHVyZQ=="
+  ]
+ }
+}

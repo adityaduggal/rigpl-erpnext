@@ -1,0 +1,9 @@
+{
+ "transactionId": "fixture",
+ "errors": [
+  {
+   "code": "SHIPMENT.USER.UNAUTHORIZED",
+   "message": "The given account number is not authorized."
+  }
+ ]
+}

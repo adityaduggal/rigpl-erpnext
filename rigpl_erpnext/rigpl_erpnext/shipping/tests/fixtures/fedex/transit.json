@@ -1,0 +1,27 @@
+{
+ "transactionId": "fixture",
+ "output": {
+  "transitTimes": [
+   {
+    "transitTimeDetails": [
+     {
+      "serviceType": "FEDEX_INTERNATIONAL_PRIORITY",
+      "serviceName": "FedEx International Priority",
+      "commit": {
+       "dateDetail": {
+        "dayOfWeek": "Fri",
+        "time": "17:00",
+        "day": "Nov-06-2026"
+       }
+      }
+     },
+     {
+      "serviceType": "INTERNATIONAL_ECONOMY",
+      "serviceName": "FedEx International Economy",
+      "commit": {}
+     }
+    ]
+   }
+  ]
+ }
+}

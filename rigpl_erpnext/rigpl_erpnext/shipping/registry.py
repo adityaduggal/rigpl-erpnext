@@ -19,16 +19,10 @@ ACCOUNT_FIELDS = ("name", "provider", "enabled", "is_sandbox", "account_number",
 
 def provider_classes() -> Dict[str, type]:
     from .providers.dtdc import DTDC
+    from .providers.fedex import FedEx
     from .providers.shipway import Shipway
 
-    classes = {"DTDC": DTDC, "Shipway": Shipway}
-    try:
-        from .providers.fedex import FedEx
-    except ImportError:
-        pass
-    else:
-        classes["FedEx"] = FedEx
-    return classes
+    return {"DTDC": DTDC, "FedEx": FedEx, "Shipway": Shipway}
 
 
 @dataclass

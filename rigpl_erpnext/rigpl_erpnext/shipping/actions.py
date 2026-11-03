@@ -44,17 +44,18 @@ def get_rates(doc) -> None:
                      "Check Allow ODA Shipment to book it.", title="ODA Shipment")
     doc.shipment_cost = rate.amount
     doc.shipment_cost_currency = rate.currency or doc.shipment_cost_currency
+    if rate.delivery_date:
+        doc.expected_delivery_date = rate.delivery_date
     frappe.msgprint(f"{carrier.provider.name} {rate.service_code}: {rate.currency} {rate.amount}"
-                    + (f", {rate.transit_days} days" if rate.transit_days else ""))
+                    + (f", {rate.transit_days} days" if rate.transit_days else "")
+                    + (f", delivery by {rate.delivery_date}" if rate.delivery_date else ""))
 
 
 def check_serviceability(doc, cod: bool = False) -> str:
     carrier = require_carrier(doc.carrier_name, "serviceability")
-    pins = frappe.get_all("Address", filters={"name": ["in", [doc.from_address, doc.to_address]]},
-                          fields=["name", "pincode"])
-    pins = {p.name: p.pincode for p in pins}
+    req = build_shipment_request(doc, carrier.service_code)
     try:
-        ok, message = carrier.provider.check_serviceability(pins.get(doc.from_address), pins.get(doc.to_address), cod)
+        ok, message = carrier.provider.check_serviceability(req.origin, req.destination, cod)
     except ProviderError as e:
         provider_error(e, "Serviceability")
     if not ok:
@@ -71,7 +72,7 @@ def book(doc, test_marking: bool = False) -> None:
         frappe.throw(f"Package Details are needed to book {doc.name}.")
     if doc.awb_number and doc.awb_number not in NO_AWB:
         frappe.throw(f"{doc.name} is already booked with AWB {doc.awb_number}.")
-    if carrier.provider.supports("serviceability"):
+    if carrier.provider.supports("serviceability") and carrier.provider.check_service_before_booking:
         check_serviceability(doc)
     if carrier.provider.supports("rate") or cint(
             frappe.db.get_value("Transporters", doc.carrier_name, "calculate_cost_from_quote")):

@@ -107,6 +107,7 @@ class Rate:
     amount: float
     currency: str
     transit_days: Optional[int] = None
+    delivery_date: Optional[date] = None
     oda: bool = False
     raw: dict = field(default_factory=dict)
 
@@ -161,6 +162,7 @@ class ShippingProvider:
     name = ""
     capabilities: FrozenSet[str] = frozenset()
     track_batch_size = 25
+    check_service_before_booking = True
     SEED_RULES: Tuple[Tuple[str, str, str, str], ...] = ()
 
     def __init__(self, account: Account, resolve: Optional[Callable[[str, str], Optional[str]]] = None):
@@ -193,7 +195,7 @@ class ShippingProvider:
     def get_pod(self, awb: str) -> Label:
         raise NotSupported(f"{self.name}: proof of delivery")
 
-    def check_serviceability(self, origin_pincode: str, destination_pincode: str, cod: bool = False) -> Tuple[bool, str]:
+    def check_serviceability(self, origin: Address, destination: Address, cod: bool = False) -> Tuple[bool, str]:
         raise NotSupported(f"{self.name}: serviceability")
 
     def validate_address(self, address: Address) -> str:

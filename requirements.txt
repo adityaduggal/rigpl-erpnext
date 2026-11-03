@@ -1,3 +1,2 @@
 erpnext
 rohit_common
-fedex @ git+https://github.com/python-fedex-devs/python-fedex.git#egg=fedex

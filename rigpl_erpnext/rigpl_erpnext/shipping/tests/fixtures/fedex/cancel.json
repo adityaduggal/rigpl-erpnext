@@ -1,0 +1,8 @@
+{
+ "transactionId": "fixture",
+ "output": {
+  "cancelledShipment": true,
+  "successfulPickupCancel": false,
+  "message": "Shipment is successfully cancelled"
+ }
+}

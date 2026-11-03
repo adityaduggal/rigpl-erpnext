@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .. import status as st
 from ..seed_rules import SEED_RULES
-from ..base import BookingResult, Label, NotSupported, ProviderError, Scan, ShipmentRequest, ShippingProvider, TrackingResult
+from ..base import Address, BookingResult, Label, NotSupported, ProviderError, Scan, ShipmentRequest, ShippingProvider, TrackingResult
 from ..http import cached_token, clear_token, json_or_error, request
 
 BASE_URL = "https://app.shipsy.in/api/customer/integration/consignment/"
@@ -166,7 +166,8 @@ class DTDC(ShippingProvider):
         if reply.get("status") not in ("OK", "Success", True) and not reply.get("success"):
             raise ProviderError(f"DTDC: cancel of {awb} failed: {reply}")
 
-    def check_serviceability(self, origin_pincode: str, destination_pincode: str, cod: bool = False) -> Tuple[bool, str]:
+    def check_serviceability(self, origin: Address, destination: Address, cod: bool = False) -> Tuple[bool, str]:
+        origin_pincode, destination_pincode = origin.pincode, destination.pincode
         url = self.account.serviceability_url or SERVICEABILITY_URL
         reply = json_or_error(request("POST", url, self.name,
                                       json={"orgPincode": origin_pincode, "desPincode": destination_pincode}), self.name)

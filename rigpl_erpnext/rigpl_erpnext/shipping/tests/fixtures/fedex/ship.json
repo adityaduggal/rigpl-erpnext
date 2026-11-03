@@ -1,0 +1,50 @@
+{
+ "transactionId": "fixture",
+ "output": {
+  "transactionShipments": [
+   {
+    "masterTrackingNumber": "100000000010",
+    "serviceType": "INTERNATIONAL_PRIORITY",
+    "pieceResponses": [
+     {
+      "trackingNumber": "100000000010",
+      "packageDocuments": [
+       {
+        "contentType": "LABEL",
+        "docType": "PDF",
+        "encodedLabel": "JVBERi0xLjQgZml4dHVyZQ=="
+       }
+      ]
+     },
+     {
+      "trackingNumber": "100000000011",
+      "packageDocuments": [
+       {
+        "contentType": "LABEL",
+        "docType": "PDF",
+        "encodedLabel": "JVBERi0xLjQgZml4dHVyZQ=="
+       }
+      ]
+     }
+    ],
+    "shipmentDocuments": [
+     {
+      "contentType": "COMMERCIAL_INVOICE",
+      "docType": "PDF",
+      "encodedLabel": "JVBERi0xLjQgZml4dHVyZQ=="
+     }
+    ],
+    "completedShipmentDetail": {
+     "shipmentRating": {
+      "shipmentRateDetails": [
+       {
+        "totalNetCharge": 8450.5,
+        "currency": "INR"
+       }
+      ]
+     }
+    }
+   }
+  ]
+ }
+}
