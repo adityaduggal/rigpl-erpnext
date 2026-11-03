@@ -4,6 +4,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.tests.test_item_attribute_utils import add_item_attribute
+from rigpl_erpnext.tests.test_variant_table import insert_item
 from rigpl_erpnext.utils import attribute_query as aq
 
 ATT_1 = "_Test RIGPL AQ Attribute 1"
@@ -78,3 +79,76 @@ class TestAttributeQuery(FrappeTestCase):
                 getattr(aq, name)(DOCTYPE, "x", "name", "0", "20", {})
 
             search.assert_called_once_with(attributes, "x", 0, 20)
+
+
+DLG_TEMPLATE = "_Test RIGPL Dialog Template"
+DLG_BM = "_Test RIGPL Dialog BM"
+DLG_D1_MM = "_Test RIGPL Dialog d1_mm"
+DLG_D1_INCH = "_Test RIGPL Dialog d1_inch"
+DLG_A1 = "_Test RIGPL Dialog a1_deg"
+DLG_LINK = "_Test RIGPL Dialog d1"
+
+
+class TestVariantDialogData(FrappeTestCase):
+    def setUp(self):
+        add_item_attribute(DLG_BM, 0, ["HSS", "Carbide"])
+        add_item_attribute(DLG_D1_MM, 1)
+        add_item_attribute(DLG_D1_INCH, 0, [f"{i}/64" for i in range(1, 30)])
+        add_item_attribute(DLG_A1, 1)
+        for name, link, uom in ((DLG_D1_MM, DLG_LINK, "mm"), (DLG_D1_INCH, DLG_LINK, "Inch"),
+                (DLG_A1, "_Test RIGPL Dialog a1", "Degree")):
+            frappe.db.set_value("Item Attribute", name,
+                {"hidden": 1, "update_from": link, "source": "UOM", "relation": uom})
+        insert_item(DLG_TEMPLATE)
+        rows = [(DLG_BM, 1), (DLG_D1_MM, 0), (DLG_D1_INCH, 1), (DLG_A1, 1)]
+        for idx, (attribute, shown) in enumerate(rows, start=1):
+            frappe.get_doc(
+                doctype="Item Variant Attribute",
+                name=frappe.generate_hash(length=10),
+                parent=DLG_TEMPLATE,
+                parenttype="Item",
+                parentfield="attributes",
+                idx=idx,
+                attribute=attribute,
+                use_in_description=shown,
+            ).db_insert()
+
+    def tearDown(self):
+        frappe.db.rollback()
+        frappe.set_user("Administrator")
+
+    def test_values_are_all_in_idx_order(self):
+        data = aq.get_variant_dialog_data(DLG_TEMPLATE)
+        self.assertEqual(data["values"][DLG_BM], ["HSS", "Carbide"])
+        # frappe.client.get_list returned only 20 values
+        self.assertEqual(len(data["values"][DLG_D1_INCH]), 29)
+        self.assertNotIn(DLG_D1_MM, data["values"])
+
+    def test_default_uom_is_the_shown_one_or_the_only_one(self):
+        links = aq.get_variant_dialog_data(DLG_TEMPLATE)["links"]
+        self.assertEqual(links[DLG_LINK]["uoms"], {DLG_D1_MM: "mm", DLG_D1_INCH: "Inch"})
+        self.assertEqual(links[DLG_LINK]["default_uom"], "Inch")
+        self.assertEqual(links["_Test RIGPL Dialog a1"]["default_uom"], "Degree")
+
+    def test_no_default_uom_if_two_are_shown(self):
+        links = aq.get_dialog_links([
+            frappe._dict(attribute="a", hidden=1, update_from="d1", source="UOM", relation="mm", use_in_description=1),
+            frappe._dict(attribute="b", hidden=1, update_from="d1", source="UOM", relation="Inch", use_in_description=1),
+        ])
+        self.assertIsNone(links["d1"]["default_uom"])
+
+    def test_not_a_template_or_bad_input_throws(self):
+        insert_item("_Test RIGPL Dialog Variant", variant_of=DLG_TEMPLATE)
+        self.assertRaises(frappe.ValidationError, aq.get_variant_dialog_data, "_Test RIGPL Dialog Variant")
+        self.assertRaises(frappe.ValidationError, aq.get_variant_dialog_data, ["!=", ""])
+
+    def test_needs_read_permission_on_the_template(self):
+        frappe.set_user("Guest")
+        self.assertRaises(frappe.PermissionError, aq.get_variant_dialog_data, DLG_TEMPLATE)
+
+    def test_uom_factor_map(self):
+        self.assertEqual(aq.get_uom_factor_map(["mm"]), {})
+        factors = aq.get_uom_factor_map(["Inch", "mm"])
+        for from_uom, to_uoms in factors.items():
+            self.assertIn(from_uom, ("Inch", "mm"))
+            self.assertTrue(set(to_uoms) <= {"Inch", "mm"})

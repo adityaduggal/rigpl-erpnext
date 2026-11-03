@@ -2,6 +2,7 @@ frappe.provide("erpnext.item");
 
 frappe.ui.form.on("Item", {
     refresh: function(frm) {
+        frm.__rig_variant_data = null;
         erpnext.item.rig_setup_btns( frm );
         erpnext.item.rig_setup_attributes_table( frm );
         erpnext.item.rig_setup_restriction_table( frm );
@@ -33,27 +34,21 @@ frappe.ui.form.on( "Item Variant Attribute", {
 });
 
 frappe.ui.form.on( "Item Variant Restrictions", {
+	form_render: function ( frm, cdt, cdn ) {
+		erpnext.item.rig_set_ivr_allowed_values( frm, cdt, cdn );
+	},
 	attribute: function ( frm, cdt, cdn ) {
 		erpnext.item.rig_set_ivr_allowed_values( frm, cdt, cdn );
-	},
-	allowed_values: function ( frm, cdt, cdn ) {
-		erpnext.item.rig_set_ivr_allowed_values( frm, cdt, cdn );
-	},
-	on_load_post_render: function ( frm, cdt, cdn ) {
-		// var nrow = locals[ cdt ][ cdn ];
-		frm.fields_dict.item_vairaint_restrictions.grid.wrapper.on( "focus", "input[data-fieldname='allowed_values'][data-doctype='Item Attribute Value']", function ( e ) {
-			console.log( e.type );
-			erpnext.item.rig_set_ivr_allowed_values( frm, cdt, cdn );
-		} );
 	},
 } );
 
 $.extend(erpnext.item, {
 	rig_setup_btns: function ( frm ) {
-        // Function to add and remove buttons from the Item Form
-		frm.add_custom_button( "New Variant with Restrictions", function () {
-			erpnext.item.rig_make_new_variant_frm_restrictions();
-		}, "Create" );
+		// Only our dialog makes variants of a template, so ERPNext's Create buttons are removed.
+		if ( frm.doc.__islocal || !frm.doc.has_variants || frm.doc.variant_based_on !== "Item Attribute" ) return;
+		frm.add_custom_button( __( "New Variant with Restrictions" ), function () {
+			erpnext.item.rig_make_new_variant_frm_restrictions( frm );
+		}, __( "Create" ) );
 		frm.remove_custom_button( "Single Variant", "Create" );
 		frm.remove_custom_button( "Multiple Variants", "Create" );
 	},
@@ -107,52 +102,24 @@ $.extend(erpnext.item, {
 		}
 	},
 	rig_set_ivr_allowed_values: function ( frm, cdt, cdn ) {
-		/*This function basically makes the allowed values field in IVR table Autocomplete
-		with options coming from the Attribute Tables for various options in that Attributes*/
-		var me = this;
+		// Suggest the values of the row's attribute in Allowed Values
 		var row = locals[ cdt ][ cdn ];
-		if ( !row.attribute ) {
-			frappe.throw( "First Select the Attribute Type in Row" );
-		} else if ( row.is_numeric !== 1 && row.attribute ) {
-			var all_vals = []; // All Attribute Values of an Attribute defined in Item Attributes Table
-			var ivr_gd = frm.fields_dict.item_variant_restrictions.grid;
-			var alw_val_fd = ivr_gd.fields_map.allowed_values;
-            
-            /* Below code is not working for adding the suggestion in autocomplete field for Allowed Values
-            /////////////////////////////////////////////////
-
-            $(alw_val_fd.input_area).addClass("ui-front");
-            alw_val_fd.$input.autocomplete({
-                minChars: 0,
-                minLength: 0,
-                source: function(request, response) {
-                    frappe.call({
-                        method: "frappe.client.get_list",
-                        args: {
-                            doctype: "Item Attribute Value",
-                            filters: [
-                                ["parent", "=", alw_val_fd.doc.attribute],
-                                ["attribute_value", "like", request.term + "%"]
-                            ],
-                            fields: ["attribute_value"],
-                            "parent": frm.doctype
-                        },
-                        callback: function(res) {
-                            response($.map(res.message, function(d) {
- return d.attribute_value;
-}));
-                        }
-                    });
-                },
-                select: function(event, ui) {
-                    alw_val_fd.$input.val(ui.item.value);
-                    alw_val_fd.$input.trigger("change");
-                }
-            });
-
-            /////////////////////////////////////////////////
-            */
-		}
+		var grid_row = frm.fields_dict.item_variant_restrictions.grid.grid_rows_by_docname[ cdn ];
+		var field = grid_row && grid_row.grid_form && grid_row.grid_form.fields_dict.allowed_values;
+		if ( !row.attribute || cint( row.is_numeric ) || !field || !field.$input ) return;
+		erpnext.item.rig_get_variant_dialog_data( frm ).then( function ( data ) {
+			var values = data.values[ row.attribute ] || [];
+			var awesomplete = field.$input.data( "awesomplete_obj" );
+			if ( awesomplete ) awesomplete.destroy();
+			field.$input.data( "awesomplete_obj", new Awesomplete( field.$input[ 0 ], {
+				list: values,
+				minChars: 0,
+				filter: Awesomplete.FILTER_STARTSWITH,
+			} ) );
+			field.$input.off( "awesomplete-selectcomplete" ).on( "awesomplete-selectcomplete", function ( e ) {
+				field.set_value( e.originalEvent.text.value );
+			} );
+		} );
 	},
 	rig_set_attribute_queries: function ( frm ) {
 		frm.set_query( "attribute", "attributes", function ( doc, cdt, cdn ) {
@@ -181,294 +148,220 @@ $.extend(erpnext.item, {
 		} );
 		return curr_attributes;
 	},
-    get_hidden_fields: function() {
-        var ret = {}, cur_attrs = [];
-        cur_frm.doc.attributes.forEach(function(d) {
-            cur_attrs.push(d.attribute);
-        });
-        frappe.call({
-            "async": false,
-            "method": "frappe.client.get_list",
-            "args": {
-                "doctype": "Item Attribute",
-                "filters": [
-                    ["Item Attribute", "hidden", "=", 1],
-                    ["Item Attribute", "name", "in", cur_attrs]
-                ],
-                fields: [
-                    "name", "update_from", "source", "relation"
-                ]
-            },
-            "callback": function(res) {
-                (res.message || []).forEach(function(r) {
-                    var only_allowed, options = [] ;
-                    if (!ret.hasOwnProperty(r.update_from)) {
-                        ret[r.update_from] = {};
-                        ret[r.update_from]["source"] = r.source;
-                        ret[r.update_from]["options"] = {};
-                    }
-                    ret[r.update_from][r.name] = r.relation;
-                    ret[r.name] = r.update_from;
-                    ret["lookup"] = r.update_from;
-                    only_allowed = frappe.utils.filter_dict(cur_frm.doc.item_variant_restrictions, {"attribute": r.name});
-                    (only_allowed || []).forEach(function(d) {
-                        options.push(d.attribute);
-                    });
-                    if (!options.length) {
-                        frappe.call({
-                            "async": false,
-                            "method": "frappe.client.get_list",
-                            "args": {
-                                "doctype": "Item Attribute Value",
-                                "parent": "Item Attribute",
-                                "filters": [
-                                    ["Item Attribute Value", "parent", "=", r.name]
-                                ],
-                                "fields": ["attribute_value"],
-                                "limit_page_length": 500
-                            },
-                            "callback": function(res) {
-                                (res.message || []).forEach(function(r) {
-                                    options.push(r.attribute_value);
-                                });
-                            }
-                        });
-                    }
-                    ret[r.update_from]["options"][r.name] = options;
-                });
-            }
-        });
-        return ret;
-    },
-    get_conversion_factors: function(from_uom, to_uom) {
-        var ret;
-        frappe.call({
-            "async": false,
-            "method": "rigpl_erpnext.utils.attribute_query.get_uom_factors",
-            "args": {
-                "from_uom": from_uom,
-                "to_uom": to_uom
-            },
-            "callback": function(res) {
-                ret = res.message;
-            }
-        });
-        return ret;
-    },
-    rig_make_new_variant_frm_restrictions: function(doc) {
-        var fields = [], hidden_fields = this.get_hidden_fields(doc);
-        for (var i=0;i< cur_frm.doc.attributes.length;i++) {
-            var row = cur_frm.doc.attributes[i], field, link_fld;
-            if (!hidden_fields.hasOwnProperty(row.attribute)) {
-                // Case when the attribute is not in hidden fields
-                field = {
-                    "label": (row.attribute + " ("+ row.field_name + ")"),
-                    "fieldname": row.attribute,
-                    "reqd": 1,
-                    "fieldtype": row.numeric_values ? "Float": "Select",
-                    "description": row.numeric_values ?  "Min Value: "+ row.from_range +" , Max Value: "+ row.to_range +", in Increments of: "+ row.increment : ""
-                };
-                if (field.fieldtype==="Select") {
-                    var filters = [
-                            ["parent", "=", row.attribute],
-                    ], allowed = [], options = [];
-                    frappe.utils.filter_dict(cur_frm.doc.item_variant_restrictions, {"attribute": row.attribute}).forEach(function(d) {
-                        if (d.allowed_values) allowed.push(d.allowed_values);
-                    });
-                    if (allowed.length) {
-                        options = options.concat(allowed);
-                    } else {
-                        frappe.call({
-                            "method": "frappe.client.get_list",
-                            "async": false,
-                            "args": {
-                                "doctype": "Item Attribute Value",
-                                "parent": "Item Attribute",
-                                "filters": filters,
-                                "fields": ["attribute_value"]
-                            },
-                            "callback": function(res) {
-                                res.message.forEach(function(d) {
-                                    options.push(d.attribute_value);
-                                });
-                            }
-                        });
-                    }
-                    field.options = options;
-                    if (options.length === 1) {
-                        field.default = options[0];
-                        field.read_only = 1;
-                        field.hidden = 1;
-                    }
-                    fields.push(field);
-                }
-            } else if (!hidden_fields[hidden_fields[row.attribute]].created && row.use_in_description) {
-                link_fld = hidden_fields[row.attribute]; /*link_fld is the virtual number for conversion 
-                of UoM between different UoMs */
-                field = {
-                    "label": (link_fld + " ("+ row.field_name + ")"),
-                    "fieldname": link_fld,
-                    "reqd": 1,
-                    "fieldtype": "Data",
-                    "description": row.numeric_values ?  "Min Value: "+ row.from_range +" , Max Value: "+ row.to_range +", in Increments of: "+ row.increment : ""
-                };
-                hidden_fields[link_fld].created = true;
-                fields.push(field);
-            }
-        }
-        var d = new frappe.ui.Dialog({
-            title: __("Make Variant Based on Restrictions"),
-            fields: fields
-        });
-        Object.keys(d.fields_dict).forEach(function(fieldname) {
-            if (d.fields_dict[fieldname].df.fieldtype !== "Data") return;
-
-            var field = d.fields_dict[fieldname],
-                target = field.$input.parent(),
-                options = $("<ul class=\"dropdown-menu\"></ul>");
-
-            Object.keys(hidden_fields[fieldname]).forEach(function(key) {
-                if (in_list(["created", "source", "options"], key)) return;
-
-                var option = $(repl("<li><a data-option=\"%(0)s\">%(0)s</a></li>", [hidden_fields[fieldname][key]]));
-                option.find("a").on("click", function(evt) {
-                    //evt.preventDefault();
-                    var text = options.parent().find("button").text();
-                    if (text === $(this).text()) return;
-                    options.parent().find("button").text($(this).text());
-
-                    if (field.$input.data("awesomplete_obj")) field.$input.data("awesomplete_obj").destroy();
-                    if ((hidden_fields[fieldname].options[key]||"").length) {
-                        field.$input.data("awesomplete_obj", new Awesomplete(field.$input[0], {
-                            list: hidden_fields[fieldname].options[key],
-                            minChars: 0,
-                            filter: Awesomplete.FILTER_STARTSWITH
-                        }));
-                        field.$input.on("awesomplete-select", function(e) {
-                            var awe = field.$input.data("awesomplete_obj");
-                            field.parse_validate_and_set_in_model(e.originalEvent.text.value);
-                        });
-                    }
-                });
-                options.append(option);
-            });
-
-            $(frappe.format("<div class=\"input-group-btn\">\
-                 <button type=\"button\" class=\"btn btn-default dropdown-toggle\" data-toggle=\"dropdown\" aria-haspopup=\"true\" data-fieldname=\"{1}\" aria-expanded=\"false\">{0}<span class=\"caret\"></span></button>\
-              </div>", __([hidden_fields[fieldname].source, fieldname]))).append(options).prependTo(target);
-            target.addClass("input-group").removeAttr("style");
-
-            field.$input.on("change", function(evt) {
-                if (!field.$input.val().length) return;
-                var uom = options.parent().find("button").text();
-                if (uom===hidden_fields[fieldname].source) {
-                    field.$input.val("");
-                    frappe.throw(frappe.format("Select the \"{0}\" of the field \"{1}\"\", first!", [hidden_fields[fieldname].source, fieldname]));
-                }
-            });
-        });
-
-
-        d.set_primary_action(__("Make"), function(args) {
-                        var rules = {}, eval_in_context = (js) => {
-                            Object.keys(args).forEach(k => {
-                               js = js.replace(k, "args." + k);
-                            });
-                            return eval(js);
-                        };
-            if (!args) return;
-
-            frappe.utils.filter_dict(cur_frm.doc.item_variant_restrictions, {"is_numeric": 1}).forEach(function(d) {
-                if (!rules.hasOwnProperty(d.attribute)) rules[d.attribute] = [];
-                rules[d.attribute].push(d.rule);
-            });
-            Object.keys(args).filter(function(key) {
- return hidden_fields.hasOwnProperty(key); 
-}).forEach(function(key) {
-                var val = args[key], base, targets = Object.keys(hidden_fields[key]).filter(function(k) {
- return !in_list(["created", "source", "options"], k);
-});
-                try {
-                    base = eval(val);
-                } catch ( e ) {
-                    frappe.throw(repl("Failed to decode the value \"%(0)s\"", {"0": val}));
-                }
-                targets.forEach(function(tgt) {
-                    var uom = Object.keys(hidden_fields[d.fields_dict[key].df.fieldname]).filter((k) => {
-                            return k.indexOf(key + "_") === 0;
-                        }).map((k) => {
-                            return hidden_fields[key][k];
-                        })[0],
-                        tgt_uom = hidden_fields[key][tgt],
-                        factors = (uom && tgt_uom) && erpnext.item.get_conversion_factors(uom, tgt_uom);
-                    if (uom === tgt_uom) {
-                        args[tgt] = val.indexOf("/") === -1 ? flt(val) : val;
-                    } else if (factors && factors.rgt) {
-                        args[tgt] = flt((base * factors.rgt).toFixed(frappe.defaults.get_global_default("float_precision")));
-                    } else {
-                        args[tgt] = cint(args[key]) || args[key];
-                    }
-                });
-                delete args[key];
-            });
-
-            Object.keys(args).forEach(function(attribute) {
-                if (!rules.hasOwnProperty(attribute)) return;
-                var msg = [], out;
-                for (var i=0, j=rules[attribute].length; i < j; i++) {
-                    out = eval_in_context.call(args, rules[attribute][i]);
-                    if (!out) {
-                        msg.push(repl("Unable for ensure the rule \"%(1)s\" for the field \"%(0)s\"", {
-                            "0": attribute, "1": rules[attribute][i]}));
-                    }
-                }
-                if (msg.length) {
-                    frappe.throw(msg.join("<br>"));
-                }
-            });
-            Object.keys(args).forEach(function(attribute) {
- args[attribute] = args[attribute] + "";
-});
-            frappe.call({
-                method: "erpnext.controllers.item_variant.get_variant",
-                args: {
-                    "template": cur_frm.doc.name,
-                    "args": args
-                },
-                callback: function(r) {
-                    // returns variant item
-                    if (r.message) {
-                        var variant = r.message;
-                        var msgprint_dialog = frappe.msgprint(__("Item Variant {0} already exists with same attributes",
-                            [repl("<a href=\"#Form/Item/%(item_encoded)s\" class=\"strong variant-click\">%(item)s</a>", {
-                                item_encoded: encodeURIComponent(variant),
-                                item: variant
-                            })]
-                        ));
-                        msgprint_dialog.hide_on_page_refresh = true;
-                        msgprint_dialog.$wrapper.find(".variant-click").on("click", function() {
-                            d.hide();
-                        });
-                    } else {
-                        d.hide();
-                        frappe.call({
-                            method: "erpnext.controllers.item_variant.create_variant",
-                            args: {
-                                "item": cur_frm.doc.name,
-                                "args": args
-                            },
-                            callback: function(r) {
-                                var doclist = frappe.model.sync(r.message);
-                                frappe.set_route("Form", doclist[0].doctype, doclist[0].name);
-                            }
-                        });
-                    }
-                }
-            });
-        });
-
-        d.show();
-    },
+	rig_get_variant_dialog_data: function ( frm ) {
+		// One call per form load: values, linked size fields with their UOMs, and UOM factors
+		if ( !frm.__rig_variant_data || frm.__rig_variant_data_for !== frm.doc.name ) {
+			frm.__rig_variant_data_for = frm.doc.name;
+			frm.__rig_variant_data = frappe.call( {
+				method: "rigpl_erpnext.utils.attribute_query.get_variant_dialog_data",
+				args: { template: frm.doc.name },
+			} ).then( function ( r ) {
+				return r.message;
+			} );
+		}
+		return frm.__rig_variant_data;
+	},
+	rig_parse_number: function ( text ) {
+		// "4.5", "3", "3/16" or "1+1/2" (the format of the inch values)
+		var s = ( text + "" ).trim(), m;
+		if ( /^\d+(\.\d+)?$/.test( s ) ) return flt( s );
+		m = s.match( /^(?:(\d+)\+)?(\d+)\/(\d+)$/ );
+		if ( m && cint( m[ 3 ] ) ) return cint( m[ 1 ] || 0 ) + cint( m[ 2 ] ) / cint( m[ 3 ] );
+		frappe.throw( __( "Value {0} is not a number. Use 4.5, 3/16 or 1+1/2.", [ s ] ) );
+	},
+	rig_uom_factor: function ( factors, from_uom, to_uom ) {
+		if ( from_uom === to_uom ) return 1;
+		if ( factors[ from_uom ] && factors[ from_uom ][ to_uom ] ) return factors[ from_uom ][ to_uom ];
+		if ( factors[ to_uom ] && factors[ to_uom ][ from_uom ] ) return 1 / factors[ to_uom ][ from_uom ];
+		return null;
+	},
+	rig_variant_dialog_fields: function ( frm, data ) {
+		var fields = [], created = {};
+		frm.doc.attributes.forEach( function ( row ) {
+			var link = Object.keys( data.links ).find( function ( name ) {
+				return data.links[ name ].uoms.hasOwnProperty( row.attribute );
+			} );
+			var range = row.numeric_values ? __( "Min Value: {0}, Max Value: {1}, in Increments of: {2}",
+				[ row.from_range, row.to_range, row.increment ] ) : "";
+			if ( link ) {
+				// One Data field for all the UOMs of a size (d1 for d1_mm and d1_inch)
+				if ( created[ link ] || !row.use_in_description ) return;
+				created[ link ] = true;
+				fields.push( { label: link + " (" + row.field_name + ")", fieldname: link, reqd: 1, fieldtype: "Data", description: range } );
+				return;
+			}
+			var field = { label: row.attribute + " (" + row.field_name + ")", fieldname: row.attribute, reqd: 1, description: range };
+			if ( row.numeric_values ) {
+				fields.push( Object.assign( field, { fieldtype: "Float" } ) );
+				return;
+			}
+			var options = erpnext.item.rig_allowed_values( frm, row.attribute );
+			if ( !options.length ) options = data.values[ row.attribute ] || [];
+			Object.assign( field, { fieldtype: "Select", options: options } );
+			if ( options.length === 1 ) Object.assign( field, { default: options[ 0 ], read_only: 1, hidden: 1 } );
+			fields.push( field );
+		} );
+		return fields;
+	},
+	rig_allowed_values: function ( frm, attribute ) {
+		var allowed = [];
+		frappe.utils.filter_dict( frm.doc.item_variant_restrictions || [], { "attribute": attribute } ).forEach( function ( d ) {
+			if ( d.allowed_values ) allowed.push( d.allowed_values );
+		} );
+		return allowed;
+	},
+	rig_setup_uom_button: function ( frm, d, data, link, selected_uom ) {
+		// The UOM dropdown in front of a size field. It sets selected_uom[link].
+		var field = d.fields_dict[ link ], info = data.links[ link ];
+		var target = field.$input.parent(), menu = $( "<ul class=\"dropdown-menu\"></ul>" );
+		var button = $( "<div class=\"input-group-btn\"><button type=\"button\" class=\"btn btn-default dropdown-toggle\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"></button></div>" );
+		var select_uom = function ( attribute ) {
+			var uom = info.uoms[ attribute ];
+			selected_uom[ link ] = uom;
+			button.find( "button" ).text( uom );
+			var awesomplete = field.$input.data( "awesomplete_obj" );
+			if ( awesomplete ) awesomplete.destroy();
+			field.$input.removeData( "awesomplete_obj" );
+			var allowed = erpnext.item.rig_allowed_values( frm, attribute );
+			var list = allowed.length ? allowed : ( data.values[ attribute ] || [] );
+			if ( list.length ) {
+				field.$input.data( "awesomplete_obj", new Awesomplete( field.$input[ 0 ], {
+					list: list, minChars: 0, filter: Awesomplete.FILTER_STARTSWITH,
+				} ) );
+			}
+		};
+		Object.keys( info.uoms ).forEach( function ( attribute ) {
+			var option = $( "<li><a class=\"dropdown-item\"></a></li>" );
+			option.find( "a" ).text( info.uoms[ attribute ] ).on( "click", function () {
+				select_uom( attribute );
+			} );
+			menu.append( option );
+		} );
+		button.find( "button" ).text( info.source );
+		button.append( menu ).prependTo( target );
+		target.addClass( "input-group" ).removeAttr( "style" );
+		field.$input.on( "awesomplete-selectcomplete", function ( e ) {
+			field.parse_validate_and_set_in_model( e.originalEvent.text.value );
+		} );
+		var default_attribute = Object.keys( info.uoms ).find( function ( attribute ) {
+			return info.uoms[ attribute ] === info.default_uom;
+		} );
+		if ( default_attribute ) select_uom( default_attribute );
+	},
+	rig_convert_linked_sizes: function ( frm, data, args, selected_uom ) {
+		// Replace each size field (d1) with its attributes (d1_mm, d1_inch) in their UOMs
+		var numeric = {};
+		frm.doc.attributes.forEach( function ( row ) {
+			numeric[ row.attribute ] = cint( row.numeric_values );
+		} );
+		Object.keys( args ).filter( function ( key ) {
+			return data.links.hasOwnProperty( key );
+		} ).forEach( function ( link ) {
+			var val = ( args[ link ] + "" ).trim(), from_uom = selected_uom[ link ], uoms = data.links[ link ].uoms;
+			if ( !from_uom ) frappe.throw( __( "Select the {0} of {1} first", [ data.links[ link ].source, link ] ) );
+			var base = erpnext.item.rig_parse_number( val );
+			Object.keys( uoms ).forEach( function ( attribute ) {
+				var to_uom = uoms[ attribute ], factor;
+				if ( to_uom === from_uom ) {
+					args[ attribute ] = val.indexOf( "/" ) === -1 ? flt( val ) : val;
+					return;
+				}
+				factor = erpnext.item.rig_uom_factor( data.factors, from_uom, to_uom );
+				if ( !numeric[ attribute ] || !factor ) {
+					frappe.throw( __( "{0} cannot be calculated from {1}. Enter {2} in {3}.",
+						[ attribute, from_uom, link, to_uom ] ) );
+				}
+				args[ attribute ] = flt( ( base * factor ).toFixed( cint( frappe.defaults.get_global_default( "float_precision" ) ) || 3 ) );
+			} );
+			delete args[ link ];
+		} );
+	},
+	rig_check_restriction_rules: function ( frm, args ) {
+		// The rules (e.g. "d1_mm < w1_mm") come from the template, which only Item editors change.
+		var rules = {}, msg = [];
+		frappe.utils.filter_dict( frm.doc.item_variant_restrictions || [], { "is_numeric": 1 } ).forEach( function ( d ) {
+			if ( !d.rule ) return;
+			if ( !rules.hasOwnProperty( d.attribute ) ) rules[ d.attribute ] = [];
+			rules[ d.attribute ].push( d.rule );
+		} );
+		var names = Object.keys( args ).sort( function ( a, b ) {
+			return b.length - a.length;
+		} ).map( function ( name ) {
+			return name.replace( /[.*+?^${}()|[\]\\]/g, "\\$&" );
+		} );
+		var name_re = new RegExp( "(^|[^\\w])(" + names.join( "|" ) + ")(?![\\w])", "g" );
+		Object.keys( rules ).forEach( function ( attribute ) {
+			if ( !args.hasOwnProperty( attribute ) ) return;
+			rules[ attribute ].forEach( function ( rule ) {
+				var js = rule.replace( name_re, function ( m, before, name ) {
+					return before + "args[" + JSON.stringify( name ) + "]";
+				} );
+				var ok;
+				try {
+					ok = new Function( "args", "return (" + js + ");" )( args );
+				} catch ( e ) {
+					ok = false;
+				}
+				if ( !ok ) msg.push( __( "The rule \"{0}\" for the field \"{1}\" is not met", [ rule, attribute ] ) );
+			} );
+		} );
+		if ( msg.length ) frappe.throw( msg.join( "<br>" ) );
+	},
+	rig_make_variant: function ( frm, d, args ) {
+		Object.keys( args ).forEach( function ( attribute ) {
+			args[ attribute ] = args[ attribute ] + "";
+		} );
+		frappe.call( {
+			method: "erpnext.controllers.item_variant.get_variant",
+			args: { "template": frm.doc.name, "args": args },
+			callback: function ( r ) {
+				if ( r.message ) {
+					var variant = r.message;
+					var msgprint_dialog = frappe.msgprint( __( "Item Variant {0} already exists with same attributes",
+						[ repl( "<a href=\"/app/item/%(item_encoded)s\" class=\"strong variant-click\">%(item)s</a>", {
+							item_encoded: encodeURIComponent( variant ),
+							item: frappe.utils.escape_html( variant ),
+						} ) ]
+					) );
+					msgprint_dialog.hide_on_page_refresh = true;
+					msgprint_dialog.$wrapper.find( ".variant-click" ).on( "click", function () {
+						d.hide();
+					} );
+					return;
+				}
+				d.hide();
+				frappe.call( {
+					method: "erpnext.controllers.item_variant.create_variant",
+					args: { "item": frm.doc.name, "args": args },
+					callback: function ( r ) {
+						var doclist = frappe.model.sync( r.message );
+						frappe.set_route( "Form", doclist[ 0 ].doctype, doclist[ 0 ].name );
+					}
+				} );
+			}
+		} );
+	},
+	rig_make_new_variant_frm_restrictions: function ( frm ) {
+		erpnext.item.rig_get_variant_dialog_data( frm ).then( function ( data ) {
+			var selected_uom = {};
+			var d = new frappe.ui.Dialog( {
+				title: __( "Make Variant Based on Restrictions" ),
+				fields: erpnext.item.rig_variant_dialog_fields( frm, data ),
+			} );
+			Object.keys( d.fields_dict ).forEach( function ( fieldname ) {
+				if ( data.links.hasOwnProperty( fieldname ) ) {
+					erpnext.item.rig_setup_uom_button( frm, d, data, fieldname, selected_uom );
+				}
+			} );
+			d.set_primary_action( __( "Make" ), function ( args ) {
+				if ( !args ) return;
+				erpnext.item.rig_convert_linked_sizes( frm, data, args, selected_uom );
+				erpnext.item.rig_check_restriction_rules( frm, args );
+				erpnext.item.rig_make_variant( frm, d, args );
+			} );
+			d.show();
+		} );
+	},
     toggle_attributes: function(frm) {
         frm.toggle_display("attributes", frm.doc.has_variants || frm.doc.variant_of);
         frm.fields_dict.attributes.grid.toggle_reqd("attribute_value", frm.doc.variant_of ? 1 : 0);
