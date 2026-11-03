@@ -51,6 +51,7 @@ class EmployeeCase(FrappeTestCase):
         for doctype, name in (("Country", "India"), ("Country", "United States"), ("Branch", BR_INDIA),
                 ("Branch", BR_USA), ("Branch", BR_NONE)):
             frappe.clear_document_cache(doctype, name)
+        self.assertFalse(frappe.db.exists("Branch", BR_INDIA), "a test committed its rows")
 
     def messages(self):
         return " ".join(str(frappe.parse_json(m).get("message")) for m in frappe.local.message_log)
@@ -174,3 +175,76 @@ class TestAadhaarBlock(EmployeeCase):
         hr_utils.get_aadhaar_blocked(["_Test RIGPL Emp A"])
         with assert_max_queries(4, test_case=self):
             hr_utils.get_aadhaar_blocked(["_Test RIGPL Emp {}".format(c) for c in "ABCDEF"])
+
+
+PHONE_A = "9876543210"
+PHONE_B = "9123456780"
+LANDLINE = "011-23456789"
+
+
+def contact_phones(employee_name):
+    contact = frappe.db.get_value("Dynamic Link", {"link_doctype": "Employee", "link_name": employee_name,
+        "parenttype": "Contact"}, "parent")
+    return [row.phone for row in frappe.get_doc("Contact", contact).phone_nos] if contact else []
+
+
+class TestPhoneFields(EmployeeCase):
+    def test_split_phone_field(self):
+        cases = {
+            "{}, {}".format(PHONE_A, PHONE_B): ([PHONE_A, PHONE_B], ""),
+            "{}  / {}".format(PHONE_A, PHONE_B): ([PHONE_A, PHONE_B], ""),
+            "Test Person ({})".format(PHONE_A): ([PHONE_A], "Test Person"),
+            "{} & Mob {}".format(LANDLINE, PHONE_A): ([LANDLINE, PHONE_A], ""),
+            "{} - Father ".format(PHONE_A): ([PHONE_A], "Father"),
+            "Test Person ": ([], "Test Person"),
+        }
+        for text, expected in cases.items():
+            self.assertEqual(employee.split_phone_field(text), expected, text)
+
+    def test_valid_value_is_not_changed(self):
+        doc = new_employee(cell_number="+91 98765-43210", emergency_phone_number=LANDLINE)
+        employee.fix_phone_fields(doc)
+        self.assertEqual((doc.cell_number, doc.emergency_phone_number), ("+91 98765-43210", LANDLINE))
+        self.assertEqual((doc.flags.extra_mobiles, doc.flags.phone_notes), ([], []))
+        self.assertFalse(frappe.local.message_log)
+
+    def test_one_number_per_field(self):
+        doc = new_employee(cell_number="{}, {}".format(PHONE_A, PHONE_B),
+            emergency_phone_number="{} / {}".format(PHONE_B, PHONE_A), person_to_be_contacted="Test Person")
+        employee.fix_phone_fields(doc)
+        self.assertEqual((doc.cell_number, doc.emergency_phone_number), (PHONE_A, PHONE_B))
+        self.assertEqual(doc.flags.extra_mobiles, [PHONE_B])
+        self.assertEqual(doc.flags.phone_notes, ["Other Emergency Phone numbers: {}".format(PHONE_A)])
+
+    def test_name_in_emergency_phone(self):
+        doc = new_employee(emergency_phone_number="Test Person", person_to_be_contacted=None)
+        employee.fix_phone_fields(doc)
+        self.assertEqual((doc.emergency_phone_number, doc.person_to_be_contacted), ("", "Test Person"))
+        doc = new_employee(emergency_phone_number="Test Person", person_to_be_contacted="Other Person")
+        employee.fix_phone_fields(doc)
+        self.assertEqual(doc.person_to_be_contacted, "Other Person")
+        self.assertEqual(doc.flags.phone_notes, ["Text removed from Emergency Phone: Test Person"])
+
+    def test_moved_phones_go_to_job_and_comment(self):
+        insert_employee("_Test RIGPL Emp Phone")
+        doc = frappe.get_doc("Employee", "_Test RIGPL Emp Phone")
+        doc.flags.extra_mobiles, doc.flags.phone_notes = [PHONE_B], ["Text removed from Mobile: Test Person"]
+        with patch.object(frappe, "enqueue") as enqueue:
+            employee.save_moved_phones(doc)
+        enqueue.assert_called_once_with("rigpl_erpnext.rigpl_erpnext.validations.employee.add_mobiles_to_contact",
+            employee=doc.name, mobiles=[PHONE_B], enqueue_after_commit=True)
+        self.assertTrue(frappe.db.exists("Comment", {"reference_doctype": "Employee", "reference_name": doc.name,
+            "content": "Text removed from Mobile: Test Person"}))
+        self.assertIsNone(doc.flags.extra_mobiles)
+
+    # ERPNext's Contact after_insert commits; the test must not commit its rows
+    @patch("erpnext.telephony.doctype.call_log.call_log.link_existing_conversations")
+    def test_job_adds_mobiles_to_contact_once(self, link_conversations):
+        insert_employee("_Test RIGPL Emp Phone")
+        employee.add_mobiles_to_contact("_Test RIGPL Emp Phone", [PHONE_B])
+        phones = contact_phones("_Test RIGPL Emp Phone")
+        self.assertEqual(len(phones), 1)
+        self.assertTrue(phones[0].endswith(PHONE_B))
+        employee.add_mobiles_to_contact("_Test RIGPL Emp Phone", [PHONE_B])
+        self.assertEqual(len(contact_phones("_Test RIGPL Emp Phone")), 1)
+        link_conversations.assert_called_once()

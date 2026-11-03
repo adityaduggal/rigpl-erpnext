@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import re
 import frappe
-from frappe.utils import cint, getdate, split_emails
+import phonenumbers
+from frappe.utils import cint, getdate, split_emails, validate_phone_number
 from dateutil.relativedelta import relativedelta
 from frappe.contacts.address_and_contact import load_address_and_contact
 from rigpl_erpnext.utils.rigpl_perm import check_role, create_new_user_perm, delete_permission, \
@@ -12,12 +14,95 @@ from rigpl_erpnext.hr_rigpl.utils.hr_utils import BYPASS_LABEL, block_message, g
 from rohit_common.utils.rohit_common_utils import fn_check_digit
 from rohit_common.utils.email_utils import comma_email_validations
 
+PHONE_FIELDS = ("cell_number", "emergency_phone_number")
+PHONE_WORDS = re.compile(r"\b(mob(ile)?|ph(one)?|tel)\b\.?:?", re.IGNORECASE)
+
 
 def onload(doc, method):
     load_address_and_contact(doc)
 
 
+def split_phone_field(text, region="IN"):
+    """Returns ([phone numbers as typed], the other text) of a phone field"""
+    numbers, rest, last = [], [], 0
+    for match in phonenumbers.PhoneNumberMatcher(text, region):
+        numbers.append(match.raw_string.strip("()"))
+        rest.append(text[last:match.start])
+        last = match.end
+    rest.append(text[last:])
+    rest_text = PHONE_WORDS.sub(" ", " ".join(rest))
+    return numbers, re.sub(r"[\s,/&()\-:]+", " ", rest_text).strip()
+
+
+def get_phone_region(doc):
+    country = get_branch_country(doc.branch)
+    code = frappe.get_cached_value("Country", country, "code") if country else None
+    return (code or "IN").upper()
+
+
+def fix_phone_fields(doc):
+    """v13 allows one phone number in Mobile and Emergency Phone. The first number stays. The other
+    Mobile numbers go to the Contact of the Employee, the rest to a Comment (see save_moved_phones)"""
+    doc.flags.extra_mobiles, doc.flags.phone_notes = [], []
+    for field in PHONE_FIELDS:
+        value = (doc.get(field) or "").strip()
+        if not value or validate_phone_number(value):
+            continue
+        numbers, rest = split_phone_field(value, get_phone_region(doc))
+        label = doc.meta.get_label(field)
+        doc.set(field, numbers[0] if numbers else "")
+        if field == "cell_number":
+            doc.flags.extra_mobiles += numbers[1:]
+        elif numbers[1:]:
+            doc.flags.phone_notes.append("Other {} numbers: {}".format(label, ", ".join(numbers[1:])))
+        if rest and field == "emergency_phone_number" and not doc.person_to_be_contacted:
+            doc.person_to_be_contacted = rest
+        elif rest:
+            doc.flags.phone_notes.append("Text removed from {}: {}".format(label, rest))
+        frappe.msgprint("{} allows one phone number. Kept {}. The other Mobile numbers go to the Contact of the "
+            "Employee in a minute, the rest to a Comment.".format(label, doc.get(field) or "none"), indicator="orange")
+
+
+def save_moved_phones(doc):
+    extra_mobiles, notes = doc.flags.extra_mobiles or [], list(doc.flags.phone_notes or [])
+    doc.flags.extra_mobiles = doc.flags.phone_notes = None
+    if extra_mobiles:
+        # A new Contact commits in ERPNext's after_insert (call_log.link_existing_conversations), so it
+        # is saved in a job after the Employee is committed
+        frappe.enqueue("rigpl_erpnext.rigpl_erpnext.validations.employee.add_mobiles_to_contact",
+            employee=doc.name, mobiles=extra_mobiles, enqueue_after_commit=True)
+    if notes:
+        doc.add_comment("Comment", "<br>".join(notes))
+
+
+def add_mobiles_to_contact(employee, mobiles):
+    """Adds the mobiles to the Contact linked to the Employee, or to a new one. If the Contact does
+    not save (a Contact with 2 mobiles fails the v13 phone check), the numbers go to a Comment."""
+    doc = frappe.get_doc("Employee", employee)
+    name = frappe.db.get_value("Dynamic Link", {"link_doctype": "Employee", "link_name": doc.name,
+        "parenttype": "Contact"}, "parent")
+    contact = frappe.get_doc("Contact", name) if name else frappe.get_doc({"doctype": "Contact",
+        "first_name": doc.employee_name or doc.first_name,
+        "links": [{"link_doctype": "Employee", "link_name": doc.name}]})
+    known = {re.sub(r"\D", "", row.phone or "")[-10:] for row in contact.get("phone_nos") or []}
+    country = get_branch_country(doc.branch)
+    new = [num for num in mobiles if re.sub(r"\D", "", num)[-10:] not in known]
+    if not new:
+        return
+    for num in new:
+        contact.append("phone_nos", {"phone": num, "country": country})
+    contact.flags.ignore_permissions = True
+    frappe.db.savepoint("employee_contact")
+    try:
+        contact.save()
+    except frappe.ValidationError:
+        frappe.db.rollback(save_point="employee_contact")
+        frappe.clear_last_message()
+        doc.add_comment("Comment", "Other Mobile numbers: {}".format(", ".join(new)))
+
+
 def validate(doc, method):
+    fix_phone_fields(doc)
     # Validation for Age of Employee should be Greater than 18 years at the time of Joining.
     if doc.holiday_list:
         is_base_list = frappe.get_value("Holiday List", doc.holiday_list, "is_base_list")
@@ -84,6 +169,7 @@ def validate_aadhaar_rules(doc):
 
 
 def on_update(doc, method):
+    save_moved_phones(doc)
     allowed_ids = []
     allowed_ids = get_employees_allowed_ids(doc.employee)
     for user in allowed_ids:
