@@ -7,6 +7,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, getdate, nowdate
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
 from rigpl_erpnext.tests.test_sales_utils import insert_customer
 from rigpl_erpnext.tests.test_variant_table import insert_item, insert_item_price
@@ -89,3 +90,20 @@ class TestTodoReport(ReportTestCase):
 
         self.assertEqual([row[0] for row in data], [mine])
         self.assertIn("/app/Form/Lead/", data[0][5])
+
+
+class TestTodSalesInvoice(ReportTestCase):
+    def test_summary_and_detail(self):
+        insert_item(ITEM, variant_of=TEMPLATE)
+        insert_item(ITEM_2, variant_of=TEMPLATE)
+        frappe.db.set_value("Item", ITEM, "stock_maintained", 1, update_modified=False)
+        insert_invoice(CUSTOMER, [(ITEM, 100), (ITEM_2, 50)])
+        filters = dict(customer=CUSTOMER, from_date="2026-01-01", to_date="2026-01-31")
+
+        split = self.assert_queries(3, lambda: tod_sales_invoice.execute(
+            frappe._dict(filters, summary=1, separated_tod=1))[1])
+
+        self.assertEqual(split, [[CUSTOMER, 50, "No"], [CUSTOMER, 100, "Yes"]])
+        self.assertEqual(tod_sales_invoice.execute(frappe._dict(filters, summary=1))[1], [[CUSTOMER, 150]])
+        detail = tod_sales_invoice.execute(frappe._dict(filters))[1]
+        self.assertEqual([(row[3], row[10]) for row in detail], [(ITEM, "Yes"), (ITEM_2, "No")])
