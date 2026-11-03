@@ -3,17 +3,18 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe import _
-from frappe.desk.reportview import execute as runreport
-from frappe.utils import getdate
+from frappe.query_builder.functions import Count
+from pypika.terms import Case
+
 
 def execute(filters=None):
 	if not filters: filters = {}
 
 	columns = get_columns(filters)
-	result = get_todo(filters)
+	result = get_summary() if filters.get("summary") == 1 else get_todo(filters)
 
 	return columns, result
+
 
 def get_columns(filters):
 	if filters.get("summary") != 1:
@@ -27,58 +28,41 @@ def get_columns(filters):
 			"User::200", "Open ToDo:Int:80", "Closed ToDo:Int:80", "User Status::100"
 		]
 
+
 def get_todo(filters):
-	conditions = get_conditions(filters)
-	
-	if filters.get("summary") != 1:
-		query = """SELECT name, priority, date, creation, description, 
-			reference_type, reference_name, owner, assigned_by
-		FROM `tabToDo` %s
-		ORDER BY owner, date""" % conditions
-			
-		data = frappe.db.sql(query ,as_dict=1)
-		result = []
-		role = frappe.db.sql("""SELECT role FROM `tabUserRole` 
-			WHERE parent = '%s'""" % frappe.session.user, as_list=1)
-		for i in role:
-			if 'System Manager' in i:
-				role = "Allowed"
-		for todo in data:
-			if todo.owner==frappe.session.user or todo.assigned_by==frappe.session.user or role == 'Allowed':
-				if todo.reference_type:
-					todo.reference = """<a href="#Form/%s/%s">%s: %s</a>""" % (todo.reference_type,
-							todo.reference_name, todo.reference_type, todo.reference_name)
-				result.append([todo.name, todo.priority, todo.date, todo.creation,
-					todo.description, todo.reference, todo.owner, todo.assigned_by])
-	else:
-
-		query = """SELECT td.owner, COUNT(IF(td.status = 'Open', 1, NULL)), 
-			COUNT(IF(td.status = 'Closed', 1, NULL)), IF(us.enabled = 1, "Enabled", "Disabled")
-			FROM `tabToDo` td, `tabUser` us
-			WHERE td.owner = us.name
-			GROUP BY td.owner"""
-		result = frappe.db.sql(query, as_list=1)
-
+	"""A System Manager sees all ToDos; other users only the ToDos they own or assigned."""
+	td = frappe.qb.DocType("ToDo")
+	query = (
+		frappe.qb.from_(td)
+		.select(td.name, td.priority, td.date, td.creation, td.description, td.reference_type,
+			td.reference_name, td.owner, td.assigned_by)
+		.orderby(td.owner)
+		.orderby(td.date)
+	)
+	for field in ("status", "owner", "assigned_by"):
+		if filters.get(field):
+			query = query.where(td[field] == filters[field])
+	user = frappe.session.user
+	if "System Manager" not in frappe.get_roles(user):
+		query = query.where((td.owner == user) | (td.assigned_by == user))
+	result = []
+	for todo in query.run(as_dict=1):
+		reference = None
+		if todo.reference_type:
+			reference = frappe.get_desk_link(todo.reference_type, todo.reference_name)
+		result.append([todo.name, todo.priority, todo.date, todo.creation, todo.description, reference,
+			todo.owner, todo.assigned_by])
 	return result
 
 
-
-def get_conditions(filters):
-
-	conditions = ""
-	
-	if filters.get("status"):
-		conditions += "WHERE status = '%s'" % filters["status"]
-
-	if filters.get("owner"):
-		conditions += " and owner = '%s'" % filters["owner"]
-
-
-	if filters.get("assigned_by"):
-		conditions += " and assigned_by = '%s'" % filters["assigned_by"]
-		
-	if filters.get("trial_owner"):
-		conditions += " and tt.trial_owner = '%s'" % filters["trial_owner"]
-		
-
-	return conditions
+def get_summary():
+	td = frappe.qb.DocType("ToDo")
+	us = frappe.qb.DocType("User")
+	return (
+		frappe.qb.from_(td)
+		.join(us).on(us.name == td.owner)
+		.select(td.owner, Count(Case().when(td.status == "Open", 1)), Count(Case().when(td.status == "Closed", 1)),
+			Case().when(us.enabled == 1, "Enabled").else_("Disabled"))
+		.groupby(td.owner)
+		.run(as_list=1)
+	)

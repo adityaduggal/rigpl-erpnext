@@ -7,6 +7,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, getdate, nowdate
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
 from rigpl_erpnext.tests.test_sales_utils import insert_customer
 from rigpl_erpnext.tests.test_variant_table import insert_item, insert_item_price
 from rigpl_erpnext.utils.report_utils import tree_and_descendants
@@ -75,3 +76,16 @@ class TestReportUtils(ReportTestCase):
         self.assertEqual(sorted(tree_and_descendants("Territory", TERRITORY)), sorted([TERRITORY, CHILD_TERRITORY]))
         self.assertEqual(tree_and_descendants("Territory", CHILD_TERRITORY), [CHILD_TERRITORY])
         self.assertRaises(frappe.ValidationError, tree_and_descendants, "Territory", "_Test RIGPL No Territory")
+
+
+class TestTodoReport(ReportTestCase):
+    def test_user_sees_own_todos_with_desk_link(self):
+        mine = raw("ToDo", status="Open", description="O'Brien call", owner="Guest", creation=DATE,
+            reference_type="Lead", reference_name=LEAD)
+        raw("ToDo", status="Open", description="other", owner="Administrator", creation=DATE)
+        frappe.set_user("Guest")
+
+        data = todo_report.execute(frappe._dict(status="Open"))[1]
+
+        self.assertEqual([row[0] for row in data], [mine])
+        self.assertIn("/app/Form/Lead/", data[0][5])
