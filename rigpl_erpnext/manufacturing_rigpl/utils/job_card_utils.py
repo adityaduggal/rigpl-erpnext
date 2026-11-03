@@ -11,9 +11,11 @@ import frappe
 from frappe import _
 from frappe.query_builder.functions import Sum
 from frappe.utils import (
+    escape_html,
     flt,
     get_datetime,
     get_time,
+    get_url_to_form,
     getdate,
     nowdate,
     nowtime,
@@ -1182,9 +1184,9 @@ def pick_last_jc(jc_list, subcon_ops, po_rows):
                 # Job Work operation: if its PO is pending, show the PO# and PO Date
                 for po in po_rows.get(jc_list[i].name, []):
                     if po.stock_qty > po.received_qty:
-                        po_link = """<a href="#Form/Purchase Order/%s" target="_blank">%s</a>""" % (
-                            po.name,
-                            po.name,
+                        po_link = """<a href="%s" target="_blank">%s</a>""" % (
+                            get_url_to_form("Purchase Order", po.name),
+                            escape_html(po.name),
                         )
                         jc["remarks"] += (
                             f" PO# {po_link} Pending Qty= {po.stock_qty - po.received_qty} "

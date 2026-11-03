@@ -57,6 +57,7 @@ class TestPickLastJobCard(FrappeTestCase):
         self.assertEqual(jc.name, "JC1")
         self.assertIn("PO# ", jc.remarks)
         self.assertIn("Pending Qty= 4 PO Date: 2026-10-01", jc.remarks)
+        self.assertIn('/app/purchase-order/PO-1" target="_blank">PO-1</a>', jc.remarks)
 
     def test_received_subcontracting_po_goes_on(self):
         rows = [job_card("JC1", 1, "Coating"), job_card("JC2", 2, "Marking", docstatus=0)]
@@ -91,17 +92,52 @@ class TestProcessSheetAnalysis(FrappeTestCase):
 
 class TestProductionPlanningReport(FrappeTestCase):
     def test_view(self):
-        self.assertEqual(ppr.get_view(frappe._dict(summary=1)), "summary")
+        self.assertEqual(ppr.get_view(frappe._dict(view="Post Production Summary")), "summary")
+        self.assertEqual(ppr.get_view(frappe._dict(view="Production Planning")), "production_planning")
         self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict())
-        self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict(summary=1, mach_eff=1))
-        self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict(op_time_analysis=1))
-        self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict(mach_eff=1))
+        self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict(view="summary"))
+        self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict(view=["!=", ""]))
+        self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict(view="Operation Time Analysis"))
+        self.assertRaises(frappe.ValidationError, ppr.get_view, frappe._dict(view="Machine Efficiency"))
 
     def test_attribute_cells_round_sizes_only(self):
         cells = ppr.get_attribute_cells({"Base Material": "HSS", "d1_mm": "4.50"}, ppr.ATTS)
         self.assertEqual(cells[0], "HSS")
         self.assertEqual(cells[ppr.ATTS.index("d1_mm")], 4.5)
         self.assertIsNone(cells[ppr.ATTS.index("w1_mm")])
+
+
+FAN_OUT_WS = "_Test RIGPL Fan-out WS"
+FAN_OUT_ITEM = "_Test RIGPL Fan-out Item"
+FAN_OUT_DATE = "2030-01-01"
+
+
+class TestTimeLogFanOut(ReportTestCase):
+    """A Job Card with 2 time logs must count once, as with 1 time log."""
+
+    def setUp(self):
+        raw("Workstation", name=FAN_OUT_WS, workstation_name=FAN_OUT_WS, hour_rate=60)
+        raw("Item", name=FAN_OUT_ITEM, item_code=FAN_OUT_ITEM, item_name=FAN_OUT_ITEM)
+        self.jc = raw("Process Job Card RIGPL", docstatus=1, posting_date=FAN_OUT_DATE, workstation=FAN_OUT_WS,
+            production_item=FAN_OUT_ITEM, operation="_Test RIGPL Op", for_quantity=10, total_completed_qty=10,
+            total_rejected_qty=0, total_time_in_mins=60)
+        for hour in ("10", "11"):
+            raw("Job Card Time Log", parent=self.jc, parenttype="Process Job Card RIGPL", parentfield="time_logs",
+                from_time="%s %s:00:00" % (FAN_OUT_DATE, hour), to_time="%s %s:30:00" % (FAN_OUT_DATE, hour),
+                time_in_mins=30)
+
+    def test_machine_efficiency_hours(self):
+        filters = frappe._dict(view="Machine Efficiency", mach_eff_type="Total", from_date=FAN_OUT_DATE,
+            to_date=FAN_OUT_DATE)
+        rows = [row for row in ppr.execute(filters)[1] if row[0] == FAN_OUT_WS]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][3], 1)
+
+    def test_op_time_analysis_one_row(self):
+        filters = frappe._dict(view="Operation Time Analysis", operation="_Test RIGPL Op", item=FAN_OUT_ITEM,
+            from_date=FAN_OUT_DATE, to_date=FAN_OUT_DATE)
+        data = ppr.execute(filters)[1]
+        self.assertEqual([row[-2] for row in data], [self.jc])
 
 
 class TestBomTemplates(FrappeTestCase):

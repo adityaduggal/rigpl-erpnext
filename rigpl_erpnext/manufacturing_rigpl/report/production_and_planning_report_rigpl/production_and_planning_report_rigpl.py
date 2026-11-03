@@ -1,12 +1,11 @@
 # Copyright (c) 2013, Rohit Industries Group Private Limited and contributors
 # For license information, please see license.txt
 
-from __future__ import unicode_literals
-
 import frappe
+from frappe import _
 from frappe.query_builder.functions import CustomFunction, IfNull, Sum
-from frappe.utils import cint, flt, getdate, nowdate
-from pypika.terms import Criterion
+from frappe.utils import cint, cstr, escape_html, flt, get_url_to_form, getdate, nowdate
+from pypika.terms import Criterion, ExistsCriterion
 
 from ....manufacturing_rigpl.utils.job_card_utils import get_last_jc_for_so_items
 from ....utils.item_attribute_utils import (
@@ -19,7 +18,13 @@ from ....utils.report_utils import blank_zeros
 
 Round = CustomFunction("ROUND", ["value", "digits"])
 
-VIEWS = ("mach_eff", "summary", "production_planning", "order_wise_summary", "op_time_analysis")
+VIEWS = {
+    "Production Planning": "production_planning",
+    "Post Production Summary": "summary",
+    "SO wise Summary": "order_wise_summary",
+    "Operation Time Analysis": "op_time_analysis",
+    "Machine Efficiency": "mach_eff",
+}
 SIZE_ATTS = ["d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm"]
 ATTS = ["Base Material", "Tool Type", "Special Treatment", "Series"] + SIZE_ATTS
 PLANNING_SORT_ATTS = ATTS[:7]
@@ -27,13 +32,12 @@ OP_TIME_ATTS = ["Base Material", "Tool Type", "Series"] + SIZE_ATTS
 
 
 def execute(filters=None):
-    columns = get_columns(filters)
-    data = get_data(filters)
-    return columns, data
+    view = get_view(filters)
+    return get_columns(filters, view), get_data(filters, view)
 
 
-def get_columns(filters):
-    if filters.get("summary") == 1:
+def get_columns(filters, view):
+    if view == "summary":
         return [
             "Employee Name::150",
             "Workstation:Link/Workstation:150",
@@ -47,7 +51,7 @@ def get_columns(filters):
             "Time Per Pc:Float:80",
             "JC#:Link/Process Job Card RIGPL:100",
         ]
-    elif filters.get("production_planning") == 1:
+    elif view == "production_planning":
         return [
             {
                 "label": "JC#",
@@ -81,7 +85,7 @@ def get_columns(filters):
             "Qty Avail:Float:80",
             "Creation:Datetime:120",
         ]
-    elif filters.get("order_wise_summary") == 1:
+    elif view == "order_wise_summary":
         return [
             "SO#:Link/Sales Order:150",
             "SO Date:Date:80",
@@ -98,7 +102,7 @@ def get_columns(filters):
             "Qty Avail:Float:80",
             "Remarks::400",
         ]
-    elif filters.get("op_time_analysis") == 1:
+    elif view == "op_time_analysis":
         return [
             "Posting Date:Date:80",
             "Employee Name::150",
@@ -122,31 +126,27 @@ def get_columns(filters):
             "JC#:Link/Process Job Card RIGPL:100",
             "Description::300",
         ]
-    elif filters.get("mach_eff") == 1:
-        if filters.get("mach_eff_type") == "Total":
-            return [
-                "Workstation:Link/Workstation:150",
-                "Total Days:Int:80",
-                "Total Hours:Int:100",
-                "Hours Worked:Float:100",
-                "Efficiency:Percent:100",
-                "Disabled:Int:50",
-            ]
-        else:
-            return [
-                "Workstation:Link/Workstation:150",
-                "Date:Date:80",
-                "Total Hours:Int:100",
-                "Hours Worked:Float:100",
-                "Efficiency:Percent:100",
-                "Disabled:Int:50",
-            ]
+    if filters.get("mach_eff_type") == "Total":
+        return [
+            "Workstation:Link/Workstation:150",
+            "Total Days:Int:80",
+            "Total Hours:Int:100",
+            "Hours Worked:Float:100",
+            "Efficiency:Percent:100",
+            "Disabled:Int:50",
+        ]
     else:
-        frappe.throw("Select one of the Check Boxes.")
+        return [
+            "Workstation:Link/Workstation:150",
+            "Date:Date:80",
+            "Total Hours:Int:100",
+            "Hours Worked:Float:100",
+            "Efficiency:Percent:100",
+            "Disabled:Int:50",
+        ]
 
 
-def get_data(filters):
-    view = get_view(filters)
+def get_data(filters, view):
     if view == "summary":
         return get_summary_data(filters, view)
     if view == "production_planning":
@@ -160,14 +160,11 @@ def get_data(filters):
 
 def get_view(filters):
     """
-    Returns the checked view and checks its mandatory filters
+    Returns the internal key of the selected view and checks its mandatory filters
     """
-    views = [view for view in VIEWS if cint(filters.get(view))]
-    if not views:
-        frappe.throw("One checkbox is needed to be checked")
-    elif len(views) > 1:
-        frappe.throw("Only 1 checkbox should be checked")
-    view = views[0]
+    view = VIEWS.get(cstr(filters.get("view")))
+    if not view:
+        frappe.throw(_("Select a View"))
     if view == "op_time_analysis" and not filters.get("operation"):
         frappe.throw("For Operation Time Analysis Operation is Mandatory")
     if view == "mach_eff" and not filters.get("mach_eff_type"):
@@ -300,7 +297,7 @@ def get_process_sheet_links(so_items):
             .run(as_dict=True)
         )
         for d in rows:
-            link = """<a href="#Form/Process Sheet/%s" target="_blank">%s</a>""" % (d.name, d.name)
+            link = form_link("Process Sheet", d.name)
             links[d.sales_order_item] = links.get(d.sales_order_item, "") + link + "\n"
     return links
 
@@ -308,14 +305,11 @@ def get_process_sheet_links(so_items):
 def get_op_time_data(filters, view):
     jc = frappe.qb.DocType("Process Job Card RIGPL")
     ws = frappe.qb.DocType("Workstation")
-    tlog = frappe.qb.DocType("Job Card Time Log")
     it = frappe.qb.DocType("Item")
     job_cards = (
         frappe.qb.from_(jc)
         .join(ws)
         .on(ws.name == jc.workstation)
-        .join(tlog)
-        .on(tlog.parent == jc.name)
         .join(it)
         .on(it.name == jc.production_item)
         .select(
@@ -326,9 +320,7 @@ def get_op_time_data(filters, view):
             jc.description,
         )
         .where(jc.docstatus == 1)
-        .where(tlog.parenttype == "Process Job Card RIGPL")
-        .where(tlog.from_time.isnotnull())
-        .where(tlog.to_time.isnotnull())
+        .where(has_time_log(jc, need_to_time=True))
         .where(get_jc_conditions(jc, filters, view))
         .where(attribute_filters(jc.production_item, get_attribute_values(filters)))
         .orderby(jc.posting_date)
@@ -358,16 +350,13 @@ def get_machine_efficiency_data(filters, view):
     ws = frappe.qb.DocType("Workstation")
     machines = frappe.qb.from_(ws).select(ws.name, ws.disabled).run(as_dict=True)
     jc = frappe.qb.DocType("Process Job Card RIGPL")
-    tlog = frappe.qb.DocType("Job Card Time Log")
     query = (
         frappe.qb.from_(jc)
-        .join(tlog)
-        .on(tlog.parent == jc.name)
         .join(ws)
         .on(ws.name == jc.workstation)
         .select(jc.workstation, Sum(jc.total_time_in_mins).as_("tot_mins"))
         .where(jc.docstatus == 1)
-        .where(tlog.from_time.isnotnull())
+        .where(has_time_log(jc))
         .where(get_jc_conditions(jc, filters, view))
         .groupby(jc.workstation)
         .orderby(jc.workstation)
@@ -391,6 +380,27 @@ def get_machine_efficiency_data(filters, view):
             worked_hrs = rows[0].tot_mins / 60
             data.append([mc.name, days, tot_hrs, worked_hrs, worked_hrs / tot_hrs * 100, mc.disabled])
     return [blank_zeros(row) for row in data]
+
+
+def has_time_log(jc, need_to_time=False):
+    """
+    Returns an EXISTS criterion for a started time log. A join would count a Job Card once per time log.
+    """
+    tlog = frappe.qb.DocType("Job Card Time Log")
+    query = (
+        frappe.qb.from_(tlog)
+        .select(tlog.name)
+        .where(tlog.parent == jc.name)
+        .where(tlog.parenttype == "Process Job Card RIGPL")
+        .where(tlog.from_time.isnotnull())
+    )
+    if need_to_time:
+        query = query.where(tlog.to_time.isnotnull())
+    return ExistsCriterion(query)
+
+
+def form_link(doctype, name):
+    return """<a href="%s" target="_blank">%s</a>""" % (get_url_to_form(doctype, name), escape_html(name))
 
 
 def get_jc_conditions(jc, filters, view):
