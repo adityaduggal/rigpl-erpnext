@@ -20,6 +20,8 @@ from rigpl_erpnext.website_rigpl.item_sync import (
     get_pl_item_mismatches,
     make_missing_web_items,
     sync_web_items,
+    sync_web_search,
+    sync_web_specs,
 )
 
 # The fields of Item Default that a variant takes from its template (see check_item_defaults).
@@ -73,8 +75,13 @@ def check_web_items():
     # sync_variants_from_templates changes long descriptions and clears no cache.
     made = make_missing_web_items()
     changed = sync_web_items()
+    specs = sync_web_specs()
+    search = sync_web_search()
     clear_cache()
-    print(f"Website Items made = {made}, changed as per Item = {changed}")
+    print(
+        f"Website Items made = {made}, changed as per Item = {changed}, "
+        f"specifications = {specs}, search rows = {search}"
+    )
     frappe.db.commit()
 
 

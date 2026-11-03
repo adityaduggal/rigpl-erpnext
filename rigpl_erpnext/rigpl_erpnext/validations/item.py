@@ -27,7 +27,6 @@ def validate(doc, method):
     validate_attribute_numeric(doc)
     validate_reoder(doc)
     web_catalog(doc)
-    doc.page_name = doc.item_name
     description, long_desc = generate_description(doc)
     doc.description = description
     # v13 Item has no web_long_description field. on_update writes it to the Website Item.
@@ -50,10 +49,7 @@ def validate(doc, method):
     if doc.variant_of is None:
         doc.item_name = doc.name
         doc.item_code = doc.name
-        doc.page_name = doc.name
         doc.description = doc.name
-    else:
-        set_website_specs(doc,method)
 
 
 def validate_pl_item_rule(doc):
@@ -91,7 +87,6 @@ def autoname(doc,method):
     if doc.variant_of:
         (serial, code) = generate_item_code(doc,method)
         doc.name = code
-        doc.page_name = doc.name
         nxt_serial = fn_next_string(doc,serial[0][0])
         frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 
@@ -134,37 +129,3 @@ def generate_item_code(doc,method):
         chk_digit = fn_check_digit(code)
         code = code + str(chk_digit)
         return serial, code
-
-
-#Set the Website Specifications automatically from Template, Attribute and Variant Table
-#This is done only for price list items without variants (the v12 show_variant_in_website rule)
-def set_website_specs(doc,method):
-    if cint(doc.pl_item) and not doc.has_variants:
-        template = frappe.get_doc("Item", doc.variant_of)
-        web_spec = []
-        for temp_att in template.attributes:
-            temp = []
-            if temp_att.use_in_description == 1:
-                attribute_doc = frappe.get_doc("Item Attribute", temp_att.attribute)
-                att_val = frappe.db.sql("""SELECT attribute_value
-					FROM `tabItem Variant Attribute`
-					WHERE parent = '%s' AND attribute = '%s'"""%
-                        (doc.name, temp_att.attribute), as_list=1)
-                for att in doc.attributes:
-                    if att.attribute == attribute_doc.name:
-                        if attribute_doc.numeric_values == 1:
-                            temp.insert(0, temp_att.field_name)
-                            temp.insert(1, str(att.attribute_value))
-                        else:
-                            lng_desc = frappe.db.sql("""SELECT long_description FROM `tabItem Attribute Value`
-							WHERE parent = '%s' AND attribute_value = '%s'""" % (attribute_doc.name,
-                                                                                                                                     att.attribute_value), as_list=1)
-                            temp.insert(0,temp_att.field_name)
-                            temp.insert(1,lng_desc[0][0][1:-1])
-                        web_spec.append(temp)
-                        break
-        doc.set("website_specifications", [])
-        for label, desc in web_spec:
-            row = doc.append("website_specifications")
-            row.label = label
-            row.description = desc

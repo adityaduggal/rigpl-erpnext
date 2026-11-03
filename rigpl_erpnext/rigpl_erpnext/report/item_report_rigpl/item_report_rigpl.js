@@ -103,7 +103,7 @@ frappe.query_reports["Item Report RIGPL"] = {
 		},
 		{
 			"fieldname":"show_in_website",
-			"label": "Show in Website",
+			"label": "Show in Website (PL Item)",
 			"fieldtype": "Check"
 		}
 	],

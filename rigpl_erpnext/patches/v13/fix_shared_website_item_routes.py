@@ -2,7 +2,6 @@ import frappe
 from frappe.query_builder.functions import Coalesce
 from frappe.website.render import clear_cache
 
-from rigpl_erpnext.website_rigpl.item_sync import sync_web_items
 from rigpl_erpnext.website_rigpl.route_sync import add_redirects
 from rigpl_erpnext.website_rigpl.routes import plan_shared_route_fixes
 
@@ -17,14 +16,15 @@ def execute():
     - #99: after the migration, 2,493 Website Items shared 133 routes, so 20 template pages
       showed a variant. Give each Website Item a route of its own.
     - #105: ERPNext made a template Website Item without its web fields when a variant came
-      before its template. Copy the web fields from Item, and apply the Item rules
-      (`website_rigpl/item_sync.py`).
+      before its template. Copy the web fields from Item.
+    The Item rules (`website_rigpl/item_sync.py`) are applied in `website_item_group_listing`,
+    after `convert_item_yes_no_to_check`: here `pl_item` is still "Yes"/"No" text, and
+    `cint("Yes")` is 0, so the sync would unpublish each Website Item.
     """
     fix_shared_routes()
     publish_templates_of_published_variants()
     move_item_website_item_groups()
     fill_empty_web_fields_from_item()
-    print(f"Website Items changed as per Item: {sync_web_items()}.")
     clear_cache()
 
 

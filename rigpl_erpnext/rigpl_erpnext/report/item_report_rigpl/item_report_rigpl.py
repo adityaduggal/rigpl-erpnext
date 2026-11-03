@@ -84,7 +84,7 @@ def get_item_list(filters):
     if filters.get("eol"):
         query = query.where(IfNull(it.end_of_life, "2099-12-31") > filters["eol"])
     if filters.get("show_in_website") == 1:
-        query = query.where(it.show_variant_in_website == 1)
+        query = query.where(it.pl_item == 1)
     if filters.get("item"):
         query = query.where(it.name == filters["item"])
     if filters.get("variant_of"):

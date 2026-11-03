@@ -60,7 +60,7 @@ def get_conditions(filters):
 		conditions_it += "AND IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
 			
 	if filters.get("show_in_website") ==1:
-		conditions_it += " AND it.show_in_website =%s" % filters["show_in_website"]
+		conditions_it += " AND it.pl_item = 1"
 	
 	if filters.get("item"):
 		conditions_it += " AND it.name = '%s'" % filters["item"]

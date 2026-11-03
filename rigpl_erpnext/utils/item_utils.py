@@ -130,21 +130,6 @@ def web_catalog(it_doc):
     validate_stock_fields(it_doc)
     validate_restriction(it_doc)
     validate_item_defaults(it_doc)
-    it_doc.website_image = it_doc.image
-    it_doc.thumbnail = it_doc.image
-    # A price list item has a published Website Item (website_rigpl/item_sync.py, #106)
-    if cint(it_doc.pl_item):
-        rol = frappe.db.sql(
-            """SELECT warehouse_reorder_level
-        FROM `tabItem Reorder` WHERE parent = %s """,
-            (it_doc.name,),
-            as_list=1,
-        )
-        if it_doc.item_defaults:
-            for d in it_doc.item_defaults:
-                it_doc.website_warehouse = d.default_warehouse
-        if rol:
-            it_doc.weightage = rol[0][0]
 
 
 def validate_attribute_numeric(it_doc):
