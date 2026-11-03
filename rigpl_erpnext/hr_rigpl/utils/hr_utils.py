@@ -4,29 +4,32 @@
 from typing import Dict, Iterable, List, Optional
 
 import frappe
+from frappe.query_builder.functions import Count
 from frappe.utils import flt, getdate
 
 from rigpl_erpnext.utils.item_attribute_utils import chunks
 
 
-def get_employee_holidays(emp_name, frm_date, to_date):
+def get_base_list_holiday_counts(base_lists: Iterable[str], frm_date, to_date) -> Dict[str, int]:
     """
-    Returns the holidays and working dates for employee in given date
-    Emp_name = Employee Name
-    From Date and To Date are Datetime objects
+    {base holiday list: number of holidays from frm_date to to_date} in the holiday lists made from
+    each base list (is_base_list = 0). 1 query for each chunk.
     """
-    bs_hd_list = frappe.get_value("Employee", emp_name, "holiday_list")
-    tot_days = (getdate(to_date) - getdate(frm_date)).days + 1
-    hols = frappe.db.sql(
-        f"""SELECT hol.parent, hol.holiday_date, hol.description, hol.weekly_off
-                         FROM `tabHoliday` hol, `tabHoliday List` hl WHERE hl.is_base_list=0 
-                         AND hol.parent = hl.name AND hol.parenttype = 'Holiday List'
-                         AND hl.base_holiday_list = '{bs_hd_list}' AND hol.holiday_date >= '{frm_date}'
-                         AND hol.holiday_date <= '{to_date}'""",
-        as_list=1,
-    )
-    holidays = len(hols)
-    return tot_days, holidays
+    hol = frappe.qb.DocType("Holiday")
+    hl = frappe.qb.DocType("Holiday List")
+    counts: Dict[str, int] = {}
+    for chunk in chunks(base_lists):
+        rows = (
+            frappe.qb.from_(hol)
+            .join(hl).on(hl.name == hol.parent)
+            .select(hl.base_holiday_list, Count(hol.name))
+            .where((hl.is_base_list == 0) & (hol.parenttype == "Holiday List") & hl.base_holiday_list.isin(chunk))
+            .where(hol.holiday_date[getdate(frm_date):getdate(to_date)])
+            .groupby(hl.base_holiday_list)
+            .run()
+        )
+        counts.update(dict(rows))
+    return counts
 
 
 # Aadhaar rules (#194). They apply when the Country of the Employee's Branch has aadhaar_applicable.
