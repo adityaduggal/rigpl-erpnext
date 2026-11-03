@@ -53,21 +53,25 @@ def poll_open_shipments(settings: Optional[ShippingSettings] = None) -> Dict[str
 
 # ------------------------------------------------------------------------------------- selection
 
-def base_query():
-    """Carrier Trackings with an AWB, joined to their Transporter and enabled account."""
+def base_query(count: bool = False):
+    """Carrier Trackings with an AWB, joined to their Transporter and enabled account.
+    With `count`, it selects only COUNT(name)."""
     ct, tpt, acc = frappe.qb.DocType(DOCTYPE), frappe.qb.DocType("Transporters"), frappe.qb.DocType("Shipping Provider Account")
     query = (
         frappe.qb.from_(ct)
         .join(tpt).on(tpt.name == ct.carrier_name)
         .join(acc).on(acc.name == tpt.shipping_provider_account)
-        .select(ct.name, ct.awb_number, ct.carrier_name, ct.docstatus, *[ct[f] for f in RESULT_FIELDS],
-                acc.provider)
         .where(ct.docstatus < 2)
         .where(ct.awb_number.notnull())
         .where(ct.awb_number.notin(NO_AWB))
         .where(tpt.api_mode != "None")
         .where(acc.enabled == 1)
     )
+    if count:
+        query = query.select(Count(ct.name).as_("count"))
+    else:
+        query = query.select(ct.name, ct.awb_number, ct.carrier_name, ct.docstatus, *[ct[f] for f in RESULT_FIELDS],
+                             acc.provider)
     return query, ct, tpt, acc
 
 
@@ -307,27 +311,38 @@ def unpublish_ctracks(settings: Optional[ShippingSettings] = None, now=None) -> 
     clear_cache()
 
 
-def select_stale(settings: ShippingSettings, now=None, limit: Optional[int] = None) -> List[dict]:
-    """Open submitted trackings older than `ctrack_auto_close_days`, oldest first."""
+def stale_query(settings: ShippingSettings, now=None, account: Optional[str] = None, count: bool = False):
+    """The query of the open submitted trackings older than `ctrack_auto_close_days`,
+    of one Shipping Provider Account when `account` is given."""
     now = get_datetime(now or now_datetime())
-    query, ct, _tpt, _acc = base_query()
-    query = (
+    query, ct, tpt, _acc = base_query(count=count)
+    if account:
+        query = query.where(tpt.shipping_provider_account == account)
+    return (
         query.where(ct.docstatus == 1)
         .where(ct.status.isnull() | ct.status.notin(st.FINAL_STATUSES))
         .where(ct.creation < now - timedelta(days=settings.ctrack_auto_close_days))
-        .orderby(ct.creation)
-    )
+    ), ct
+
+
+def select_stale(settings: ShippingSettings, now=None, limit: Optional[int] = None,
+                 account: Optional[str] = None) -> List[dict]:
+    """Open submitted trackings older than `ctrack_auto_close_days`, oldest first."""
+    query, ct = stale_query(settings, now, account)
+    query = query.orderby(ct.creation)
     if limit:
         query = query.limit(limit)
     return query.run(as_dict=True)
 
 
-def refresh_and_close_stale(limit: Optional[int] = None, settings: Optional[ShippingSettings] = None) -> Dict[str, int]:
+def refresh_and_close_stale(limit: Optional[int] = None, settings: Optional[ShippingSettings] = None,
+                            account: Optional[str] = None) -> Dict[str, int]:
     """Polls the stale open trackings once, then closes those still open as "Closed - No
-    Update" and unpublishes them. For the backlog (#169) run it once by hand without a limit:
+    Update" and unpublishes them. The "Close Stale Trackings" button of a Shipping Provider
+    Account runs it for that account (#169). For all accounts:
     bench --site <site> execute rigpl_erpnext.rigpl_erpnext.shipping.tracking.refresh_and_close_stale"""
     settings = settings or get_shipping_settings()
-    rows = select_stale(settings, limit=limit)
+    rows = select_stale(settings, limit=limit, account=account)
     counts = track_rows(rows, source="Poll", commit=True)
     names = [r["name"] for r in rows]
     ct = frappe.qb.DocType(DOCTYPE)
@@ -344,7 +359,13 @@ def refresh_and_close_stale(limit: Optional[int] = None, settings: Optional[Ship
     add_close_comments(still_open)
     frappe.db.commit()
     counts["closed"] = len(still_open)
-    print(f"Stale trackings: {len(rows)} checked. {dict(counts)}")
+    message = f"Stale trackings: {len(rows)} checked. " + ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
+    print(message)
+    if account:
+        frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": "Shipping Provider Account",
+                        "reference_name": account, "content": message}).insert(ignore_permissions=True)
+        frappe.db.commit()
+        frappe.publish_realtime("msgprint", message, user=frappe.session.user)
     return dict(counts)
 
 
