@@ -7,6 +7,7 @@ from frappe.utils import getdate
 
 from rigpl_erpnext.hr_rigpl.utils.attendance_report_utils import get_holidays_by_day, get_leaves_by_day, get_month
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_base_list_holiday_counts
+from rigpl_erpnext.rigpl_erpnext.report.employee_attendance import employee_attendance
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
 
 EMP = "_Test RIGPL O'Brien Employee"
@@ -67,3 +68,20 @@ class TestAttendanceReportUtils(ReportTestCase):
 
         self.assertEqual(get_holidays_by_day(employees, "2026-09-01", "2026-09-30"), {EMP: {6: "Sunday"}})
         self.assertEqual(get_base_list_holiday_counts([BASE_LIST], "2026-09-01", "2026-10-31"), {BASE_LIST: 2})
+
+
+class TestEmployeeAttendance(ReportTestCase):
+    def test_day_codes_and_totals(self):
+        insert_employee(EMP)
+        insert_holiday_list([("2026-09-02", "Sunday")])
+        insert_attendance(EMP, "2026-09-01")
+        insert_attendance(EMP, "2026-09-04", status="Half Day")
+        insert_attendance(EMP, "2026-09-05", status="Work From Home")
+        insert_leave(EMP, "2026-09-03", "2026-09-03", 1)
+
+        columns, data = self.assert_queries(4, lambda: employee_attendance.execute(frappe._dict(SEPT)))
+
+        self.assertEqual(len(columns), 2 + 30 + 2)
+        row = next(row for row in data if row[0] == EMP)
+        self.assertEqual(row[2:8], ["P", "HO", "L", "H", "", "X"])
+        self.assertEqual(row[-2:], [1.5, 0.5])
