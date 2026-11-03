@@ -8,7 +8,9 @@ from __future__ import annotations
 from typing import Dict, List
 
 import frappe
-from erpnext.e_commerce.api import get_product_filter_data as erpnext_get_product_filter_data
+from rigpl_erpnext.website_rigpl.compat import get_ecommerce
+
+erpnext_get_product_filter_data = get_ecommerce("get_product_filter_data")
 
 
 @frappe.whitelist(allow_guest=True)

@@ -232,9 +232,10 @@
 		});
 	}
 
-	// ERPNext's cart (erpnext-web.min.js) sends a guest to the login page.
+	// ERPNext's cart (erpnext-web.min.js, or the webshop app from v15) sends a guest to the login page.
 	function addToCart(button) {
-		var cart = window.erpnext && erpnext.e_commerce && erpnext.e_commerce.shopping_cart;
+		var cart = (window.erpnext && erpnext.e_commerce && erpnext.e_commerce.shopping_cart)
+			|| (window.webshop && webshop.webshop && webshop.webshop.shopping_cart);
 		if (!cart) {
 			window.location.href = "/cart";
 			return;

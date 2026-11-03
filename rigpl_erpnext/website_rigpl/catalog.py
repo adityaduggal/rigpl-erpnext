@@ -10,6 +10,8 @@ from typing import Dict, List, Optional, Tuple
 import frappe
 from frappe.utils import cint, flt, fmt_money, nowdate
 
+from .compat import get_ecommerce
+
 DEFAULT_STOCK_CAP = 100
 DEFAULT_CAP_LABEL = "{cap}+"
 DEFAULT_ZERO_LABEL = "On request"
@@ -215,9 +217,7 @@ def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]
     the cap never reaches the page. The price is per stock UOM (`uom`). The stock is in the
     sales UOM if the Item has one (`stock_uom`), as ERPNext counts it (#127).
     """
-    from erpnext.e_commerce.doctype.e_commerce_settings.e_commerce_settings import (
-        get_shopping_cart_settings,
-    )
+    get_shopping_cart_settings = get_ecommerce("get_shopping_cart_settings")
 
     cart = get_shopping_cart_settings()
     if not variants or not cart.enabled:
@@ -280,7 +280,7 @@ def get_stock_qty(warehouses: Dict[str, Optional[str]]) -> Dict[str, float]:
     One query on the Bin (item_code, warehouse) index. ERPNext's own
     `adjust_qty_for_expired_items` runs only for batch items.
     """
-    from erpnext.utilities.product import adjust_qty_for_expired_items
+    adjust_qty_for_expired_items = get_ecommerce("adjust_qty_for_expired_items")
 
     pairs = {(code, wh) for code, wh in warehouses.items() if wh}
     if not pairs:

@@ -7,12 +7,13 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
-from erpnext.e_commerce.doctype.e_commerce_settings.e_commerce_settings import get_shopping_cart_settings
-from erpnext.e_commerce.shopping_cart.cart import _get_cart_quotation
-from erpnext.e_commerce.shopping_cart.cart import place_order as erpnext_place_order
-from erpnext.utilities.product import get_web_item_qty_in_stock
-
 from rigpl_erpnext.website_rigpl.catalog import cap_stock, get_stock_cap_settings
+from rigpl_erpnext.website_rigpl.compat import get_ecommerce
+
+get_shopping_cart_settings = get_ecommerce("get_shopping_cart_settings")
+_get_cart_quotation = get_ecommerce("get_cart_quotation")
+erpnext_place_order = get_ecommerce("place_order")
+get_web_item_qty_in_stock = get_ecommerce("get_web_item_qty_in_stock")
 
 
 @frappe.whitelist()

@@ -4,11 +4,11 @@ ERPNext's guest API for the price and stock of one item, with the stock capped (
 `erpnext.e_commerce.shopping_cart.product_info.get_product_info_for_website` here.
 """
 import frappe
-from erpnext.e_commerce.shopping_cart.product_info import (
-    get_product_info_for_website as erpnext_get_product_info_for_website,
-)
 
 from rigpl_erpnext.website_rigpl.catalog import cap_product_info
+from rigpl_erpnext.website_rigpl.compat import get_ecommerce
+
+erpnext_get_product_info_for_website = get_ecommerce("get_product_info_for_website")
 
 
 @frappe.whitelist(allow_guest=True)

@@ -30,6 +30,7 @@ from frappe.website.render import clear_cache
 
 from ..utils.batch_write_utils import bulk_insert_rows, clear_document_cache
 from ..utils.item_attribute_utils import chunks, get_attribute_map
+from .compat import get_ecommerce
 
 # Property Setters in custom/website_item.json give these fields `in_global_search`.
 SEARCH_FIELDS = ("web_item_name", "item_code")
@@ -125,7 +126,7 @@ def make_missing_web_items(item_codes: Optional[List[str]] = None) -> int:
     of `item_codes` (or all Items if None) that has none (#106). Return the number made.
     `sync_web_items` then sets its image and publish state.
     """
-    from erpnext.e_commerce.doctype.website_item.website_item import make_website_item
+    make_website_item = get_ecommerce("make_website_item")
 
     if item_codes is not None and not item_codes:
         return 0
