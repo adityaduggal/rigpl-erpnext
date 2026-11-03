@@ -11,9 +11,9 @@ from frappe.utils import flt, nowdate
 from ....utils.item_attribute_utils import attribute_filters, attribute_sort_key, chunks, get_attribute_map
 
 TEXT_COLUMNS = ["Base Material", "Brand", "{bm} Quality", "Special Treatment", "Tool Type"]
-NUMERIC_COLUMNS = ["d1_mm", "w1_mm", "l1_mm", "Number of Flutes (Zn)", "d2_mm", "l2_mm", "a1_deg"]
+NUMERIC_COLUMNS = ["d1_mm", "w1_mm", "l1_mm", "Number of Flutes Zn", "d2_mm", "l2_mm", "a1_deg"]
 SORT_ORDER = ["Base Material", "Brand", "{bm} Quality", "Tool Type", "d1_mm", "w1_mm", "l1_mm",
-	"Number of Flutes (Zn)", "d2_mm", "l2_mm", "Special Treatment"]
+	"Number of Flutes Zn", "d2_mm", "l2_mm", "Special Treatment"]
 # filter: attribute
 ATTRIBUTE_FILTERS = {"bm": "Base Material", "brand": "Brand", "quality": "{bm} Quality",
 	"spl": "Special Treatment", "purpose": "Purpose", "type": "Type Selector", "mtm": "Material to Machine",

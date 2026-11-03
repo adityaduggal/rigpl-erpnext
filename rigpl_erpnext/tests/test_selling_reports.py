@@ -289,6 +289,14 @@ class TestComparePricing(ReportTestCase):
         self.assertEqual(data[1][1:7], [100, "INR", 110, "INR", 10, None])
         self.assertEqual((data[1][10], data[1][14], data[1][15]), (BM, "O'Drill", 6))
 
+    def test_flutes_column(self):
+        # The report read "Number of Flutes (Zn)", which is not an attribute, so Zn was empty
+        insert_item(ITEM, variant_of=TEMPLATE, attributes=[("Base Material", BM), ("Number of Flutes Zn", "4")])
+
+        data = compare_pricing.execute(frappe._dict(bm=BM, pl1=PL[0], pl2=PL[1], pl3=PL[2]))[1]
+
+        self.assertEqual([(row[0], row[18]) for row in data], [(ITEM, 4)])
+
 
 class TestVaSalesInvoice(ReportTestCase):
     def test_attributes(self):
