@@ -48,11 +48,10 @@ def validate(doc, method):
     # Check if Lead is Converted or Not, if the lead is converted
     # then don't allow it to be selected without linked customer
     if doc.quotation_to == "Lead":
-        link = frappe.db.sql("""SELECT name FROM `tabCustomer`
-            WHERE lead_name = '%s'""" % doc.party_name, as_list=1)
+        link = frappe.db.get_value("Customer", {"lead_name": doc.party_name})
         if link:
             frappe.throw(("Lead {0} is Linked to Customer {1} so kindly make quotation for \
-                Customer and not Lead").format(doc.party_name, link[0][0]))
+                Customer and not Lead").format(doc.party_name, link))
     # below code updates the CETSH number for the item in Quotation and updates letter head
     letter_head_tax = frappe.db.get_value("Sales Taxes and Charges Template",
                                           doc.taxes_and_charges, "letter_head")
