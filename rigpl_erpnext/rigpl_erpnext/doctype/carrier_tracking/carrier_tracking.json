@@ -23,7 +23,6 @@
   "to_address",
   "contact_person",
   "recipient_details",
-  "post_data",
   "cb0",
   "duties_payment_by",
   "carrier_name",
@@ -40,14 +39,6 @@
   "is_inward",
   "manual_exception_removed",
   "bypass_courier_charged_check",
-  "get_rates",
-  "book_shipment",
-  "get_label",
-  "get_data",
-  "validate_address",
-  "available_services",
-  "get_signature_proof",
-  "delete_shipment",
   "sb0",
   "shipment_package_details",
   "sb1",
@@ -192,12 +183,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "post_data",
-   "fieldtype": "Button",
-   "label": "Post Data",
-   "options": "pushdata"
-  },
-  {
    "fieldname": "cb0",
    "fieldtype": "Column Break"
   },
@@ -308,56 +293,6 @@
    "fieldtype": "Check",
    "label": "Bypass Courier Charged Check",
    "permlevel": 1
-  },
-  {
-   "fieldname": "get_rates",
-   "fieldtype": "Button",
-   "label": "Get Rates",
-   "options": "get_rates"
-  },
-  {
-   "fieldname": "book_shipment",
-   "fieldtype": "Button",
-   "label": "Book Shipment",
-   "options": "book_shipment"
-  },
-  {
-   "depends_on": "eval:doc.awb_number && doc.awb_number != 'NA'",
-   "fieldname": "get_label",
-   "fieldtype": "Button",
-   "label": "Get Label",
-   "options": "get_labels"
-  },
-  {
-   "fieldname": "get_data",
-   "fieldtype": "Button",
-   "label": "Get Status",
-   "options": "get_status"
-  },
-  {
-   "fieldname": "validate_address",
-   "fieldtype": "Button",
-   "label": "Validate Address",
-   "options": "address_validation"
-  },
-  {
-   "fieldname": "available_services",
-   "fieldtype": "Button",
-   "label": "Available Services",
-   "options": "available_services"
-  },
-  {
-   "fieldname": "get_signature_proof",
-   "fieldtype": "Button",
-   "label": "Get Proof of Delivery",
-   "options": "get_pod"
-  },
-  {
-   "allow_on_submit": 1,
-   "fieldname": "delete_shipment",
-   "fieldtype": "Button",
-   "label": "Delete Shipment",
-   "options": "delete_shipment"
   },
   {
    "fieldname": "sb0",
@@ -546,7 +481,7 @@
  "has_web_view": 1,
  "is_published_field": "published",
  "is_submittable": 1,
- "modified": "2026-11-03 18:00:00.000000",
+ "modified": "2026-11-03 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Carrier Tracking",

@@ -12,6 +12,7 @@ from rohit_common.utils.rohit_common_utils import get_email_id
 
 from ...shipping import access, actions
 from ...shipping.accounts import BOOKING
+from ...shipping.form_actions import check_action, onload_actions
 from ...shipping.registry import get_carrier, transporter_api
 from ...shipping.tracking import track_now
 from ...shipping.validations import courier_charges_validation
@@ -26,14 +27,20 @@ class CarrierTracking(WebsiteGenerator):
     website = frappe._dict(no_cache=1, sitemap=0)
 
     # ------------------------------------------------------------------ buttons (whitelisted for v13)
+    # The form shows them in the toolbar from __onload; each method checks them again (#173).
+
+    def onload(self):
+        self.set_onload("shipping_actions", onload_actions(self))
 
     @frappe.whitelist()
     def get_status(self):
+        check_action(self, "get_status")
         track_now(self)
         self.reload()
 
     @frappe.whitelist()
     def pushdata(self):
+        check_action(self, "pushdata")
         carrier = get_carrier(self.carrier_name)
         if not carrier or not carrier.provider.supports("push"):
             frappe.throw(f"{frappe.get_desk_link('Transporters', self.carrier_name)} is not tracked on Shipway")
@@ -47,6 +54,7 @@ class CarrierTracking(WebsiteGenerator):
 
     @frappe.whitelist()
     def get_rates(self):
+        check_action(self, "get_rates")
         self.validate()
         if not self.shipment_package_details:
             frappe.throw(f"Shipment Package Details are needed for the rates of {self.name}")
@@ -55,27 +63,33 @@ class CarrierTracking(WebsiteGenerator):
 
     @frappe.whitelist()
     def book_shipment(self, test_marking=0):
+        check_action(self, "book_shipment")
         self.validate()
         actions.book(self, test_marking=bool(int(test_marking or 0)))
 
     @frappe.whitelist()
     def get_labels(self):
+        check_action(self, "get_labels")
         actions.get_labels(self)
 
     @frappe.whitelist()
     def get_pod(self):
+        check_action(self, "get_pod")
         actions.get_pod(self)
 
     @frappe.whitelist()
     def available_services(self):
+        check_action(self, "available_services")
         frappe.msgprint(actions.check_serviceability(self))
 
     @frappe.whitelist()
     def address_validation(self):
+        check_action(self, "address_validation")
         actions.validate_address(self)
 
     @frappe.whitelist()
     def delete_shipment(self):
+        check_action(self, "delete_shipment")
         actions.cancel(self)
 
     # ------------------------------------------------------------------------------- lifecycle

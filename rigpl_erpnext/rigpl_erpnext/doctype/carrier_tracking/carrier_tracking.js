@@ -3,7 +3,13 @@
 
 frappe.ui.form.on('Carrier Tracking', {
 	refresh: function(frm) {
-
+		// The server decides which shipment buttons apply (shipping/form_actions.py, #173)
+		const actions = (frm.doc.__onload || {}).shipping_actions || {};
+		Object.keys(actions).forEach(function(method) {
+			frm.add_custom_button(__(actions[method]), function() {
+				rigpl_erpnext.carrier_tracking.run_action(frm, method, actions[method]);
+			}, __("Shipment"));
+		});
 	},
 	onload: function(frm){
 		frm.set_query("carrier_name", function(doc) {
@@ -88,6 +94,25 @@ frappe.ui.form.on('Carrier Tracking', {
 		});
 	},
 });
+
+frappe.provide("rigpl_erpnext.carrier_tracking");
+
+rigpl_erpnext.carrier_tracking.run_action = function(frm, method, label) {
+	const run = function() {
+		const saved = frm.is_dirty() ? frm.save(frm.doc.docstatus === 1 ? "Update" : "Save") : Promise.resolve();
+		saved.then(function() {
+			return frm.call({doc: frm.doc, method: method, freeze: true, freeze_message: __(label) + "..."});
+		}).then(function() {
+			frm.reload_doc();
+		});
+	};
+	if (method === "delete_shipment") {
+		frappe.confirm(__("Cancel AWB {0} with the carrier and make {1} a draft again?",
+			[frm.doc.awb_number, frm.doc.name]), run);
+	} else {
+		run();
+	}
+};
 
 frappe.ui.form.on("Shipment Package Details", {
     package_weight: function(frm, dt, dn){
