@@ -79,3 +79,5 @@ rigpl_erpnext.patches.v13.delete_old_pending_query_reports
 rigpl_erpnext.patches.v13.move_fg_rm_grade_map_rows
 rigpl_erpnext.patches.v13.add_rm_cost_report_indexes
 rigpl_erpnext.patches.v13.add_aadhaar_country_rule
+rigpl_erpnext.patches.v13.shipping_provider_accounts
+rigpl_erpnext.patches.v13.carrier_tracking_indexes
