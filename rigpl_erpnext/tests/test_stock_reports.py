@@ -10,8 +10,9 @@ from rigpl_erpnext.rigpl_erpnext.report.item_template import item_template
 from rigpl_erpnext.rigpl_erpnext.report.standards_and_drawings_rigpl import standards_and_drawings_rigpl
 from rigpl_erpnext.rigpl_erpnext.report.stock_status import stock_status
 from rigpl_erpnext.rigpl_erpnext.report.template_variant_import_format import template_variant_import_format
+from rigpl_erpnext.rigpl_erpnext.report.valuation_rate import valuation_rate
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
-from rigpl_erpnext.tests.test_variant_table import insert_item
+from rigpl_erpnext.tests.test_variant_table import insert_item, insert_item_price
 
 BM = "_Test RIGPL O'Metal"
 TT = "_Test RIGPL O'Drill"
@@ -130,3 +131,30 @@ class TestItemLeadTimes(ReportTestCase):
             update_modified=False)
         self.assertEqual(item_lead_times.execute(filters)[1][0][2:5], ["Unknown", 0, 0])
         self.assertRaises(frappe.ValidationError, item_lead_times.execute, frappe._dict(filters, detail=1))
+
+
+class TestValuationRate(ReportTestCase):
+    def test_price_rows_percent_and_attribute_sort(self):
+        insert_item(TEMPLATE, attributes=[("Base Material", ""), ("Tool Type", ""), ("d1_mm", "")])
+        # The label takes the field name of the template row and the unit of the attribute name
+        iva = frappe.qb.DocType("Item Variant Attribute")
+        frappe.qb.update(iva).set(iva.field_name, "Flute Dia (inch)").where(
+            (iva.parent == TEMPLATE) & (iva.attribute == "d1_mm")).run()
+        insert_stock_item(ITEM, "6")
+        insert_stock_item(ITEM_2, "3")
+        frappe.db.set_value("Item", ITEM, {"valuation_rate": 50}, update_modified=False)
+        insert_item_price(ITEM, 200, price_list="_Test RIGPL O'PL")
+        insert_item_price(ITEM, 999, price_list="_Test RIGPL Other PL")
+        filters = frappe._dict(pl="_Test RIGPL O'PL", eol="2026-01-01", bm=BM, tt=TT)
+
+        columns, data = self.assert_queries(6, lambda: valuation_rate.execute(filters))
+
+        labels = [column.split(":")[0] for column in columns]
+        self.assertEqual(labels[7:10], ["Base Material", "Tool Type", "Flute Dia (mm)"])
+        # Sorted by d1_mm as a number; an item with no price has empty price cells
+        self.assertEqual([row[:6] for row in data], [
+            [ITEM_2, None, None, None, None, None],
+            [ITEM, 50, None, "_Test RIGPL O'PL", 200, 25],
+        ])
+        self.assertEqual(data[0][7:10], [BM, TT, 3])
+        self.assertRaises(frappe.ValidationError, valuation_rate.execute, frappe._dict(filters, bm="O'None"))

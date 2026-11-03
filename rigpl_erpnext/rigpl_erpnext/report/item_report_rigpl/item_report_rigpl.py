@@ -7,23 +7,12 @@ from ....utils.item_attribute_utils import (
     attribute_filters,
     attribute_sort_key,
     chunks,
+    get_attribute_details,
     get_attribute_map,
-    get_attribute_meta,
+    get_attribute_values,
 )
 from ....utils.report_utils import blank_zeros
 from ....utils.stock_utils import get_reorder_levels
-
-# Filter fieldname: attribute. Quality is "<Base Material> Quality".
-ATTRIBUTE_FILTERS = [
-    ("rm", "Is RM"),
-    ("bm", "Base Material"),
-    ("tt", "Tool Type"),
-    ("series", "Series"),
-    ("spl", "Special Treatment"),
-    ("purpose", "Purpose"),
-    ("type", "Type Selector"),
-    ("mtm", "Material to Machine"),
-]
 
 
 def execute(filters=None):
@@ -47,15 +36,6 @@ def execute(filters=None):
 def check_tool_type(filters):
     if not filters.get("tt") and "System Manager" not in frappe.get_roles(frappe.session.user):
         frappe.throw("Please Select Tool Type")
-
-
-def get_attribute_values(filters):
-    """
-    Returns {attribute: value} for the attribute filters
-    """
-    values = {attribute: filters.get(fieldname) for fieldname, attribute in ATTRIBUTE_FILTERS}
-    values["%s Quality" % filters.get("bm")] = filters.get("quality")
-    return values
 
 
 def get_item_list(filters):
@@ -90,69 +70,6 @@ def get_item_list(filters):
     if filters.get("variant_of"):
         query = query.where(it.variant_of == filters["variant_of"])
     return query.run(as_dict=True)
-
-
-def get_attribute_details(templates):
-    """
-    Returns the attributes of the templates in column order, each with its label details:
-    [{name, numeric_values, max_length, name_in_template}]
-    Column order: lowest idx in the templates, then the attribute used by more templates,
-    then the name.
-    """
-    iva = frappe.qb.DocType("Item Variant Attribute")
-    rows = []
-    for chunk in chunks(templates):
-        rows += (
-            frappe.qb.from_(iva)
-            .select(iva.parent, iva.attribute, iva.field_name, iva.idx)
-            .where(iva.parent.isin(chunk) & (iva.parenttype == "Item"))
-            .run(as_dict=True)
-        )
-    min_idx, used_by, field_names = {}, {}, {}
-    for row in rows:
-        min_idx[row.attribute] = min(row.idx, min_idx.get(row.attribute, row.idx))
-        used_by.setdefault(row.attribute, set()).add(row.parent)
-        field_names.setdefault(row.attribute, set()).add(row.field_name)
-    attributes = sorted(min_idx, key=lambda a: (min_idx[a], -len(used_by[a]), a))
-
-    meta = get_attribute_meta(attributes)
-    att_details = []
-    for att in attributes:
-        att_meta = meta.get(att, frappe._dict(numeric_values=0, hidden=0, max_length=0))
-        field_name = first_field_name(field_names[att])
-        att_details.append(
-            frappe._dict(
-                name=att,
-                numeric_values=att_meta.numeric_values,
-                max_length=6 if att_meta.numeric_values else att_meta.max_length,
-                name_in_template=get_name_in_template(att, att_meta, field_name),
-            )
-        )
-    return att_details
-
-
-def first_field_name(field_names):
-    """
-    Returns the field name the report used: no field name first, then the lowest, without case
-    """
-    if None in field_names:
-        return None
-    return sorted(field_names, key=lambda name: name.casefold())[0]
-
-
-def get_name_in_template(att, att_meta, field_name):
-    """
-    Returns the column label: for a numeric or hidden attribute, the field name with the unit
-    of the attribute name, for example "Dia (mm)" for d1_mm with field name "Dia (inch)"
-    """
-    if att_meta.numeric_values != 1:
-        if att_meta.hidden == 1:
-            return field_name.split("(", 1)[0] + "(" + att.split("_", 1)[1] + ")"
-        return att
-    n_row = att.split("_", 1)[1] if "_" in att else att
-    if field_name and "(" in field_name:
-        return field_name.split("(", 1)[0] + "(" + n_row + ")"
-    return att
 
 
 def get_columns(att_details):
