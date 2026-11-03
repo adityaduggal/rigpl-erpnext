@@ -5,6 +5,7 @@ quote: the old reports put it into the SQL text and failed.
 import frappe
 
 from rigpl_erpnext.rigpl_erpnext.report.standards_and_drawings_rigpl import standards_and_drawings_rigpl
+from rigpl_erpnext.rigpl_erpnext.report.stock_status import stock_status
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
 from rigpl_erpnext.tests.test_variant_table import insert_item
 
@@ -48,3 +49,23 @@ class TestStandardsAndDrawings(ReportTestCase):
 
         self.assertEqual([row[0] for row in data], [std])
         self.assertRaises(frappe.ValidationError, standards_and_drawings_rigpl.execute, frappe._dict(type=""))
+
+
+class TestStockStatus(ReportTestCase):
+    def test_stock_sums_and_rm_excluded(self):
+        insert_stock_item(ITEM, "6", extra=[("Number of Flutes Zn", "4")])
+        insert_stock_item(ITEM_2, "3")
+        insert_stock_item(RM_ITEM, "1", extra=[("Is RM", "Yes")])
+        insert_bin(ITEM, "BGH655 - RIGPL", actual=5, ordered=2)
+        insert_bin(ITEM, "_Test RIGPL O'WH", actual=3, ordered=1, planned=1)
+        insert_bin(ITEM_2, "Dead Stock - RIGPL", actual=1)
+        insert_bin(RM_ITEM, "BGH655 - RIGPL", actual=9)
+        # 2 reorder rows multiplied the old sums
+        for idx in (1, 2):
+            raw("Item Reorder", parent=ITEM, parenttype="Item", parentfield="reorder_levels", idx=idx)
+
+        data = self.assert_queries(4, lambda: stock_status.execute(frappe._dict(bm=BM, tt=TT))[1])
+
+        self.assertEqual([row[0] for row in data], [ITEM_2, ITEM])
+        self.assertEqual((data[1][10], data[1][15]), (6, 4))
+        self.assertEqual(data[1][17:], [5, 5, 2])
