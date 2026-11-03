@@ -1,6 +1,10 @@
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt, getdate, nowdate
+from frappe.query_builder.functions import IfNull
+from frappe.utils import getdate, nowdate
+
+DOCSTATUS = {"Draft": 0, "Submitted": 1, "Cancelled": 2}
+
 
 def execute(filters=None):
 	if not filters: filters = {}
@@ -10,6 +14,7 @@ def execute(filters=None):
 
 	return columns, data
 
+
 def get_columns():
 	return [
 		"ID:Link/Trial Tracking:100", "Trial Status::100", "SO #:Link/Sales Order:100",
@@ -18,56 +23,41 @@ def get_columns():
 		"Competitor::80", "Trial Owner::200", "Invoice No:Link/Sales Invoice:100","Days:Int:80"
 	]
 
+
 def get_trial_data(filters):
-	conditions = get_conditions(filters)
-	
-	query = """SELECT tt.name, tt.status, tt.against_sales_order, so.transaction_date, tt.customer,
-	tt.item_code, tt.description, tt.qty, tt.base_rate, tt.competitor_name, tt.trial_owner, 
-	ifnull(tt.invoice_no,'Not Invoiced'), (curdate()-so.transaction_date)
-	FROM `tabTrial Tracking` tt, `tabSales Order` so
-	WHERE so.name = tt.against_sales_order %s
-	ORDER BY tt.customer""" %conditions
-	
-	data = frappe.db.sql(query , as_list=1)
-
-	return data
-
-
-
-def get_conditions(filters):
-
-	conditions = ""
-	if (filters.get("from_date")):
-		if (filters.get("to_date")):
-			if getdate(filters.get("to_date")) < getdate(filters.get("from_date")):
-				frappe.msgprint("From Date has to be less than To Date", raise_exception=1)
-			elif (getdate(filters.get("to_date"))- getdate(filters.get("from_date"))).days>1000:
-				frappe.msgprint("Period should be less than 1000 days", raise_exception=1)
-
-		conditions += " and so.transaction_date >= '%s'" % filters["from_date"]
-
+	check_dates(filters)
+	tt = frappe.qb.DocType("Trial Tracking")
+	so = frappe.qb.DocType("Sales Order")
+	query = (
+		frappe.qb.from_(tt)
+		.join(so).on(so.name == tt.against_sales_order)
+		.select(tt.name, tt.status, tt.against_sales_order, so.transaction_date, tt.customer, tt.item_code,
+			tt.description, tt.qty, tt.base_rate, tt.competitor_name, tt.trial_owner,
+			IfNull(tt.invoice_no, "Not Invoiced"))
+		.orderby(tt.customer)
+	)
+	if filters.get("from_date"):
+		query = query.where(so.transaction_date >= filters["from_date"])
 	if filters.get("to_date"):
-		conditions += " and so.transaction_date <= '%s'" % filters["to_date"]
-
+		query = query.where(so.transaction_date <= filters["to_date"])
 	if filters.get("trial_status"):
-		conditions += " and tt.status = '%s'" % filters["trial_status"]
-
-
+		query = query.where(tt.status == filters["trial_status"])
 	if filters.get("customer"):
-		conditions += " and tt.customer = '%s'" % filters["customer"]
-		
+		query = query.where(tt.customer == filters["customer"])
 	if filters.get("trial_owner"):
-		conditions += " and tt.trial_owner = '%s'" % filters["trial_owner"]
-	
-	if filters.get("status")== "Draft":
-		conditions += " and tt.docstatus = 0"
-	elif filters.get("status")== "Submitted":
-		conditions += " and tt.docstatus = 1"
-	elif filters.get("status")== "Cancelled":
-		conditions += " and tt.docstatus = 2"
+		query = query.where(tt.trial_owner == filters["trial_owner"])
+	if filters.get("status") in DOCSTATUS:
+		query = query.where(tt.docstatus == DOCSTATUS[filters["status"]])
 	else:
-		conditions += " and tt.docstatus !=2"
+		query = query.where(tt.docstatus != 2)
+	today = getdate(nowdate())
+	return [list(row) + [(today - getdate(row[3])).days] for row in query.run(as_list=1)]
 
-	return conditions
 
-
+def check_dates(filters):
+	if filters.get("from_date") and filters.get("to_date"):
+		days = (getdate(filters["to_date"]) - getdate(filters["from_date"])).days
+		if days < 0:
+			frappe.throw("From Date has to be less than To Date")
+		elif days > 1000:
+			frappe.throw("Period should be less than 1000 days")

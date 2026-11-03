@@ -9,6 +9,7 @@ from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
+from rigpl_erpnext.rigpl_erpnext.report.trial_tracking import trial_tracking
 from rigpl_erpnext.tests.test_sales_utils import insert_customer
 from rigpl_erpnext.tests.test_variant_table import insert_item, insert_item_price
 from rigpl_erpnext.utils.report_utils import tree_and_descendants
@@ -107,3 +108,15 @@ class TestTodSalesInvoice(ReportTestCase):
         self.assertEqual(tod_sales_invoice.execute(frappe._dict(filters, summary=1))[1], [[CUSTOMER, 150]])
         detail = tod_sales_invoice.execute(frappe._dict(filters))[1]
         self.assertEqual([(row[3], row[10]) for row in detail], [(ITEM, "Yes"), (ITEM_2, "No")])
+
+
+class TestTrialTracking(ReportTestCase):
+    def test_days_since_order(self):
+        so_date = add_days(nowdate(), -40)
+        so = raw("Sales Order", customer=CUSTOMER, transaction_date=so_date, docstatus=1)
+        raw("Trial Tracking", against_sales_order=so, status="Passed", customer=CUSTOMER, item_code=ITEM,
+            trial_owner="O'Brien", docstatus=1)
+
+        data = trial_tracking.execute(frappe._dict(trial_status="Passed", customer=CUSTOMER, trial_owner="O'Brien"))[1]
+
+        self.assertEqual([(row[4], row[11], row[12]) for row in data], [(CUSTOMER, "Not Invoiced", 40)])
