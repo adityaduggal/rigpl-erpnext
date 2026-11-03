@@ -7,7 +7,7 @@ from frappe.query_builder.functions import IfNull
 from frappe.utils import getdate
 
 from rigpl_erpnext.utils.item_attribute_utils import chunks
-from rigpl_erpnext.utils.report_utils import blank_zeros
+from rigpl_erpnext.utils.report_utils import blank_zeros, permitted_names
 
 WITHOUT_SSA = "Employees without SSA"
 NO_END = "2099-12-31"
@@ -72,14 +72,16 @@ def get_employees(filters):
             query = query.where(emp[field] == filters[field])
     if filters.get("employee"):
         query = query.where(emp.name == filters.employee)
-    employees = query.run(as_dict=True)
+    allowed = permitted_names("Employee")
+    employees = [row for row in query.run(as_dict=True) if row.name in allowed]
     if not employees:
         frappe.throw("No Employees in the Given Criterion")
     return employees
 
 
 def get_assignments(filters, employees):
-    """Submitted SSAs that overlap the dates, by employee, in from_date order"""
+    """Submitted SSAs that overlap the dates and that the user can read (#206), by employee, in from_date
+    order"""
     ssa = frappe.qb.DocType("Salary Structure Assignment")
     by_employee = {}
     for names in chunks(employees):
@@ -91,6 +93,8 @@ def get_assignments(filters, employees):
                 & (IfNull(ssa.to_date, NO_END) >= filters.from_date))
             .orderby(ssa.from_date)
         ).run(as_dict=True)
+        allowed = permitted_names("Salary Structure Assignment", {"name": ["in", [row.name for row in rows]]})
         for row in rows:
-            by_employee.setdefault(row.employee, []).append(row)
+            if row.name in allowed:
+                by_employee.setdefault(row.employee, []).append(row)
     return by_employee

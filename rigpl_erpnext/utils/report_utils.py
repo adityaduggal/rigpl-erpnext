@@ -6,11 +6,15 @@ Use `blank_zeros` on each row before it goes into the report data, and set
 `"formatter": rigpl_erpnext.report.blank_zero_formatter` in the report JS
 (`public/js/report_formatter.js`). Frappe shows an empty Float cell as "0.000"; the formatter
 shows it as empty, so the "> 0" column filter removes it.
+
+Rows must respect permissions (#206). `frappe.get_all`, `frappe.qb` and `frappe.db.sql` skip role
+permissions and User Permissions. Read the base DocType with `frappe.get_list`, or keep only the rows
+whose name is in `permitted_names`.
 """
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Set
 
 import frappe
 from frappe.utils.nestedset import get_descendants_of
@@ -36,3 +40,9 @@ def tree_and_descendants(doctype: str, name: str) -> List[str]:
     if not frappe.db.exists(doctype, name):
         frappe.throw(frappe._("{0} {1} not found").format(doctype, name))
     return [name] + get_descendants_of(doctype, name, ignore_permissions=True)
+
+
+def permitted_names(doctype: str, filters: Optional[Dict] = None) -> Set[str]:
+    """Names of `doctype` that the session user can read, with User Permissions applied. Use it to
+    limit the rows of a raw `frappe.qb` or `frappe.db.sql` read in a report."""
+    return set(frappe.get_list(doctype, filters=filters or {}, pluck="name", limit_page_length=0))

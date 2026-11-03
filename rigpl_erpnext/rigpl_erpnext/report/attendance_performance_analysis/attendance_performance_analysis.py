@@ -3,7 +3,7 @@
 from __future__ import division
 from __future__ import unicode_literals
 import frappe
-from frappe.query_builder.functions import IfNull, Sum
+from frappe.query_builder.functions import Sum
 from pypika.terms import Case
 from frappe.utils import getdate, flt
 from math import ceil
@@ -94,20 +94,16 @@ def check_dates(filters):
 
 
 def get_employees(filters, from_date):
-    """The employees not relieved before from_date, by name."""
-    emp = frappe.qb.DocType("Employee")
-    query = (
-        frappe.qb.from_(emp)
-        .select(emp.name, emp.employee_name, emp.date_of_joining,
-            IfNull(emp.relieving_date, "2099-12-31").as_("relieving_date"), emp.branch, emp.department,
-            emp.designation, emp.holiday_list)
-        .where(IfNull(emp.relieving_date, "2099-12-31") >= from_date)
-        .orderby(emp.name)
-    )
-    for key, field in (("branch", "branch"), ("department", "department"), ("employee", "name")):
-        if filters.get(key):
-            query = query.where(emp[field] == filters[key])
-    return query.run(as_dict=1)
+    """The employees not relieved before from_date that the user can read (#206), by name."""
+    emp_filters = {field: filters[key] for key, field in (("branch", "branch"), ("department", "department"),
+        ("employee", "name")) if filters.get(key)}
+    rows = frappe.get_list("Employee", filters=emp_filters, order_by="name", limit_page_length=0,
+        or_filters=[["relieving_date", ">=", from_date], ["relieving_date", "is", "not set"]],
+        fields=["name", "employee_name", "date_of_joining", "relieving_date", "branch", "department",
+            "designation", "holiday_list"])
+    for row in rows:
+        row.relieving_date = row.relieving_date or getdate("2099-12-31")
+    return rows
 
 
 def get_attendance_totals(employees, from_date, to_date):

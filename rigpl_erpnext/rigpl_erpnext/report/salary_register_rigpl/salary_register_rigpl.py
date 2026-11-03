@@ -99,7 +99,8 @@ def get_employees(filters):
     if filters.get("employee"):
         emp_filters["name"] = filters.employee
     emp_filters.update({f: filters[f] for f in EMP_FILTERS if filters.get(f)})
-    employees = frappe.get_all("Employee", filters=emp_filters, fields=EMP_FIELDS, order_by="date_of_joining")
+    employees = frappe.get_list("Employee", filters=emp_filters, fields=EMP_FIELDS, order_by="date_of_joining",
+        limit_page_length=0)
     if not employees:
         frappe.throw(_("No Employees in the Given Criterion"))
     return {emp.name: emp for emp in employees}
@@ -108,15 +109,16 @@ def get_employees(filters):
 def get_salary_slips(filters, employees):
     slips = []
     for names in chunks(employees):
-        query = slip_query(filters).select(*SLIP_FIELDS).where(frappe.qb.DocType("Salary Slip").employee.isin(names))
-        slips += query.run(as_dict=True)
+        slips += frappe.get_list("Salary Slip", fields=SLIP_FIELDS, limit_page_length=0,
+            filters=slip_filters(filters) + [["employee", "in", names]])
     if not slips:
         frappe.throw(_("No salary slip found between dates"))
     return sorted(slips, key=lambda ss: (ss.employee, ss.posting_date, ss.name))
 
 
 def get_employees_without_slip(filters, employees):
-    with_slip = {row[0] for row in slip_query(filters).select("employee").distinct().run()}
+    with_slip = set(frappe.get_list("Salary Slip", filters=slip_filters(filters), pluck="employee",
+        limit_page_length=0))
     to_date = getdate(filters.to_date)
     data = []
     for emp in employees.values():
@@ -127,17 +129,17 @@ def get_employees_without_slip(filters, employees):
     return data
 
 
-def slip_query(filters):
-    ss = frappe.qb.DocType("Salary Slip")
-    query = frappe.qb.from_(ss).where(ss.posting_date.between(filters.from_date, filters.to_date))
+def slip_filters(filters):
+    """get_list filters, so Salary Slip permissions and User Permissions apply (#206)"""
+    conditions = [["posting_date", "between", [filters.from_date, filters.to_date]]]
     docstatus = {"Draft": 0, "Submitted": 1, "Cancelled": 2}.get(filters.get("docstatus"))
     if docstatus is not None:
-        query = query.where(ss.docstatus == docstatus)
+        conditions.append(["docstatus", "=", docstatus])
     if filters.get("report_type") == WITHOUT_SLIP:
-        query = query.where(ss.docstatus != 2)
+        conditions.append(["docstatus", "!=", 2])
     if filters.get("employee"):
-        query = query.where(ss.employee == filters.employee)
-    return query
+        conditions.append(["employee", "=", filters.employee])
+    return conditions
 
 
 def get_slip_details(slip_names, books):

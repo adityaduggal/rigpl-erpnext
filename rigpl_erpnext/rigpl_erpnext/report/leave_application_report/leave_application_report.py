@@ -4,6 +4,8 @@
 from __future__ import unicode_literals
 import frappe
 
+from rigpl_erpnext.utils.report_utils import permitted_names
+
 def execute(filters=None):
 	if not filters: filters = {}
 
@@ -45,4 +47,10 @@ def get_entries(filters):
 		query = query.where(la.status == filters["status"])
 		if filters["status"] == "Approved":
 			query = query.where(la.docstatus == 1)
-	return query.run(as_list=1)
+	rows = query.run(as_list=1)
+	if not rows:
+		return rows
+	# Only the rows the user can read (#206)
+	allowed_apps = permitted_names("Leave Application", {"name": ["in", [row[0] for row in rows]]})
+	allowed_emps = permitted_names("Employee")
+	return [row for row in rows if row[0] in allowed_apps and row[3] in allowed_emps]

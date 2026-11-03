@@ -28,19 +28,14 @@ def get_month(filters) -> frappe._dict:
         to_date=date(year, month, days))
 
 
-def add_employee_filters(query, emp, filters):
-    """The Employee, Branch, Department and Designation filters on the Employee table `emp`."""
-    for key, field in EMPLOYEE_FILTERS.items():
-        if filters.get(key):
-            query = query.where(emp[field] == filters[key])
-    return query
-
-
 def get_employees(filters) -> Dict[str, frappe._dict]:
-    """{employee: {name, employee_name, holiday_list}} of the employees that pass the filters."""
-    emp = frappe.qb.DocType("Employee")
-    query = frappe.qb.from_(emp).select(emp.name, emp.employee_name, emp.holiday_list).where(emp.docstatus == 0)
-    return {row.name: row for row in add_employee_filters(query, emp, filters).run(as_dict=1)}
+    """{employee: {name, employee_name, holiday_list}} of the employees that pass the filters and that
+    the user can read (#206). The reports show Attendance only for these employees."""
+    emp_filters = {"docstatus": 0}
+    emp_filters.update({field: filters[key] for key, field in EMPLOYEE_FILTERS.items() if filters.get(key)})
+    rows = frappe.get_list("Employee", filters=emp_filters, fields=["name", "employee_name", "holiday_list"],
+        limit_page_length=0)
+    return {row.name: row for row in rows}
 
 
 def get_holidays_by_day(employees: Dict[str, frappe._dict], from_date, to_date) -> Dict[str, Dict[int, str]]:

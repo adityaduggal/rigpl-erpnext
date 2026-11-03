@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import _
-from frappe.query_builder.functions import IfNull, Sum
+from frappe.query_builder.functions import Sum
 from frappe.utils import flt, getdate
 from pypika.terms import Case
 from ....utils.item_attribute_utils import chunks
@@ -46,18 +46,15 @@ def get_columns(filters):
 	return columns
 
 def get_employee_details(filters):
-	emp = frappe.qb.DocType("Employee")
-	query = (
-		frappe.qb.from_(emp)
-		.select(emp.name, emp.employee_name, emp.designation, emp.department, emp.branch,
-			emp.company_registered_with, emp.date_of_joining,
-			IfNull(emp.relieving_date, "2099-12-31").as_("relieving_date"))
-		.where(emp.docstatus == 0)
-	)
-	for key, field in EMPLOYEE_FILTERS.items():
-		if filters.get(key):
-			query = query.where(emp[field] == filters[key])
-	return {d.name: d for d in query.run(as_dict=1)}
+	"""Employees the user can read (#206). GL Entries are then read only for them."""
+	emp_filters = {"docstatus": 0}
+	emp_filters.update({field: filters[key] for key, field in EMPLOYEE_FILTERS.items() if filters.get(key)})
+	rows = frappe.get_list("Employee", filters=emp_filters, limit_page_length=0,
+		fields=["name", "employee_name", "designation", "department", "branch", "company_registered_with",
+			"date_of_joining", "relieving_date"])
+	for row in rows:
+		row.relieving_date = row.relieving_date or getdate("2099-12-31")
+	return {d.name: d for d in rows}
 
 
 def get_balances(employees, from_date, to_date):

@@ -19,6 +19,8 @@ def execute(filters=None):
 		frappe.throw("Please select an Employee for getting Loan Details")
 	values = get_values(filters)
 	employees = get_employees(filters, values)
+	if cint(filters.details) and filters.employee not in employees:
+		frappe.throw("Not permitted to read Employee {0}".format(filters.employee), frappe.PermissionError)
 	opening = get_opening(values, list(employees))
 	given = sum_by_employee(LOAN_SQL + " AND el.posting_date BETWEEN %(from_date)s AND %(to_date)s", values,
 		list(employees))
@@ -78,13 +80,14 @@ def get_values(filters):
 
 
 def get_employees(filters, values):
-	conditions = ""
-	for key, column in (("company", "company_registered_with"), ("branch", "branch"),
+	"""Employees the user can read (#206). Loans and deductions are then read only for them."""
+	emp_filters = {"docstatus": 0}
+	for key, field in (("company", "company_registered_with"), ("branch", "branch"),
 			("department", "department"), ("employee", "name")):
 		if filters.get(key):
-			conditions += f" AND emp.{column} = %({key})s"
-	rows = frappe.db.sql(f"""SELECT emp.name, emp.employee_name, emp.relieving_date, emp.status
-		FROM `tabEmployee` emp WHERE emp.docstatus = 0 {conditions}""", values, as_dict=True)
+			emp_filters[field] = values[key]
+	rows = frappe.get_list("Employee", filters=emp_filters, limit_page_length=0,
+		fields=["name", "employee_name", "relieving_date", "status"])
 	return {row.name: row for row in rows}
 
 
