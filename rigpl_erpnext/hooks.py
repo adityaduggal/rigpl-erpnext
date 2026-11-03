@@ -192,9 +192,6 @@ doc_events = {
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update",
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate",
     },
-    "Leave Allocation": {
-        "validate": "rigpl_erpnext.hr_rigpl.validations.leave_allocation.validate"
-    },
     "Leave Application": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.on_submit",

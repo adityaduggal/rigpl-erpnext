@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import msgprint, _
 from frappe.utils import flt, cstr
-from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
+from erpnext.payroll.doctype.salary_slip.salary_slip import SalarySlip
 
 
 def execute(filters=None):

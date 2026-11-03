@@ -104,11 +104,8 @@ def get_new_leaves_for_ltyp_in_period(emp, ltyp, lpd):
             # total leaves to be credited in a year once they are equal the period is taken care of
             # Also need to check if the Earned leaves are applicable or not till date as the no of
             # Days in Earned Leaves are counted from the Date of Joining
+            # TODO: credit earned leaves from attendance after appl_date. Not written yet.
             appl_date = get_earned_lvs_applicable_dt(emp=emp, ltype=ltyp)
-            if appl_date:
-                if appl_date > lpd.from_date and appl_date < lpd.to_date:
-                    att_smm = get_earned_att_details(emp_name=emp, frm_date=appl_date, 
-                                                     to_date=lpd.to_date, no_of_days= ltd.)
 
     return new_leaves, calc2dt, used_atts
 

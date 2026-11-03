@@ -7,9 +7,9 @@ import datetime
 from frappe.utils import money_in_words, flt
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_fiscal_years
-from erpnext.hr.doctype.payroll_entry.payroll_entry import get_start_end_dates
+from erpnext.payroll.doctype.payroll_entry.payroll_entry import get_start_end_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
-from erpnext.hr.doctype.salary_slip.salary_slip import SalarySlip
+from erpnext.payroll.doctype.salary_slip.salary_slip import SalarySlip
 
 
 def post_gl_entry(doc):
