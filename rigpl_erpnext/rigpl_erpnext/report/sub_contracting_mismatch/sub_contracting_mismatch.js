@@ -3,6 +3,7 @@
 /* eslint-disable */
 
 frappe.query_reports["Sub-Contracting Mismatch"] = {
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 	"filters": [
 	]
 };

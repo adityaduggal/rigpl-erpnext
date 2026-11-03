@@ -129,3 +129,22 @@ class TestRawMaterialNeeded(ReportTestCase):
         self.assertEqual(row[12:16], [8, 4, 2, 3])
         self.assertEqual(row[20], 5)
         self.assertRaises(frappe.ValidationError, raw_material_needed.execute, frappe._dict(brand=BRAND))
+
+
+class TestSubContractingMismatch(ReportTestCase):
+    def test_item_in_2_warehouses_is_1_row(self):
+        insert_subcontracting_warehouse("_Test RIGPL O'Subcon WH 1")
+        insert_subcontracting_warehouse("_Test RIGPL O'Subcon WH 2")
+        insert_purchase_item(ITEM, "6")
+        frappe.db.set_value("Item", ITEM, {"valuation_rate": 10}, update_modified=False)
+        insert_bin(ITEM, "_Test RIGPL O'Subcon WH 1", actual=3)
+        insert_bin(ITEM, "_Test RIGPL O'Subcon WH 2", actual=2)
+        po = insert_po(SERVICE, 6, received=2, subcontracted_item=ITEM)
+
+        data = self.assert_queries(2, lambda: sub_contracting_mismatch.execute(frappe._dict())[1])
+
+        rows = [row for row in data if row[0] == ITEM]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1:6], [4, 5, 1, 10, "Qty = 1.0 was Short Closed but No Issue Entry done for Same"])
+        self.assertIn("/app/purchase-order/", rows[0][6])
+        self.assertIn(po, rows[0][6])
