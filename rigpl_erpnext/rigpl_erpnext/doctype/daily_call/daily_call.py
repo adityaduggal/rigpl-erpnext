@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe.model.document import Document
 from frappe.utils import add_days, now_datetime, get_datetime, time_diff_in_seconds
+from ....utils.rigpl_perm import get_dl_parent
 
 class DailyCall(Document):
 	# TODO: Move Many of the COmmunications' Validatoins to Comm
@@ -56,12 +57,11 @@ class DailyCall(Document):
 						row.lead_contact_name = lead.lead_name
 						row.lead_organisation_name = lead.company_name
 						if lead.status == "Converted":
-							customer = frappe.db.sql("""SELECT name FROM `tabCustomer` 
-								WHERE lead_name = '%s'""" %(row.document_name), as_list=1)
+							customer = frappe.db.get_value("Customer", {"lead_name": row.document_name})
 							if customer:
 								frappe.throw(("Selected Lead is already converted to {}. \n\
 									Please select the customer and not this Lead in Row # {}.").\
-									format(frappe.get_desk_link("Customer", customer[0][0]), \
+									format(frappe.get_desk_link("Customer", customer), \
 										row.idx))
 							else:
 								frappe.throw("Selected Lead {} in Row# {} is Marked as Converted. \n\
@@ -88,10 +88,6 @@ class DailyCall(Document):
 					frappe.throw('Details of Communication are Mandatory')
 			
 			if row.no_action_required == 1:
-				#Check only System Managers can do this Entry
-				user = frappe.session.user
-				roles = frappe.db.sql("""SELECT role from `tabUserRole` where parent = '%s' """ \
-					%user, as_list=1)
 				row.next_action_date = ""
 			else:
 				if not row.next_action_date:
@@ -136,32 +132,8 @@ def update_lead_status(lead_doc, new_status):
 		lead_doc.save()
 		#frappe.db.set_value("Lead", self.lead, "custom_status", self.lead_status)
 
-@frappe.whitelist()
-def get_linked_contact(doctype, txt, searchfield, start, page_len, filters, link_doctype, link_docname):
-	frappe.throw("STOP")
-	return frappe.db.sql("""SELECT name, link_name FROM `tabDynamic Link`
-		WHERE parenttype = "Contact" AND link_doctype = '%s' AND link_name = '%s'
-			AND ({key} LIKE %(txt)s
-				OR parent LIKE %(txt)s)
-			{mcond}
-		ORDER BY
-			if(locate(%(_txt)s, name), locate(%(_txt)s, name), 99999),
-			if(locate(%(_txt)s, parent), locate(%(_txt)s, parent), 99999),
-			parent
-		LIMIT %(link_doctype, link_docname), %(start)s, %(page_len)s""".format(**{
-			'key': searchfield,
-			'mcond': get_match_cond(doctype)
-		}), {
-			'txt': "%%%s%%" % txt,
-			'_txt': txt.replace("%", ""),
-			'start': start,
-			'page_len': page_len,
-		})
-
 def check_contact(link_doctype, link_docname, selected_contact=None):
-	contact = frappe.db.sql(""" SELECT parent FROM `tabDynamic Link` 
-		WHERE parenttype = 'Contact' AND link_doctype = '%s' 
-		AND link_name = '%s'"""%(link_doctype, link_docname), as_list=1)
+	contact = get_dl_parent(dt="Contact", linked_dt=link_doctype, linked_dn=link_docname)
 	if contact:
 		if selected_contact:
 			check = 0
