@@ -9,6 +9,7 @@ from rigpl_erpnext.hr_rigpl.utils.attendance_report_utils import get_holidays_by
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_base_list_holiday_counts
 from rigpl_erpnext.rigpl_erpnext.report.attendance_performance_analysis import attendance_performance_analysis
 from rigpl_erpnext.rigpl_erpnext.report.employee_attendance import employee_attendance
+from rigpl_erpnext.rigpl_erpnext.report.employee_balances_rigpl import employee_balances_rigpl
 from rigpl_erpnext.rigpl_erpnext.report.leave_application_report import leave_application_report
 from rigpl_erpnext.rigpl_erpnext.report.list_of_holidays import list_of_holidays
 from rigpl_erpnext.rigpl_erpnext.report.monthly_attendance_time_based import monthly_attendance_time_based
@@ -159,3 +160,18 @@ class TestLeaveApplicationReport(ReportTestCase):
             branch=BRANCH, status="Approved"))[1]
 
         self.assertEqual([row[0] for row in data], [approved])
+
+
+class TestEmployeeBalances(ReportTestCase):
+    def test_opening_period_and_non_zero(self):
+        insert_employee(EMP)
+        insert_employee(EMP_2)
+        for date, credit, debit in (("2026-08-15", 1000, 0), ("2026-09-05", 500, 0), ("2026-09-20", 0, 300)):
+            raw("GL Entry", party_type="Employee", party=EMP, posting_date=date, credit=credit, debit=debit)
+        filters = dict(from_date="2026-09-01", to_date="2026-09-30", branch=BRANCH)
+
+        data = self.assert_queries(2, lambda: employee_balances_rigpl.execute(frappe._dict(filters, non_zero=1))[1])
+
+        self.assertEqual([[row[0]] + row[8:] for row in data], [[EMP, 1000, 500, 300, 1200]])
+        all_rows = employee_balances_rigpl.execute(frappe._dict(filters))[1]
+        self.assertEqual([row[0] for row in all_rows], [EMP, EMP_2])

@@ -3,50 +3,38 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe import msgprint, _
+from frappe import _
+from frappe.query_builder.functions import IfNull, Sum
+from frappe.utils import flt, getdate
+from pypika.terms import Case
+from ....utils.item_attribute_utils import chunks
+
+# filter: Employee field
+EMPLOYEE_FILTERS = {"employee": "name", "branch": "branch", "department": "department", "designation": "designation",
+	"company_registered_with": "company_registered_with"}
 
 def execute(filters=None):
-	non_zero = get_conditions(filters)[2]
+	filters = filters or {}
+	from_date, to_date = getdate(filters.get("from_date")), getdate(filters.get("to_date"))
+	if from_date > to_date:
+		frappe.throw("From Date cannot be after To Date", title="Wrong Period")
 	columns = get_columns(filters)
 	emp_map = get_employee_details(filters)
-	open_dict, between_dict = get_opening(filters)
-	
+	balances = get_balances(list(emp_map), from_date, to_date)
+
 	data = []
-	for emp in emp_map:
-		emp_det = emp_map.get(emp)
-		if emp in open_dict:
-			open_bal = open_dict.get(emp).opening
-		else:
-			open_bal = 0
-		
-		if emp in between_dict:
-			bet_inc = between_dict.get(emp).bw_credit
-			bet_dec = between_dict.get(emp).bw_debit
-		else:
-			bet_inc = 0
-			bet_dec = 0
-		
+	for emp in sorted(emp_map):
+		emp_det = emp_map[emp]
+		open_bal, bet_inc, bet_dec = balances.get(emp, (0, 0, 0))
 		closing = open_bal + bet_inc - bet_dec
-		
-		if non_zero == 1:
-			if open_bal !=0 or bet_inc !=0 or bet_dec != 0 or closing !=0:
-				row = [emp, emp_det.employee_name, emp_det.company_registered_with, \
-					emp_det.branch, emp_det.department, emp_det.designation, \
-					emp_det.date_of_joining, emp_det.relieving_date, open_bal, bet_inc, \
-					bet_dec, closing]
-				data.append(row)
-				data.sort()
-		else:
-			row = [emp, emp_det.employee_name, emp_det.company_registered_with, \
-				emp_det.branch, emp_det.department, emp_det.designation, \
-				emp_det.date_of_joining, emp_det.relieving_date, open_bal, bet_inc, bet_dec, closing]
-			data.append(row)
-			data.sort()
-			
-		
-		
+		if filters.get("non_zero") and not (open_bal or bet_inc or bet_dec or closing):
+			continue
+		data.append([emp, emp_det.employee_name, emp_det.company_registered_with, emp_det.branch,
+			emp_det.department, emp_det.designation, emp_det.date_of_joining, emp_det.relieving_date, open_bal,
+			bet_inc, bet_dec, closing])
 	return columns, data
-	
+
+
 def get_columns(filters):
 	columns = [
 		_("Employee") + ":Link/Employee:100", _("Employee Name") + "::140",
@@ -58,65 +46,38 @@ def get_columns(filters):
 	return columns
 
 def get_employee_details(filters):
-	conditions_emp = get_conditions(filters)[0]
-	emp_map = frappe._dict()
-	for d in frappe.db.sql("""select emp.name, emp.employee_name, emp.designation,
-		emp.department, emp.branch, emp.company_registered_with, emp.date_of_joining,
-		IFNULL(emp.relieving_date, '2099-12-31') as relieving_date
-		from tabEmployee emp
-		WHERE emp.docstatus = 0 %s""" %(conditions_emp), as_dict=1):
-		emp_map.setdefault(d.name, d)
+	emp = frappe.qb.DocType("Employee")
+	query = (
+		frappe.qb.from_(emp)
+		.select(emp.name, emp.employee_name, emp.designation, emp.department, emp.branch,
+			emp.company_registered_with, emp.date_of_joining,
+			IfNull(emp.relieving_date, "2099-12-31").as_("relieving_date"))
+		.where(emp.docstatus == 0)
+	)
+	for key, field in EMPLOYEE_FILTERS.items():
+		if filters.get(key):
+			query = query.where(emp[field] == filters[key])
+	return {d.name: d for d in query.run(as_dict=1)}
 
-	return emp_map
 
-def get_opening(filters):
-	open_dict = frappe._dict()
-	between_dict = frappe._dict()
-	conditions_gl = get_conditions(filters)[1]
-	op_dict = frappe.db.sql("""SELECT gl.party, (SUM(gl.credit) - SUM(gl.debit)) as opening
-		FROM `tabGL Entry` gl
-		WHERE gl.party_type = 'Employee' AND gl.posting_date < '%s'
-		GROUP BY gl.party""" %(filters["from_date"]), as_dict=1)
-
-	bw_dict = frappe.db.sql("""SELECT gl.party, SUM(gl.credit) as bw_credit,
-		SUM(gl.debit) as bw_debit
-		FROM `tabGL Entry` gl
-		WHERE gl.party_type = 'Employee' AND gl.posting_date >= '%s' AND gl.posting_date <= '%s'
-		GROUP BY gl.party""" %(filters["from_date"], filters["to_date"]), as_dict=1)
-
-	for d in bw_dict:
-		between_dict.setdefault(d.party, d)
-		
-	for d in op_dict:
-		open_dict.setdefault(d.party,d)
-	return open_dict, between_dict
-
-def get_conditions(filters):
-	conditions_gl = ""
-	conditions_emp = ""
-	non_zero = 0
-	
-	if filters.get("non_zero"):
-		non_zero = 1
-
-	if filters.get("from_date"):
-		conditions_gl += " AND posting_date <= '%s'" %filters["from_date"]
-
-	if filters.get("to_date"):
-		conditions_gl += " AND posting_date <= '%s'" %filters["to_date"]
-					
-	if filters.get("employee"): 
-		conditions_emp += " AND emp.name = '%s'" % filters["employee"]
-	
-	if filters.get("branch"):
-		conditions_emp += " AND emp.branch = '%s'" % filters["branch"]
-		
-	if filters.get("department"):
-		conditions_emp += " AND emp.department = '%s'" % filters["department"]
-		
-	if filters.get("designation"):
-		conditions_emp += " AND emp.designation = '%s'" % filters["designation"]
-		
-	if filters.get("company_registered_with"):
-		conditions_emp += " AND emp.company_registered_with = '%s'" % filters["company_registered_with"]
-	return conditions_emp, conditions_gl, non_zero
+def get_balances(employees, from_date, to_date):
+	"""
+	{employee: (opening, period credit, period debit)} from the Employee GL Entries, in 1 query for
+	each chunk of the employees in the report. The opening is credit - debit before from_date.
+	"""
+	gl = frappe.qb.DocType("GL Entry")
+	before = gl.posting_date < from_date
+	opening = Sum(Case().when(before, gl.credit - gl.debit).else_(0))
+	credit = Sum(Case().when(before, 0).else_(gl.credit))
+	debit = Sum(Case().when(before, 0).else_(gl.debit))
+	balances = {}
+	for chunk in chunks(employees):
+		rows = (
+			frappe.qb.from_(gl)
+			.select(gl.party, opening, credit, debit)
+			.where((gl.party_type == "Employee") & gl.party.isin(chunk) & (gl.posting_date <= to_date))
+			.groupby(gl.party)
+			.run()
+		)
+		balances.update({party: (flt(o), flt(c), flt(d)) for party, o, c, d in rows})
+	return balances
