@@ -3,6 +3,7 @@
 /* eslint-disable */
 
 frappe.query_reports["MTO Stock Ledger"] = {
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 	"filters": [
 		{
 			"fieldname":"so_item",

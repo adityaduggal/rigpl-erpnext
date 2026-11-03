@@ -5,7 +5,9 @@ from __future__ import unicode_literals
 import frappe
 import datetime
 import math
-from frappe.utils import getdate, flt
+from ....utils.item_attribute_utils import chunks
+from ....utils.report_utils import blank_zeros
+
 
 def execute(filters=None):
 	if not filters: filters = {}
@@ -39,83 +41,113 @@ def get_columns():
 
 
 def get_data(filters):
-	data = []
-	so_item = filters.get("so_item")
+	"""
+	Returns the rows of the completed Job Cards of the SO item that move stock in or out of the
+	warehouse, and the Purchase Receipt rows of the subcontracted Job Cards into the warehouse
+	"""
 	wh = filters.get("warehouse")
-	conditions = get_conditions(filters)
+	job_cards = get_job_cards(filters)
+	subcontracted = [jc.name for jc in job_cards
+		if wh not in (jc.t_warehouse, jc.s_warehouse) and jc.is_subcontracting_warehouse == 1]
+	receipts = get_subcontracting_receipts(subcontracted)
 
-	query = """SELECT jc.posting_date, jc.posting_time, jc.production_item, jc.description, jc.total_completed_qty, 0, 
-	jc.s_warehouse, jc.t_warehouse, jc.name, jc.process_sheet, ps.bom_template, ste.name as ste, 
-	jc.operation, jc.workstation, jc.operation_serial_no as op_sno, jc.sales_order as so, jc.sno, 
-	wh.is_subcontracting_warehouse, "Process Job Card RIGPL" as ref_type
-	FROM `tabProcess Job Card RIGPL` jc, `tabStock Entry` ste, `tabProcess Sheet` ps, `tabWarehouse` wh
-	WHERE ste.process_job_card = jc.name AND jc.process_sheet = ps.name AND jc.docstatus = 1 
-	AND jc.status = 'Completed' AND wh.name = jc.t_warehouse AND jc.sales_order_item = '%s' %s
-	ORDER BY jc.posting_date DESC, jc.posting_time DESC""" % (so_item, conditions)
-	rd = frappe.db.sql(query, as_dict=1)
-	for i in range(0, len(rd)):
-		ptime = datetime.timedelta(seconds=math.ceil((rd[i].posting_time).total_seconds()))
-		if rd[i].t_warehouse == filters.get("warehouse"):
-			qty = rd[i].total_completed_qty
-			row = [
-				rd[i].posting_date, ptime, rd[i].production_item, rd[i].description, qty, rd[i].s_warehouse,
-				rd[i].t_warehouse, rd[i].name, rd[i].process_sheet, rd[i].bom_template, rd[i].ste, rd[i].operation,
-				rd[i].workstation, rd[i].op_sno, rd[i].sno, rd[i].so, rd[i].ref_type
-			]
-			data.append(row)
-		elif rd[i].s_warehouse == filters.get("warehouse"):
-			qty = (-1) * rd[i].total_completed_qty
-			row = [
-				rd[i].posting_date, ptime, rd[i].production_item, rd[i].description, qty, rd[i].s_warehouse,
-				rd[i].t_warehouse, rd[i].name, rd[i].process_sheet, rd[i].bom_template, rd[i].ste, rd[i].operation,
-				rd[i].workstation, rd[i].op_sno, rd[i].sno, rd[i].so, rd[i].ref_type
-			]
-			data.append(row)
-		else:
-			if rd[i].is_subcontracting_warehouse == 1:
-				poi = frappe.db.sql("""SELECT poi.name FROM `tabPurchase Order Item` poi, `tabPurchase Order` po
-				WHERE po.docstatus=1 AND poi.parent = po.name AND poi.reference_dn = '%s'""" % rd[i].name, as_dict=1)
-				if poi:
-					query = """SELECT grn.name, pr.posting_date, pr.posting_time, grn.item_code,
-					grn.description, grn.qty, grn.warehouse, ste.name as ste, "Purchase Receipt" as ref_type,
-					pr.name as pr_name
-					FROM `tabPurchase Receipt Item` grn, `tabStock Entry` ste, `tabPurchase Receipt` pr
-					WHERE ste.purchase_receipt_no = grn.parent AND grn.parent = pr.name AND pr.docstatus = 1 
-					AND grn.purchase_order_item = '%s' """ % poi[0].name
-					grn = frappe.db.sql(query, as_dict=1)
-					if grn:
-						for d in grn:
-							ptime = datetime.timedelta(seconds=math.ceil((d.posting_time).total_seconds()))
-							if d.warehouse == filters.get("warehouse"):
-								# Add row for Material Receipt for Sub Contracting items
-								row = [
-									d.posting_date, ptime, rd[i].production_item, d.description, d.qty,
-									rd[i].t_warehouse, d.warehouse, d.pr_name, "X", "X", d.ste, "X", "X", "X",
-									rd[i].sno, rd[i].so, d.ref_type
-								]
-								data.append(row)
-			else:
-				continue
-		dn = frappe.db.sql("""SELECT dn.name, dni.item_code, dni.warehouse, dni.description, dn.posting_date,
-		dn.posting_time, dni.qty, dni.against_sales_order, dni.so_detail, sod.idx, "Delivery Note" as ref_type
-		FROM `tabDelivery Note` dn, `tabDelivery Note Item` dni, `tabSales Order Item` sod
-		WHERE dn.docstatus = 1 AND dni.parent = dn.name AND sod.name = dni.so_detail
-		AND dni.so_detail = '%s'""" % so_item, as_dict=1)
+	data = []
+	for jc in job_cards:
+		if jc.t_warehouse == wh or jc.s_warehouse == wh:
+			qty = jc.total_completed_qty if jc.t_warehouse == wh else (-1) * jc.total_completed_qty
+			data.append(blank_zeros([
+				jc.posting_date, round_up_time(jc.posting_time), jc.production_item, jc.description, qty,
+				jc.s_warehouse, jc.t_warehouse, jc.name, jc.process_sheet, jc.bom_template, jc.ste,
+				jc.operation, jc.workstation, jc.op_sno, jc.sno, jc.so, "Process Job Card RIGPL"
+			]))
+			continue
+		for d in receipts.get(jc.name, []):
+			if d.warehouse == wh:
+				# Add row for Material Receipt for Sub Contracting items
+				data.append(blank_zeros([
+					d.posting_date, round_up_time(d.posting_time), jc.production_item, d.description, d.qty,
+					jc.t_warehouse, d.warehouse, d.pr_name, "X", "X", d.ste, "X", "X", "X",
+					jc.sno, jc.so, "Purchase Receipt"
+				]))
 	return data
 
 
-def get_conditions(filters):
-	cond = ""
-	all_entries_cond = ""
-	'''
-	if filters.get("warehouse"):
-		cond += " AND (jc.t_warehouse = '%s' OR jc.s_warehouse = '%s')" % (filters.get("warehouse"),
-																		  filters.get("warehouse"))
-		all_entries_cond += " AND (t_warehouse = '%s' OR s_warehouse = '%s')" % (filters.get("warehouse"),
-																		  filters.get("warehouse"))
-	'''
+def get_job_cards(filters):
+	jc = frappe.qb.DocType("Process Job Card RIGPL")
+	ste = frappe.qb.DocType("Stock Entry")
+	ps = frappe.qb.DocType("Process Sheet")
+	whs = frappe.qb.DocType("Warehouse")
+	query = (
+		frappe.qb.from_(jc)
+		.join(ste).on(ste.process_job_card == jc.name)
+		.join(ps).on(ps.name == jc.process_sheet)
+		.join(whs).on(whs.name == jc.t_warehouse)
+		.select(
+			jc.name, jc.posting_date, jc.posting_time, jc.production_item, jc.description,
+			jc.total_completed_qty, jc.s_warehouse, jc.t_warehouse, jc.process_sheet, ps.bom_template,
+			ste.name.as_("ste"), jc.operation, jc.workstation, jc.operation_serial_no.as_("op_sno"),
+			jc.sales_order.as_("so"), jc.sno, whs.is_subcontracting_warehouse
+		)
+		.where(jc.docstatus == 1)
+		.where(jc.status == "Completed")
+		.where(jc.sales_order_item == filters.get("so_item"))
+		.orderby(jc.posting_date, order=frappe.qb.desc)
+		.orderby(jc.posting_time, order=frappe.qb.desc)
+	)
 	if filters.get("from_date"):
-		cond += " AND jc.posting_date >= '%s'" % filters.get("from_date")
+		query = query.where(jc.posting_date >= filters.get("from_date"))
 	if filters.get("to_date"):
-		cond += " AND jc.posting_date <= '%s'" % filters.get("to_date")
-	return cond
+		query = query.where(jc.posting_date <= filters.get("to_date"))
+	return query.run(as_dict=True)
+
+
+def get_subcontracting_receipts(job_cards):
+	"""
+	Returns {job card: [Purchase Receipt rows]} for the first submitted PO item of each Job Card
+	"""
+	if not job_cards:
+		return {}
+	po = frappe.qb.DocType("Purchase Order")
+	poi = frappe.qb.DocType("Purchase Order Item")
+	po_item_of = {}
+	for chunk in chunks(job_cards):
+		rows = (
+			frappe.qb.from_(poi)
+			.join(po).on(po.name == poi.parent)
+			.select(poi.name, poi.reference_dn)
+			.where(po.docstatus == 1)
+			.where(poi.reference_dn.isin(chunk))
+			.orderby(poi.creation)
+			.orderby(poi.name)
+			.run(as_dict=True)
+		)
+		for row in rows:
+			po_item_of.setdefault(row.reference_dn, row.name)
+	if not po_item_of:
+		return {}
+
+	job_card_of = {po_item: jc for jc, po_item in po_item_of.items()}
+	grn = frappe.qb.DocType("Purchase Receipt Item")
+	pr = frappe.qb.DocType("Purchase Receipt")
+	ste = frappe.qb.DocType("Stock Entry")
+	receipts = {}
+	for chunk in chunks(list(job_card_of)):
+		rows = (
+			frappe.qb.from_(grn)
+			.join(pr).on(pr.name == grn.parent)
+			.join(ste).on(ste.purchase_receipt_no == grn.parent)
+			.select(
+				grn.purchase_order_item, pr.posting_date, pr.posting_time, grn.description, grn.qty,
+				grn.warehouse, ste.name.as_("ste"), pr.name.as_("pr_name")
+			)
+			.where(pr.docstatus == 1)
+			.where(grn.purchase_order_item.isin(chunk))
+			.run(as_dict=True)
+		)
+		for row in rows:
+			receipts.setdefault(job_card_of[row.purchase_order_item], []).append(row)
+	return receipts
+
+
+def round_up_time(posting_time):
+	return datetime.timedelta(seconds=math.ceil(posting_time.total_seconds()))

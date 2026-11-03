@@ -8,6 +8,9 @@ from rigpl_erpnext.manufacturing_rigpl.report.production_and_planning_report_rig
     production_and_planning_report_rigpl as ppr,
 )
 from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import pick_last_jc
+from rigpl_erpnext.rigpl_erpnext.report.mto_stock_ledger import mto_stock_ledger
+from rigpl_erpnext.tests.test_buying_reports import insert_subcontracting_warehouse
+from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
 
 
 def job_card(name, idx, operation, docstatus=1, completed=10):
@@ -112,3 +115,44 @@ class TestBomTemplates(FrappeTestCase):
     def test_missing_restriction_shows_dash(self):
         self.assertEqual(bom_templates.allowed_or_dash(None), "-")
         self.assertEqual(bom_templates.allowed_or_dash(""), "")
+
+
+MTO_WH = "_Test RIGPL O'MTO WH"
+MTO_SUBCON_WH = "_Test RIGPL O'MTO Subcon WH"
+MTO_SO_ITEM = "_Test RIGPL O'SO Item"
+
+
+def insert_mto_job_card(date, s_warehouse, t_warehouse, qty):
+    ps = raw("Process Sheet", bom_template="_Test RIGPL O'BT")
+    jc = raw("Process Job Card RIGPL", posting_date=date, posting_time="10:00:00.4", production_item="O'Item",
+        description="O'Item", total_completed_qty=qty, s_warehouse=s_warehouse, t_warehouse=t_warehouse,
+        process_sheet=ps, sales_order_item=MTO_SO_ITEM, docstatus=1, status="Completed")
+    raw("Stock Entry", process_job_card=jc)
+    return jc
+
+
+class TestMtoStockLedger(ReportTestCase):
+    def test_in_out_and_subcontracting_receipt(self):
+        raw("Warehouse", name=MTO_WH, warehouse_name=MTO_WH, short_code="_TOMTO", listing_serial=99, is_group=0)
+        insert_subcontracting_warehouse(MTO_SUBCON_WH)
+        jc_in = insert_mto_job_card("2026-01-03", None, MTO_WH, 10)
+        jc_out = insert_mto_job_card("2026-01-02", MTO_WH, MTO_SUBCON_WH, 4)
+        jc_sub = insert_mto_job_card("2026-01-01", "_Test RIGPL O'Other WH", MTO_SUBCON_WH, 4)
+        po = raw("Purchase Order", docstatus=1)
+        poi = raw("Purchase Order Item", parent=po, parenttype="Purchase Order", parentfield="items",
+            reference_dn=jc_sub)
+        pr = raw("Purchase Receipt", docstatus=1, posting_date="2026-01-05", posting_time="11:00:00")
+        raw("Purchase Receipt Item", parent=pr, parenttype="Purchase Receipt", parentfield="items",
+            purchase_order_item=poi, warehouse=MTO_WH, qty=4, description="O'Receipt")
+        ste = raw("Stock Entry", purchase_receipt_no=pr)
+        filters = frappe._dict(so_item=MTO_SO_ITEM, warehouse=MTO_WH, from_date="2026-01-01")
+
+        data = self.assert_queries(3, lambda: mto_stock_ledger.execute(filters)[1])
+
+        self.assertEqual([(row[4], row[7], row[16]) for row in data], [
+            (10, jc_in, "Process Job Card RIGPL"),
+            (-4, jc_out, "Process Job Card RIGPL"),
+            (4, pr, "Purchase Receipt"),
+        ])
+        self.assertEqual(str(data[0][1]), "10:00:01")
+        self.assertEqual(data[2][10], ste)
