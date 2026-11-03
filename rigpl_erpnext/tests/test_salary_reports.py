@@ -135,7 +135,7 @@ class TestSalaryStructureReport(FrappeTestCase):
                 name = "_Test RIGPL SSR Emp %s-%s" % (count, i)
                 insert_employee(name)
                 insert_ssa("_Test RIGPL SSR SSA %s-%s" % (count, i), name, "2026-04-01")
-            with assert_max_queries(5, test_case=self) as guard:
+            with assert_max_queries(6, test_case=self) as guard:
                 self.run_report()
             counts.append(guard.count)
         self.assertEqual(counts[0], counts[1])

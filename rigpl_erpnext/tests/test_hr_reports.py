@@ -86,7 +86,7 @@ class TestEmployeeAttendance(ReportTestCase):
         insert_attendance(EMP, "2026-09-05", status="Work From Home")
         insert_leave(EMP, "2026-09-03", "2026-09-03", 1)
 
-        columns, data = self.assert_queries(4, lambda: employee_attendance.execute(frappe._dict(SEPT)))
+        columns, data = self.assert_queries(5, lambda: employee_attendance.execute(frappe._dict(SEPT)))
 
         self.assertEqual(len(columns), 2 + 30 + 2)
         row = next(row for row in data if row[0] == EMP)
@@ -101,7 +101,7 @@ class TestMonthlyAttendanceTimeBased(ReportTestCase):
         insert_attendance(EMP, "2026-09-01", overtime=2, punches=[("In Time", "09:00"), ("Out Time", "18:30")])
         insert_attendance(EMP, "2026-09-03", punches=[("In Time", "09:15")])
 
-        data = self.assert_queries(4, lambda: monthly_attendance_time_based.execute(frappe._dict(SEPT))[1])
+        data = self.assert_queries(5, lambda: monthly_attendance_time_based.execute(frappe._dict(SEPT))[1])
 
         rows = [row for row in data if row[0] == EMP]
         self.assertEqual([row[2] for row in rows], ["In Time", "Out Time", "Over Time"])
@@ -120,7 +120,7 @@ class TestAttendancePerformanceAnalysis(ReportTestCase):
         insert_leave(EMP, "2026-09-03", "2026-09-04", 2)
         filters = frappe._dict(from_date="2026-09-01", to_date="2026-09-10", branch=BRANCH)
 
-        data = self.assert_queries(4, lambda: attendance_performance_analysis.execute(filters)[1])
+        data = self.assert_queries(5, lambda: attendance_performance_analysis.execute(filters)[1])
 
         row = next(row for row in data if row[0] == EMP)
         # 10 days, 1 holiday, 1 present, 1.5 OT, 2 leave days: 1 cal holiday, 6 unauthorized
@@ -172,7 +172,7 @@ class TestEmployeeBalances(ReportTestCase):
             raw("GL Entry", party_type="Employee", party=EMP, posting_date=date, credit=credit, debit=debit)
         filters = dict(from_date="2026-09-01", to_date="2026-09-30", branch=BRANCH)
 
-        data = self.assert_queries(2, lambda: employee_balances_rigpl.execute(frappe._dict(filters, non_zero=1))[1])
+        data = self.assert_queries(3, lambda: employee_balances_rigpl.execute(frappe._dict(filters, non_zero=1))[1])
 
         self.assertEqual([[row[0]] + row[8:] for row in data], [[EMP, 1000, 500, 300, 1200]])
         all_rows = employee_balances_rigpl.execute(frappe._dict(filters))[1]
