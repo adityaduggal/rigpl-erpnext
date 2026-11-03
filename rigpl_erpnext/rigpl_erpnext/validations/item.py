@@ -91,37 +91,38 @@ def autoname(doc,method):
         frappe.db.set_value("Item Attribute Value", serial[0][1], "serial", nxt_serial)
 
 def generate_item_code(doc,method):
+    """
+    Returns ([[serial, Item Attribute Value name]], item code) for a variant: the abbr of each
+    text attribute used in the item code (by row idx), the Tool Type serial and a check digit
+    """
     if doc.variant_of:
         code = ""
+        meta = {d.name: d for d in frappe.get_all("Item Attribute",
+            filters={"name": ("in", list({d.attribute for d in doc.attributes}))},
+            fields=["name", "numeric_values", "use_in_item_code"])}
+        rows = [d for d in doc.attributes if meta.get(d.attribute)
+            and meta[d.attribute].numeric_values != 1 and meta[d.attribute].use_in_item_code == 1]
+        values = get_attribute_value_rows(rows)
+
         abbr = []
-        for d in doc.attributes:
-            is_numeric = frappe.db.get_value("Item Attribute", d.attribute, "numeric_values")
-            use_in_item_code = frappe.db.get_value("Item Attribute", d.attribute,
-                    "use_in_item_code")
-            if is_numeric != 1 and use_in_item_code == 1:
-                cond1 = d.attribute
-                cond2 = d.attribute_value
-                query = """SELECT iav.abbr from `tabItem Attribute Value` iav,
-				`tabItem Attribute` ia
-				WHERE iav.parent = '%s' AND iav.parent = ia.name
-				AND iav.attribute_value = '%s'""" %(cond1, cond2)
+        serial = None
+        for d in sorted(rows, key=lambda x: x.idx):
+            iav = values.get((d.attribute, d.attribute_value))
+            if not iav:
+                frappe.throw("No Item Attribute Value {} for Attribute {}".format(d.attribute_value, d.attribute))
+            abbr.append(iav.abbr)
+            #Get serial from Tool Type (This is HARDCODED)
+            #TODO: Put 1 custom field in Item Attribute checkbox "Use for Serial Number"
+            #now also add a validation that you cannot use more than 1 attributes which
+            #have use for serial no.
+            if d.attribute == "Tool Type":
+                serial = [[iav.serial, iav.name]]
+        if not serial:
+            frappe.throw("Tool Type is needed to make the Item Code")
 
-                #Get serial from Tool Type (This is HARDCODED)
-                #TODO: Put 1 custom field in Item Attribute checkbox "Use for Serial Number"
-                #now also add a validation that you cannot use more than 1 attributes which
-                #have use for serial no.
-                if cond1 == "Tool Type":
-                    query2 = """SELECT iav.serial, iav.name from `tabItem Attribute Value` iav
-						WHERE iav.parent = 'Tool Type' AND iav.attribute_value= '%s'""" %cond2
-                    serial = frappe.db.sql(query2 , as_list=1)
-
-                abbr.extend(frappe.db.sql(query, as_list=1))
-                abbr[len(abbr)-1].append(d.idx)
-        abbr.sort(key=lambda x:x[1])  # Sort the abbr as per priority lowest one is taken first
-
-        for i in range(len(abbr)):
-            if abbr[i][0] != '""':
-                code = code + abbr[i][0]
+        for a in abbr:
+            if a != '""':
+                code = code + a
         if len(serial[0][0]) > 2:
             code = code + serial[0][0]
         else:
@@ -129,3 +130,24 @@ def generate_item_code(doc,method):
         chk_digit = fn_check_digit(code)
         code = code + str(chk_digit)
         return serial, code
+
+
+def get_attribute_value_rows(rows):
+    """
+    Returns {(attribute, value): Item Attribute Value row with abbr, serial and name}
+    """
+    if not rows:
+        return {}
+    iav = frappe.qb.DocType("Item Attribute Value")
+    found = (
+        frappe.qb.from_(iav)
+        .select(iav.parent, iav.attribute_value, iav.abbr, iav.serial, iav.name)
+        .where(iav.parent.isin(list({d.attribute for d in rows})))
+        .where(iav.attribute_value.isin(list({d.attribute_value for d in rows})))
+        .orderby(iav.idx)
+        .run(as_dict=True)
+    )
+    values = {}
+    for row in found:
+        values.setdefault((row.parent, row.attribute_value), row)
+    return values
