@@ -125,7 +125,6 @@ after_migrate = [
 doctype_js = {
     "Bank Account": "public/js/bank_account.js",
     "Item": "public/js/stock/item.js",
-    "Leave Allocation": "public/js/hr/leave_allocation.js",
     "ToDo": "public/js/todo.js",
 }
 
@@ -196,6 +195,9 @@ doc_events = {
     "Lead": {
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead.on_update",
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.lead.validate",
+    },
+    "Leave Allocation": {
+        "before_validate": "rigpl_erpnext.hr_rigpl.utils.leave_credit.zero_time_based_credit",
     },
     "Leave Application": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.leave_application.validate",
@@ -323,6 +325,7 @@ scheduler_events = {
     "daily_long": [
         "rigpl_erpnext.rigpl_erpnext.shipping.tracking.daily_shipping_jobs",
         "rigpl_erpnext.utils.role_permission_policy.enforce_role_permission_policy",
+        "rigpl_erpnext.hr_rigpl.utils.leave_credit.credit_leaves_from_attendance",
     ],
     "hourly_long": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.user_permission_sync.execute",

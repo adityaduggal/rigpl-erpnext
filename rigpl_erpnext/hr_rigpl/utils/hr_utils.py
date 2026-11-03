@@ -9,47 +9,6 @@ from frappe.utils import flt, getdate
 from rigpl_erpnext.utils.item_attribute_utils import chunks
 
 
-def get_attendance_details(emp_name, frm_date, to_date):
-    """
-    Returns the attendance details dictionary for employee for given dates
-    emp_name = Name of the Employee (Employee ID)
-    frm_date = From Date in txt or datetime
-    to_date = To Date in txt or datetime
-    dictionary has the following keys:
-    tot_days = Total Days integer, tot_wday = Total Working Days integer,
-    tot_hols = Total Holidays integer, tot_pres = Total Presents int,
-    tot_abs = Total Absents int
-    """
-    att_det_dict = frappe._dict({})
-    att_list = frappe.db.sql(
-        f"""SELECT att.name, att.attendance_date, att.status, att.leave_type FROM `tabAttendance` att
-                             WHERE att.docstatus = 1 AND att.attendance_date >= '{frm_date}' 
-                             AND att.attendance_date <= '{to_date}' AND att.employee = '{emp_name}'
-                             ORDER BY att.attendance_date ASC""",
-        as_dict=1,
-    )
-    tot_dys, holidys = get_employee_holidays(
-        emp_name=emp_name, frm_date=frm_date, to_date=to_date
-    )
-    present, absent = 0, 0
-    for att in att_list:
-        if att.status == "Present":
-            present += 1
-        elif att.status == "Half Day":
-            present += 0.5
-            absent += 0.5
-        else:
-            absent += 1
-    att_det_dict["tot_days"] = tot_dys
-    att_det_dict["tot_hols"] = holidys
-    att_det_dict["tot_abs"] = tot_dys - holidys - present
-    att_det_dict["tot_pres"] = present
-    att_det_dict["tot_wday"] = tot_dys - holidys
-    att_det_dict["attendances"] = att_list
-
-    return att_det_dict
-
-
 def get_employee_holidays(emp_name, frm_date, to_date):
     """
     Returns the holidays and working dates for employee in given date
