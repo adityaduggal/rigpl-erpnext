@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe.model.document import Document
 
+from ....utils.item_attribute_utils import get_attribute_rows
 from ....utils.item_utils import (
     check_numeric_attributes,
     check_text_attributes,
@@ -19,18 +20,20 @@ class MadetoOrderItemAttributes(Document):
         self.validate_attribute_values()
         if self.reference_spl:
             self.reference_spl = ""
-        other_specials = frappe.db.sql(
-            """SELECT name FROM `tabMade to Order Item Attributes` WHERE sales_order =
-        '%s' AND sales_order_item = '%s' AND item_code = '%s' AND name != '%s' AND docstatus != 2"""
-            % (self.sales_order, self.sales_order_item, self.item_code, self.name),
-            as_dict=1,
+        other_special = frappe.db.get_value(
+            self.doctype,
+            {
+                "sales_order": self.sales_order,
+                "sales_order_item": self.sales_order_item,
+                "item_code": self.item_code,
+                "name": ("!=", self.name),
+                "docstatus": ("!=", 2),
+            },
         )
-        if other_specials:
+        if other_special:
             frappe.throw(
                 "{} Already Exists".format(
-                    frappe.get_desk_link(
-                        "Made to Order Item Attributes", other_specials[0].name
-                    )
+                    frappe.get_desk_link("Made to Order Item Attributes", other_special)
                 )
             )
         for d in self.attributes:
@@ -62,14 +65,9 @@ class MadetoOrderItemAttributes(Document):
                     )
                 )
             else:
-                query = """SELECT idx, name, attribute, attribute_value, numeric_values
-                FROM `tabItem Variant Attribute`
-                WHERE parent = '%s' AND parenttype= '%s'
-                ORDER BY idx""" % (
-                    self.reference_spl,
-                    self.doctype,
-                )
-                attributes = frappe.db.sql(query, as_dict=1)
+                attributes = get_attribute_rows(
+                    [self.reference_spl], parenttype=self.doctype
+                ).get(self.reference_spl, [])
                 self.set("attributes", [])
                 self.set_attributes_in_table(attributes)
         else:
