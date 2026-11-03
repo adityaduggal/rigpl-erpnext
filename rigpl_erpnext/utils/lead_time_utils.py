@@ -50,9 +50,10 @@ def get_items_lead_time(item_names, frm_dt=None, to_dt=None):
                 lead_times[itm.name] = get_lead_time_summary(itm.name,
                     po_dict.get(itm.name, []), "Purchase Order")
             else:
-                # Check which items are there and device a formula for that as well.
-                lead_times[itm.name] = frappe._dict({"avg_days_wt": 0, "based_on": "Unknown"})
-                print(f"Item {itm.name} is neither Sales nor Purchase so Lead Time is Set to 0")
+                # Neither manufactured nor purchased: no transactions, lead time 0. Same keys as
+                # get_lead_time_summary, so a report can read no_of_trans and total_qty.
+                lead_times[itm.name] = frappe._dict({"item_name": itm.name, "no_of_trans": 0, "avg_days_wt": 0,
+                    "total_qty": 0, "based_on": "Unknown"})
     return lead_times
 
 
