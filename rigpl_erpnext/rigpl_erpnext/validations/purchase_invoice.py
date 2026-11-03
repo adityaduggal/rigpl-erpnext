@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import nowdate, add_days, flt
+from frappe.utils import add_days, flt
+
+from ...utils.item_attribute_utils import get_attribute_map
+from ...utils.other_utils import round_down
 
 
 def validate(doc, method):
@@ -32,54 +35,50 @@ def po_grn_validations(doc):
 def create_valuation_rate(doc):
     # This function would create/update the valuation rate for the Carbide Cut Pieces
     # Check if the GRN is for Carbide Raw Material
-    for d in doc.items:
-        po = frappe.get_doc("Purchase Order", d.purchase_order)
-        if po.is_subcontracting != 1:
-            item = frappe.get_doc("Item", d.item_code)
-            if item.variant_of and item.is_stock_item == 1:
-                # Now check for all item codes with Similar Attributes
-                attributes = frappe.db.sql("""SELECT idx, attribute, attribute_value 
-                FROM `tabItem Variant Attribute` WHERE parent = '%s' ORDER BY idx""" % (item.name), as_dict=1)
-                check = 0
-                for att in attributes:
-                    if att.attribute == 'Tool Type' and att.attribute_value == 'Round Tool Bits':
-                        check += 1
-                    if att.attribute == 'l1_mm':
-                        check += 1
-                        length = att.attribute_value
-                    if att.attribute == 'd1_mm':
-                        similar_variants = frappe.db.sql("""SELECT it.name FROM `tabItem` it, 
-                        `tabItem Variant Attribute` iva WHERE it.variant_of = '%s' AND iva.attribute = 'd1_mm' 
-                        AND iva.attribute_value = %s AND iva.parent = it.name""" % (
-                            item.variant_of, att.attribute_value), as_list=1)
-                if check == 2:
-                    vr_list = []
-                    if similar_variants:
-                        for var in similar_variants:
-                            dict = {}
-                            len = frappe.db.sql("""SELECT attribute_value FROM `tabItem Variant Attribute` 
-                            WHERE parent = '%s' AND attribute = 'l1_mm'""" % var[0], as_list=1)
-                            dict['name'] = var[0]
-                            dict['length'] = len[0][0]
-                            if (flt(len[0][0]) / flt(length)) < 0.5:
-                                factor = 0.8
-                            elif (flt(len[0][0]) / flt(length)) < 0.9:
-                                factor = 0.9
-                            else:
-                                factor = 1
-                            vr = round_down(flt(d.base_net_rate) * (flt(len[0][0]) / flt(length)) * factor, 10)
-                            dict['valuation'] = vr
-                            vr_list.append(dict)
-                            vr_list = sorted(vr_list, key=lambda k: k['length'])
-                    for d in vr_list:
-                        # frappe.msgprint(str(vr_list))
-                        vr = frappe.db.sql("""SELECT valuation_rate FROM `tabItem` 
-                        WHERE name = '%s'""" % (d['name']), as_list=1)
-                        frappe.db.set_value('Item', d['name'], "valuation_rate", d['valuation'])
-                        frappe.db.set_value('Item', d['name'], "valuation_rate_date", doc.posting_date)
-                        frappe.msgprint('Updated Valuation Rate #{0} for Item Code: {1} with Date: '
-                                        '{2}'.format(d['valuation'], d['name'], str(doc.posting_date)))
+    for row in doc.items:
+        if frappe.db.get_value("Purchase Order", row.purchase_order, "is_subcontracting") == 1:
+            continue
+        item = frappe.db.get_value("Item", row.item_code, ["name", "variant_of", "is_stock_item"], as_dict=1)
+        if not item or not item.variant_of or item.is_stock_item != 1:
+            continue
+        atts = get_attribute_map([item.name]).get(item.name, {})
+        if atts.get("Tool Type") != "Round Tool Bits" or "l1_mm" not in atts:
+            continue
+        for var in get_cut_pieces(item.variant_of, atts.get("d1_mm"), atts["l1_mm"], row.base_net_rate):
+            frappe.db.set_value("Item", var["name"], {"valuation_rate": var["valuation"],
+                "valuation_rate_date": doc.posting_date})
+            frappe.msgprint('Updated Valuation Rate #{0} for Item Code: {1} with Date: '
+                            '{2}'.format(var["valuation"], var["name"], str(doc.posting_date)))
 
 
-def round_down(num, divisor):
-    return num - (num % divisor)
+def get_cut_pieces(template, diameter, length, rate):
+    """Variants of the template with the same d1_mm, with a valuation rate by their l1_mm, sorted by
+    length. The d1_mm compares as a number, as the old SQL did."""
+    if diameter is None:
+        return []
+    it = frappe.qb.DocType("Item")
+    iva = frappe.qb.DocType("Item Variant Attribute")
+    rows = (
+        frappe.qb.from_(it)
+        .join(iva).on(iva.parent == it.name)
+        .select(it.name, iva.attribute_value)
+        .where((it.variant_of == template) & (iva.attribute == "d1_mm"))
+        .run()
+    )
+    similar = [name for name, value in rows if value is not None and flt(value) == flt(diameter)]
+    lengths = get_attribute_map(similar, ["l1_mm"])
+    vr_list = []
+    for name in similar:
+        var_length = lengths.get(name, {}).get("l1_mm")
+        if var_length is None:
+            continue
+        ratio = flt(var_length) / flt(length)
+        if ratio < 0.5:
+            factor = 0.8
+        elif ratio < 0.9:
+            factor = 0.9
+        else:
+            factor = 1
+        vr_list.append({"name": name, "length": var_length,
+            "valuation": round_down(flt(rate) * ratio * factor, 10)})
+    return sorted(vr_list, key=lambda k: k["length"])
