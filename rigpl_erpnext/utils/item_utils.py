@@ -660,20 +660,6 @@ def check_text_attributes(att_doc, att_value, error=1):
         )
 
 
-def get_template_restrictions(temp_name):
-    """
-    Returns a dictionary for Template with Item Restrictions
-    """
-    temp_dict = frappe.db.sql(
-        """SELECT name, idx, attribute, is_numeric, allowed_values, rule
-        FROM `tabItem Variant Restrictions` WHERE parenttype = 'Item'
-        AND parent = '%s' ORDER BY idx"""
-        % temp_name,
-        as_dict=1,
-    )
-    return temp_dict
-
-
 def get_item_attributes(item_name):
     """
     Returns a list of all Attribute rows for an Item Name, by idx

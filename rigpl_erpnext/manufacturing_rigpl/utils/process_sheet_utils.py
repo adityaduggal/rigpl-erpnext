@@ -173,20 +173,6 @@ def get_pend_psop(it_name=None, operation=None, tf_ent=None):
     return query.run(as_dict=True)
 
 
-def get_psop_trans_pend_qty(it_name, operation):
-    qty_dict = frappe.db.sql(
-        """SELECT SUM(psop.planned_qty - psop.completed_qty) as pend_qty,
-    COUNT(psop.name) as no_of_ops FROM `tabProcess Sheet` ps, `tabBOM Operation` psop
-    WHERE ps.docstatus = 1 AND psop.parent = ps.name AND psop.parenttype = 'Process Sheet' AND
-    psop.transfer_entry = 1 AND psop.status NOT IN ('Completed', 'Short Closed', 'Stopped', 'Obsolete')
-    AND ps.status NOT IN ('Stopped', 'Short Closed') AND ps.production_item = '%s'
-    AND psop.operation = '%s'"""
-        % (it_name, operation),
-        as_dict=1,
-    )
-    return qty_dict
-
-
 def update_process_sheet_operations(ps_name, op_name, psd=None, btd=None):
     """
     Updates the status and completed qty of one operation from its submitted Job Cards.
@@ -392,43 +378,6 @@ def update_item_table(item_dict, table_name, document):
         table_dict["item_code"] = d.name
         table_dict["description"] = d.description
         document.append(table_name, table_dict.copy())
-
-
-def get_produced_qty(item_code, so_item=None):
-    prod_qty = 0
-    it_doc = frappe.get_doc("Item", item_code)
-    if it_doc.include_item_in_manufacturing == 1:
-        if it_doc.made_to_order == 1:
-            if not so_item:
-                frappe.throw(
-                    "{} is Made to Order but No SO is defined".format(
-                        frappe.get_desk_link("Item", item_code)
-                    )
-                )
-            else:
-                qty_list = frappe.db.sql(
-                    """SELECT name, quantity, produced_qty FROM `tabProcess Sheet`
-                    WHERE docstatus < 2 AND production_item = '%s'
-                    AND sales_order_item = '%s'"""
-                    % (item_code, so_item),
-                    as_dict=1,
-                )
-                prod_qty = 0
-                if qty_list:
-                    for qty in qty_list:
-                        prod_qty += qty.quantity
-        else:
-            qty_list = frappe.db.sql(
-                """SELECT name, quantity , produced_qty FROM `tabProcess Sheet`
-                WHERE docstatus < 2 AND production_item = '%s' """
-                % item_code,
-                as_dict=1,
-            )
-            prod_qty = 0
-            if qty_list:
-                for qty in qty_list:
-                    prod_qty += qty.quantity
-    return prod_qty
 
 
 def create_ps_from_so_item(so_row):
