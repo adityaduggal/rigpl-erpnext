@@ -1,6 +1,11 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.utils import flt
+from ....utils.item_attribute_utils import get_attribute_map
+
+TEXT = ["Base Material", "Tool Type", "HSS Quality", "Carbide Quality"]
+NUMERIC = ["d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm"]
+
 
 def execute(filters=None):
 	if not filters: filters = {}
@@ -9,6 +14,7 @@ def execute(filters=None):
 	data = get_va_entries(filters)
 
 	return columns, data
+
 
 def get_columns():
 
@@ -21,64 +27,37 @@ def get_columns():
 		"D2:Float:60", "L2:Float:60", "Special Treatment::80",
 	]
 
+
 def get_va_entries(filters):
-	conditions = get_conditions(filters)
-
-	si = frappe.db.sql(""" SELECT 
-			si.posting_date, si.name, si.customer,
-			sid.item_code, sid.description, sid.qty, sid.base_price_list_rate, 
-			sid.base_rate, sid.base_amount, 
-			IFNULL(bm.attribute_value, "-"),
-			IFNULL(tt.attribute_value, "-"),
-			IFNULL(hss_qual.attribute_value, "-"),
-			IFNULL(car_qual.attribute_value, "-"),
-			CAST(d1.attribute_value AS DECIMAL(8,3)), 
-			CAST(w1.attribute_value AS DECIMAL(8,3)), 
-			CAST(l1.attribute_value AS DECIMAL(8,3)), 
-			CAST(d2.attribute_value AS DECIMAL(8,3)), 
-			CAST(l2.attribute_value AS DECIMAL(8,3)),
-			IFNULL(spl.attribute_value, "-")
-			
-		FROM `tabSales Invoice` si, `tabSales Invoice Item` sid, `tabItem` it
-			LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-				AND bm.attribute = 'Base Material'
-			LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-				AND tt.attribute = 'Tool Type'
-			LEFT JOIN `tabItem Variant Attribute` hss_qual ON it.name = hss_qual.parent
-				AND hss_qual.attribute = 'HSS Quality'
-			LEFT JOIN `tabItem Variant Attribute` car_qual ON it.name = car_qual.parent
-				AND car_qual.attribute = 'Carbide Quality'
-			LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-				AND spl.attribute = 'Special Treatment'
-			LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-				AND d1.attribute = 'd1_mm'
-			LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-				AND w1.attribute = 'w1_mm'
-			LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-				AND l1.attribute = 'l1_mm'
-			LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent
-				AND d2.attribute = 'd2_mm'
-			LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent
-				AND l2.attribute = 'l2_mm'				
-		WHERE
-			si.docstatus = 1 AND
-			sid.parent = si.name AND
-			si.docstatus = 1 AND it.name = sid.item_code %s
-		ORDER BY si.posting_date ASC, si.name ASC, sid.item_code ASC,
-			sid.description ASC""" % conditions, as_list=1)
-
-
-
-	return si
-
-def get_conditions(filters):
-	conditions = ""
-	if filters.get("from_date"):
-		conditions += "and si.posting_date >= '%s'" % filters["from_date"]
-	else:
-		frappe.msgprint("Please Select a From Date first", raise_exception=1)
-
+	"""
+	The invoice rows come from the posting_date index and the attributes from get_attribute_map
+	(#131), in place of 10 self-joins (about 34s for a month).
+	"""
+	if not filters.get("from_date"):
+		frappe.throw("Please Select a From Date first")
+	si = frappe.qb.DocType("Sales Invoice")
+	sid = frappe.qb.DocType("Sales Invoice Item")
+	it = frappe.qb.DocType("Item")
+	query = (
+		frappe.qb.from_(si)
+		.join(sid).on(sid.parent == si.name)
+		.join(it).on(it.name == sid.item_code)
+		.select(si.posting_date, si.name, si.customer, sid.item_code, sid.description, sid.qty,
+			sid.base_price_list_rate, sid.base_rate, sid.base_amount)
+		.where((si.docstatus == 1) & (si.posting_date >= filters["from_date"]))
+		.orderby(si.posting_date)
+		.orderby(si.name)
+		.orderby(sid.item_code)
+		.orderby(sid.description)
+	)
 	if filters.get("to_date"):
-		conditions += "and si.posting_date <= '%s'" % filters["to_date"]
-
-	return conditions
+		query = query.where(si.posting_date <= filters["to_date"])
+	rows = query.run(as_list=1)
+	att_map = get_attribute_map({row[3] for row in rows}, TEXT + NUMERIC + ["Special Treatment"])
+	data = []
+	for row in rows:
+		values = att_map.get(row[3], {})
+		data.append(list(row) + [values.get(att) or "-" for att in TEXT]
+			+ [flt(values[att], 3) if values.get(att) is not None else None for att in NUMERIC]
+			+ [values.get("Special Treatment") or "-"])
+	return data

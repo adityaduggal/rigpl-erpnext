@@ -18,6 +18,7 @@ from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transact
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
 from rigpl_erpnext.rigpl_erpnext.report.trial_tracking import trial_tracking
+from rigpl_erpnext.rigpl_erpnext.report.va_sales_invoice import va_sales_invoice
 from rigpl_erpnext.tests.test_sales_utils import insert_customer
 from rigpl_erpnext.tests.test_variant_table import insert_item, insert_item_price
 from rigpl_erpnext.utils.report_utils import tree_and_descendants
@@ -285,3 +286,14 @@ class TestComparePricing(ReportTestCase):
         self.assertEqual([row[0] for row in data], [ITEM_2, ITEM])
         self.assertEqual(data[1][1:7], [100, "INR", 110, "INR", 10, None])
         self.assertEqual((data[1][10], data[1][14], data[1][15]), (BM, "O'Drill", 6))
+
+
+class TestVaSalesInvoice(ReportTestCase):
+    def test_attributes(self):
+        insert_item(ITEM, variant_of=TEMPLATE, attributes=[("Base Material", BM), ("d1_mm", "6")])
+        insert_invoice(CUSTOMER, [(ITEM, 100)])
+
+        data = self.assert_queries(2, lambda: va_sales_invoice.execute(frappe._dict(from_date=DATE, to_date=DATE))[1])
+
+        row = next(row for row in data if row[3] == ITEM)
+        self.assertEqual(row[9:14] + row[18:], [BM, "-", "-", "-", 6, "-"])
