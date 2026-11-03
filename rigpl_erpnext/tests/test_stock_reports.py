@@ -5,6 +5,7 @@ quote: the old reports put it into the SQL text and failed.
 import frappe
 
 from rigpl_erpnext.rigpl_erpnext.report.dealer_stock_status import dealer_stock_status
+from rigpl_erpnext.rigpl_erpnext.report.item_lead_times import item_lead_times
 from rigpl_erpnext.rigpl_erpnext.report.item_template import item_template
 from rigpl_erpnext.rigpl_erpnext.report.standards_and_drawings_rigpl import standards_and_drawings_rigpl
 from rigpl_erpnext.rigpl_erpnext.report.stock_status import stock_status
@@ -114,3 +115,18 @@ class TestDealerStockStatus(ReportTestCase):
         row = next(row for row in data if row[0] == ITEM)
         self.assertEqual(row[5], 6)
         self.assertEqual(row[-4:], [4, None, 1, 3])
+
+
+class TestItemLeadTimes(ReportTestCase):
+    def test_summary_attributes_and_detail_needs_item(self):
+        insert_stock_item(ITEM, "6")
+        filters = frappe._dict(from_date="2026-01-01", to_date="2026-10-31", bm=BM, tt=TT)
+
+        data = item_lead_times.execute(filters)[1]
+
+        self.assertEqual([(row[0], row[10], row[13], row[15]) for row in data], [(ITEM, BM, TT, 6)])
+        # Neither manufactured nor purchased: the old report failed with KeyError no_of_trans
+        frappe.db.set_value("Item", ITEM, {"include_item_in_manufacturing": 0, "is_purchase_item": 0},
+            update_modified=False)
+        self.assertEqual(item_lead_times.execute(filters)[1][0][2:5], ["Unknown", 0, 0])
+        self.assertRaises(frappe.ValidationError, item_lead_times.execute, frappe._dict(filters, detail=1))
