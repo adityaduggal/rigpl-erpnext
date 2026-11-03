@@ -8,7 +8,8 @@ Tracking jobs and the one writer of tracking data (#168, #152, #169).
 - `poll_open_shipments` (hourly) selects the trackings to poll with one query, with all the
   filters in SQL, and calls each provider in batches.
 - `push_to_aggregator` (hourly) sends new AWBs of Shipway carriers to Shipway.
-- `unpublish_ctracks` (daily) is one UPDATE.
+- `unpublish_ctracks` (daily) is one UPDATE. The daily job also retries missing PODs (#171).
+- A tracking that becomes Delivered gets its proof of delivery in a background job (`pod.py`).
 - `refresh_and_close_stale` (by hand only, #169) polls the old open trackings one last time,
   closes the rest as "Closed - No Update" and adds a Comment with the old status to each.
 """
@@ -25,6 +26,7 @@ from ...utils.batch_write_utils import bulk_insert_rows, bulk_set_fields, bulk_u
 from ...utils.item_attribute_utils import chunks
 from . import status as st
 from .base import ProviderError, TrackingResult
+from .pod import needs_pod, queue_pods, retry_missing_pods
 from .registry import Carrier, get_carriers
 from .settings import ShippingSettings, get_shipping_settings
 from .status_map import record_unknown
@@ -41,9 +43,10 @@ RESULT_FIELDS = ("status", "status_code", "pickup_date", "expected_delivery_date
 # ----------------------------------------------------------------------------------------- jobs
 
 def daily_shipping_jobs():
-    """Only unpublishes. Closing stale trackings is done by hand (#169)."""
+    """Unpublishes, then retries the missing PODs. Closing stale trackings is done by hand (#169)."""
     unpublish_ctracks()
     frappe.db.commit()
+    retry_missing_pods()
 
 
 def poll_open_shipments(settings: Optional[ShippingSettings] = None) -> Dict[str, int]:
@@ -70,8 +73,8 @@ def base_query(count: bool = False):
     if count:
         query = query.select(Count(ct.name).as_("count"))
     else:
-        query = query.select(ct.name, ct.awb_number, ct.carrier_name, ct.docstatus, *[ct[f] for f in RESULT_FIELDS],
-                             acc.provider)
+        query = query.select(ct.name, ct.awb_number, ct.carrier_name, ct.docstatus, ct.pod_file,
+                             *[ct[f] for f in RESULT_FIELDS], acc.provider)
     return query, ct, tpt, acc
 
 
@@ -168,9 +171,10 @@ def result_values(row: dict, result: TrackingResult, source: str, now) -> dict:
 
 def apply_tracking_results(rows: List[dict], results: Dict[str, TrackingResult], source: str) -> Dict[str, int]:
     """Writes a batch of results. `rows` are the selected trackings (name, awb_number,
-    docstatus and the RESULT_FIELDS). 1 UPDATE for the batch, and 3 queries for the scans."""
+    docstatus, pod_file, provider and the RESULT_FIELDS). 1 UPDATE for the batch, and 3 queries for
+    the scans. The trackings that become Delivered get one POD job for the batch."""
     now = now_datetime()
-    new, drafts, scans = {}, [], {}
+    new, drafts, scans, pods = {}, [], {}, []
     counts = defaultdict(int)
     for row in rows:
         result = results.get(row["awb_number"])
@@ -180,6 +184,8 @@ def apply_tracking_results(rows: List[dict], results: Dict[str, TrackingResult],
         if result.found:
             counts[result.status] += 1
             scans[row["name"]] = result.scans
+            if needs_pod(row, result.status):
+                pods.append(row["name"])
         else:
             counts["not found"] += 1
         if row["docstatus"] == 0:
@@ -190,6 +196,7 @@ def apply_tracking_results(rows: List[dict], results: Dict[str, TrackingResult],
     replace_changed_scans({n: s for n, s in scans.items() if n in new})
     for name, values in drafts:
         submit_draft(name, values, scans.get(name))
+    queue_pods(pods)
     return dict(counts)
 
 
@@ -247,7 +254,8 @@ def track_now(doc) -> TrackingResult:
     if not doc.awb_number or doc.awb_number in NO_AWB:
         frappe.throw("Book the shipment or enter the AWB Number first.")
     result = carrier.provider.track_many({doc.awb_number: doc.name})[doc.awb_number]
-    row = {f: doc.get(f) for f in ("name", "awb_number", "docstatus") + RESULT_FIELDS}
+    row = {f: doc.get(f) for f in ("name", "awb_number", "docstatus", "pod_file") + RESULT_FIELDS}
+    row["provider"] = carrier.provider.name
     apply_tracking_results([row], {doc.awb_number: result}, source="Manual")
     record_unknown([carrier.provider.resolve])
     return result

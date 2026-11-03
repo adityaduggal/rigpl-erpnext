@@ -165,7 +165,7 @@ class TestUnpublishAndClose(TrackingCase):
 
     def test_daily_job_does_not_close(self):
         with patch.object(tracking, "refresh_and_close_stale") as close, patch.object(tracking, "unpublish_ctracks"), \
-                patch.object(frappe.db, "commit"):
+                patch.object(tracking, "retry_missing_pods"), patch.object(frappe.db, "commit"):
             tracking.daily_shipping_jobs()
         close.assert_not_called()
 

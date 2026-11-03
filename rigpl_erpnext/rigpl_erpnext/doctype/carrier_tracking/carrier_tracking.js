@@ -3,6 +3,10 @@
 
 frappe.ui.form.on('Carrier Tracking', {
 	refresh: function(frm) {
+		frm.add_custom_button(__("Help"), function() {
+			window.open("https://github.com/adityaduggal/rigpl-erpnext/blob/version-13/docs/user/carrier-tracking.md",
+				"_blank", "noopener");
+		});
 		// The server decides which shipment buttons apply (shipping/form_actions.py, #173)
 		const actions = (frm.doc.__onload || {}).shipping_actions || {};
 		Object.keys(actions).forEach(function(method) {

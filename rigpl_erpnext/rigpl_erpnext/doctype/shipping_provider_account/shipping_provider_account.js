@@ -5,6 +5,7 @@
 const SUMMARY = "rigpl_erpnext.rigpl_erpnext.shipping.dashboard.get_account_summary";
 const CLOSE_STALE = "rigpl_erpnext.rigpl_erpnext.shipping.dashboard.close_stale_trackings";
 const REAPPLY = "rigpl_erpnext.rigpl_erpnext.shipping.dashboard.reapply_status_map";
+const SETUP_DOCS = "https://github.com/adityaduggal/rigpl-erpnext/blob/version-13/docs/setup/shipping-providers.md";
 const STATUS_COLORS = {
 	"Delivered": "green", "In Transit": "blue", "Out for Delivery": "blue", "Booked": "blue",
 	"Exception": "orange", "RTO": "orange", "No Information": "orange", "No Status": "grey",
@@ -13,6 +14,7 @@ const STATUS_COLORS = {
 
 frappe.ui.form.on("Shipping Provider Account", {
 	refresh(frm) {
+		frm.add_custom_button(__("Help"), () => window.open(SETUP_DOCS, "_blank", "noopener"));
 		if (frm.is_new()) return;
 		rigpl_shipping_dashboard(frm);
 		frm.add_custom_button(__("Close Stale Trackings"), () => rigpl_close_stale(frm), __("Actions"));

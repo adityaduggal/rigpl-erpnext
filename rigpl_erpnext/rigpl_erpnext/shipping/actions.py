@@ -114,15 +114,9 @@ def get_labels(doc) -> None:
 
 
 def get_pod(doc) -> None:
-    carrier = require_carrier(doc.carrier_name, "pod")
-    if doc.status != st.DELIVERED:
-        frappe.throw(f"{doc.name} is not delivered yet.")
-    try:
-        label = carrier.provider.get_pod(doc.awb_number)
-    except (ProviderError, NotSupported) as e:
-        provider_error(e, "Proof of delivery")
-    url = save_labels(doc, [label])[0]
-    frappe.db.set_value(doc.doctype, doc.name, "pod_file", url)
+    from .pod import fetch_pod_now
+
+    fetch_pod_now(doc)
 
 
 def cancel(doc) -> None:
