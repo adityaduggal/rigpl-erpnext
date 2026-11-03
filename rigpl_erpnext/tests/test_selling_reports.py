@@ -9,6 +9,7 @@ from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.rigpl_erpnext.report.brc_tracking import brc_tracking
 from rigpl_erpnext.rigpl_erpnext.report.cforms_analysis import cforms_analysis
+from rigpl_erpnext.rigpl_erpnext.report.customer_rating import customer_rating
 from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transactions
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
@@ -170,3 +171,16 @@ class TestCformsAnalysis(ReportTestCase):
         if fy:
             q1 = cforms_analysis.execute(frappe._dict(filters, fiscal_year=fy, quarter="Q1"))[1]
             self.assertEqual(q1, [])
+
+
+class TestCustomerRating(ReportTestCase):
+    def test_territory_tree_and_group_filter(self):
+        insert_territories()
+        for name, territory in ((CUSTOMER, CHILD_TERRITORY), (OTHER_CUSTOMER, "_Test RIGPL Other Territory")):
+            insert_customer(name)
+            frappe.db.set_value("Customer", name, {"territory": territory, "customer_group": "All Customer Groups"},
+                update_modified=False)
+
+        customers = customer_rating.get_customers(frappe._dict(territory=TERRITORY, group="All Customer Groups"))
+
+        self.assertEqual([cu.name for cu in customers], [CUSTOMER])

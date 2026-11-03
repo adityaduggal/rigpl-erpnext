@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe.utils import getdate, add_days
 from ...scheduled_tasks.customer_rating import build_customer_ratings
+from ....utils.report_utils import tree_and_descendants
 
 def execute(filters=None):
     columns = get_columns(filters)
@@ -30,10 +31,7 @@ def get_data(filters):
     from_date = add_days(to_date, years*(-365))
     period = (to_date - from_date).days
     fov = filters.get("first_order")
-    conditions = get_conditions(filters)
-    cust_list = frappe.db.sql("""SELECT cu.name, cu.territory, cu.customer_group,
-    cu.payment_terms, cu.customer_rating as actual_rating
-	FROM `tabCustomer` cu WHERE cu.docstatus = 0 %s""" % conditions, as_dict=1)
+    cust_list = get_customers(filters)
     customers_rated = build_customer_ratings(cust_list, from_date=from_date, to_date=to_date,
         fov=fov, days=years*365)
     for cust_dict in customers_rated:
@@ -65,40 +63,20 @@ def get_data(filters):
     return data
 
 
-
-def get_conditions(filters):
-    cond = ""
+def get_customers(filters):
+    cu = frappe.qb.DocType("Customer")
+    query = (
+        frappe.qb.from_(cu)
+        .select(cu.name, cu.territory, cu.customer_group, cu.payment_terms, cu.customer_rating.as_("actual_rating"))
+        .where(cu.docstatus == 0)
+    )
     if filters.get("customer"):
-        cond += " AND cu.name = '%s'" % filters["customer"]
-
+        query = query.where(cu.name == filters["customer"])
     if filters.get("territory"):
-        territory = frappe.get_doc("Territory", filters["territory"])
-        if territory.is_group == 1:
-            child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory`  WHERE lft >= %s AND rgt <= %s""" %
-                                                                              (territory.lft, territory.rgt), as_list=1)
-            for i in child_territories:
-                if child_territories[0] == i:
-                    cond += " AND (cu.territory = '%s'" % i[0]
-                elif child_territories[len(child_territories) - 1] == i:
-                    cond += " OR cu.territory = '%s')" % i[0]
-                else:
-                    cond += " OR cu.territory = '%s'" % i[0]
-        else:
-            cond += " AND cu.territory = '%s'" % filters["territory"]
+        query = query.where(cu.territory.isin(tree_and_descendants("Territory", filters["territory"])))
+    # The JS filter is "group"
+    customer_group = filters.get("group") or filters.get("customer_group")
+    if customer_group:
+        query = query.where(cu.customer_group.isin(tree_and_descendants("Customer Group", customer_group)))
+    return query.run(as_dict=1)
 
-    if filters.get("customer_group"):
-        cg = frappe.get_doc("Customer Group", filters["customer_group"])
-        if cg.is_group == 1:
-            child_cgs = frappe.db.sql("""SELECT name FROM `tabCustomer Group` WHERE lft >= %s AND rgt <= %s""" %
-                                                              (cg.lft, cg.rgt), as_list=1)
-            for i in child_cgs:
-                if child_cgs[0] == i:
-                    cond += " AND (cu.customer_group = '%s'" % i[0]
-                elif child_cgs[len(child_cgs) - 1] == i:
-                    cond += " OR cu.customer_group = '%s')" % i[0]
-                else:
-                    cond += " OR cu.customer_group = '%s'" % i[0]
-        else:
-            cond += " AND cu.customer_group = '%s'" % filters["customer_group"]
-
-    return cond
