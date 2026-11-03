@@ -7,6 +7,7 @@ import frappe
 from rigpl_erpnext.rigpl_erpnext.report.item_template import item_template
 from rigpl_erpnext.rigpl_erpnext.report.standards_and_drawings_rigpl import standards_and_drawings_rigpl
 from rigpl_erpnext.rigpl_erpnext.report.stock_status import stock_status
+from rigpl_erpnext.rigpl_erpnext.report.template_variant_import_format import template_variant_import_format
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
 from rigpl_erpnext.tests.test_variant_table import insert_item
 
@@ -86,3 +87,15 @@ class TestItemTemplate(ReportTestCase):
 
         # The 2 Type Selector rows doubled the old row
         self.assertEqual([(row[0], row[1], row[4], row[8], row[18]) for row in data], [(TEMPLATE, 1, BM, TT, 1)])
+
+
+class TestTemplateVariantImportFormat(ReportTestCase):
+    def test_variants_and_restrictions_need_templates(self):
+        insert_item(TEMPLATE)
+        insert_stock_item(ITEM, "6")
+
+        data = template_variant_import_format.execute(frappe._dict(variant_of="O'Brien Stock Template"))[1]
+
+        self.assertEqual({row[0] for row in data}, {ITEM})
+        self.assertRaises(frappe.ValidationError, template_variant_import_format.execute,
+            frappe._dict(restrictions=1, template=0))

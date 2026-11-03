@@ -3,8 +3,11 @@
 
 from __future__ import unicode_literals
 import frappe
+from frappe.query_builder.functions import IfNull
+from frappe.utils import cint
 
 def execute(filters=None):
+	filters = filters or {}
 	columns = get_columns(filters)
 	data = get_items(filters)
 	return columns, data
@@ -24,60 +27,27 @@ def get_columns(filters):
 		]
 
 def get_items(filters):
-	conditions_it = get_conditions(filters)
+	template = cint(filters.get("template"))
+	if filters.get("restrictions") == 1 and not template:
+		frappe.throw("Restrictions Table can only be shown for Templates", title="Templates Only")
+	it = frappe.qb.DocType("Item")
 	if filters.get("restrictions") == 1:
-		query = """
-			SELECT
-				it.name, ivr.name, ivr.idx, ivr.attribute, ivr.allowed_values,
-				ivr.is_numeric, ivr.rule
-			FROM 
-				`tabItem` it, `tabItem Variant Restrictions` ivr
-			WHERE 
-				ivr.parent = it.name %s
-			ORDER BY
-				it.name, ivr.idx""" %(conditions_it)
+		child = frappe.qb.DocType("Item Variant Restrictions")
+		query = frappe.qb.from_(it).join(child).on(child.parent == it.name).select(
+			it.name, child.name, child.idx, child.attribute, child.allowed_values, child.is_numeric, child.rule)
 	else:
-		query = """
-			SELECT
-				it.name, it.variant_of, iva.name, iva.idx,iva.attribute, iva.use_in_description,
-				iva.prefix, iva.field_name, iva.suffix, iva.attribute_value, iva.numeric_values,
-				iva.from_range, iva.increment, iva.to_range
-			FROM 
-				`tabItem` it, `tabItem Variant Attribute` iva
-			WHERE 
-				iva.parent = it.name %s
-			ORDER BY
-				it.name, iva.idx""" %(conditions_it)
-	frappe.msgprint(query)
-	data = frappe.db.sql(query, as_list=1)
-	
-	return data
-
-def get_conditions(filters):
-	conditions_it = ""
-
+		child = frappe.qb.DocType("Item Variant Attribute")
+		query = frappe.qb.from_(it).join(child).on(child.parent == it.name).select(
+			it.name, it.variant_of, child.name, child.idx, child.attribute, child.use_in_description, child.prefix,
+			child.field_name, child.suffix, child.attribute_value, child.numeric_values, child.from_range,
+			child.increment, child.to_range)
+	query = query.where(it.has_variants == template).orderby(it.name).orderby(child.idx)
 	if filters.get("eol"):
-		conditions_it += "AND IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters["eol"]
-			
-	if filters.get("show_in_website") ==1:
-		conditions_it += " AND it.pl_item = 1"
-	
+		query = query.where(IfNull(it.end_of_life, "2099-12-31") > filters["eol"])
+	if filters.get("show_in_website") == 1:
+		query = query.where(it.pl_item == 1)
 	if filters.get("item"):
-		conditions_it += " AND it.name = '%s'" % filters["item"]
-	
+		query = query.where(it.name == filters["item"])
 	if filters.get("variant_of"):
-		conditions_it += " AND it.variant_of LIKE '%s%s%s'" % ('%', filters["variant_of"], '%')
-	
-	if filters.get("template"):
-		conditions_it += " AND it.has_variants = '%s'" % filters["template"]
-	else:
-		conditions_it += " AND it.has_variants = 0"
-		
-	if filters.get("restrictions") == 1:
-		if filters.get("template") == 1:
-			pass
-		else:
-			frappe.throw("Restrictions Table can only be shown for Templates")
-	
-	
-	return conditions_it
+		query = query.where(it.variant_of.like("%{0}%".format(filters["variant_of"])))
+	return query.run(as_list=1)
