@@ -3,8 +3,14 @@
 
 from __future__ import unicode_literals
 import frappe
-import datetime
-from frappe.utils import flt, getdate, nowdate
+from frappe.query_builder.functions import Concat, IfNull, Max
+from frappe.utils import escape_html, getdate, nowdate
+from ....utils.item_attribute_utils import chunks
+from ....utils.report_utils import tree_and_descendants
+
+NO_DATE = "1900-01-01"
+NO_DAYS = 36500
+HIDDEN_GROUP = "Changed Business"
 
 def execute(filters=None):
 	if not filters: filters = {}
@@ -30,247 +36,174 @@ def get_columns(filters):
 		]
 	
 def get_data(filters):
-	data = []
-	conditions, conditions_st, conditions_comm = get_conditions(filters)
-	customers = get_customers(filters, conditions)
-	contacts = get_contacts(customers)
-	last_so = get_last_so(customers)
-	comm_days = get_comm_days(customers)
-	sales_person = get_sales_person(conditions_st, customers)
-	comm, no_of_rows = get_comm(filters, conditions_comm)
-	
-	for cu in customers:
-		if filters.get("details") == 1:
-			pass
-		else:
-			no_of_rows = 1
+	if filters.get("details") == 1 and not filters.get("customer"):
+		frappe.throw("For Detailed Report Customer Selection is Mandatory")
+	sales_persons = None
+	if filters.get("sales_person"):
+		sales_persons = tree_and_descendants("Sales Person", filters["sales_person"])
+	customers = get_customers(filters, sales_persons)
+	names = [cu.name for cu in customers]
+	contacts = get_contacts(names)
+	sales_person = get_sales_person(names, sales_persons)
 
-		for i in range(no_of_rows):
-			contact_count = 0
-			row = [cu.name]
-			
-			#Get Contact Details (only one contact)
-			for con in contacts:
-				if con.customer == cu.name and contact_count == 0:
-					if con.name:
-						con.full_name = """<a href="#Form/Contact/%s">%s</a>""" \
-						%(con.name, con.full_name)
-					row += [con.full_name or "-", con.mobile_no or "-", con.email_id or "-"]
-					contact_count += 1
-			if contact_count == 0:
-				row += ["-", "-", "-"]
-			
-			row += [cu.customer_rating or "-", cu.territory or "-"]
-			if filters.get("details") == 1:
-				row += ["", "", "", "", "", "", ""]
-			else:
-				row += [cu.requirement or 0]
-				#Get Last SO Details 
-				lso_check = 0
-				for lsod in last_so:
-					if lsod.customer == cu.name:
-						row += [lsod.sodays]
-						lso_check += 1
-				if lso_check == 0:
-					row += [36500]
-				
-				#Get Communication Details
-				lcom_chieck = 0
-				for lcomd in comm_days:
-					if lcomd["customer"] == cu.name:
-						row += [lcomd["com_days"], lcomd["last"], lcomd["next"]]
-						lcom_chieck += 1
-				if lcom_chieck == 0:
-					row += [36500, '1900-01-01', "1900-01-01"]
-			
-			#Get Sales Person (Only One)
-			sp_count = 0
-			for sp in sales_person:
-				if sp.customer == cu.name:
-					row += [sp.sales_person]
-					sp_count += 1
-			if sp_count == 0:
-				row += ["-"]
-			data.append(row)
-	
 	if filters.get("details") == 1:
-		indexes = [6,7,8,9,10,11,12]
-		i = 0
-		for c in comm:
-			com = [c.communication_date, c.next_action_date, c.medium, c.content, c.name, c.owner, c.user]
-			for ind in indexes:
-				data[i][ind] = com[ind-6]
-			i += 1
+		data = []
+		for comm in get_comm(filters):
+			for cu in customers:
+				data.append(customer_cols(cu, contacts) + [comm.communication_date, comm.next_action_date, comm.medium,
+					comm.content, comm.name, comm.owner, comm.user, sales_person.get(cu.name, "-")])
+		return data
 
+	last_so = get_last_so_days(names)
+	comm_days = get_comm_days(names)
+	data = []
+	for cu in customers:
+		comm = comm_days.get(cu.name) or frappe._dict(com_days=NO_DAYS, last=NO_DATE, next=NO_DATE)
+		data.append(customer_cols(cu, contacts) + [cu.requirement or 0, last_so.get(cu.name, NO_DAYS), comm.com_days,
+			comm.last, comm.next, sales_person.get(cu.name, "-")])
 	return data
 
-def get_customers(filters, conditions):
-	if filters.get("rating"):
-		pass
-	else:
-		conditions += " AND (cu.customer_rating != 'Black Listed' AND cu.customer_rating != 'Changed Business' OR cu.customer_rating IS NULL)"
 
-	if filters.get("sales_person"):
-		cust_lst = frappe.db.sql("""SELECT cu.name, cu.customer_rating, cu.territory, cu.requirement
-		FROM `tabCustomer` cu, `tabSales Team` st
-		WHERE cu.name = st.parent AND st.parenttype = 'Customer' %s""" %conditions, as_dict=1)
+def customer_cols(cu, contacts):
+	con = contacts.get(cu.name)
+	if con:
+		link = '<a href="/app/contact/{0}">{1}</a>'.format(escape_html(con.name), escape_html(con.full_name or ""))
+		cols = [link, con.mobile_no or "-", con.email_id or "-"]
 	else:
-		cust_lst = frappe.db.sql("""SELECT cu.name, cu.customer_rating, cu.territory, cu.requirement
-		FROM `tabCustomer` cu WHERE cu.docstatus = 0 %s""" \
-			%conditions, as_dict=1)
-	#frappe.throw(cust_lst)
-	if cust_lst:
-		pass
+		cols = ["-", "-", "-"]
+	return [cu.name] + cols + [cu.customer_rating or "-", cu.territory or "-"]
+
+
+def get_customers(filters, sales_persons):
+	cu = frappe.qb.DocType("Customer")
+	query = frappe.qb.from_(cu).select(cu.name, cu.customer_rating, cu.territory, cu.requirement)
+	if sales_persons:
+		st = frappe.qb.DocType("Sales Team")
+		query = (query.join(st).on((st.parent == cu.name) & (st.parenttype == "Customer"))
+			.where(st.sales_person.isin(sales_persons)))
 	else:
+		query = query.where(cu.docstatus == 0)
+	# Disabled, frozen (black listed) and Changed Business customers are not followed up
+	query = query.where((cu.disabled == 0) & (cu.is_frozen == 0))
+	if frappe.db.exists("Customer Group", HIDDEN_GROUP):
+		hidden = tree_and_descendants("Customer Group", HIDDEN_GROUP)
+		query = query.where(cu.customer_group.isnull() | cu.customer_group.notin(hidden))
+	if filters.get("min_rating"):
+		query = query.where(cu.customer_rating >= filters["min_rating"])
+	if filters.get("customer"):
+		query = query.where(cu.name == filters["customer"])
+	if filters.get("territory"):
+		query = query.where(cu.territory.isin(tree_and_descendants("Territory", filters["territory"])))
+	customers = query.run(as_dict=1)
+	if not customers:
 		frappe.throw("No Customers in given Criteria")
-		
-	return cust_lst
+	return customers
+
 
 def get_contacts(customers):
-
-	contacts = frappe.db.sql("""SELECT co.name, CONCAT(co.first_name, " ", IFNULL(co.last_name,"")) as full_name, 
-	co.mobile_no, co.email_id, co.customer
-	FROM `tabContact` co
-	WHERE co.customer IN (%s) ORDER BY co.name """ %(", ".join(['%s']*len(customers))), \
-		tuple([d.name for d in customers]), as_dict=1)
-		
+	"""{customer: its first Contact by name}"""
+	co = frappe.qb.DocType("Contact")
+	contacts = {}
+	for chunk in chunks(customers):
+		rows = (
+			frappe.qb.from_(co)
+			.select(co.name, Concat(co.first_name, " ", IfNull(co.last_name, "")).as_("full_name"), co.mobile_no,
+				co.email_id, co.customer)
+			.where(co.customer.isin(chunk))
+			.orderby(co.name)
+			.run(as_dict=1)
+		)
+		for row in rows:
+			contacts.setdefault(row.customer, row)
 	return contacts
 
-def get_last_so(customers):
-	lso_days = frappe.db.sql("""SELECT so.customer, DATEDIFF(CURDATE(), MAX(so.transaction_date)) as sodays
-		FROM `tabSales Order` so 
-		WHERE so.docstatus != 2 AND so.transaction_date <= CURDATE() AND so.customer IN (%s)
-		GROUP BY so.customer ORDER BY so.customer""" %(", ".join(['%s']*len(customers))), \
-		tuple([d.name for d in customers]), as_dict=1)
-	
-	return lso_days
+
+def get_last_so_days(customers):
+	"""{customer: days since its last Sales Order that is not cancelled}"""
+	so = frappe.qb.DocType("Sales Order")
+	today = getdate(nowdate())
+	days = {}
+	for chunk in chunks(customers):
+		rows = (
+			frappe.qb.from_(so)
+			.select(so.customer, Max(so.transaction_date))
+			.where((so.docstatus != 2) & (so.transaction_date <= today) & so.customer.isin(chunk))
+			.groupby(so.customer)
+			.run()
+		)
+		days.update({customer: (today - getdate(last)).days for customer, last in rows})
+	return days
+
 
 def get_comm_days(customers):
-	comm_days = frappe.db.sql("""SELECT com.reference_name as customer, 
-	DATEDIFF(CURDATE(), MAX(com.communication_date)) as com_days, 
-	MAX(com.communication_date) as last,
-	MAX(IFNULL(com.next_action_date, '1900-01-01')) as next
-	FROM `tabCommunication` com 
-	WHERE com.communication_type = 'Communication' AND
-		com.reference_doctype = 'Customer' AND com.reference_name IN (%s)
-	GROUP BY com.reference_name ORDER BY com.reference_name""" %(", ".join(['%s']*len(customers))), \
-		tuple([d.name for d in customers]), as_dict=1)
-	
-	comm_days2 = frappe.db.sql("""SELECT com.timeline_name as customer, 
-	DATEDIFF(CURDATE(), MAX(com.communication_date)) as com_days, 
-	MAX(com.communication_date) as last,
-	MAX(IFNULL(com.next_action_date, '1900-01-01')) as next
-	FROM `tabCommunication` com 
-	WHERE com.communication_type = 'Communication' AND
-		com.timeline_doctype = 'Customer' AND com.timeline_name IN (%s)
-	GROUP BY com.timeline_name ORDER BY com.timeline_name""" %(", ".join(['%s']*len(customers))), \
-		tuple([d.name for d in customers]), as_dict=1)
-	result = []
-	temp = {}
-	for cust in customers:
-		if any(d["customer"] == cust.name for d in comm_days):
-			for ref in comm_days:
-				if cust.name == ref.customer:
-					result.append(ref.copy())
-		else:
-			temp["customer"] = cust.name
-			temp["com_days"] = 36500
-			temp["last"] = '1900-01-01'
-			temp["next"] = '1900-01-01'
-			result.append(temp.copy())
-
-	for cust in result:
-		if (any(d["customer"] == cust["customer"] for d in comm_days2)):
-			for time in comm_days2:
-				if time.customer == cust["customer"]:
-					if getdate(time.last) > getdate(cust["last"]):
-						result[result.index(cust)] = time
+	"""
+	{customer: (com_days, last, next)} of its Communications. The rows linked by timeline_name (v12
+	data) replace the reference_name rows when their last date is later.
+	"""
+	result = {}
+	for field in ("reference", "timeline"):
+		for customer, row in get_comm_summary(customers, field).items():
+			old = result.get(customer)
+			if not old or getdate(row.last) > getdate(old.last):
+				result[customer] = row
 	return result
 
-def get_comm(filters, conditions_comm):
-	cust = filters.get("customer")
-	query = """SELECT com.communication_date, com.next_action_date,
-	IFNULL(com.communication_medium, "Comment") as medium, com.content, com.name, com.owner, com.user, 
-	com.reference_name as ref_cust, com.timeline_name as time_cust
-	FROM `tabCommunication` com 
-	WHERE ((com.communication_type = 'Communication' AND
-	(com.reference_doctype = 'Customer' OR com.timeline_doctype = 'Customer') AND
-	(com.reference_name = '%s' OR com.timeline_name = '%s')) OR (com.communication_type = 'Comment'
-	AND com.reference_doctype = 'Customer' AND com.reference_name = '%s' AND 
-	com.comment_type = 'Comment')) %s
-	ORDER BY com.communication_date DESC""" %(cust, cust, cust,conditions_comm)
 
-	comm = frappe.db.sql(query, as_dict = 1)
-	
-	no_of_rows = len(comm)
-	
-	return comm, no_of_rows
-	
-def get_sales_person(conditions_st, customers):
-	sales_person = frappe.db.sql("""SELECT st.parent as customer, st.sales_person
-	FROM `tabSales Team` st WHERE st.parenttype = 'Customer' {condition}
-	AND st.parent IN (%s)""".format(condition=conditions_st) %(", ".join(['%s']*len(customers))), \
-		tuple([d.name for d in customers]), as_dict=1)
-	
-	return sales_person
-	
-def get_conditions(filters):
-	conditions = ""
-	conditions_st = ""
-	conditions_comm = ""
-	
+def get_comm_summary(customers, field):
+	co = frappe.qb.DocType("Communication")
+	name_field, doctype_field = co[field + "_name"], co[field + "_doctype"]
+	today = getdate(nowdate())
+	summary = {}
+	for chunk in chunks(customers):
+		rows = (
+			frappe.qb.from_(co)
+			.select(name_field.as_("customer"), Max(co.communication_date).as_("last"),
+				Max(IfNull(co.next_action_date, NO_DATE)).as_("next"))
+			.where((co.communication_type == "Communication") & (doctype_field == "Customer"))
+			.where(name_field.isin(chunk))
+			.groupby(name_field)
+			.run(as_dict=1)
+		)
+		for row in rows:
+			row.com_days = (today - getdate(row.last)).days
+			summary[row.customer] = row
+	return summary
+
+
+def get_comm(filters):
+	co = frappe.qb.DocType("Communication")
+	cust = filters["customer"]
+	query = (
+		frappe.qb.from_(co)
+		.select(co.communication_date, co.next_action_date, IfNull(co.communication_medium, "Comment").as_("medium"),
+			co.content, co.name, co.owner, co.user)
+		.where(
+			((co.communication_type == "Communication")
+				& ((co.reference_doctype == "Customer") | (co.timeline_doctype == "Customer"))
+				& ((co.reference_name == cust) | (co.timeline_name == cust)))
+			| ((co.communication_type == "Comment") & (co.reference_doctype == "Customer")
+				& (co.reference_name == cust) & (co.comment_type == "Comment"))
+		)
+		.orderby(co.communication_date, order=frappe.qb.desc)
+	)
 	if filters.get("from_date"):
-		conditions_comm = " AND com.communication_date >= '%s'" %filters["from_date"]
-	
-	if filters.get("details") == 1:
-		if filters.get("customer"):
-			pass
-		else:
-			frappe.throw("For Detailed Report Customer Selection is Mandatory")
-			
-	if filters.get("customer"):
-		conditions += " AND cu.name = '%s'" %filters["customer"]
-		
-	if filters.get("territory"):
-		territory = frappe.get_doc("Territory", filters["territory"])
-		if territory.is_group == "Yes" or territory.is_group == 1:
-			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
-				WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
-			for i in child_territories:
-				if child_territories[0] == i:
-					conditions += " AND (cu.territory = '%s'" %i[0]
-					
-				elif child_territories[len(child_territories)-1] == i:
-					conditions += " OR cu.territory = '%s')" %i[0]
-					
-				else:
-					conditions += " OR cu.territory = '%s'" %i[0]
-		else:
-			conditions += " AND cu.territory = '%s'" % filters["territory"]
+		query = query.where(co.communication_date >= filters["from_date"])
+	return query.run(as_dict=1)
 
-	if filters.get("rating"):
-		conditions += " AND cu.customer_rating = '%s'" % filters["rating"]
 
-	if filters.get("sales_person"):
-		sales_person = frappe.get_doc("Sales Person", filters["sales_person"])
-		if sales_person.is_group == "Yes" or sales_person.is_group == 1:
-			child_sp = frappe.db.sql("""SELECT name FROM `tabSales Person`
-				WHERE lft >= %s AND rgt <= %s""" %(sales_person.lft, sales_person.rgt), as_list = 1)
-				
-			for i in child_sp:
-				if child_sp[0] == i:
-					conditions += " AND (st.sales_person = '%s'" %i[0]
-					conditions_st += " AND (st.sales_person = '%s'" %i[0]
-					
-				elif child_sp[len(child_sp)-1] == i:
-					conditions += " OR st.sales_person = '%s')" %i[0]
-					conditions_st += " OR st.sales_person = '%s')" %i[0]
-					
-				else:
-					conditions += " OR st.sales_person = '%s'" %i[0]
-					conditions_st += " OR st.sales_person = '%s'" %i[0]
-		else:
-			conditions += " AND st.sales_person = '%s'" % filters["sales_person"]
-			conditions_st += " AND st.sales_person = '%s'" % filters["sales_person"]
-
-	return conditions, conditions_st, conditions_comm
+def get_sales_person(customers, sales_persons):
+	"""{customer: its first Sales Team person}, only the persons of the filter when it is set"""
+	st = frappe.qb.DocType("Sales Team")
+	result = {}
+	for chunk in chunks(customers):
+		query = (
+			frappe.qb.from_(st)
+			.select(st.parent, st.sales_person)
+			.where((st.parenttype == "Customer") & st.parent.isin(chunk))
+			.orderby(st.idx)
+		)
+		if sales_persons:
+			query = query.where(st.sales_person.isin(sales_persons))
+		for parent, person in query.run():
+			result.setdefault(parent, person)
+	return result

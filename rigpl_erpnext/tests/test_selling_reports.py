@@ -11,6 +11,7 @@ from rigpl_erpnext.rigpl_erpnext.report.brc_tracking import brc_tracking
 from rigpl_erpnext.rigpl_erpnext.report.cforms_analysis import cforms_analysis
 from rigpl_erpnext.rigpl_erpnext.report.customer_rating import customer_rating
 from rigpl_erpnext.rigpl_erpnext.report.customers_with_so import customers_with_so
+from rigpl_erpnext.rigpl_erpnext.report.follow_up_customer import follow_up_customer
 from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transactions
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
@@ -198,3 +199,44 @@ class TestCustomersWithSo(ReportTestCase):
             to_date="2026-01-31"))[1]
 
         self.assertEqual([row[:8] for row in data], [[CUSTOMER, None, 300, 200, 2, 100, getdate("2026-01-20"), 11]])
+
+
+class TestFollowUpCustomer(ReportTestCase):
+    def setUp(self):
+        insert_customer(CUSTOMER)
+        contact = raw("Contact", first_name="O'Brien")
+        set_columns("Contact", contact, customer=CUSTOMER, mobile_no="98")
+        raw("Sales Team", parent=CUSTOMER, parenttype="Customer", parentfield="sales_team", idx=1,
+            sales_person="_Test RIGPL O'Person")
+        self.old = raw("Communication", communication_type="Communication", reference_doctype="Customer",
+            reference_name=CUSTOMER, communication_date="2026-01-10 10:00:00", content="old")
+        self.timeline = raw("Communication", communication_type="Communication", communication_date="2026-01-20 10:00:00",
+            content="timeline")
+        set_columns("Communication", self.timeline, timeline_doctype="Customer", timeline_name=CUSTOMER)
+
+    def test_summary_takes_the_later_timeline_communication(self):
+        data = self.assert_queries(10, lambda: follow_up_customer.execute(
+            frappe._dict(customer=CUSTOMER, from_date="2025-01-01"))[1])
+
+        self.assertEqual(len(data), 1)
+        row = data[0]
+        self.assertIn("O&apos;Brien", row[1])
+        self.assertEqual((row[2], getdate(row[9]), row[11]), ("98", getdate("2026-01-20"), "_Test RIGPL O'Person"))
+
+    def test_hides_disabled_frozen_and_changed_business(self):
+        for values in ({"disabled": 1}, {"is_frozen": 1}, {"customer_group": "Changed Business"}):
+            frappe.db.set_value("Customer", CUSTOMER, values, update_modified=False)
+            self.assertRaises(frappe.ValidationError, follow_up_customer.execute, frappe._dict(customer=CUSTOMER))
+            frappe.db.set_value("Customer", CUSTOMER, {"disabled": 0, "is_frozen": 0, "customer_group": None},
+                update_modified=False)
+
+    def test_min_rating(self):
+        frappe.db.set_value("Customer", CUSTOMER, "customer_rating", 40, update_modified=False)
+        self.assertEqual(len(follow_up_customer.execute(frappe._dict(customer=CUSTOMER, min_rating=40))[1]), 1)
+        self.assertRaises(frappe.ValidationError, follow_up_customer.execute,
+            frappe._dict(customer=CUSTOMER, min_rating=41))
+
+    def test_details(self):
+        data = follow_up_customer.execute(frappe._dict(customer=CUSTOMER, details=1, from_date="2026-01-01"))[1]
+
+        self.assertEqual([row[10] for row in data], [self.timeline, self.old])

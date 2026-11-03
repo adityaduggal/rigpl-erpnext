@@ -30,10 +30,9 @@ frappe.query_reports["Follow Up-Customer"] = {
 			"options": "Sales Person"
 		},
 		{
-			"fieldname":"rating",
-			"label": "Customer Rating",
-			"fieldtype": "Select",
-			"options": "\nOK\nBlack Listed\nChanged Business\nThrough Dealer\nTrial In Progress"
+			"fieldname":"min_rating",
+			"label": "Min Customer Rating",
+			"fieldtype": "Int"
 		},
 		{
 			"fieldname":"details",
