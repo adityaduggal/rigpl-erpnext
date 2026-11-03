@@ -9,6 +9,7 @@ from rigpl_erpnext.hr_rigpl.utils.attendance_report_utils import get_holidays_by
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_base_list_holiday_counts
 from rigpl_erpnext.rigpl_erpnext.report.attendance_performance_analysis import attendance_performance_analysis
 from rigpl_erpnext.rigpl_erpnext.report.employee_attendance import employee_attendance
+from rigpl_erpnext.rigpl_erpnext.report.leave_application_report import leave_application_report
 from rigpl_erpnext.rigpl_erpnext.report.list_of_holidays import list_of_holidays
 from rigpl_erpnext.rigpl_erpnext.report.monthly_attendance_time_based import monthly_attendance_time_based
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
@@ -146,3 +147,15 @@ class TestListOfHolidays(ReportTestCase):
 
         self.assertEqual([(row[1], row[2], row[4]) for row in data],
             [(getdate("2026-09-06"), "Sunday", "Yes"), (getdate("2026-10-02"), "Friday", "No")])
+
+
+class TestLeaveApplicationReport(ReportTestCase):
+    def test_branch_and_approved_status(self):
+        insert_employee(EMP)
+        approved = insert_leave(EMP, "2026-09-03", "2026-09-04", 2)
+        insert_leave(EMP, "2026-09-07", "2026-09-07", 1, docstatus=0)
+
+        data = leave_application_report.execute(frappe._dict(from_date="2026-09-01", to_date="2026-09-30",
+            branch=BRANCH, status="Approved"))[1]
+
+        self.assertEqual([row[0] for row in data], [approved])
