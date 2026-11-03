@@ -552,7 +552,7 @@
   } 
  ], 
  "custom_perms": [],
- "doctype": "Salary Component", 
+ "doctype": "Salary Slip", 
  "property_setters": [], 
  "sync_on_migrate": 1
 }

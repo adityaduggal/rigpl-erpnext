@@ -6,25 +6,8 @@ from erpnext.payroll.doctype.payroll_entry.payroll_entry import get_start_end_da
 
 
 def validate(doc, method):
-    # Validate To Date only should be after the next SSA is created
-    ssa = frappe.db.sql("""SELECT name, to_date, from_date FROM `tabSalary Structure Assignment`
-        WHERE employee = '%s' AND from_date > '%s' ORDER BY from_date ASC LIMIT 1""" % (doc.employee, doc.from_date), as_dict=1)
-    if ssa:
-        actual_to_date = add_days(ssa[0].from_date, -1)
-        if doc.to_date != actual_to_date:
-            frappe.throw(f"For {doc.name} From Date Should be {actual_to_date}")
-    else:
-        if doc.to_date:
-            frappe.throw(f"For {doc.name} there is No Future SSA hence To Date should be Blank")
-
-
-    date_details = get_start_end_dates("Monthly", doc.from_date)
-    doj = frappe.db.get_value("Employee", doc.employee, "date_of_joining")
-
-    if date_details.end_date > doj >= date_details.start_date:
-        doc.from_date = doj
-    else:
-        doc.from_date = date_details.start_date
+    set_from_date(doc)
+    validate_to_date(doc)
 
     if flt(doc.minimum_applicable) > 0:
         if flt(doc.basic_percent) > 0:
@@ -37,19 +20,34 @@ def on_submit(doc, method):
     correct_to_date_for_ssa(doc.employee)
 
 
-def correct_to_date_for_ssa(emp_id, frm_date=None):
-    ssa = frappe.db.sql("""SELECT name, employee, from_date, to_date FROM `tabSalary Structure Assignment`
-        WHERE docstatus=1 AND employee= '%s' ORDER BY from_date ASC""" % emp_id, as_dict=1)
-    if len(ssa) >= 1:
-        for i in range(len(ssa)):
-            if i < len(ssa) - 1:
-                actual_to_date = add_days(ssa[i+1].from_date, -1)
-                if ssa[i].to_date != actual_to_date:
-                    frappe.db.set_value("Salary Structure Assignment", ssa[i].name, "to_date", actual_to_date)
-                    print(f"For {ssa[i].name} Changed To Date from Current Date: {ssa[i].to_date} To: {actual_to_date}")
-            else:
-                if ssa[i].to_date:
-                    frappe.db.set_value("Salary Structure Assignment", ssa[i].name, "to_date", None)
-                    print(f"For {ssa[i].name} Removed To Date as its the Latest Salary Structure")
+def set_from_date(doc):
+    """SSA starts on the month start, or on the joining date if the employee joined in that month"""
+    date_details = get_start_end_dates("Monthly", doc.from_date)
+    doj = frappe.db.get_value("Employee", doc.employee, "date_of_joining")
+
+    if date_details.end_date > doj >= date_details.start_date:
+        doc.from_date = doj
     else:
-        print(f"{emp_id} has No Salary Structure Assignments")
+        doc.from_date = date_details.start_date
+
+
+def validate_to_date(doc):
+    """To Date is the day before the next submitted SSA, or blank for the latest SSA"""
+    next_from = frappe.get_all("Salary Structure Assignment", filters={"employee": doc.employee,
+        "from_date": (">", doc.from_date), "docstatus": 1, "name": ("!=", doc.name or "")},
+        pluck="from_date", order_by="from_date asc", limit=1)
+    if next_from:
+        actual_to_date = add_days(next_from[0], -1)
+        if not doc.to_date or getdate(doc.to_date) != actual_to_date:
+            frappe.throw(f"For {doc.name} To Date should be {actual_to_date}")
+    elif doc.to_date:
+        frappe.throw(f"For {doc.name} there is No Future SSA hence To Date should be Blank")
+
+
+def correct_to_date_for_ssa(emp_id, frm_date=None):
+    ssa = frappe.get_all("Salary Structure Assignment", filters={"docstatus": 1, "employee": emp_id},
+        fields=["name", "from_date", "to_date"], order_by="from_date asc")
+    for i, row in enumerate(ssa):
+        actual_to_date = add_days(ssa[i + 1].from_date, -1) if i < len(ssa) - 1 else None
+        if row.to_date != actual_to_date:
+            frappe.db.set_value("Salary Structure Assignment", row.name, "to_date", actual_to_date)

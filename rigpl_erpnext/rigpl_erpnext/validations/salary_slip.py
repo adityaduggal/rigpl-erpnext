@@ -4,12 +4,11 @@ import frappe
 import erpnext
 import math
 import datetime
-from frappe.utils import money_in_words, flt
+from frappe.utils import money_in_words, flt, getdate
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_fiscal_years
 from erpnext.payroll.doctype.payroll_entry.payroll_entry import get_start_end_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
-from erpnext.payroll.doctype.salary_slip.salary_slip import SalarySlip
 
 
 def post_gl_entry(doc):
@@ -216,15 +215,12 @@ def validate(doc, method):
     get_loan_deduction(doc, msd, med)
     get_expense_claim(doc, med)
     calculate_net_salary(doc, msd, med)
-    table = ['earnings', 'deductions', 'contributions']
-    recalculate_formula(doc, table)
     validate_ec_posting(doc)
 
 
 def update_fields(doc):
-    sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
-    doc.letter_head = sstr.letter_head
-    doc.deparment = frappe.get_value("Employee", doc.employee, "department")
+    doc.letter_head = frappe.get_cached_value("Salary Structure", doc.salary_structure, "letter_head")
+    doc.department = frappe.get_cached_value("Employee", doc.employee, "department")
 
 
 def validate_ec_posting(doc):
@@ -244,15 +240,6 @@ def validate_ec_posting(doc):
                         if debit[0][2] != comp_doc.default_payroll_payable_account:
                             frappe.throw("Expense Claim {0} in Salary Slip {1} is not posted "
                                          "correctly".format(e.expense_claim, doc.name))
-
-
-def recalculate_formula(doc, table):
-    data = SalarySlip.get_data_for_eval(doc)
-    salary_structure_doc = frappe.get_doc(
-        "Salary Structure", doc.salary_structure)
-    for table_name in table:
-        for comp in salary_structure_doc.get(table_name):
-            amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
 
 
 def calculate_net_salary(doc, msd, med):
@@ -529,84 +516,57 @@ def get_month_dates(doc):
 
 
 def get_edc(doc):
-    # Earning Table should be replaced if there is any change in the Earning Composition except manual
-    # Change can be of 3 types in the earning table
-    # 1. If a user removes a type of earning
-    # 2. If a user adds a type of earning
-    # 3. If a user deletes and adds a type of another earning
-    # Function to get the Earnings, Deductions and Contributions (E,D,C)
-    doj = frappe.get_value("Employee", doc.employee, "date_of_joining")
-    if doj > datetime.datetime.strptime(doc.start_date, '%Y-%m-%d').date():
-        date_for_sstra = doj
-    else:
-        date_for_sstra = doc.start_date
+    """Rebuilds earnings, deductions and contributions from the applicable Salary Structure.
 
-    appl_sstr = frappe.db.sql(f"""SELECT sstra.salary_structure
-        FROM `tabSalary Structure Assignment` sstra
-    WHERE sstra.employee = '{doc.employee}'  AND sstra.from_date <= '{date_for_sstra}'
-    AND sstra.docstatus = 1
-    ORDER BY sstra.from_date DESC LIMIT 1""", as_list=1)
-    if appl_sstr:
-        doc.salary_structure = appl_sstr[0][0]
-    else:
-        frappe.throw(
-            "No Salary Structure Found for Employee {}".format(doc.employee))
+    Manual earnings and Loan Deduction rows keep the values the user entered.
+    """
+    doc.salary_structure = get_applicable_structure(doc)
+    manual = get_manual_components([row.salary_component for row in doc.get("earnings")])
+    manual_amounts = {row.salary_component: row.amount for row in doc.get("earnings")
+        if row.salary_component in manual}
+    loan_rows = [dict(salary_component=row.salary_component, default_amount=row.default_amount,
+        amount=row.amount, idx=row.idx, employee_loan=row.employee_loan)
+        for row in doc.get("deductions") if row.salary_component == "Loan Deduction"]
+
+    doc.set("earnings", [])
+    doc.set("deductions", [])
+    doc.set("contributions", [])
     sstr = frappe.get_doc("Salary Structure", doc.salary_structure)
-    existing_ded = []
-    manual_earn = []
+    get_from_sal_struct(doc, sstr, ["earnings", "deductions", "contributions"])
 
-    earn_dict = {}
-    for comp in doc.earnings:
-        earn_doc = frappe.get_doc("Salary Component", comp.salary_component)
-        if earn_doc.manual == 1:
-            earn_dict['salary_component'] = comp.salary_component
-            earn_dict['idx'] = comp.idx
-            earn_dict['default_amount'] = comp.amount
-            earn_dict['amount'] = comp.amount
-            manual_earn.append(earn_dict.copy())
-    # Only Loan Deduction is Not Overwritten so that Loan Deduction can be Changed Later by user
-    sal_comp_dict = {}
-    for comp in doc.deductions:
-        if comp.salary_component == 'Loan Deduction':
-            sal_comp_dict['salary_component'] = comp.salary_component
-            sal_comp_dict['idx'] = comp.idx
-            sal_comp_dict['default_amount'] = comp.default_amount
-            sal_comp_dict['amount'] = comp.amount
-            sal_comp_dict['employee_loan'] = comp.employee_loan
-            existing_ded.append(sal_comp_dict.copy())
+    for row in doc.earnings:
+        if row.salary_component in manual_amounts:
+            row.default_amount = row.amount = manual_amounts[row.salary_component]
+    for row in loan_rows:
+        doc.append("deductions", row)
 
-    table_list = ["earnings", "deductions", "contributions"]
-    doc.earnings = []
-    doc.deductions = []
-    doc.contributions = []
-    get_from_sal_struct(doc, sstr, table_list)
 
-    # Add Changed Manual Earning Amount to the Table
-    if manual_earn:
-        for i in range(len(manual_earn)):
-            for comp in doc.earnings:
-                if comp.salary_component == earn_dict['salary_component']:
-                    comp.default_amount = manual_earn[i]['amount']
-                    comp.amount = manual_earn[i]['amount']
+def get_applicable_structure(doc):
+    """Structure of the latest submitted SSA from on or before the start date, or the joining date if later"""
+    doj = frappe.db.get_value("Employee", doc.employee, "date_of_joining")
+    date_for_sstra = max(getdate(doj), getdate(doc.start_date))
+    structure = frappe.get_all("Salary Structure Assignment", filters={"employee": doc.employee,
+        "from_date": ("<=", date_for_sstra), "docstatus": 1}, pluck="salary_structure",
+        order_by="from_date desc", limit=1)
+    if not structure:
+        frappe.throw("No Salary Structure Found for Employee {}".format(doc.employee))
+    return structure[0]
 
-    # Add changed loan amount to the table
-    if existing_ded:
-        for i in range(len(existing_ded)):
-            doc.append("deductions", {
-                "salary_component": sal_comp_dict['salary_component'],
-                "default_amount": existing_ded[i]['default_amount'],
-                "amount": existing_ded[i]['amount'],
-                "idx": existing_ded[i]['idx'],
-                "employee_loan": existing_ded[i]['employee_loan']
-            })
+
+def get_manual_components(components):
+    if not components:
+        return set()
+    return set(frappe.get_all("Salary Component", filters={"name": ("in", list(set(components))), "manual": 1},
+        pluck="name"))
 
 
 def get_from_sal_struct(doc, salary_structure_doc, table_list):
-    data = SalarySlip.get_data_for_eval(doc)
+    # v13 returns (data, default_data); the formulas need data
+    data, _ = doc.get_data_for_eval()
 
     for table_name in table_list:
         for comp in salary_structure_doc.get(table_name):
-            amount = SalarySlip.eval_condition_and_formula(doc, comp, data)
+            amount = doc.eval_condition_and_formula(comp, data)
             doc.append(table_name, {
                 "salary_component": comp.salary_component,
                 "default_amount": amount,
