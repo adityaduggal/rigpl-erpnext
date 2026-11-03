@@ -138,25 +138,34 @@ def on_submit(so, method):
             tt.trial_owner = s_team.sales_person
             tt.status = "In Production"
             tt.insert()
-            query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name
-            name = frappe.db.sql(query, as_list=1)
-            frappe.msgprint('{0}{1}'.format("Created New Trial Tracking Number: ", name[0][0]))
+            frappe.msgprint('{0}{1}'.format("Created New Trial Tracking Number: ", tt.name))
 
 
 def on_cancel(so, method):
     delete_process_sheet(so)
-    existing_ste = frappe.db.sql("""SELECT name FROM `tabStock Entry` WHERE docstatus=1
-    AND sales_order='%s'"""% so.name, as_dict=1)
-    if existing_ste:
-        for ste in existing_ste:
-            cancel_delete_ste_from_name(ste.name)
+    existing_ste = frappe.get_all("Stock Entry", filters={"docstatus": 1, "sales_order": so.name})
+    for ste in existing_ste:
+        cancel_delete_ste_from_name(ste.name)
     if so.track_trial == 1:
+        trials = get_trial_tracking([sod.name for sod in so.get("items")])
         for sod in so.get("items"):
-            query = """SELECT tt.name FROM `tabTrial Tracking` tt where tt.prevdoc_detail_docname = '%s' """ % sod.name
-            name = frappe.db.sql(query, as_list=1)
+            name = trials.get(sod.name)
             if name:
-                frappe.delete_doc("Trial Tracking", name[0], for_reload=True)
-                frappe.msgprint('{0}{1}'.format("Deleted Trial Tracking No: ", name[0][0]))
+                frappe.delete_doc("Trial Tracking", name, for_reload=True)
+                frappe.msgprint('{0}{1}'.format("Deleted Trial Tracking No: ", name))
+
+
+def get_trial_tracking(so_items):
+    """
+    Returns {SO item: the first Trial Tracking of the item}
+    """
+    trials = {}
+    if not so_items:
+        return trials
+    for tt in frappe.get_all("Trial Tracking", filters={"prevdoc_detail_docname": ("in", so_items)},
+            fields=["name", "prevdoc_detail_docname"], order_by="creation, name"):
+        trials.setdefault(tt.prevdoc_detail_docname, tt.name)
+    return trials
 
 
 @frappe.whitelist()
@@ -184,12 +193,19 @@ def makes_process_sheet_if_needed(so):
 
 
 def delete_process_sheet(so):
-    for it in so.items:
-        it_doc = frappe.get_doc("Item", it.item_code)
-        if it_doc.made_to_order == 1:
-            ps_list = frappe.db.sql("""SELECT name FROM `tabProcess Sheet` WHERE docstatus = 0
-            AND sales_order_item = '%s' AND sales_order = '%s'""" % (it.name, so.name), as_dict=1)
-            if ps_list:
-                for ps in ps_list:
-                    frappe.delete_doc("Process Sheet", ps.name, for_reload=True)
+    """
+    Deletes the draft Process Sheets of the made to order items of the Sales Order
+    """
+    item_codes = list({it.item_code for it in so.items})
+    if not item_codes:
+        return
+    mto_items = set(frappe.get_all("Item", filters={"name": ("in", item_codes), "made_to_order": 1},
+        pluck="name"))
+    so_items = [it.name for it in so.items if it.item_code in mto_items]
+    if not so_items:
+        return
+    ps_list = frappe.get_all("Process Sheet", filters={"docstatus": 0, "sales_order": so.name,
+        "sales_order_item": ("in", so_items)}, order_by="name", pluck="name")
+    for ps_name in ps_list:
+        frappe.delete_doc("Process Sheet", ps_name, for_reload=True)
 
