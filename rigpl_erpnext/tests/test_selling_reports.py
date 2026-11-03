@@ -7,6 +7,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, getdate, nowdate
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transactions
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
 from rigpl_erpnext.rigpl_erpnext.report.trial_tracking import trial_tracking
@@ -120,3 +121,18 @@ class TestTrialTracking(ReportTestCase):
         data = trial_tracking.execute(frappe._dict(trial_status="Passed", customer=CUSTOMER, trial_owner="O'Brien"))[1]
 
         self.assertEqual([(row[4], row[11], row[12]) for row in data], [(CUSTOMER, "Not Invoiced", 40)])
+
+
+class TestForexTransactions(ReportTestCase):
+    def test_only_invoice_doctypes(self):
+        bad = frappe._dict(doctype="Sales Invoice` WHERE 1=1 --", company="_Test RIGPL O'Company")
+        self.assertRaises(frappe.ValidationError, forex_transactions.execute, bad)
+
+    def test_foreign_currency_invoices(self):
+        name = insert_invoice(CUSTOMER, [], currency="_Test RIGPL O'USD", grand_total=10, base_grand_total=800)
+        company = frappe.defaults.get_global_default("company")
+        filters = frappe._dict(doctype="Sales Invoice", company=company, from_date=DATE, to_date=DATE)
+
+        data = forex_transactions.execute(filters)[1]
+
+        self.assertIn([name, getdate(DATE), CUSTOMER], [list(row[:3]) for row in data])
