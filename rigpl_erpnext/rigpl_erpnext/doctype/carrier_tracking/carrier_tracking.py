@@ -336,3 +336,8 @@ def carrier_name_query(doctype, txt, searchfield, start, page_len, filters, as_d
     return frappe.get_all("Transporters", filters={"api_mode": ["!=", "None"], "name": ["like", f"%{txt}%"]},
                           fields=["name"], order_by="name asc", start=start, page_length=page_len,
                           as_list=not as_dict)
+
+
+def on_doctype_update():
+    # Courier Tracking RIGPL and the account dashboard filter on creation (#173)
+    frappe.db.add_index("Carrier Tracking", ["creation"])
