@@ -2,6 +2,8 @@ import frappe
 from frappe.query_builder.functions import Coalesce
 from frappe.website.render import clear_cache
 
+from rigpl_erpnext.utils.batch_write_utils import bulk_set_fields, bulk_update_rows
+from rigpl_erpnext.utils.item_attribute_utils import chunks
 from rigpl_erpnext.website_rigpl.route_sync import add_redirects
 from rigpl_erpnext.website_rigpl.routes import plan_shared_route_fixes
 
@@ -39,8 +41,7 @@ def fix_shared_routes():
 
     new_routes, redirects = plan_shared_route_fixes(web_items, item_routes)
 
-    for name, route in new_routes.items():
-        frappe.db.set_value("Website Item", name, "route", route, update_modified=False)
+    bulk_update_rows("Website Item", {name: {"route": route} for name, route in new_routes.items()})
 
     added = add_redirects(redirects)
     print(f"Website Item routes changed: {len(new_routes)}. Route redirects added: {added}.")
@@ -67,8 +68,7 @@ def publish_templates_of_published_variants():
         )
     ).run()
 
-    for (name,) in templates:
-        frappe.db.set_value("Item", name, "pl_item", "Yes", update_modified=False)
+    bulk_set_fields("Item", {name: {"pl_item": "Yes"} for (name,) in templates}, {}, add_versions=False)
     print(f"Templates set to pl_item = Yes: {len(templates)}.")
 
 
@@ -80,34 +80,57 @@ def move_item_website_item_groups():
         frappe.qb.from_(group)
         .select(group.name, group.parent, group.item_group)
         .where(group.parenttype == "Item")
+        .orderby(group.parent)
+        .orderby(group.idx)
     ).run(as_dict=True)
 
-    moved = 0
+    web_items = get_web_items_by_item_code({row.parent for row in rows})
+    groups, last_idx = get_web_item_groups(web_items.values())
+
+    moves, deletes = {}, []
     for row in rows:
-        web_item = frappe.db.get_value("Website Item", {"item_code": row.parent})
-        has_group = web_item and frappe.db.exists(
-            "Website Item Group",
-            {"parent": web_item, "parenttype": "Website Item", "item_group": row.item_group},
-        )
-        if not web_item or has_group:
-            frappe.db.delete("Website Item Group", {"name": row.name})
+        web_item = web_items.get(row.parent)
+        if not web_item or (web_item, row.item_group) in groups:
+            deletes.append(row.name)
             continue
-        last_idx = frappe.db.get_value(
-            "Website Item Group", {"parent": web_item, "parenttype": "Website Item"}, "max(idx)"
+        groups.add((web_item, row.item_group))
+        last_idx[web_item] = last_idx.get(web_item, 0) + 1
+        moves[row.name] = {
+            "parent": web_item,
+            "parenttype": "Website Item",
+            "parentfield": "website_item_groups",
+            "idx": last_idx[web_item],
+        }
+
+    for chunk in chunks(deletes):
+        frappe.db.delete("Website Item Group", {"name": ("in", chunk)})
+    bulk_update_rows("Website Item Group", moves)
+    print(f"Website Item Group rows moved: {len(moves)}. Deleted: {len(deletes)}.")
+
+
+def get_web_items_by_item_code(item_codes):
+    web_items = {}
+    for chunk in chunks(item_codes):
+        rows = frappe.get_all(
+            "Website Item", filters={"item_code": ("in", chunk)}, fields=["name", "item_code"]
         )
-        frappe.db.set_value(
+        web_items.update({row.item_code: row.name for row in rows})
+    return web_items
+
+
+def get_web_item_groups(web_items):
+    """({(web_item, item_group)}, {web_item: max idx}) of the groups on these Website Items."""
+    groups, last_idx = set(), {}
+    for chunk in chunks(web_items):
+        rows = frappe.get_all(
             "Website Item Group",
-            row.name,
-            {
-                "parent": web_item,
-                "parenttype": "Website Item",
-                "parentfield": "website_item_groups",
-                "idx": (last_idx or 0) + 1,
-            },
-            update_modified=False,
+            filters={"parenttype": "Website Item", "parent": ("in", chunk)},
+            fields=["parent", "item_group", "idx"],
         )
-        moved += 1
-    print(f"Website Item Group rows moved: {moved}. Deleted: {len(rows) - moved}.")
+        for row in rows:
+            groups.add((row.parent, row.item_group))
+            last_idx[row.parent] = max(last_idx.get(row.parent, 0), row.idx or 0)
+    return groups, last_idx
 
 
 def fill_empty_web_fields_from_item():
@@ -125,10 +148,10 @@ def fill_empty_web_fields_from_item():
         .select(web_item.name, *[web_item[f] for f in fields], *[item[f].as_("item_" + f) for f in fields])
     ).run(as_dict=True)
 
-    filled = 0
+    changes = {}
     for row in rows:
         changed = {f: row["item_" + f] for f in fields if not row[f] and row["item_" + f]}
         if changed:
-            frappe.db.set_value("Website Item", row.name, changed, update_modified=False)
-            filled += 1
+            changes[row.name] = changed
+    filled = bulk_update_rows("Website Item", changes)
     print(f"Website Items with empty web fields filled from Item: {filled}.")

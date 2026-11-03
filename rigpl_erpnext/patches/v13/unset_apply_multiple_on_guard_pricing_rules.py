@@ -1,5 +1,7 @@
 import frappe
 
+from rigpl_erpnext.utils.batch_write_utils import bulk_set_fields
+
 
 def execute():
     """
@@ -26,6 +28,13 @@ def execute():
         },
         pluck="name",
     )
+    field = "apply_multiple_pricing_rules"
+    bulk_set_fields(
+        "Pricing Rule",
+        {name: {field: 0} for name in guards},
+        {name: {field: 1} for name in guards},
+        add_versions=False,
+        update_modified=True,
+    )
     for name in guards:
-        frappe.db.set_value("Pricing Rule", name, "apply_multiple_pricing_rules", 0)
         print(f"Pricing Rule {name}: Apply Multiple Pricing Rules 1 -> 0")

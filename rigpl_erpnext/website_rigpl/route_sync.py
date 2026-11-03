@@ -16,10 +16,11 @@ from typing import Dict, Iterable, List, Tuple
 
 import frappe
 from frappe import _
-from frappe.utils import cint
+from frappe.utils import cint, now
 from frappe.utils.background_jobs import enqueue, get_jobs
 from frappe.website.render import clear_cache
 
+from rigpl_erpnext.utils.batch_write_utils import bulk_insert_rows, bulk_update_rows
 from rigpl_erpnext.website_rigpl.routes import (
     DEFAULT_MAX_DEPTH,
     DEFAULT_MAX_LENGTH,
@@ -32,6 +33,8 @@ from rigpl_erpnext.website_rigpl.routes import (
 )
 
 REBUILD_JOB = "rigpl_rebuild_routes"
+REDIRECT_FIELDS = ("name", "creation", "modified", "owner", "modified_by", "docstatus",
+    "parent", "parenttype", "parentfield", "idx", "source", "target")
 
 
 def get_route_limits() -> Tuple[int, int]:
@@ -119,8 +122,7 @@ def apply_redirects(redirects: List[Redirect], moved: Dict[str, str], live_route
     """
     existing = frappe.get_all("Website Route Redirect", fields=["name", "source", "target"])
     retargeted = retarget_redirects(existing, moved)
-    for name, target in retargeted.items():
-        frappe.db.set_value("Website Route Redirect", name, "target", target, update_modified=False)
+    bulk_update_rows("Website Route Redirect", {name: {"target": t} for name, t in retargeted.items()})
 
     added = add_redirects([(r.source, r.target) for r in redirects], escaped=True)
 
@@ -137,28 +139,19 @@ def add_redirects(redirects: List[Tuple[str, str]], escaped: bool = False) -> in
     regular expressions: pass `escaped=False` to escape plain routes, and plain targets get
     a leading "/"."""
     existing = set(frappe.get_all("Website Route Redirect", pluck="source"))
-    idx = len(existing)
-    added = 0
+    timestamp, user = now(), frappe.session.user
+    rows = []
     for source, target in redirects:
         if not escaped:
             source, target = re.escape(source), "/" + target
         if source in existing:
             continue
-        idx += 1
-        frappe.get_doc(
-            {
-                "doctype": "Website Route Redirect",
-                "parent": "Website Settings",
-                "parenttype": "Website Settings",
-                "parentfield": "route_redirects",
-                "idx": idx,
-                "source": source,
-                "target": target,
-            }
-        ).db_insert()
         existing.add(source)
-        added += 1
-    return added
+        idx = len(existing)
+        rows.append((frappe.generate_hash(length=10), timestamp, timestamp, user, user, 0,
+            "Website Settings", "Website Settings", "route_redirects", idx, source, target))
+    bulk_insert_rows("Website Route Redirect", REDIRECT_FIELDS, rows)
+    return len(rows)
 
 
 def enqueue_rebuild() -> None:
@@ -183,10 +176,8 @@ def rebuild_routes() -> dict:
     )
     plan = plan_route_rebuild(groups, web_items, max_length, max_depth)
 
-    for name, route in plan.group_routes.items():
-        frappe.db.set_value("Item Group", name, "route", route, update_modified=False)
-    for name, route in plan.item_routes.items():
-        frappe.db.set_value("Website Item", name, "route", route, update_modified=False)
+    bulk_update_rows("Item Group", {name: {"route": r} for name, r in plan.group_routes.items()})
+    bulk_update_rows("Website Item", {name: {"route": r} for name, r in plan.item_routes.items()})
 
     moved = {r.old: r.new for r in plan.redirects}
     moved.update(old_routes(web_items, plan.item_routes))

@@ -4,6 +4,7 @@ import os
 import frappe
 from frappe.modules.utils import sync_customizations_for_doctype
 
+from rigpl_erpnext.utils.batch_write_utils import bulk_update_rows
 from rigpl_erpnext.website_rigpl.route_sync import rebuild_routes
 
 SLUGS_FILE = ("website_rigpl", "website_data", "route_slugs.json")
@@ -51,6 +52,4 @@ def seed_group_slugs() -> int:
         filters={"name": ("in", list(slugs)), "website_slug": ("is", "not set")},
         pluck="name",
     )
-    for name in empty:
-        frappe.db.set_value("Item Group", name, slugs[name], update_modified=False)
-    return len(empty)
+    return bulk_update_rows("Item Group", {name: slugs[name] for name in empty})

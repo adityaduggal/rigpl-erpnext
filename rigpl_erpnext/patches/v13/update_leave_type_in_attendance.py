@@ -1,38 +1,68 @@
 import frappe
-import time
+
+from rigpl_erpnext.utils.batch_write_utils import bulk_set_fields
+from rigpl_erpnext.utils.item_attribute_utils import chunks
 
 
 def execute():
     """
-    This Patch Update all the old submitted attendance with leave type from the Leave Application
+    Run by hand (not in patches.txt). Sets the leave type of each submitted On Leave
+    Attendance that has none, from the approved Leave Application of that day. When more
+    than one matches, the last modified one wins, as in the old per-row version.
     """
-    st_time = time.time()
-    updated_att = 0
-    not_updated = 0
-    att_lst = frappe.get_list("Attendance",
-                              fields=["name", "leave_type",
-                                      "attendance_date", "employee", "status"],
-                              filters={"docstatus": 1,
-                                       "status": "On Leave", "leave_type": ""},
-                              order_by="attendance_date")
-    for att in att_lst:
-        leave_lst = frappe.get_list("Leave Application",
-                                    fields=["name", "leave_type", "employee",
-                                            "from_date", "to_date", "status"],
-                                    filters={"docstatus": 1, "status": "Approved",
-                                             "employee": att.employee,
-                                             "from_date": ["<=", att.attendance_date],
-                                             "to_date": [">=", att.attendance_date]
-                                             })
-        if leave_lst:
-            frappe.db.set_value("Attendance", att.name,
-                                "leave_type", leave_lst[0].leave_type)
-            print(f"Updated {att.name} with Leave Type = {leave_lst[0].leave_type} from Leave "
-                  f"Application {leave_lst[0].name}")
-            updated_att += 1
+    attendance = frappe.get_all(
+        "Attendance",
+        fields=["name", "employee", "attendance_date"],
+        filters={"docstatus": 1, "status": "On Leave", "leave_type": ("is", "not set")},
+        order_by="attendance_date",
+    )
+    if not attendance:
+        print("No On Leave Attendance without a leave type.")
+        return
+
+    leaves = get_leave_applications(
+        {row.employee for row in attendance},
+        min(row.attendance_date for row in attendance),
+        max(row.attendance_date for row in attendance),
+    )
+    new_values, not_found = {}, []
+    for row in attendance:
+        leave_type = find_leave_type(leaves.get(row.employee, []), row.attendance_date)
+        if leave_type:
+            new_values[row.name] = {"leave_type": leave_type}
         else:
-            print(f"Unable to find any Leave Application for {att.name}")
-            not_updated += 1
-    print(f"Total Records Updated = {updated_att} out of {len(att_lst)} and Total Time Taken = "
-          f"{int(time.time()- st_time)} seconds")
-    print(f"Total Records Not Updated = {not_updated}")
+            not_found.append(row.name)
+
+    bulk_set_fields("Attendance", new_values, {}, add_versions=False, update_modified=True)
+    print(f"Attendance updated with a leave type: {len(new_values)} of {len(attendance)}.")
+    if not_found:
+        print(f"No Leave Application found for: {', '.join(not_found)}")
+
+
+def get_leave_applications(employees, from_date, to_date):
+    """{employee: [Leave Application]} of the approved ones that overlap the dates, last
+    modified first."""
+    by_employee = {}
+    for chunk in chunks(employees):
+        rows = frappe.get_all(
+            "Leave Application",
+            fields=["employee", "leave_type", "from_date", "to_date"],
+            filters={
+                "docstatus": 1,
+                "status": "Approved",
+                "employee": ("in", chunk),
+                "from_date": ("<=", to_date),
+                "to_date": (">=", from_date),
+            },
+            order_by="modified desc",
+        )
+        for row in rows:
+            by_employee.setdefault(row.employee, []).append(row)
+    return by_employee
+
+
+def find_leave_type(leaves, date):
+    for leave in leaves:
+        if leave.from_date <= date <= leave.to_date:
+            return leave.leave_type
+    return None
