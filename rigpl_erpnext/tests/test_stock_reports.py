@@ -4,6 +4,7 @@ quote: the old reports put it into the SQL text and failed.
 """
 import frappe
 
+from rigpl_erpnext.rigpl_erpnext.report.dealer_stock_status import dealer_stock_status
 from rigpl_erpnext.rigpl_erpnext.report.item_template import item_template
 from rigpl_erpnext.rigpl_erpnext.report.standards_and_drawings_rigpl import standards_and_drawings_rigpl
 from rigpl_erpnext.rigpl_erpnext.report.stock_status import stock_status
@@ -99,3 +100,17 @@ class TestTemplateVariantImportFormat(ReportTestCase):
         self.assertEqual({row[0] for row in data}, {ITEM})
         self.assertRaises(frappe.ValidationError, template_variant_import_format.execute,
             frappe._dict(restrictions=1, template=0))
+
+
+class TestDealerStockStatus(ReportTestCase):
+    def test_ready_reserved_and_total(self):
+        raw("Warehouse", name="_Test RIGPL O'FG WH", warehouse_name="O'FG", short_code="_TOFG", listing_serial=99,
+            warehouse_type="Finished Stock", is_group=0, disabled=0, is_subcontracting_warehouse=0)
+        insert_stock_item(ITEM, "6")
+        insert_bin(ITEM, "_Test RIGPL O'FG WH", actual=4, reserved=1)
+
+        data = self.assert_queries(6, lambda: dealer_stock_status.execute(frappe._dict(bm=BM, tt=TT))[1])
+
+        row = next(row for row in data if row[0] == ITEM)
+        self.assertEqual(row[5], 6)
+        self.assertEqual(row[-4:], [4, None, 1, 3])

@@ -3,17 +3,40 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt
-from ....utils.stock_utils import get_wh_wise_qty
+from frappe.query_builder.functions import IfNull
+from frappe.utils import cint, flt, nowdate
+from ....utils.item_attribute_utils import attribute_filters, attribute_sort_key, get_attribute_map
+from ....utils.stock_utils import get_wh_wise_qty_for_items
+
+TEXT = ["Series", "{bm} Quality", "Special Treatment", "Tool Type"]
+NUMERIC = ["d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm"]
+FLUTES = "Number of Flutes Zn"
+SORT_ORDER = ["Is RM", "Brand", "Special Treatment", "Tool Type", "d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm"]
+# filter: attribute
+ATTRIBUTE_FILTERS = {"bm": "Base Material", "series": "Series", "tt": "Tool Type", "brand": "Brand",
+    "quality": "{bm} Quality", "spl": "Special Treatment"}
 
 
 def execute(filters=None):
-    wh_dict = frappe.db.sql("""SELECT name, listing_serial, short_code, warehouse_type FROM `tabWarehouse`
-        WHERE disabled=0 AND is_group=0 AND listing_serial != 0  and is_subcontracting_warehouse = 0
-        ORDER BY listing_serial ASC""", as_dict=1)
+    filters = filters or {}
+    if not filters.get("bm"):
+        frappe.throw("Select a Base Material", title="Base Material Needed")
     columns = get_columns()
-    data = get_items(filters, wh_dict)
+    data = get_items(filters, get_warehouses())
     return columns, data
+
+
+def get_warehouses():
+    """The listed warehouses that are not groups, disabled or subcontracting, by listing serial."""
+    wh = frappe.qb.DocType("Warehouse")
+    return (
+        frappe.qb.from_(wh)
+        .select(wh.name, wh.listing_serial, wh.short_code, wh.warehouse_type)
+        .where((wh.disabled == 0) & (wh.is_group == 0) & (wh.listing_serial != 0)
+            & (wh.is_subcontracting_warehouse == 0))
+        .orderby(wh.listing_serial)
+        .run(as_dict=1)
+    )
 
 
 def get_columns():
@@ -30,87 +53,62 @@ def get_columns():
 
 
 def get_items(filters, wh_dict):
-    actual_data = []
-    conditions_it = get_conditions(filters)
+    """
+    The sales items of the filters with their stock. The attributes come from get_attribute_map
+    and the quantities from get_wh_wise_qty_for_items, in place of 13 self-joins and 1 stock query
+    for each item (#187).
+    """
     bm = filters["bm"]
-    query = """SELECT it.name as name, IFNULL(rm.attribute_value, "-") as is_rm, it.description,
-        IFNULL(brand.attribute_value, "-") as brand, IFNULL(series.attribute_value, "-") as series,
-        IFNULL(quality.attribute_value, "-") as qual, IFNULL(spl.attribute_value, "-") as spl,
-        IFNULL(tt.attribute_value, "-") as tt, CAST(d1.attribute_value AS DECIMAL(8,3)) as d1,
-        CAST(w1.attribute_value AS DECIMAL(8,3)) as w1, CAST(l1.attribute_value AS DECIMAL(8,3)) as l1,
-        CAST(d2.attribute_value AS DECIMAL(8,3)) as d2, CAST(l2.attribute_value AS DECIMAL(8,3)) as l2,
-        CAST(zn.attribute_value AS UNSIGNED) as zn, 
-        IF(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level) AS rol,
-        it.is_job_work as jw, it.is_purchase_item as pur, it.is_sales_item as sale, it.valuation_rate as vr
-        FROM `tabItem` it
-        LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
-        LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent AND rm.attribute = 'Is RM'
-        LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent AND bm.attribute = 'Base Material'
-        LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent AND brand.attribute = 'Brand'
-        LEFT JOIN `tabItem Variant Attribute` series ON it.name = series.parent AND series.attribute = 'Series'
-        LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent AND quality.attribute = '%s Quality'
-        LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent AND tt.attribute = 'Tool Type'
-        LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent AND spl.attribute = 'Special Treatment'
-        LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent AND d1.attribute = 'd1_mm'
-        LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent AND w1.attribute = 'w1_mm'
-        LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent AND l1.attribute = 'l1_mm'
-        LEFT JOIN `tabItem Variant Attribute` d2 ON it.name = d2.parent AND d2.attribute = 'd2_mm'
-        LEFT JOIN `tabItem Variant Attribute` l2 ON it.name = l2.parent AND l2.attribute = 'l2_mm'
-        LEFT JOIN `tabItem Variant Attribute` zn ON it.name = zn.parent AND zn.attribute = 'Number of Flutes Zn'
-        WHERE ifnull(it.end_of_life, '2099-12-31') > CURDATE() AND it.is_sales_item = 1 %s
-        ORDER BY rm.attribute_value, brand.attribute_value, spl.attribute_value, tt.attribute_value,
-            CAST(d1.attribute_value AS DECIMAL(8,3)) ASC, CAST(w1.attribute_value AS DECIMAL(8,3)) ASC,
-            CAST(l1.attribute_value AS DECIMAL(8,3)) ASC, CAST(d2.attribute_value AS DECIMAL(8,3)) ASC,
-            CAST(l2.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it)
-    items = frappe.db.sql(query, as_dict=1)
+    text = [att.format(bm=bm) for att in TEXT]
+    items = get_item_rows(filters, bm)
+    names = [d.name for d in items]
+    att_map = get_attribute_map(names, text + NUMERIC + [FLUTES, "Is RM", "Brand"])
+    items.sort(key=lambda d: attribute_sort_key(att_map.get(d.name, {}), SORT_ORDER, set(NUMERIC)))
+    qty_by_item = get_wh_wise_qty_for_items(names)
+    actual_data = []
     for d in items:
-        d.update({"res":0, "on_po":0, "plan":0, "prd":0, "total": 0, "ready": 0, "wip": 0})
-        qty_dict = get_wh_wise_qty(item_name=d.name)
-        for q in qty_dict:
-            if q.subcon == 1:
-                d["wip"] += flt(q.actual)
-            else:
-                d["wip"] += flt(q.on_po)
-                d["res"] += flt(q.on_so)
-                d["res"] += flt(q.prd)
-                d["wip"] += flt(q.plan)
-                d[q.scode] = flt(q.actual)
-        for wh in wh_dict:
-            if wh.warehouse_type == "Finished Stock" or wh.warehouse_type == "Dead Stock":
-                d["ready"] += d.get(wh.short_code, 0)
-            elif wh.warehouse_type != "Recoverable Stock":
-            	d["wip"] += d.get(wh.short_code, 0)
-        d["total"] += flt(d.ready) + flt(d.wip) - flt(d.res)
-
-        row = [d.name, d.series, d.qual, d.spl, d.tt, d.d1, d.w1, d.l1, d.d2, d.l2, d.zn, d.description,
-            d.ready if d.get("ready", 0) > 0 else None, d.wip if d.get("wip", 0) > 0 else None,
-            d.res if d.get("res", 0) > 0 else None, d.total if d.get("total", 0) > 0 else None]
+        values = att_map.get(d.name, {})
+        ready, wip, res = get_stock(qty_by_item.get(d.name, []), wh_dict)
+        total = ready + wip - res
+        row = [d.name] + [values.get(att) or "-" for att in text] \
+            + [flt(values[att], 3) if values.get(att) is not None else None for att in NUMERIC] \
+            + [cint(flt(values[FLUTES])) if values.get(FLUTES) is not None else None, d.description,
+            ready if ready > 0 else None, wip if wip > 0 else None, res if res > 0 else None,
+            total if total > 0 else None]
         actual_data.append(row)
     return actual_data
 
 
-def get_conditions(filters):
-    conditions_it = ""
+def get_stock(qty_rows, wh_dict):
+    """(ready, wip, reserved) of 1 item from its Bin rows and the listed warehouses."""
+    wip = res = 0
+    actual_by_code = {}
+    for q in qty_rows:
+        if q.subcon == 1:
+            wip += flt(q.actual)
+        else:
+            wip += flt(q.on_po) + flt(q.plan)
+            res += flt(q.on_so) + flt(q.prd)
+            actual_by_code[q.scode] = flt(q.actual)
+    ready = 0
+    for wh in wh_dict:
+        if wh.warehouse_type in ("Finished Stock", "Dead Stock"):
+            ready += actual_by_code.get(wh.short_code, 0)
+        elif wh.warehouse_type != "Recoverable Stock":
+            wip += actual_by_code.get(wh.short_code, 0)
+    return ready, wip, res
 
-    if filters.get("bm"):
-        conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
 
-    if filters.get("series"):
-        conditions_it += " AND series.attribute_value = '%s'" % filters["series"]
-
-    if filters.get("tt"):
-        conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
-
-    if filters.get("brand"):
-        conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
-
-    if filters.get("quality"):
-        conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
-
-    if filters.get("spl"):
-        conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
-
+def get_item_rows(filters, bm):
+    it = frappe.qb.DocType("Item")
+    query = (
+        frappe.qb.from_(it)
+        .select(it.name, it.description)
+        .where((IfNull(it.end_of_life, "2099-12-31") > nowdate()) & (it.is_sales_item == 1))
+        .where(attribute_filters(it.name, {ATTRIBUTE_FILTERS[key].format(bm=bm): filters.get(key)
+            for key in ATTRIBUTE_FILTERS}))
+        .orderby(it.name)
+    )
     if filters.get("item"):
-        conditions_it += " and it.name = '%s'" % filters["item"]
-
-    return conditions_it
+        query = query.where(it.name == filters["item"])
+    return query.run(as_dict=1)
