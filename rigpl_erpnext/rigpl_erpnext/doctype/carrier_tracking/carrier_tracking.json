@@ -1,5 +1,5 @@
 {
- "allow_guest_to_view": 1,
+ "allow_guest_to_view": 0,
  "allow_import": 1,
  "autoname": "CTRACK.#####",
  "creation": "2017-07-14 17:12:26.867603",
@@ -546,7 +546,7 @@
  "has_web_view": 1,
  "is_published_field": "published",
  "is_submittable": 1,
- "modified": "2026-11-03 14:00:00.000000",
+ "modified": "2026-11-03 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Carrier Tracking",

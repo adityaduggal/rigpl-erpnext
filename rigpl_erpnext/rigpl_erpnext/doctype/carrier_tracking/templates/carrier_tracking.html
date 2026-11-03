@@ -1,4 +1,4 @@
-{% extends "rigpl_erpnext/templates/web.html" %}
+{% extends "templates/web.html" %}
 <!-- add-breadcrumbs -->
 <!-- show-sidebar -->
 <!-- no-sitemap -->
@@ -7,6 +7,10 @@
 {% endblock %}
 {% block title %} Rohit Cutting Tools - Shipment Tracking {% endblock %}
 {% block page_content %}
+{% if expired %}
+    <h1>Shipment Tracking</h1>
+    <p>This tracking link has expired. Contact us.</p>
+{% else %}
     <h1> Details of Shipment</h1>
     <table class="table table-hover">
         <!--
@@ -82,4 +86,5 @@
         </tr>
         {% endfor %}
     </table>
+{% endif %}
 {% endblock %}

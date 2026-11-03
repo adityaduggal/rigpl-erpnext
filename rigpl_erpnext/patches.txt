@@ -82,3 +82,4 @@ rigpl_erpnext.patches.v13.add_aadhaar_country_rule
 rigpl_erpnext.patches.v13.shipping_provider_accounts
 rigpl_erpnext.patches.v13.carrier_tracking_indexes
 rigpl_erpnext.patches.v13.shipping_status_map_seed
+rigpl_erpnext.patches.v13.carrier_tracking_token_routes

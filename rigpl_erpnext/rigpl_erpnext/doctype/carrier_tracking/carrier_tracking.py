@@ -10,7 +10,7 @@ from frappe.utils import flt
 from frappe.website.website_generator import WebsiteGenerator
 from rohit_common.utils.rohit_common_utils import get_email_id
 
-from ...shipping import actions
+from ...shipping import access, actions
 from ...shipping.accounts import BOOKING
 from ...shipping.registry import get_carrier, transporter_api
 from ...shipping.tracking import track_now
@@ -20,6 +20,10 @@ from ....utils.sales_utils import validate_address_google_update
 
 class CarrierTracking(WebsiteGenerator):
     allowed_docs_items = ["Sales Invoice", "Purchase Order"]
+    # Each view is checked for the viewer (#83), so the page is never cached. The DocType has
+    # allow_guest_to_view = 0: in v13 that flag puts every route in sitemap.xml and lets guests
+    # list the documents (www/list.py). The page itself still renders for guests.
+    website = frappe._dict(no_cache=1, sitemap=0)
 
     # ------------------------------------------------------------------ buttons (whitelisted for v13)
 
@@ -91,8 +95,8 @@ class CarrierTracking(WebsiteGenerator):
             self.published = 0
         if not self.published:
             self.route = ""
-        elif not self.route:
-            self.route = self.name.lower()
+        elif access.needs_new_route(self.name, self.route):
+            self.route = access.new_route()
         from_address = frappe.get_doc("Address", self.from_address)
         to_address = frappe.get_doc("Address", self.to_address)
         self.check_invoice_integrity(from_address)
@@ -110,8 +114,26 @@ class CarrierTracking(WebsiteGenerator):
                          f"{frappe.get_desk_link('Transporters', self.carrier_name)} is Only for Domestic Booking")
 
     def on_submit(self):
-        self.db_set({"published": 1, "route": self.route or self.name.lower()})
+        route = access.new_route() if access.needs_new_route(self.name, self.route) else self.route
+        self.db_set({"published": 1, "route": route})
         self.push_data_to_sales_invoice()
+
+    def get_context(self, context):
+        """The web page (#83): only for a signed link or a linked user, until it expires."""
+        context.no_cache = 1
+        context.sitemap = 0
+        context.title = context.page_title = "Shipment Tracking"
+        context.metatags = {"robots": "noindex,nofollow"}
+        if access.can_view(self, access.request_args()):
+            return
+        for key in list(self.as_dict()) + ["docname"]:
+            context.pop(key, None)
+        context.doc = frappe._dict()
+        context.expired = True
+
+    def get_tracking_url(self) -> str:
+        """The signed link for the shipment email (Notification: {{ doc.get_tracking_url() }})."""
+        return access.signed_url(self) if self.published and self.route else ""
 
     def on_cancel(self):
         self.db_set({"published": 0, "route": ""})
