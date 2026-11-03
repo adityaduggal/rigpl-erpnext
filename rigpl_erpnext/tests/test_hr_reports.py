@@ -8,6 +8,7 @@ from frappe.utils import getdate
 from rigpl_erpnext.hr_rigpl.utils.attendance_report_utils import get_holidays_by_day, get_leaves_by_day, get_month
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_base_list_holiday_counts
 from rigpl_erpnext.rigpl_erpnext.report.employee_attendance import employee_attendance
+from rigpl_erpnext.rigpl_erpnext.report.monthly_attendance_time_based import monthly_attendance_time_based
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
 
 EMP = "_Test RIGPL O'Brien Employee"
@@ -85,3 +86,19 @@ class TestEmployeeAttendance(ReportTestCase):
         row = next(row for row in data if row[0] == EMP)
         self.assertEqual(row[2:8], ["P", "HO", "L", "H", "", "X"])
         self.assertEqual(row[-2:], [1.5, 0.5])
+
+
+class TestMonthlyAttendanceTimeBased(ReportTestCase):
+    def test_in_out_and_overtime_rows(self):
+        insert_employee(EMP)
+        insert_holiday_list([("2026-09-02", "Sunday")])
+        insert_attendance(EMP, "2026-09-01", overtime=2, punches=[("In Time", "09:00"), ("Out Time", "18:30")])
+        insert_attendance(EMP, "2026-09-03", punches=[("In Time", "09:15")])
+
+        data = self.assert_queries(4, lambda: monthly_attendance_time_based.execute(frappe._dict(SEPT))[1])
+
+        rows = [row for row in data if row[0] == EMP]
+        self.assertEqual([row[2] for row in rows], ["In Time", "Out Time", "Over Time"])
+        self.assertEqual([row[3:6] for row in rows], [["09:00", "Sunday", "09:15"], ["18:30", "Sunday", ""],
+            [2, 0, 0]])
+        self.assertEqual(rows[0][6], "X")
