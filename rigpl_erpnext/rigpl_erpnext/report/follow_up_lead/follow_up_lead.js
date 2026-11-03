@@ -23,9 +23,9 @@ frappe.query_reports["Follow Up-Lead"] = {
 		},
 		{
 			"fieldname":"status",
-			"label": "Status of Lead OR Customer",
+			"label": "Lead Status",
 			"fieldtype": "Select",
-			"options": "\nHot\nCold\nQuotation Sent\nConverted\nLost\nTrial Passed\nTrial Failed"
+			"options": "\nLead\nOpen\nReplied\nOpportunity\nQuotation\nLost Quotation\nInterested\nConverted\nDo Not Contact"
 		},
 		{
 			"fieldname":"territory",

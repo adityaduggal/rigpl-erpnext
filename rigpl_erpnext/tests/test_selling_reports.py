@@ -12,6 +12,7 @@ from rigpl_erpnext.rigpl_erpnext.report.cforms_analysis import cforms_analysis
 from rigpl_erpnext.rigpl_erpnext.report.customer_rating import customer_rating
 from rigpl_erpnext.rigpl_erpnext.report.customers_with_so import customers_with_so
 from rigpl_erpnext.rigpl_erpnext.report.follow_up_customer import follow_up_customer
+from rigpl_erpnext.rigpl_erpnext.report.follow_up_lead import follow_up_lead
 from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transactions
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
@@ -240,3 +241,23 @@ class TestFollowUpCustomer(ReportTestCase):
         data = follow_up_customer.execute(frappe._dict(customer=CUSTOMER, details=1, from_date="2026-01-01"))[1]
 
         self.assertEqual([row[10] for row in data], [self.timeline, self.old])
+
+
+class TestFollowUpLead(ReportTestCase):
+    def test_latest_communication_and_days(self):
+        raw("Lead", name=LEAD, lead_name=LEAD, company_name=LEAD, status="Open", lead_owner="O'Brien")
+        for date in ("2026-01-10 10:00:00", "2026-01-20 10:00:00"):
+            last = raw("Communication", communication_type="Communication", reference_doctype="Lead",
+                reference_name=LEAD, communication_date=date, content=date)
+
+        data = self.assert_queries(4, lambda: follow_up_lead.execute(frappe._dict(lead=LEAD, owner="O'Brien"))[1])
+
+        days = (getdate(nowdate()) - getdate("2026-01-20")).days
+        self.assertEqual([(row[0], row[5], row[8], row[12]) for row in data], [(LEAD, "Open", days, last)])
+
+    def test_closed_lead_only_with_status_filter(self):
+        raw("Lead", name=LEAD, lead_name=LEAD, company_name=LEAD, status="Lead Lost")
+
+        self.assertEqual(follow_up_lead.execute(frappe._dict(lead=LEAD))[1], [])
+        data = follow_up_lead.execute(frappe._dict(lead=LEAD, status="Lead Lost"))[1]
+        self.assertEqual([row[0] for row in data], [LEAD])

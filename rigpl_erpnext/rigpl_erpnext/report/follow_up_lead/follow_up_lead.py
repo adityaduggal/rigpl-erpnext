@@ -3,8 +3,14 @@
 
 from __future__ import unicode_literals
 import frappe
-import datetime
-from frappe.utils import flt, getdate, nowdate
+from frappe.query_builder.functions import IfNull
+from frappe.utils import getdate, nowdate
+from ....utils.item_attribute_utils import chunks
+from ....utils.report_utils import tree_and_descendants
+
+NO_DATE = "1900-01-01"
+# Not followed up when no Status filter is set. Lead Lost and Converted Through Dealer are v12 values.
+CLOSED_STATUSES = ("Converted", "Converted Through Dealer", "Do Not Contact", "Lead Lost", "Lost Quotation")
 
 def execute(filters=None):
 
@@ -35,90 +41,82 @@ def get_columns(filters):
 		]
 	
 def get_data(filters):
-	conditions = get_conditions(filters)
-
-	if filters.get("status") is None:
-		conditions += "AND ld.custom_status != 'Lost' AND ld.status != 'Converted'"
-
 	if filters.get("details") == 1:
-		query = """SELECT ld.name, ld.company_name, ld.lead_name, IFNULL(ld.mobile_no,"-"),
-			IFNULL(ld.email_id,"-"), ld.custom_status, ld.requirement, IFNULL(ld.territory,"-"),
-			co.communication_date, co.next_action_date, co.communication_medium, co.content,
-			co.name, co.owner, co.user
-			FROM `tabLead` ld, `tabCommunication` co
-			WHERE co.communication_type = 'Communication' AND 
-				co.reference_doctype = 'Lead' AND co.reference_name = ld.name %s
-			ORDER BY ld.name, co.communication_date DESC, co.creation DESC""" %(conditions)
-		data = frappe.db.sql(query , as_list=1)
-	else:
-		query = """SELECT ld.name, ld.company_name, ld.lead_name, IFNULL(ld.mobile_no,"-"),
-			IFNULL(ld.email_id,"-"), ld.custom_status, ld.requirement, IFNULL(ld.territory,"-"), 
-			IFNULL(ld.lead_owner,"-"), IFNULL(ld.contact_by,"-")
-			FROM `tabLead` ld
-			WHERE ld.docstatus=0 %s
-			ORDER BY ld.name""" %(conditions)
+		if not filters.get("lead"):
+			frappe.throw("For Detailed Report Lead Selection is Mandatory")
+		return get_details(filters)
 
-		data = frappe.db.sql(query , as_list=1)
-		comm = frappe.db.sql("""SELECT com.name, 
-			IFNULL(com.communication_date,'1900-01-01'),
-			IFNULL(com.next_action_date,'1900-01-01'),
-			IFNULL(com.communication_medium,"-"), com.reference_name, com.content
-			FROM `tabCommunication` com
-			WHERE com.communication_type = 'Communication' AND
-				com.reference_doctype = 'Lead'
-			GROUP BY com.reference_name
-			ORDER BY com.communication_date DESC""" , as_list=1)
-		for i in data:
-			if any (i[0] in s for s in comm):
-				for j in comm:
-					if i[0] == j[4]:
-						i.insert(8,'1900-01-01' if j[1] is None else j[1]) #Last communication date
-						i.insert(9,'1900-01-01' if j[2] is None else j[2]) #Last communication date
-						i.insert(10,"-" if j[5] is None else j[5]) #comm content
-						i.insert(11,"-" if j[0] is None else j[0]) #link to the communication
-			else:
-				i.insert(8,'1900-01-01') #Actual communication date
-				i.insert(9,'1900-01-01') #comm medium
-				i.insert(10,"-") #comm medium
-				i.insert(11,"-") #link to the communication
-			i.insert(8, getdate(nowdate())-getdate(i[8]))
+	ld = frappe.qb.DocType("Lead")
+	query = (
+		frappe.qb.from_(ld)
+		.select(ld.name, ld.company_name, ld.lead_name, IfNull(ld.mobile_no, "-"), IfNull(ld.email_id, "-"),
+			ld.status, ld.requirement, IfNull(ld.territory, "-"), IfNull(ld.lead_owner, "-"),
+			IfNull(ld.contact_by, "-"))
+		.where(ld.docstatus == 0)
+		.orderby(ld.name)
+	)
+	leads = add_lead_filters(query, ld, filters).run(as_list=1)
+	last = get_last_comms([lead[0] for lead in leads])
+	today = getdate(nowdate())
+	data = []
+	for lead in leads:
+		comm = last.get(lead[0])
+		if comm:
+			last_date = comm.communication_date or NO_DATE
+			comm_cols = [last_date, comm.next_action_date or NO_DATE, comm.content or "-", comm.name]
+		else:
+			last_date = NO_DATE
+			comm_cols = [NO_DATE, NO_DATE, "-", "-"]
+		data.append(lead[:8] + [(today - getdate(last_date)).days] + comm_cols + lead[8:])
 	return data
 
 
-def get_conditions(filters):
-	conditions = ""
-	if filters.get("details") == 1:
-		if filters.get("lead"):
-			pass
-		else:
-			frappe.throw("For Detailed Report Lead Selection is Mandatory")
-	if filters.get("lead"):
-		conditions += " AND ld.name = '%s'" %filters["lead"]
-		
-	if filters.get("territory"):
-		territory = frappe.get_doc("Territory", filters["territory"])
-		if territory.is_group == "Yes" or territory.is_group == 1:
-			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
-				WHERE lft >= %s AND rgt <= %s""" %(territory.lft, territory.rgt), as_list = 1)
-			for i in child_territories:
-				if child_territories[0] == i:
-					conditions += " AND (ld.territory = '%s'" %i[0]
-					
-				elif child_territories[len(child_territories)-1] == i:
-					conditions += " OR ld.territory = '%s')" %i[0]
-					
-				else:
-					conditions += " OR ld.territory = '%s'" %i[0]
-		else:
-			conditions += " AND ld.territory = '%s'" % filters["territory"]
+def get_details(filters):
+	ld = frappe.qb.DocType("Lead")
+	co = frappe.qb.DocType("Communication")
+	query = (
+		frappe.qb.from_(ld)
+		.join(co).on((co.reference_doctype == "Lead") & (co.reference_name == ld.name))
+		.select(ld.name, ld.company_name, ld.lead_name, IfNull(ld.mobile_no, "-"), IfNull(ld.email_id, "-"),
+			ld.status, ld.requirement, IfNull(ld.territory, "-"), co.communication_date,
+			co.next_action_date, co.communication_medium, co.content, co.name, co.owner, co.user)
+		.where(co.communication_type == "Communication")
+		.orderby(ld.name)
+		.orderby(co.communication_date, order=frappe.qb.desc)
+		.orderby(co.creation, order=frappe.qb.desc)
+	)
+	return add_lead_filters(query, ld, filters).run(as_list=1)
 
+
+def add_lead_filters(query, ld, filters):
 	if filters.get("status"):
-		conditions += " AND ld.custom_status = '%s'" % filters["status"]
-		
+		query = query.where(ld.status == filters["status"])
+	else:
+		query = query.where(ld.status.isnull() | ld.status.notin(CLOSED_STATUSES))
+	if filters.get("lead"):
+		query = query.where(ld.name == filters["lead"])
+	if filters.get("territory"):
+		query = query.where(ld.territory.isin(tree_and_descendants("Territory", filters["territory"])))
 	if filters.get("owner"):
-		conditions += " AND ld.lead_owner = '%s'" % filters["owner"]
-
+		query = query.where(ld.lead_owner == filters["owner"])
 	if filters.get("next_contact"):
-		conditions += " AND ld.contact_by = '%s'" % filters["next_contact"]
-			
-	return conditions
+		query = query.where(ld.contact_by == filters["next_contact"])
+	return query
+
+
+def get_last_comms(leads):
+	"""{lead: its latest Communication}, 1 query for each chunk of leads."""
+	co = frappe.qb.DocType("Communication")
+	last = {}
+	for chunk in chunks(leads):
+		rows = (
+			frappe.qb.from_(co)
+			.select(co.reference_name, co.name, co.communication_date, co.next_action_date, co.content)
+			.where((co.communication_type == "Communication") & (co.reference_doctype == "Lead"))
+			.where(co.reference_name.isin(chunk))
+			.orderby(co.communication_date, order=frappe.qb.desc)
+			.run(as_dict=1)
+		)
+		for row in rows:
+			last.setdefault(row.reference_name, row)
+	return last
