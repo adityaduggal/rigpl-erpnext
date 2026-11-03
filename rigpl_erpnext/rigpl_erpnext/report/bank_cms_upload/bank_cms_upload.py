@@ -4,9 +4,17 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.utils import getdate
+from pypika.terms import ValueWrapper
+
+
+ENTRY_TYPES = ("Payment Entry", "Employee Advance RIGPL")
+DOCSTATUS = {"Draft": 0, "Submitted": 1, "Cancelled": 2}
 
 
 def execute(filters=None):
+	filters = filters or {}
+	if filters.get("entry_type") not in ENTRY_TYPES:
+		frappe.throw("Select Payment Entry or Employee Advance RIGPL", title="Wrong Entry Type")
 	columns = get_columns(filters)
 	data = get_data(filters)
 	return columns, data
@@ -37,56 +45,38 @@ def get_columns(filters):
 
 
 def get_data(filters):
-	cond = get_conditions(filters)
-	if filters.get("entry_type") == "Payment Entry":
-		query = """SELECT pe.posting_date, pe.name, ba.name, pe.party_type, pe.party, pe.bank_account,
-		ba.name_in_bank_records, ba.bank_account_no, ba.branch_code, pe.paid_amount, ba.swift_number
-		FROM `tabPayment Entry` pe
-			LEFT JOIN `tabBank Account` ba ON ba.name = pe.party_bank_account
-		WHERE pe.docstatus < 3 %s ORDER BY pe.name""" % cond
+	check_dates(filters)
+	ba = frappe.qb.DocType("Bank Account")
+	if filters["entry_type"] == "Payment Entry":
+		doc = frappe.qb.DocType("Payment Entry")
+		query = (
+			frappe.qb.from_(doc)
+			.left_join(ba).on(ba.name == doc.party_bank_account)
+			.select(doc.posting_date, doc.name, ba.name, doc.party_type, doc.party, doc.bank_account,
+				ba.name_in_bank_records, ba.bank_account_no, ba.branch_code, doc.paid_amount, ba.swift_number)
+		)
+		if filters.get("payment_type"):
+			query = query.where(doc.payment_type == filters["payment_type"])
 	else:
-		query = """SELECT ea.posting_date, ea.name, ba.name, "Employee", eld.employee, ea.credit_account,
-		ba.name_in_bank_records, ba.bank_account_no, ba.branch_code, eld.loan_amount
-		FROM `tabEmployee Advance RIGPL` ea, `tabEmployee Loan Detail` eld
-			LEFT JOIN `tabBank Account` ba ON ba.party_type = "Employee" AND ba.party = eld.employee AND ba.verified = 1
-		WHERE eld.parent = ea.name AND eld.parenttype = "Employee Advance RIGPL" AND ea.docstatus < 3 %s
-		ORDER BY ea.name""" % cond
-	data = frappe.db.sql(query, as_list=1)
+		doc = frappe.qb.DocType("Employee Advance RIGPL")
+		eld = frappe.qb.DocType("Employee Loan Detail")
+		query = (
+			frappe.qb.from_(doc)
+			.join(eld).on((eld.parent == doc.name) & (eld.parenttype == "Employee Advance RIGPL"))
+			.left_join(ba).on((ba.party_type == "Employee") & (ba.party == eld.employee) & (ba.verified == 1))
+			.select(doc.posting_date, doc.name, ba.name, ValueWrapper("Employee"), eld.employee, doc.credit_account,
+				ba.name_in_bank_records, ba.bank_account_no, ba.branch_code, eld.loan_amount)
+		)
+	query = query.where(doc.posting_date[getdate(filters["from_date"]):getdate(filters["to_date"])]).orderby(doc.name)
+	if filters.get("status") in DOCSTATUS:
+		query = query.where(doc.docstatus == DOCSTATUS[filters["status"]])
+	return query.run(as_list=1)
 
-	return data
 
-
-def get_conditions(filters):
-	cond = ""
-	# Difference of Dates cannot be more than 10 days
+def check_dates(filters):
+	"""A bank upload is for at most 10 days."""
 	diff = getdate(filters.get("to_date")) - getdate(filters.get("from_date"))
 	if diff.days > 10:
-		frappe.throw("Max Difference Between Days allowed is 10")
+		frappe.throw("Max Difference Between Days allowed is 10", title="Period Too Long")
 	elif diff.days < 0:
-		frappe.throw("From Date should be before To Date")
-
-	if filters.get("entry_type") == "Payment Entry":
-		if filters.get("payment_type"):
-			cond += " AND pe.payment_type = '%s'" % filters.get("payment_type")
-		if filters.get("from_date"):
-			cond += " AND pe.posting_date >= '%s'" % filters.get("from_date")
-		if filters.get("to_date"):
-			cond += " AND pe.posting_date <= '%s'" % filters.get("to_date")
-		if filters.get("status") == "Draft":
-			cond += " AND pe.docstatus = 0"
-		elif filters.get("status") == "Submitted":
-			cond += " AND pe.docstatus = 1"
-		elif filters.get("status") == "Cancelled":
-			cond += " AND pe.docstatus = 2"
-	else:
-		if filters.get("from_date"):
-			cond += " AND ea.posting_date >= '%s'" % filters.get("from_date")
-		if filters.get("to_date"):
-			cond += " AND ea.posting_date <= '%s'" % filters.get("to_date")
-		if filters.get("status") == "Draft":
-			cond += " AND ea.docstatus = 0"
-		elif filters.get("status") == "Submitted":
-			cond += " AND ea.docstatus = 1"
-		elif filters.get("status") == "Cancelled":
-			cond += " AND ea.docstatus = 2"
-	return cond
+		frappe.throw("From Date should be before To Date", title="Wrong Period")

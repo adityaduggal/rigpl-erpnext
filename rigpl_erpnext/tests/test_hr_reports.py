@@ -8,6 +8,7 @@ from frappe.utils import getdate
 from rigpl_erpnext.hr_rigpl.utils.attendance_report_utils import get_holidays_by_day, get_leaves_by_day, get_month
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_base_list_holiday_counts
 from rigpl_erpnext.rigpl_erpnext.report.attendance_performance_analysis import attendance_performance_analysis
+from rigpl_erpnext.rigpl_erpnext.report.bank_cms_upload import bank_cms_upload
 from rigpl_erpnext.rigpl_erpnext.report.employee_attendance import employee_attendance
 from rigpl_erpnext.rigpl_erpnext.report.employee_balances_rigpl import employee_balances_rigpl
 from rigpl_erpnext.rigpl_erpnext.report.leave_application_report import leave_application_report
@@ -194,3 +195,22 @@ class TestRoster(ReportTestCase):
 
         self.assertEqual([(row[0], row[5]) for row in data], [(open_ended, EMP)])
         self.assertEqual([row[0] for row in without], [EMP_2])
+
+
+class TestBankCmsUpload(ReportTestCase):
+    def test_entry_type_and_period_checks(self):
+        dates = dict(from_date="2026-10-01", to_date="2026-10-05", status="Submitted")
+        self.assertRaises(frappe.ValidationError, bank_cms_upload.execute,
+            frappe._dict(dates, entry_type="Payment Entry` WHERE 1=1 --"))
+        self.assertRaises(frappe.ValidationError, bank_cms_upload.execute,
+            frappe._dict(dates, entry_type="Payment Entry", to_date="2026-10-20"))
+
+    def test_payment_entry_with_party_bank(self):
+        bank = raw("Bank Account", account_name="O'Account", name_in_bank_records="O'Brien", bank_account_no="12")
+        pe = raw("Payment Entry", posting_date="2026-10-02", payment_type="Pay", party_type="Supplier",
+            party="_Test RIGPL O'Supplier", party_bank_account=bank, paid_amount=100, docstatus=1)
+
+        data = bank_cms_upload.execute(frappe._dict(entry_type="Payment Entry", payment_type="Pay",
+            from_date="2026-10-02", to_date="2026-10-02", status="Submitted"))[1]
+
+        self.assertIn([pe, bank, "O'Brien", "12", 100], [[row[1], row[2], row[6], row[7], row[9]] for row in data])
