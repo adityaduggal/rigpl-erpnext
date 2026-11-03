@@ -318,8 +318,7 @@ def validate_valuation_rate(it_doc):
 
 def validate_variants(it_doc, comm_type=None):
     user = frappe.session.user
-    query = """SELECT role from `tabHas Role` where parent = '%s' """ % user
-    roles = frappe.db.sql(query, as_list=1)
+    roles = frappe.get_roles(user)
 
     if it_doc.published_in_website == 1:
         if it_doc.image is None:
@@ -457,43 +456,36 @@ def validate_variants(it_doc, comm_type=None):
 
         # Check the limit in the Template
         limit = template.variant_limit
-        actual = frappe.db.sql(
-            """SELECT count(name) FROM `tabItem` WHERE variant_of = '%s'"""
-            % template.name,
-            as_list=1,
-        )
-
-        check = frappe.db.sql(
-            """SELECT name FROM `tabItem` WHERE name = '%s'""" % it_doc.name, as_list=1
-        )
+        actual = frappe.db.count("Item", {"variant_of": template.name})
+        check = frappe.db.exists("Item", it_doc.name)
 
         if check:
-            if actual[0][0] > limit:
+            if actual > limit:
                 frappe.throw(
                     (
                         "Template Limit reached. Set Limit = {0} whereas total number of variants = {1} "
                         "increase the limit to save the variant"
-                    ).format(limit, actual[0][0])
+                    ).format(limit, actual)
                 )
             else:
                 pass
         else:
-            if actual[0][0] >= limit:
+            if actual >= limit:
                 frappe.throw(
                     (
                         "Template Limit reached. Set Limit = {0} whereas total number of variants = {1} "
                         "increase the limit to save New Item Code"
-                    ).format(limit, actual[0][0])
+                    ).format(limit, actual)
                 )
     elif it_doc.has_variants != 1:
-        if any("System Manager" in s for s in roles):
+        if "System Manager" in roles:
             pass
         else:
             frappe.throw(
                 "Only System Managers are Allowed to Create Non Template or Variant Items"
             )
     elif it_doc.has_variants == 1:
-        if any("System Manager" in s for s in roles):
+        if "System Manager" in roles:
             pass
         else:
             frappe.throw("Only System Managers are Allowed to Edit Templates")
@@ -561,15 +553,11 @@ def copy_item_defaults(template, variant, field_list, comm_type=None):
     for i in variant_defaults:
         variant.append("item_defaults", i)
     if comm_type == "backend":
-        it_def_name = frappe.db.sql(
-            """SELECT name FROM `tabItem Default` WHERE parent= '%s' AND parenttype='Item'"""
-            % (variant.name),
-            as_list=1,
-        )
+        it_def_name = frappe.db.get_value("Item Default", {"parent": variant.name, "parenttype": "Item"})
         if it_def_name:
             for t in template.item_defaults:
                 for f in field_list:
-                    frappe.db.set_value("Item Default", it_def_name[0][0], f, t.get(f))
+                    frappe.db.set_value("Item Default", it_def_name, f, t.get(f))
                     frappe.db.set_value(
                         "Item", variant.name, "modified", datetime.datetime.now()
                     )
@@ -599,15 +587,10 @@ def validate_sales_fields(it_doc):
 
 
 def get_desc(attribute, attribute_value):
-    desc = frappe.db.sql(
-        """SELECT description FROM `tabItem Attribute Value` WHERE parent = '%s' AND parenttype =
-    'Item Attribute' AND attribute_value = '%s'
-    AND parentfield = 'item_attribute_values'"""
-        % (attribute, attribute_value),
-        as_dict=1,
-    )
+    desc = frappe.db.get_value("Item Attribute Value", {"parent": attribute, "parenttype": "Item Attribute",
+        "attribute_value": attribute_value, "parentfield": "item_attribute_values"}, "description")
     if desc:
-        desc = desc[0].description[1:-1]
+        desc = desc[1:-1]
     return desc
 
 
