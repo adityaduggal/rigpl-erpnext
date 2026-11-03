@@ -12,6 +12,8 @@ Item is the controller of its Website Item (#105).
   `use_in_description` (#191). v13 Item has no such table.
 - Each Website Item has a `__global_search` row (website `/search` and desk search) with its
   `SEARCH_FIELDS`. The writes here skip the save hooks, so `sync_web_search` writes the row.
+  The patch `website_item_group_listing` makes `__global_search` InnoDB, so 3-character words
+  (T42, HSS) are in its full-text index.
 
 The Item `on_update` hook applies the rules to one Item. The daily job `variant_copy`
 applies them to all Items.

@@ -14,6 +14,7 @@ def execute():
     Website Item settings and data after the v13 upgrade. Idempotent.
     - `sync_website_items`: the Item rules of `website_rigpl/item_sync.py` (#105, #106, #191).
       It runs here, after `convert_item_yes_no_to_check`, because the rules read `pl_item` as 0/1.
+    - `use_innodb_for_global_search`: the website search finds words of 3 characters (T42, HSS).
     - `index_website_items`: website and desk search by item code and name.
     - Category pages list templates, not variants, with ERPNext's own settings (#103):
     - E Commerce Settings Hide Variants on. Attribute Filters off, because ERPNext turns Hide
@@ -22,6 +23,7 @@ def execute():
     - Include Descendants on each shown parent Item Group, so it lists the templates of its
       sub-categories and is not empty.
     """
+    use_innodb_for_global_search()
     set_listing_settings()
     index_website_items()
     sync_website_items()
@@ -38,6 +40,25 @@ def sync_website_items():
     specs = sync_web_specs()
     search = sync_web_search()
     print(f"Website Items made: {made}, changed: {changed}, specifications: {specs}, search rows: {search}")
+
+
+def use_innodb_for_global_search():
+    """Frappe makes `__global_search` a MyISAM table. Its full-text index skips the words shorter
+    than `ft_min_word_len` (4), so a search for "T42" finds nothing. InnoDB uses
+    `innodb_ft_min_token_size` (3 by default). A MyISAM read also locks the table."""
+    engine = frappe.db.sql(
+        """SELECT engine FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = '__global_search'"""
+    )
+    if engine and engine[0][0] == "MyISAM":
+        frappe.db.sql("ALTER TABLE `__global_search` ENGINE=InnoDB")
+        print("__global_search: the engine is InnoDB now.")
+    token_size = frappe.db.sql("SHOW VARIABLES LIKE 'innodb_ft_min_token_size'")
+    if token_size and int(token_size[0][1]) > 3:
+        print(
+            f"Warning: innodb_ft_min_token_size is {token_size[0][1]}. Set it to 3 in the MariaDB "
+            "server settings, restart MariaDB and run this patch again, so that T42 is found."
+        )
 
 
 def index_website_items():
