@@ -4,7 +4,17 @@
 from __future__ import unicode_literals
 import frappe
 
+TYPES = ("Drawing", "Standard")
+DOCSTATUS = {"Draft": 0, "Submitted": 1, "Cancelled": 2}
+# filter: Important Documents field
+FIELD_FILTERS = {"std_auth": "standard_authority", "category": "category_name", "based_on": "drawing_based_on",
+	"item": "item", "customer": "customer", "sales_order": "sales_order"}
+
+
 def execute(filters=None):
+	filters = filters or {}
+	if filters.get("type") not in TYPES:
+		frappe.throw("Select Drawing or Standard", title="Type Needed")
 	columns = get_columns(filters)
 	data = get_data(filters)
 	return columns, data
@@ -24,54 +34,34 @@ def get_columns(filters):
 		]
 
 def get_data(filters):
-	conditions = get_conditions(filters)
-	if filters.get("type") == "Drawing":
-		query = """SELECT idoc.name, idoc.drawing_based_on, idoc.customer, idoc.sales_order, idoc.item,
-			idoc.description, idoc.remarks, idoc.docstatus 
-			FROM `tabImportant Documents` idoc
-			WHERE %s ORDER BY idoc.drawing_based_on, idoc.customer, idoc.item"""%(conditions)
-		data = frappe.db.sql(query, as_list=1)
+	idoc = frappe.qb.DocType("Important Documents")
+	if filters["type"] == "Drawing":
+		query = (
+			frappe.qb.from_(idoc)
+			.select(idoc.name, idoc.drawing_based_on, idoc.customer, idoc.sales_order, idoc.item, idoc.description,
+				idoc.remarks, idoc.docstatus)
+			.orderby(idoc.drawing_based_on)
+			.orderby(idoc.customer)
+			.orderby(idoc.item)
+		)
 	else:
-		query = """SELECT idoc.name, idoc.standard_authority, idoc.standard_number, idoc.category_name, 
-			idoc.standard_year, idoc.committee, idoc.description, idoc.remarks, idoc.docstatus 
-			FROM `tabImportant Documents` idoc
-			WHERE %s ORDER BY idoc.category_name, idoc.standard_authority, idoc.standard_number"""%(conditions)
-		data = frappe.db.sql(query, as_list=1)
-	return data
-
-def get_conditions(filters):
-	conditions = ""
-	if filters.get("type"):
-		conditions += " idoc.type = '%s'" %(filters.get("type"))
-
-	if filters.get("docstatus") == "Draft":
-		conditions += " AND idoc.docstatus = 0"
-	elif filters.get("docstatus") == "Submitted":
-		conditions += " AND idoc.docstatus = 1"
-	elif filters.get("docstatus") == "Cancelled":
-		conditions += " AND idoc.docstatus = 2"
+		query = (
+			frappe.qb.from_(idoc)
+			.select(idoc.name, idoc.standard_authority, idoc.standard_number, idoc.category_name, idoc.standard_year,
+				idoc.committee, idoc.description, idoc.remarks, idoc.docstatus)
+			.orderby(idoc.category_name)
+			.orderby(idoc.standard_authority)
+			.orderby(idoc.standard_number)
+		)
+	query = query.where(idoc.type == filters["type"])
+	if filters.get("docstatus") in DOCSTATUS:
+		query = query.where(idoc.docstatus == DOCSTATUS[filters["docstatus"]])
 	else:
-		conditions += " AND idoc.docstatus != 2"
-
-	if filters.get("std_auth"):
-		conditions += " AND idoc.standard_authority = '%s'" %(filters.get("std_auth"))
-
+		query = query.where(idoc.docstatus != 2)
+	# The Standard No is a LIKE pattern: the user can type % as a wildcard
 	if filters.get("std_no"):
-		conditions += " AND idoc.standard_number LIKE '%s'" %(filters.get("std_no"))
-
-	if filters.get("category"):
-		conditions += " AND idoc.category_name = '%s'" %(filters.get("category"))
-
-	if filters.get("based_on"):
-		conditions += " AND idoc.drawing_based_on = '%s'" %(filtes.get("based_on"))
-
-	if filters.get("item"):
-		conditions += " AND idoc.item = '%s'" %(filters.get("item"))
-
-	if filters.get("customer"):
-		conditions += " AND idoc.customer = '%s'" %(filters.get("customer"))
-
-	if filters.get("sales_order"):
-		conditions += " AND idoc.customer = '%s'" %(filters.get("sales_order"))
-
-	return conditions
+		query = query.where(idoc.standard_number.like(filters["std_no"]))
+	for key, field in FIELD_FILTERS.items():
+		if filters.get(key):
+			query = query.where(idoc[field] == filters[key])
+	return query.run(as_list=1)
