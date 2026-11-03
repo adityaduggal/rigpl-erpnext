@@ -10,6 +10,7 @@ from rohit_common.utils.query_guard import assert_max_queries
 from rigpl_erpnext.rigpl_erpnext.report.brc_tracking import brc_tracking
 from rigpl_erpnext.rigpl_erpnext.report.cforms_analysis import cforms_analysis
 from rigpl_erpnext.rigpl_erpnext.report.customer_rating import customer_rating
+from rigpl_erpnext.rigpl_erpnext.report.customers_with_so import customers_with_so
 from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transactions
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
@@ -184,3 +185,16 @@ class TestCustomerRating(ReportTestCase):
         customers = customer_rating.get_customers(frappe._dict(territory=TERRITORY, group="All Customer Groups"))
 
         self.assertEqual([cu.name for cu in customers], [CUSTOMER])
+
+
+class TestCustomersWithSo(ReportTestCase):
+    def test_totals_closed_order_and_last_order(self):
+        insert_customer(CUSTOMER)
+        raw("Sales Order", customer=CUSTOMER, transaction_date=DATE, docstatus=1, status="To Bill", base_net_total=100)
+        raw("Sales Order", customer=CUSTOMER, transaction_date="2026-01-20", docstatus=1, status="Closed",
+            base_net_total=200, per_delivered=50)
+
+        data = customers_with_so.execute(frappe._dict(customer=CUSTOMER, from_date="2026-01-01",
+            to_date="2026-01-31"))[1]
+
+        self.assertEqual([row[:8] for row in data], [[CUSTOMER, None, 300, 200, 2, 100, getdate("2026-01-20"), 11]])

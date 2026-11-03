@@ -1,6 +1,9 @@
 from __future__ import unicode_literals
 import frappe
+from frappe.query_builder.functions import Count, IfNull, Max, Sum
 from frappe.utils import getdate
+from pypika.terms import Case
+from ....utils.report_utils import tree_and_descendants
 
 
 def execute(filters=None):
@@ -23,143 +26,67 @@ def get_columns():
 
 
 def get_so_data(filters):
-	conditions = get_conditions(filters)
-	conditions_cust, conditions_sp = get_conditions_cust(filters)
+	if not filters.get("from_date"):
+		frappe.throw("Select from date first")
+	if (getdate(filters.get("to_date")) - getdate(filters["from_date"])).days < 0:
+		frappe.throw("From Date has to be less than To Date")
 
-	if filters.get("from_date"):
-		diff = (getdate(filters.get("to_date")) - getdate(filters.get("from_date"))).days
-		if diff < 0:
-			frappe.msgprint("From Date has to be less than To Date", raise_exception=1)
-	else:
-		frappe.msgprint("Select from date first", raise_exception=1)
-
-	data = frappe.db.sql("""SELECT so.customer, SUM(so.base_net_total),
-	SUM(if(so.status = "Closed", so.base_net_total * so.per_delivered/100, so.base_net_total)), COUNT(DISTINCT so.name),
-	SUM(if(so.status = "Closed", so.base_net_total * so.per_delivered/100, so.base_net_total))/COUNT(DISTINCT so.name)
-	FROM `tabSales Order` so
-	WHERE so.docstatus = 1 %s
-	GROUP BY so.customer
-	ORDER BY so.customer""" % (conditions), as_list=1)
-
-	cust_query = """SELECT cu.name, cu.territory, IFNULL(cu.default_sales_partner, "-"), 
-		IFNULL(st.sales_person, "-"), IFNULL(st.allocated_percentage,0), 
-		IFNULL(cu.customer_rating,"-"),cu.customer_group
-		FROM `tabCustomer` cu
-			LEFT JOIN `tabSales Team` st ON st.parent = cu.name AND st.parenttype = 'Customer'
-		WHERE 
-			cu.docstatus = 0 %s %s
-		ORDER BY cu.name""" % (conditions_sp, conditions_cust)
-
-	cust_tbl = frappe.db.sql(cust_query, as_list=1)
-
-	last_so = frappe.db.sql("""SELECT so.customer, MAX(so.transaction_date), so.name
-	FROM `tabSales Order` so WHERE so.docstatus = 1 GROUP BY so.customer""", as_list=1)
-
-	for i in cust_tbl:
-		# Below loop would add the Territory to the data
-		if any(i[0] in s for s in data):
-			for j in data:
-				if i[0] == j[0]:
-					if j[1] is None:
-						frappe.msgprint(j[1])
-						i.insert(2, None)
-					else:
-						i.insert(2, j[1])
-
-					if j[2] is None:
-						i.insert(3, None)
-					else:
-						i.insert(3, j[2])
-
-					if j[3] is None:
-						i.insert(4, None)
-					else:
-						i.insert(4, j[3])
-
-					if j[4] is None:
-						i.insert(5, None)
-					else:
-						i.insert(5, j[4])
-		else:
-			i.insert(2, None)
-			i.insert(3, None)
-			i.insert(4, None)
-			i.insert(5, None)
-
-		if any(i[0] in s for s in last_so):
-			for j in last_so:
-				if i[0] == j[0]:
-					if j[1] is None:
-						i.insert(6, None)
-					else:
-						i.insert(6, j[1])
-		else:
-			i.insert(6, None)
-
-		if not i[6]:
-			i.insert(7, None)
-		else:
-			days_last_so = (getdate(filters.get("to_date")) - getdate(i[6])).days
-			i.insert(7, days_last_so)
-
-	return cust_tbl
+	totals = get_so_totals(filters)
+	last_so = get_last_so_dates()
+	data = []
+	for row in get_customers(filters):
+		total = totals.get(row[0]) or [None] * 4
+		last_date = last_so.get(row[0])
+		days = (getdate(filters.get("to_date")) - getdate(last_date)).days if last_date else None
+		data.append(row[:2] + list(total) + [last_date, days] + row[2:])
+	return data
 
 
-def get_conditions(filters):
-	conditions = ""
+def get_so_totals(filters):
+	"""{customer: [SO total, sale considered, # SO, average]} of the period. A Closed SO counts only
+	its delivered part."""
+	so = frappe.qb.DocType("Sales Order")
+	considered = Sum(Case().when(so.status == "Closed", so.base_net_total * so.per_delivered / 100)
+		.else_(so.base_net_total))
+	count = Count(so.name).distinct()
+	rows = (
+		frappe.qb.from_(so)
+		.select(so.customer, Sum(so.base_net_total), considered, count, considered / count)
+		.where(so.docstatus == 1)
+		.where(so.transaction_date >= filters["from_date"])
+		.where(so.transaction_date <= filters["to_date"])
+		.groupby(so.customer)
+		.run()
+	)
+	return {row[0]: row[1:] for row in rows}
 
-	if filters.get("from_date"):
-		conditions += " AND so.transaction_date >= '%s'" % filters["from_date"]
 
-	if filters.get("to_date"):
-		conditions += " AND so.transaction_date <= '%s'" % filters["to_date"]
-	return conditions
+def get_last_so_dates():
+	so = frappe.qb.DocType("Sales Order")
+	return dict(frappe.qb.from_(so).select(so.customer, Max(so.transaction_date)).where(so.docstatus == 1)
+		.groupby(so.customer).run())
 
 
-def get_conditions_cust(filters):
-	conditions_cust = ""
-	conditions_sp = ""
-
+def get_customers(filters):
+	"""[customer, territory, sales partner, sales person, allocated %, rating, group]: 1 row for each
+	Sales Team row of the customer."""
+	cu = frappe.qb.DocType("Customer")
+	st = frappe.qb.DocType("Sales Team")
+	query = (
+		frappe.qb.from_(cu)
+		.left_join(st).on((st.parent == cu.name) & (st.parenttype == "Customer"))
+		.select(cu.name, cu.territory, IfNull(cu.default_sales_partner, "-"), IfNull(st.sales_person, "-"),
+			IfNull(st.allocated_percentage, 0), IfNull(cu.customer_rating, "-"), cu.customer_group)
+		.where(cu.docstatus == 0)
+		.where(cu.disabled == (1 if filters.get("disabled") == 1 else 0))
+		.orderby(cu.name)
+	)
 	if filters.get("customer"):
-		conditions_cust += " AND cu.name = '%s'" % filters["customer"]
-
+		query = query.where(cu.name == filters["customer"])
 	if filters.get("sales_partner"):
-		conditions_cust += " AND cu.default_sales_partner = '%s'" % filters["sales_partner"]
-
+		query = query.where(cu.default_sales_partner == filters["sales_partner"])
 	if filters.get("territory"):
-		territory = frappe.get_doc("Territory", filters["territory"])
-		if territory.is_group == 1:
-			child_territories = frappe.db.sql("""SELECT name FROM `tabTerritory` 
-				WHERE lft >= %s AND rgt <= %s""" % (territory.lft, territory.rgt), as_list=1)
-			for i in child_territories:
-				if child_territories[0] == i:
-					conditions_cust += " AND (cu.territory = '%s'" % i[0]
-				elif child_territories[len(child_territories) - 1] == i:
-					conditions_cust += " OR cu.territory = '%s')" % i[0]
-				else:
-					conditions_cust += " OR cu.territory = '%s'" % i[0]
-		else:
-			conditions_cust += " AND cu.territory = '%s'" % filters["territory"]
-
+		query = query.where(cu.territory.isin(tree_and_descendants("Territory", filters["territory"])))
 	if filters.get("sales_person"):
-		sales_person = frappe.get_doc("Sales Person", filters["sales_person"])
-		if sales_person.is_group == 1:
-			child_sp = frappe.db.sql("""SELECT name FROM `tabSales Person`
-				WHERE lft >= %s AND rgt <= %s""" % (sales_person.lft, sales_person.rgt), as_list=1)
-
-			for i in child_sp:
-				if child_sp[0] == i:
-					conditions_sp += " AND (st.sales_person = '%s'" % i[0]
-				elif child_sp[len(child_sp) - 1] == i:
-					conditions_sp += " OR st.sales_person = '%s')" % i[0]
-				else:
-					conditions_sp += " OR st.sales_person = '%s'" % i[0]
-		else:
-			conditions_sp += " AND st.sales_person = '%s'" % filters["sales_person"]
-
-	if filters.get("disabled") == 1:
-		conditions_cust += " AND cu.disabled = 1"
-	else:
-		conditions_cust += " AND cu.disabled = 0"
-
-	return conditions_cust, conditions_sp
+		query = query.where(st.sales_person.isin(tree_and_descendants("Sales Person", filters["sales_person"])))
+	return [list(row) for row in query.run()]
