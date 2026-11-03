@@ -3,15 +3,17 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt
-from ....utils.stock_utils import get_quantities_for_item
+from frappe.query_builder.functions import IfNull
+from frappe.utils import cint, flt
+from ....utils.item_attribute_utils import attribute_filters, chunks
 from ....utils.other_utils import auto_round_up
+from ....utils.report_utils import blank_zeros
+from ....utils.stock_utils import get_quantities_for_items
 
 
 def execute(filters=None):
-    conditions = get_conditions(filters)
     columns = get_columns(filters)
-    data = get_items(filters, conditions)
+    data = get_items(filters)
 
     return columns, data
 
@@ -33,86 +35,80 @@ def get_columns(filters):
         ]
 
 
-def get_items(filters, conditions):
-    tbl_join = ""
-    if filters.get("subcontracting") == 1:
-        item_field = "subcontracted_item"
-    else:
-        item_field = "item_code"
-    if filters.get("bm"):
-        conditions += " AND bm.attribute_value = '%s'" % filters["bm"]
-        tbl_join += " LEFT JOIN `tabItem Variant Attribute` bm ON pod.%s = bm.parent " \
-                    "AND bm.attribute = 'Base Material'" % item_field
-
-    if filters.get("subcontracting") == 1:
-        query = """SELECT po.name, po.transaction_date, pod.schedule_date, po.supplier, pod.subcontracted_item,
-        pod.description, (pod.qty - pod.received_qty) as pend_qty, pod.qty, pod.returned_qty,
-        pod.stock_uom, pod.base_rate, IF(pod.conversion_factor != 1, pod.conversion_factor, NULL) as con_fac,
-        pod.reference_dn FROM `tabPurchase Order` po
-        LEFT JOIN `tabPurchase Order Item` pod ON pod.parent = po.name %s
-        WHERE po.docstatus = 1 AND po.status != 'Closed' AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s
-        ORDER BY po.transaction_date, pod.schedule_date""" % (tbl_join, conditions)
-        data = frappe.db.sql(query, as_list=1)
-    else:
-        query = """SELECT po.name, po.transaction_date, pod.schedule_date, po.supplier, pod.item_code, pod.description,
-        (pod.qty - pod.received_qty) as pend_qty, pod.qty, pod.returned_qty, pod.stock_uom, pod.base_rate, "Urgent"
-        FROM `tabPurchase Order` po, `tabPurchase Order Item` pod %s
-        WHERE po.docstatus = 1 AND po.name = pod.parent AND po.status != 'Closed'
-        AND IFNULL(pod.received_qty,0) < IFNULL(pod.qty,0) %s
-        ORDER BY po.transaction_date, pod.schedule_date""" % (tbl_join, conditions)
-        data_dict = frappe.db.sql(query, as_dict=1)
-        data = []
-        for d in data_dict:
-            itd = frappe.get_doc("Item", d.item_code)
-            qd = get_quantities_for_item(itd)
-            calc_rol = flt(d.calculated_rol)
-            cur_stk = flt(qd.raw_material_qty) + flt(qd.dead_qty) + flt(qd.finished_qty) + flt(qd.wip_qty) - \
-                          flt(qd.on_so) - flt(qd.reserved_for_prd)
-            months = cur_stk / (flt(qd.calculated_rol) + 1)
-            if d.pend_qty / d.qty >= 0.1:
-                if months < 0:
-                    urg = "Needed Now"
-                    shortfall = auto_round_up(cur_stk * (-1) + int(calc_rol))
-                elif months < 1:
-                    urg = "Needed in Next 15~30 Days"
-                    shortfall = auto_round_up(calc_rol)
-                elif months < 1.5:
-                    urg = "Need in Next 30~45 Days"
-                    shortfall = auto_round_up(calc_rol)
-                elif months < 2:
-                    urg = "Needed in Next 45~60 Days"
-                    shortfall = auto_round_up(calc_rol)
-                else:
-                    urg = "Needed After 60 Days"
-                    shortfall = auto_round_up(calc_rol)
-            else:
-                urg = "Can be Short Closed"
-                shortfall = 0
-            d["urgency"] = urg
-            d["shortfall"] = shortfall
-        for i in data_dict:
-            row = [
-                i.name, i.transaction_date, i.schedule_date, i.supplier, i.item_code, i.description, i.pend_qty,
-                i.qty, i.returned_qty, i.stock_uom, i.base_rate, i.urgency, i.shortfall
-            ]
-            data.append(row)
+def get_items(filters):
+    """
+    The pending PO rows of the filters. A normal PO row also gets the urgency from the stock of
+    its item, read for all items at once (#187).
+    """
+    subcontracting = cint(filters.get("subcontracting")) == 1
+    rows = get_po_rows(filters, subcontracting)
+    if subcontracting:
+        return [blank_zeros([
+            row.name, row.transaction_date, row.schedule_date, row.supplier, row.subcontracted_item,
+            row.description, row.pend_qty, row.qty, row.returned_qty, row.stock_uom, row.base_rate,
+            row.conversion_factor if flt(row.conversion_factor) != 1 else None, row.reference_dn
+        ]) for row in rows]
+    qty_by_item = get_item_quantities({row.item_code for row in rows})
+    data = []
+    for row in rows:
+        urgency, shortfall = get_urgency(row, qty_by_item.get(row.item_code) or frappe._dict())
+        data.append(blank_zeros([
+            row.name, row.transaction_date, row.schedule_date, row.supplier, row.item_code, row.description,
+            row.pend_qty, row.qty, row.returned_qty, row.stock_uom, row.base_rate, urgency, shortfall
+        ]))
     return data
 
 
-def get_conditions(filters):
-    conditions = ""
-
-    if filters.get("subcontracting") == 1:
-        conditions += " AND po.is_subcontracting = 1"
-    else:
-        conditions += " AND po.is_subcontracting = 0"
-
+def get_po_rows(filters, subcontracting):
+    """The submitted PO rows that are not closed and not fully received."""
+    po = frappe.qb.DocType("Purchase Order")
+    pod = frappe.qb.DocType("Purchase Order Item")
+    item_field = pod.subcontracted_item if subcontracting else pod.item_code
+    query = (
+        frappe.qb.from_(po).join(pod).on(pod.parent == po.name)
+        .select(po.name, po.transaction_date, pod.schedule_date, po.supplier, pod.item_code,
+            pod.subcontracted_item, pod.description, (pod.qty - pod.received_qty).as_("pend_qty"), pod.qty,
+            pod.returned_qty, pod.stock_uom, pod.base_rate, pod.conversion_factor, pod.reference_dn)
+        .where((po.docstatus == 1) & (po.status != "Closed"))
+        .where(po.is_subcontracting == (1 if subcontracting else 0))
+        .where(IfNull(pod.received_qty, 0) < IfNull(pod.qty, 0))
+        .where(attribute_filters(item_field, {"Base Material": filters.get("bm")}))
+        .orderby(po.transaction_date).orderby(pod.schedule_date).orderby(po.name).orderby(pod.idx)
+    )
     if filters.get("item"):
-        conditions += " AND pod.item_code = '%s'" % filters["item"]
-
+        query = query.where(pod.item_code == filters["item"])
     if filters.get("supplier"):
-        conditions += " AND po.supplier = '%s'" % filters["supplier"]
-
+        query = query.where(po.supplier == filters["supplier"])
     if filters.get("date"):
-        conditions += " AND po.transaction_date <= '%s'" % filters["date"]
-    return conditions
+        query = query.where(po.transaction_date <= filters["date"])
+    return query.run(as_dict=1)
+
+
+def get_item_quantities(items):
+    """{item: qty_dict of get_quantities_for_items}"""
+    item_rows = []
+    for chunk in chunks(items):
+        item_rows += frappe.get_all("Item", filters={"name": ["in", chunk]},
+            fields=["name", "made_to_order", "valuation_rate", "lead_time_days"])
+    return get_quantities_for_items(item_rows)
+
+
+def get_urgency(row, qd):
+    """(urgency, shortfall) of a PO row from the stock of its item"""
+    calc_rol = flt(qd.calculated_rol)
+    cur_stk = flt(qd.raw_material_qty) + flt(qd.dead_qty) + flt(qd.finished_qty) + flt(qd.wip_qty) - \
+        flt(qd.on_so) - flt(qd.reserved_for_prd)
+    months = cur_stk / (calc_rol + 1)
+    if row.pend_qty / row.qty < 0.1:
+        return "Can be Short Closed", 0
+    if months < 0:
+        return "Needed Now", auto_round_up(cur_stk * (-1) + int(calc_rol))
+    if months < 1:
+        urgency = "Needed in Next 15~30 Days"
+    elif months < 1.5:
+        urgency = "Need in Next 30~45 Days"
+    elif months < 2:
+        urgency = "Needed in Next 45~60 Days"
+    else:
+        urgency = "Needed After 60 Days"
+    return urgency, auto_round_up(calc_rol)

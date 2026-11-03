@@ -75,3 +75,35 @@ class TestItemsOnIndent(ReportTestCase):
         self.assertEqual(data[0][7:], [None, BM, "-", "_Test RIGPL O'Drill", 3, None])
         self.assertEqual([row[0] for row in items_on_indent.execute(frappe._dict(filters, qa=QUALITY))[1]], [mine])
         self.assertRaises(frappe.ValidationError, items_on_indent.execute, frappe._dict(date=DATE))
+
+
+class TestPendingPurchaseOrders(ReportTestCase):
+    def test_subcontract_rows(self):
+        insert_purchase_item(ITEM, "6")
+        po = insert_po(SERVICE, 10, received=4, subcontracted_item=ITEM, conversion_factor=2,
+            reference_dn="_Test RIGPL O'JC", returned_qty=1)
+        insert_po(SERVICE, 10, subcontracted_item=ITEM, supplier=OTHER_SUPPLIER)
+        insert_po(SERVICE, 10, subcontracted_item=ITEM, status="Closed")
+        insert_po(SERVICE, 10, received=10, subcontracted_item=ITEM)
+        insert_po(ITEM, 10)
+
+        data = self.assert_queries(1, lambda: pending_purchase_orders.execute(frappe._dict(subcontracting=1,
+            date=DATE, bm=BM, supplier=SUPPLIER, item=SERVICE))[1])
+
+        self.assertEqual([(row[0], row[4], row[6], row[7], row[8], row[11], row[12]) for row in data],
+            [(po, ITEM, 6, 10, 1, 2, "_Test RIGPL O'JC")])
+
+    def test_urgency_uses_calculated_rol(self):
+        insert_purchase_item(ITEM, "6")
+        insert_reorder(ITEM, 10)
+        po = insert_po(ITEM, 10)
+        insert_po(ITEM, 10, date="2026-02-10")
+        qty = get_quantities_for_items([frappe.get_doc("Item", ITEM)])[ITEM]
+        self.assertGreater(qty.calculated_rol, 0)
+
+        data = self.assert_queries(4, lambda: pending_purchase_orders.execute(frappe._dict(subcontracting=0,
+            date="2026-01-31", bm=BM, supplier=SUPPLIER))[1])
+
+        # The old report read calculated_rol from the PO row, so Min Qty was always empty here
+        self.assertEqual([row[0] for row in data], [po])
+        self.assertEqual(data[0][11:], ["Needed in Next 15~30 Days", auto_round_up(qty.calculated_rol)])
