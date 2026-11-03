@@ -266,6 +266,9 @@ doc_events = {
         "on_submit": "rigpl_erpnext.selling_rigpl.validations.sales_order.on_submit",
         "on_cancel": "rigpl_erpnext.selling_rigpl.validations.sales_order.on_cancel",
     },
+    "Shift Assignment": {
+        "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.shift_assignment.on_submit",
+    },
     "Stock Entry": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.stock_entry.on_submit",
