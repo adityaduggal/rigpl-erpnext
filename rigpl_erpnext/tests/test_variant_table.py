@@ -116,8 +116,20 @@ def insert_website_item(name, item_code, variant_of=None, published=1, warehouse
     ).db_insert()
 
 
+def use_default_stock_cap():
+    """Empty the stock cap fields in RIGPL Settings, so the code uses its defaults (100, "100+",
+    "On request"), whatever the site has. No save, so the other settings checks do not run."""
+    frappe.db.set_value(
+        "RIGPL Settings",
+        None,
+        {"website_stock_cap": 0, "website_stock_cap_label": "", "website_zero_stock_label": ""},
+    )
+    frappe.clear_document_cache("RIGPL Settings", "RIGPL Settings")
+
+
 class TestVariantTable(FrappeTestCase):
     def setUp(self):
+        use_default_stock_cap()
         # get_shopping_cart_settings() reads this request cache first
         frappe.local.shopping_cart_settings = cart_settings()
 
@@ -125,6 +137,7 @@ class TestVariantTable(FrappeTestCase):
         frappe.local.shopping_cart_settings = None
         frappe.set_user("Administrator")
         frappe.db.rollback()
+        frappe.clear_document_cache("RIGPL Settings", "RIGPL Settings")
 
     def test_pivot_keeps_variant_order_and_fills_missing_values(self):
         variants = [{"item_code": "B-2", "route": "b-2"}, {"item_code": "A-1", "route": None}]

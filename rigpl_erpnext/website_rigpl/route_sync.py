@@ -36,7 +36,7 @@ REBUILD_JOB = "rigpl_rebuild_routes"
 
 def get_route_limits() -> Tuple[int, int]:
     """(max route length, max category segments) from RIGPL Settings. Empty uses the default."""
-    settings = frappe.get_cached_doc("RIGPL Settings")
+    settings = frappe.get_cached_doc("RIGPL Settings", "RIGPL Settings")
     return (
         cint(settings.get("website_route_max_length")) or DEFAULT_MAX_LENGTH,
         cint(settings.get("website_route_max_depth")) or DEFAULT_MAX_DEPTH,

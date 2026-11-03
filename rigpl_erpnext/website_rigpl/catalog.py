@@ -326,7 +326,7 @@ def get_stock_qty(warehouses: Dict[str, Optional[str]]) -> Dict[str, float]:
 
 def get_stock_cap_settings() -> Tuple[int, str, str]:
     """The cap, the cap label and the zero stock label from RIGPL Settings (#92)."""
-    settings = frappe.get_cached_doc("RIGPL Settings")
+    settings = frappe.get_cached_doc("RIGPL Settings", "RIGPL Settings")
     return (
         cint(settings.get("website_stock_cap")) or DEFAULT_STOCK_CAP,
         settings.get("website_stock_cap_label") or DEFAULT_CAP_LABEL,
