@@ -71,9 +71,7 @@ def validate_pan(pan):
 
 
 def validate_aadhaar(aadhaar):
-    if aadhaar:
-        p = re.compile("[0-9]{12}")
-    if not p.match(aadhaar):
+    if not re.fullmatch("[0-9]{12}", aadhaar or ""):
         frappe.throw("Invalid Aadhaar Number")
     aadhaar_check_digit = calcsum(aadhaar[:-1])
     if aadhaar[-1:] != str(aadhaar_check_digit):

@@ -132,7 +132,10 @@ doc_events = {
     "Account": {"validate": "rigpl_erpnext.rigpl_erpnext.validations.account.validate"},
     "Address": {"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead_share.address_on_update"},
     "Attendance": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
+        "validate": [
+            "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
+            "rigpl_erpnext.hr_rigpl.utils.hr_utils.validate_attendance",
+        ],
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
         "update_after_submit": "rigpl_erpnext.rigpl_erpnext.validations.attendance.on_update",
     },
@@ -207,6 +210,9 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.payment_entry.on_submit",
     },
+    "Payroll Entry": {
+        "validate": "rigpl_erpnext.hr_rigpl.utils.hr_utils.validate_payroll_entry",
+    },
     "Price List": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.price_list.validate"
     },
@@ -233,7 +239,10 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_component.validate"
     },
     "Salary Slip": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.validate",
+        "validate": [
+            "rigpl_erpnext.hr_rigpl.utils.hr_utils.validate_salary_slip",
+            "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.validate",
+        ],
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_submit",
         "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.salary_slip.on_cancel",
     },

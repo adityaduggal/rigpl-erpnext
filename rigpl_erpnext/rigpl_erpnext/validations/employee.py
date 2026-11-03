@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from rigpl_erpnext.utils.rigpl_perm import *
-from frappe.utils import getdate, split_emails
+import frappe
+from frappe.utils import cint, getdate, split_emails
 from dateutil.relativedelta import relativedelta
 from frappe.contacts.address_and_contact import load_address_and_contact
+from rigpl_erpnext.utils.rigpl_perm import check_role, create_new_user_perm, delete_permission, \
+    get_employees_allowed_ids, get_permission, get_user_roles
 from rigpl_erpnext.utils.other_utils import validate_pan, validate_aadhaar
+from rigpl_erpnext.hr_rigpl.utils.hr_utils import BYPASS_LABEL, block_message, get_active_duplicates, \
+    get_branch_country, is_aadhaar_applicable
 from rohit_common.utils.rohit_common_utils import fn_check_digit
 from rohit_common.utils.email_utils import comma_email_validations
 
@@ -36,15 +40,47 @@ def validate(doc, method):
     if doc.status == "Left":
         doc.department = "All Departments"
 
-    if doc.department == "":
+    if not doc.department:
         frappe.throw("Department is Mandatory for Employee {}".format(doc.name))
 
     doc.employee_number = doc.name
     doc.employee = doc.name
-    if doc.aadhaar_number:
-        validate_aadhaar(doc.aadhaar_number)
+    check_bypass_change(doc)
+    validate_aadhaar_rules(doc)
     if doc.pan_number:
         validate_pan(doc.pan_number)
+
+
+def check_bypass_change(doc):
+    changed = cint(doc.get("allow_duplicate_aadhaar")) == 1 if doc.is_new() else \
+        doc.has_value_changed("allow_duplicate_aadhaar")
+    if changed and "System Manager" not in frappe.get_roles():
+        frappe.throw("Only a System Manager can change {} in {}".format(BYPASS_LABEL, doc.name))
+
+
+def validate_aadhaar_rules(doc):
+    """Aadhaar is mandatory, valid and unique among Active Employees when the Country of the Branch
+    has Aadhaar Applicable"""
+    country = get_branch_country(doc.branch)
+    if not country:
+        message = "Set the Country in {} first. The Aadhaar rules of an Employee depend on it.".format(
+            frappe.get_desk_link("Branch", doc.branch))
+        if doc.is_new():
+            frappe.throw(message)
+        frappe.msgprint(message, indicator="orange")
+        return
+    if not is_aadhaar_applicable(country):
+        return
+    if not doc.aadhaar_number:
+        frappe.throw("Aadhaar Number is mandatory for Employees of Branch {} in {}".format(doc.branch, country))
+    validate_aadhaar(doc.aadhaar_number)
+    if doc.status != "Active" or cint(doc.get("allow_duplicate_aadhaar")) == 1:
+        return
+    others = [name for name in get_active_duplicates([doc.aadhaar_number]).get(doc.aadhaar_number, [])
+        if name != doc.name]
+    if others:
+        frappe.msgprint(block_message(doc.name, others, "any Attendance or Salary Slip"),
+            title="Duplicate Aadhaar", indicator="orange")
 
 
 def on_update(doc, method):
@@ -65,7 +101,7 @@ def on_update(doc, method):
 
 def autoname(doc, method):
     doj = getdate(doc.date_of_joining)
-    series_id = frappe.db.sql("""SELECT current FROM `tabSeries` WHERE name = '%s'""" % doc.naming_series, as_list=1)
+    series_id = frappe.db.sql("""SELECT current FROM `tabSeries` WHERE name = %s""", doc.naming_series, as_list=1)
     series_id = str(series_id[0][0])
     # Generate employee number on the following logic
     # Employee Number would be YYYYMMDDXXXXC, where:
