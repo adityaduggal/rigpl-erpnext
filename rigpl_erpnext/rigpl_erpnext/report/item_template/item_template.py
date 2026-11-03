@@ -2,7 +2,19 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+import itertools
+
 import frappe
+from frappe.query_builder.functions import Count, IfNull, Max
+from ....utils.item_attribute_utils import chunks
+
+COLUMN_ATTRIBUTES = ["Is RM", "Base Material", "Brand", "{bm} Quality", "Special Treatment", "Tool Type",
+	"Material to Machine", "Purpose"]
+CETSH = "CETSH Number"
+# filter: restriction attribute
+RESTRICTION_FILTERS = {"rm": "Is RM", "bm": "Base Material", "brand": "Brand", "quality": "{bm} Quality",
+	"spl": "Special Treatment", "purpose": "Purpose", "type": "Type Selector", "mtm": "Material to Machine",
+	"tt": "Tool Type"}
 
 def execute(filters=None):
 	if not filters: filters = {}
@@ -22,89 +34,79 @@ def get_columns():
 	]
 
 def get_items(filters):
-	conditions_it = get_conditions(filters)
-	bm = filters["bm"]
-	#List of fields to be fetched in the report
-	attributes = ['Is RM', 'Base Material', 'Brand', '%Quality', 'Special Treatment',
-		'Tool Type', 'd1_mm', 'd1_inch', 'w1_mm', 'w1_inch', 'l1_mm', 'l1_inch',
-		'CETSH Number']
-	
-	float_fields = ['d1_mm', 'w1_mm', 'l1_mm']
-	linked_fields = ['d1_inch', 'w1_inch', 'l1_inch']
-	
-	data = frappe.db.sql("""SELECT it.name, 
-		(SELECT count(name) FROM `tabItem` WHERE variant_of = it.name),
-		it.variant_limit,
-		IFNULL(rm.allowed_values, "-"), IFNULL(bm.allowed_values, "-"),
-		IFNULL(brand.allowed_values, "-"), IFNULL(quality.allowed_values, "-"), 
-		IFNULL(spl.allowed_values, "-"), IFNULL(tt.allowed_values, "-"),
-		IFNULL(mtm.allowed_values, "-"), IFNULL(purpose.allowed_values, "-"),
-		it.item_group, it.default_warehouse, it.valuation_method,
-		it.tolerance, it.is_purchase_item,
-		it.is_sales_item,
-		IFNULL((SELECT published FROM `tabWebsite Item` WHERE item_code = it.name), 0),
-		(SELECT COUNT(name) FROM `tabWebsite Item` WHERE published = 1 AND variant_of = it.name),
-		IF(it.pl_item, "Yes", "No"), it.is_pro_applicable,
-		IFNULL(cetsh.allowed_values, "-"), NULL, NULL, NULL, IFNULL(it.image, "-")
-		
-		FROM `tabItem` it
-		LEFT JOIN `tabItem Variant Restrictions` rm ON it.name = rm.parent
-			AND rm.attribute = 'Is RM'
-		LEFT JOIN `tabItem Variant Restrictions` bm ON it.name = bm.parent
-			AND bm.attribute = 'Base Material'
-		LEFT JOIN `tabItem Variant Restrictions` brand ON it.name = brand.parent
-			AND brand.attribute = 'Brand'
-		LEFT JOIN `tabItem Variant Restrictions` quality ON it.name = quality.parent
-			AND quality.attribute = '%s Quality'
-		LEFT JOIN `tabItem Variant Restrictions` spl ON it.name = spl.parent
-			AND spl.attribute = 'Special Treatment'
-		LEFT JOIN `tabItem Variant Restrictions` tt ON it.name = tt.parent
-			AND tt.attribute = 'Tool Type'
-		LEFT JOIN `tabItem Variant Restrictions` mtm ON it.name = mtm.parent
-			AND mtm.attribute = 'Material to Machine'
-		LEFT JOIN `tabItem Variant Restrictions` purpose ON it.name = purpose.parent
-			AND purpose.attribute = 'Purpose'
-		LEFT JOIN `tabItem Variant Restrictions` type ON it.name = type.parent
-			AND type.attribute = 'Type Selector'
-		LEFT JOIN `tabItem Variant Restrictions` cetsh ON it.name = cetsh.parent
-			AND cetsh.attribute = 'CETSH Number'
-			
-			
-		WHERE it.has_variants = 1 %s """ % (bm, conditions_it) , as_list = 1)
-				
+	"""
+	The templates with the restriction filters. The restriction values, variant counts and Website
+	Item counts come from grouped queries, in place of 10 self-joins and 3 subqueries for each
+	template. A template with 2 rows of 1 attribute gets 1 row for each value, like the old joins.
+	"""
+	bm = filters.get("bm")
+	if not bm:
+		frappe.throw("Select a Base Material", title="Base Material Needed")
+	attributes = [att.format(bm=bm) for att in COLUMN_ATTRIBUTES]
+	templates = get_templates(filters, bm)
+	names = [it.name for it in templates]
+	restrictions = get_restriction_values(names, attributes + [CETSH])
+	variants, web_variants, published = get_counts(names)
+	data = []
+	for it in templates:
+		values = restrictions.get(it.name, {})
+		for combo in itertools.product(*[values.get(att) or ["-"] for att in attributes + [CETSH]]):
+			data.append([it.name, variants.get(it.name, 0), it.variant_limit] + list(combo[:-1])
+				+ [it.item_group, it.default_warehouse, it.valuation_method, it.tolerance, it.is_purchase_item,
+				it.is_sales_item, published.get(it.name, 0), web_variants.get(it.name, 0),
+				"Yes" if it.pl_item else "No", it.is_pro_applicable, combo[-1], None, None, None, "-" if it.image is None else it.image])
 	return data
-	
-def get_conditions(filters):
-	conditions_it = ""
 
-	if filters.get("rm"):
-		conditions_it += " AND rm.allowed_values = '%s'" % filters["rm"]
 
-	if filters.get("bm"):
-		conditions_it += " AND bm.allowed_values = '%s'" % filters["bm"]
-
-	if filters.get("brand"):
-		conditions_it += " AND brand.allowed_values = '%s'" % filters["brand"]
-
-	if filters.get("quality"):
-		conditions_it += " AND quality.allowed_values = '%s'" % filters["quality"]
-
-	if filters.get("spl"):
-		conditions_it += " AND spl.allowed_values = '%s'" % filters["spl"]
-
-	if filters.get("purpose"):
-		conditions_it += " AND purpose.allowed_values = '%s'" % filters["purpose"]
-		
-	if filters.get("type"):
-		conditions_it += " AND type.allowed_values = '%s'" % filters["type"]
-		
-	if filters.get("mtm"):
-		conditions_it += " AND mtm.allowed_values = '%s'" % filters["mtm"]
-		
-	if filters.get("tt"):
-		conditions_it += " AND tt.allowed_values = '%s'" % filters["tt"]
-		
+def get_templates(filters, bm):
+	it = frappe.qb.DocType("Item")
+	ivr = frappe.qb.DocType("Item Variant Restrictions")
+	query = (
+		frappe.qb.from_(it)
+		.select(it.name, it.variant_limit, it.item_group, it.default_warehouse, it.valuation_method, it.tolerance,
+			it.is_purchase_item, it.is_sales_item, it.pl_item, it.is_pro_applicable, it.image)
+		.where(it.has_variants == 1)
+		.orderby(it.name)
+	)
+	for key, attribute in RESTRICTION_FILTERS.items():
+		if filters.get(key):
+			with_value = (
+				frappe.qb.from_(ivr).select(ivr.parent)
+				.where((ivr.attribute == attribute.format(bm=bm)) & (ivr.allowed_values == filters[key]))
+			)
+			query = query.where(it.name.isin(with_value))
 	if filters.get("template"):
-		conditions_it += " AND it.name = '%s'" % filters["template"]
+		query = query.where(it.name == filters["template"])
+	return query.run(as_dict=1)
 
-	return conditions_it
+
+def get_restriction_values(templates, attributes):
+	"""{template: {attribute: [allowed values of each row]}}"""
+	ivr = frappe.qb.DocType("Item Variant Restrictions")
+	values = {}
+	for chunk in chunks(templates):
+		rows = (
+			frappe.qb.from_(ivr)
+			.select(ivr.parent, ivr.attribute, IfNull(ivr.allowed_values, "-"))
+			.where(ivr.parent.isin(chunk) & ivr.attribute.isin(attributes))
+			.orderby(ivr.idx)
+			.run()
+		)
+		for parent, attribute, allowed in rows:
+			values.setdefault(parent, {}).setdefault(attribute, []).append(allowed)
+	return values
+
+
+def get_counts(templates):
+	"""({template: variants}, {template: published web variants}, {template: its Website Item published})"""
+	it = frappe.qb.DocType("Item")
+	wi = frappe.qb.DocType("Website Item")
+	variants, web_variants, published = {}, {}, {}
+	for chunk in chunks(templates):
+		variants.update(dict(frappe.qb.from_(it).select(it.variant_of, Count(it.name))
+			.where(it.variant_of.isin(chunk)).groupby(it.variant_of).run()))
+		web_variants.update(dict(frappe.qb.from_(wi).select(wi.variant_of, Count(wi.name))
+			.where(wi.variant_of.isin(chunk) & (wi.published == 1)).groupby(wi.variant_of).run()))
+		published.update(dict(frappe.qb.from_(wi).select(wi.item_code, Max(wi.published))
+			.where(wi.item_code.isin(chunk)).groupby(wi.item_code).run()))
+	return variants, web_variants, published

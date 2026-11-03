@@ -4,6 +4,7 @@ quote: the old reports put it into the SQL text and failed.
 """
 import frappe
 
+from rigpl_erpnext.rigpl_erpnext.report.item_template import item_template
 from rigpl_erpnext.rigpl_erpnext.report.standards_and_drawings_rigpl import standards_and_drawings_rigpl
 from rigpl_erpnext.rigpl_erpnext.report.stock_status import stock_status
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
@@ -69,3 +70,19 @@ class TestStockStatus(ReportTestCase):
         self.assertEqual([row[0] for row in data], [ITEM_2, ITEM])
         self.assertEqual((data[1][10], data[1][15]), (6, 4))
         self.assertEqual(data[1][17:], [5, 5, 2])
+
+
+class TestItemTemplate(ReportTestCase):
+    def test_restrictions_counts_and_hidden_rows(self):
+        insert_item(TEMPLATE)
+        for idx, (attribute, value) in enumerate((("Base Material", BM), ("Tool Type", TT), ("Type Selector", "A"),
+                ("Type Selector", "B")), start=1):
+            raw("Item Variant Restrictions", parent=TEMPLATE, parenttype="Item", parentfield="item_variant_restrictions",
+                idx=idx, attribute=attribute, allowed_values=value)
+        insert_stock_item(ITEM, "6")
+        raw("Website Item", item_code=ITEM, variant_of=TEMPLATE, published=1)
+
+        data = self.assert_queries(5, lambda: item_template.execute(frappe._dict(bm=BM, tt=TT))[1])
+
+        # The 2 Type Selector rows doubled the old row
+        self.assertEqual([(row[0], row[1], row[4], row[8], row[18]) for row in data], [(TEMPLATE, 1, BM, TT, 1)])
