@@ -9,7 +9,7 @@ import datetime
 import frappe
 from frappe.utils import cint, flt
 
-from rigpl_erpnext.utils.item_attribute_utils import get_attribute_rows
+from rigpl_erpnext.utils.item_attribute_utils import chunks, get_attribute_rows
 from rigpl_erpnext.website_rigpl.item_sync import set_web_long_description
 
 
@@ -22,22 +22,33 @@ def delete_web_item(item_code):
         frappe.delete_doc(wb_it.doctype, wb_it.name, delete_permanently=True)
 
 
-def get_pricing_rule_for_item(it_name, frm_dt=None, to_dt=None):
-    cond = f" AND pri.item_code = '{it_name}'"
-    if frm_dt:
-        cond += f" AND pr.valid_from <= '{frm_dt}'"
-    if to_dt:
-        cond += f" AND pr.valid_upto >= '{to_dt}'"
-    query = f"""SELECT pr.name, pr.min_qty, pr.min_amt, pr.max_qty, pr.max_amt, pr.currency,
-    pr.rate, pr.valid_from, pr.valid_upto
-    FROM `tabPricing Rule` pr, `tabPricing Rule Item Code` pri
-    WHERE pri.parent = pr.name AND pr.apply_on = 'Item Code' AND (pr.applicable_for IS NULL
-    OR pr.applicable_for = '') {cond} ORDER BY pr.valid_upto, pr.min_qty"""
-    pr_dict = frappe.db.sql(query, as_dict=1)
-    if pr_dict:
-        return pr_dict
-    else:
-        return []
+def get_pricing_rules_for_items(items, frm_dt=None, to_dt=None):
+    """
+    Returns {item_code: [Pricing Rules of the item code, for all customers]}, by Valid Upto and
+    Min Qty, 1 query for each chunk. A rule must start on or before `frm_dt` and end on or after
+    `to_dt`.
+    """
+    pr = frappe.qb.DocType("Pricing Rule")
+    pri = frappe.qb.DocType("Pricing Rule Item Code")
+    rules = {}
+    for chunk in chunks(items):
+        query = (
+            frappe.qb.from_(pr)
+            .join(pri).on(pri.parent == pr.name)
+            .select(pri.item_code, pr.name, pr.min_qty, pr.min_amt, pr.max_qty, pr.max_amt, pr.currency,
+                    pr.rate, pr.valid_from, pr.valid_upto)
+            .where((pr.apply_on == "Item Code") & (pr.applicable_for.isnull() | (pr.applicable_for == "")))
+            .where(pri.item_code.isin(chunk))
+            .orderby(pr.valid_upto)
+            .orderby(pr.min_qty)
+        )
+        if frm_dt:
+            query = query.where(pr.valid_from <= frm_dt)
+        if to_dt:
+            query = query.where(pr.valid_upto >= to_dt)
+        for row in query.run(as_dict=1):
+            rules.setdefault(row.pop("item_code"), []).append(row)
+    return rules
 
 
 def get_distinct_attributes(item_dict, field_name):

@@ -15,12 +15,14 @@ from rigpl_erpnext.rigpl_erpnext.report.customers_with_so import customers_with_
 from rigpl_erpnext.rigpl_erpnext.report.follow_up_customer import follow_up_customer
 from rigpl_erpnext.rigpl_erpnext.report.follow_up_lead import follow_up_lead
 from rigpl_erpnext.rigpl_erpnext.report.forex_transactions import forex_transactions
+from rigpl_erpnext.rigpl_erpnext.report.rigpl_price_list import rigpl_price_list
 from rigpl_erpnext.rigpl_erpnext.report.tod_sales_invoice import tod_sales_invoice
 from rigpl_erpnext.rigpl_erpnext.report.todo_report import todo_report
 from rigpl_erpnext.rigpl_erpnext.report.trial_tracking import trial_tracking
 from rigpl_erpnext.rigpl_erpnext.report.va_sales_invoice import va_sales_invoice
 from rigpl_erpnext.tests.test_sales_utils import insert_customer
 from rigpl_erpnext.tests.test_variant_table import insert_item, insert_item_price
+from rigpl_erpnext.utils.item_utils import get_pricing_rules_for_items
 from rigpl_erpnext.utils.report_utils import tree_and_descendants
 
 CUSTOMER = "_Test RIGPL O'Brien Report Customer"
@@ -297,3 +299,47 @@ class TestVaSalesInvoice(ReportTestCase):
 
         row = next(row for row in data if row[3] == ITEM)
         self.assertEqual(row[9:14] + row[18:], [BM, "-", "-", "-", 6, "-"])
+
+
+class TestPricingRules(ReportTestCase):
+    def test_pricing_rules_for_items(self):
+        rule = raw("Pricing Rule", apply_on="Item Code", valid_from="2026-01-01", valid_upto="2026-12-31", rate=5,
+            min_qty=2)
+        raw("Pricing Rule Item Code", parent=rule, parenttype="Pricing Rule", parentfield="items", item_code=ITEM)
+
+        rules = self.assert_queries(1, lambda: get_pricing_rules_for_items([ITEM, ITEM_2], "2026-02-01", "2026-06-30"))
+
+        self.assertEqual([(r.name, r.rate) for r in rules[ITEM]], [(rule, 5)])
+        self.assertNotIn(ITEM_2, rules)
+        self.assertEqual(get_pricing_rules_for_items([ITEM], to_dt="2027-01-01"), {})
+
+
+class TestRigplPriceList(ReportTestCase):
+    def setUp(self):
+        for attribute, short_name, numeric in (("Base Material", "bm", 0), ("Tool Type", "tt", 0), ("d1_mm", "d1", 1)):
+            if not frappe.db.exists("Item Attribute", attribute):
+                raw("Item Attribute", name=attribute, attribute_name=attribute, short_name=short_name,
+                    numeric_values=numeric)
+        insert_item(TEMPLATE, attributes=[("Base Material", ""), ("Tool Type", ""), ("d1_mm", "")])
+        insert_priced_items()
+        raw("Price List", name=PL[0], price_list_name=PL[0], enabled=1, selling=1)
+        self.filters = frappe._dict(pl=PL[0], bm=BM, tt="O'Drill", is_pl="Yes", template=TEMPLATE)
+
+    def test_price_list(self):
+        filters = frappe._dict(self.filters, price_list_type="Price List")
+        columns, data = self.assert_queries(9, lambda: rigpl_price_list.execute(filters))
+
+        self.assertEqual([row[4] for row in data], [ITEM_2, ITEM])
+        self.assertEqual(data[1][2], 100)
+        self.assertIn("d1_mm", [col.get("label") for col in columns if isinstance(col, dict)])
+
+    def test_pricing_rule(self):
+        rule = raw("Pricing Rule", apply_on="Item Code", valid_from="2026-01-01", valid_upto="2099-12-31", rate=7,
+            min_qty=1)
+        raw("Pricing Rule Item Code", parent=rule, parenttype="Pricing Rule", parentfield="items", item_code=ITEM)
+        filters = frappe._dict(self.filters, price_list_type="Pricing Rule", valid_upto=nowdate(), show_zero=1)
+
+        data = self.assert_queries(9, lambda: rigpl_price_list.execute(filters)[1])
+
+        self.assertEqual([row[:6] for row in data], [[None] * 5 + [ITEM_2], [rule, getdate("2099-12-31"), 1, 7,
+            None, ITEM]])

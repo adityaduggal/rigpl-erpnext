@@ -1,8 +1,12 @@
 from __future__ import unicode_literals
 import frappe
-from frappe import msgprint, _
-from frappe.utils import flt, getdate, nowdate
-from ....utils.item_utils import get_distinct_attributes, get_pricing_rule_for_item
+from frappe import _
+from frappe.query_builder.functions import IfNull
+from frappe.utils import flt, nowdate
+from pypika.terms import Case
+from ....utils.item_attribute_utils import attribute_filters, attribute_sort_key, get_attribute_map, \
+    get_attribute_meta
+from ....utils.item_utils import get_distinct_attributes, get_pricing_rules_for_items
 
 
 def execute(filters=None):
@@ -11,11 +15,9 @@ def execute(filters=None):
     """
     if not filters:
         filters = {}
-    bmat = filters.get("bm")
-    conditions_it = get_conditions(filters)[0]
-    templates = get_templates(bmat, conditions_it, filters)
+    check_filters(filters)
+    templates = get_templates(filters)
     columns, attributes, att_details = get_columns(filters, templates)
-    # frappe.throw(str(columns))
     data = get_items(attributes, att_details, filters)
 
     return columns, data
@@ -94,47 +96,7 @@ def get_columns(filters, templates):
         ]
     attributes = get_distinct_attributes(
         item_dict=templates, field_name="template")
-    att_details = []
-    # above dict would be as below
-    #[{name: "Base Material", max_length: 20, numeric_values:0, name_in_template: "bm"}]
-    for att in attributes:
-        at_dt = {}
-
-        cond = f""" attribute = '{att.att_name}'"""
-        att_name = frappe.db.sql("""SELECT name, attribute, field_name
-            FROM `tabItem Variant Attribute`
-            WHERE {condition} AND parent IN (%s) GROUP BY field_name""".format(condition=cond)
-                                 % (", ".join(['%s']*len(templates))),
-                                 tuple([d.template for d in templates]), as_dict=1)
-
-        attr = frappe.get_doc("Item Attribute", att.att_name)
-        at_dt["name"] = att.att_name
-        at_dt["numeric_values"] = attr.numeric_values
-        if attr.numeric_values != 1:
-            max_length = frappe.db.sql(f"""SELECT MAX(CHAR_LENGTH(attribute_value))
-                FROM `tabItem Attribute Value` WHERE parent = '{att.att_name}'""", as_list=1)
-            if attr.hidden == 1:
-                sname = att_name[0].field_name
-                fd_n = (att.att_name).split('_', 1)[1]
-                nit = sname.split('(', 1)[0] + "(" + fd_n + ")"
-                name_in_template = nit
-            else:
-                name_in_template = att_name[0].attribute
-        else:
-            max_length = [[6]]
-            sname = att_name[0].field_name
-            if '_' in att.att_name:
-                fd_n = (att.att_name).split('_', 1)[1]
-            else:
-                fd_n = att.att_name
-            if sname and '(' in sname:
-                nit = sname.split('(', 1)[0] + "(" + fd_n + ")"
-            else:
-                nit = att.att_name
-            name_in_template = nit
-        at_dt["max_length"] = int(max_length[0][0])
-        at_dt["name_in_template"] = name_in_template
-        att_details.append(at_dt.copy())
+    att_details = get_attribute_details(attributes, [d.template for d in templates])
 
     for att in attributes:
         col_dict = frappe._dict({})
@@ -178,183 +140,142 @@ def get_columns(filters, templates):
     return columns, attributes, att_details
 
 
+def get_attribute_details(attributes, templates):
+    """
+    [{name, numeric_values, max_length, name_in_template}] of the report attributes, in 3 queries
+    (get_attribute_meta and the field names of the templates) in place of 3 for each attribute.
+    """
+    names = [att.att_name for att in attributes]
+    meta = get_attribute_meta(names)
+    field_names = {}
+    iva = frappe.qb.DocType("Item Variant Attribute")
+    rows = (
+        frappe.qb.from_(iva)
+        .select(iva.attribute, iva.field_name)
+        .where(iva.attribute.isin(names) & iva.parent.isin(templates))
+        .run()
+    ) if names and templates else []
+    # The old query took the first row of GROUP BY field_name: the lowest field name, NULL first
+    for attribute, field_name in sorted(rows, key=lambda r: (r[1] is not None, r[1] or "")):
+        field_names.setdefault(attribute, field_name)
+    details = []
+    for att in attributes:
+        att_meta = meta.get(att.att_name) or frappe._dict(numeric_values=0, hidden=0, max_length=0)
+        sname = field_names.get(att.att_name)
+        fd_n = att.att_name.split("_", 1)[1] if "_" in att.att_name else att.att_name
+        if att_meta.numeric_values != 1:
+            max_length = att_meta.max_length
+            name_in_template = att.att_name
+            if att_meta.hidden == 1:
+                name_in_template = (sname or "").split("(", 1)[0] + "(" + fd_n + ")"
+        else:
+            max_length = 6
+            name_in_template = sname.split("(", 1)[0] + "(" + fd_n + ")" if sname and "(" in sname else att.att_name
+        details.append({"name": att.att_name, "numeric_values": att_meta.numeric_values,
+            "max_length": int(max_length or 0), "name_in_template": name_in_template})
+    return details
+
+
 def get_items(attributes, att_details, filters):
     """
-    Returns items for the Attributes and Filters
+    Returns the report rows. The attribute values come from get_attribute_map and the rows are
+    sorted in Python (#131), in place of 1 LEFT JOIN for each attribute.
     """
-    conditions_it = get_conditions(filters=filters)[0]
-    att_join = ''
-    att_query = ''
-    att_order = ''
-    data = []
-    plist = " AND itp.price_list = '%s'" % filters.get("pl")
-    for att in attributes:
-        att_trimmed = (att.att_name).replace(" ", "")
-        for i in att_details:
-            if att.att_name == i["name"]:
-                if i["numeric_values"] == 1:
-                    att_query += f""", CAST({att_trimmed}.attribute_value AS DECIMAL(8,3)) \
-                    AS {att.att_sn}"""
-                    att_order += f"""CAST({att_trimmed}.attribute_value AS DECIMAL(8,3)), """
-                else:
-                    att_query += f""", IFNULL({att_trimmed}.attribute_value, "-") AS {att.att_sn}"""
-                    att_order += f"""{att_trimmed}.attribute_value, """
-
-        att_join += f""" LEFT JOIN `tabItem Variant Attribute` {att_trimmed}
-        ON it.name = {att_trimmed}.parent AND {att_trimmed}.attribute = '{att.att_name}'"""
+    numeric = {d["name"] for d in att_details if d["numeric_values"] == 1}
+    names = [att.att_name for att in attributes]
+    it = frappe.qb.DocType("Item")
+    ro = frappe.qb.DocType("Item Reorder")
+    rol = Case().when(ro.warehouse_reorder_level == 0, None).else_(ro.warehouse_reorder_level)
+    query = (
+        frappe.qb.from_(it)
+        .left_join(ro).on((ro.parent == it.name) & (ro.warehouse == it.default_warehouse))
+        .select(it.name, it.pl_item, rol.as_("rol"), it.description)
+        .orderby(it.name)
+    )
+    query = add_item_filters(query, it, filters)
     if filters.get("price_list_type") == "Price List":
-        query = """SELECT IFNULL(itp.name, "-"), IFNULL(itp.price_list, "-"), itp.price_list_rate,
-            IFNULL(itp.currency, "-"), it.name %s, IF(it.pl_item, "Yes", "No"),
-            IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level),
-            it.description
-            FROM `tabItem` it
-                LEFT JOIN `tabItem Price` itp ON it.name = itp.item_code %s
-                LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
-                    AND ro.warehouse = it.default_warehouse %s
-            WHERE
-                IFNULL(it.end_of_life, '2099-12-31') > CURDATE() %s
-            ORDER BY %s it.name""" % (att_query, plist, att_join, conditions_it, att_order)
-        data = frappe.db.sql(query, as_list=1)
+        itp = frappe.qb.DocType("Item Price")
+        query = (query.left_join(itp).on((itp.item_code == it.name) & (itp.price_list == filters.get("pl")))
+            .select(IfNull(itp.name, "-").as_("price_id"), IfNull(itp.price_list, "-").as_("price_list"),
+                itp.price_list_rate, IfNull(itp.currency, "-").as_("currency")))
     elif filters.get("price_list_type") == "Pricing Rule":
-        query = f"""SELECT it.name {att_query}, IF(it.pl_item, 'Yes', 'No') as pl_item,
-        IF(ro.warehouse_reorder_level =0, NULL, ro.warehouse_reorder_level) as rol, it.description
-        FROM `tabItem` it
-            LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
-            AND ro.warehouse = it.default_warehouse {att_join}
-        WHERE it.has_variants = 0 AND IFNULL(it.end_of_life, '2099-12-31') > CURDATE()
-        {conditions_it} ORDER BY {att_order} it.name"""
-        data_dict = frappe.db.sql(query, as_dict=1)
-        for itm in data_dict:
-            rows = []
-            frm_dt = filters.get("valid_from")
-            to_dt = filters.get("valid_upto")
-            prule = get_pricing_rule_for_item(
-                it_name=itm.name, frm_dt=frm_dt, to_dt=to_dt)
-            if prule:
-                for prl in prule:
-                    drow = [prl.name, prl.valid_upto, prl.min_qty,
-                            prl.rate, prl.currency, itm.name]
-                    rows.append(drow)
-            else:
-                if filters.get("show_zero") == 1:
-                    drow = [None, None, None, None, None, itm.name]
-                    rows.append(drow)
-                else:
-                    drow = []
-            if rows:
-                for n_row in rows:
-                    for att in attributes:
-                        if not itm.get(att.att_sn, None) or itm.get(att.att_sn) == "None":
-                            n_row += [None]
-                        else:
-                            n_row += [itm.get(att.att_sn)]
-                    n_row += [itm.pl_item, itm.rol, itm.description]
-            for n_row in rows:
-                data.append(n_row)
+        query = query.where(it.has_variants == 0)
     else:
         frappe.throw(f"Wrong Price List Type Selected {filters.get('price_list_type')}")
+    rows = query.run(as_dict=1)
+    att_map = get_attribute_map({row.name for row in rows}, names)
+    rows.sort(key=lambda row: attribute_sort_key(att_map.get(row.name, {}), names, numeric))
 
+    def attribute_cols(item):
+        values = att_map.get(item, {})
+        return [(flt(values[att], 3) if att in numeric else values[att]) if values.get(att) is not None
+            else (None if att in numeric else "-") for att in names]
+
+    data = []
+    if filters.get("price_list_type") == "Price List":
+        for row in rows:
+            data.append([row.price_id, row.price_list, row.price_list_rate, row.currency, row.name]
+                + attribute_cols(row.name) + ["Yes" if row.pl_item else "No", row.rol, row.description])
+        return data
+
+    rules = get_pricing_rules_for_items([row.name for row in rows], filters.get("valid_from"),
+        filters.get("valid_upto"))
+    for row in rows:
+        item_rules = [[prl.name, prl.valid_upto, prl.min_qty, prl.rate, prl.currency, row.name]
+            for prl in rules.get(row.name, [])]
+        if not item_rules and filters.get("show_zero") == 1:
+            item_rules = [[None, None, None, None, None, row.name]]
+        tail = [None if not value or value == "None" else value for value in attribute_cols(row.name)] \
+            + ["Yes" if row.pl_item else "No", row.rol, row.description]
+        data.extend(rule + tail for rule in item_rules)
     return data
 
 
-def define_join(string, tab, val):
+def add_item_filters(query, it, filters):
+    """The Item filters of the report: not end of life, the attribute values and the Item fields."""
+    bm = filters.get("bm")
+    query = query.where(IfNull(it.end_of_life, "2099-12-31") > nowdate())
+    if filters.get("eol"):
+        query = query.where(IfNull(it.end_of_life, "2099-12-31") > filters["eol"])
+    query = query.where(attribute_filters(it.name, {
+        "Base Material": bm,
+        "Series": filters.get("series"),
+        f"{bm} Quality": filters.get("quality") if bm else None,
+        "Tool Type": filters.get("tt"),
+    }))
+    if filters.get("item"):
+        query = query.where(it.name == filters["item"])
+    # The filter is a Yes/No select; pl_item is a Check (#106)
+    if filters.get("is_pl") in ("Yes", "No"):
+        query = query.where(it.pl_item == (1 if filters.get("is_pl") == "Yes" else 0))
+    if filters.get("template"):
+        query = query.where(it.variant_of == filters["template"])
+    return query
+
+
+def get_templates(filters):
     """
-    Defines the Joins to be used for the Item Attributes
+    Returns Templates based on Base Material and other filters
     """
-    string += """ LEFT JOIN `tabItem Variant Attribute` %s ON it.name = %s.parent
-            AND %s.attribute = '%s'""" % (tab, tab, tab, val)
-    return string
-
-
-def get_templates(bmat, conditions_it, filters):
-    """
-    Returns Templates based on Conditions, Base Material and other filters
-    """
-    query_join = ""
-
-    if filters.get("bm"):
-        tab = 'Base Material'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("tt"):
-        tab = 'Tool Type'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("quality"):
-        tab = '%s Quality' % (bmat)
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    if filters.get("series"):
-        tab = 'Series'
-        query_join = define_join(query_join, tab.replace(" ", ""), tab)
-
-    query = f"""SELECT DISTINCT(it.variant_of) as template FROM `tabItem` it {query_join}
-        WHERE IFNULL(it.end_of_life, '2099-12-31') > CURDATE() {conditions_it}"""
-    templates = frappe.db.sql(query, as_dict=1)
-
+    it = frappe.qb.DocType("Item")
+    query = add_item_filters(frappe.qb.from_(it).select(it.variant_of.as_("template")).distinct(), it, filters)
+    templates = query.run(as_dict=1)
     if not templates:
         frappe.throw("No Temps in the given Criterion")
     return templates
 
 
-def get_conditions(filters):
+def check_filters(filters):
     """
-    Gets conditions based on the Filters
+    Only a System Manager can report a disabled or non-selling Price List, or all Tool Types
     """
-    conditions_it = ""
-    conditions_pl = ""
-    cond_pr = ""
-    user_roles = frappe.get_roles(frappe.session.user)
-
-    # Only allow Enabled Prices for Non-System Managers
-    pld = frappe.get_doc("Price List", filters.get("pl"))
-    if pld.enabled == 0 or pld.selling == 0 or pld.disable_so == 1:
-        if "System Manager" not in user_roles:
-            frappe.throw("Price List Selected is Not Allowed for Reporting")
-
-    if filters.get("price_list_type") == "Price List":
-        if filters.get("pl"):
-            conditions_pl += " AND itp.price_list = '%s'" % filters.get("pl")
-    else:
-        if filters.get("valid_upto"):
-            cond_pr += f" AND pr.valid_upto >= '{filters.get('valid_upto')}'"
-        else:
-            frappe.throw("Valid Upto Date is needed for Special Pricing")
-        if filters.get("valid_from"):
-            cond_pr += f" AND pr.valid_from >= '{filters.get('valid_from')}'"
-
-    if filters.get("eol"):
-        conditions_it += " WHERE IFNULL(it.end_of_life, '2099-12-31') > '%s'" % filters.get(
-            "eol")
-
-    if filters.get("bm"):
-        conditions_it += " AND BaseMaterial.attribute_value = '%s'" % filters.get(
-            "bm")
-
-    if filters.get("series"):
-        conditions_it += " AND Series.attribute_value = '%s'" % filters.get(
-            "series")
-
-    if filters.get("quality"):
-        bm = filters.get("bm")
-        conditions_it += " AND %sQuality.attribute_value = '%s'" % (
-            bm, filters.get("quality"))
-
-    if filters.get("tt"):
-        conditions_it += " AND ToolType.attribute_value = '%s'" % filters.get(
-            "tt")
-    else:
-        if "System Manager" not in user_roles:
-            frappe.throw("Please select Tool Type to Proceed")
-
-    if filters.get("item"):
-        conditions_it += " and it.name = '%s'" % filters.get("item")
-
-    # The filter is a Yes/No select; pl_item is a Check (#106)
-    if filters.get("is_pl") in ("Yes", "No"):
-        conditions_it += " AND it.pl_item = %d" % (1 if filters.get("is_pl") == "Yes" else 0)
-
-    if filters.get("template"):
-        conditions_it += f" AND it.variant_of = {filters.get('template')}"
-
-    return conditions_it, conditions_pl, cond_pr
+    is_manager = "System Manager" in frappe.get_roles(frappe.session.user)
+    pld = frappe.db.get_value("Price List", filters.get("pl"), ["enabled", "selling", "disable_so"], as_dict=1)
+    if not pld:
+        frappe.throw("Select a Price List")
+    if (pld.enabled == 0 or pld.selling == 0 or pld.disable_so == 1) and not is_manager:
+        frappe.throw("Price List Selected is Not Allowed for Reporting")
+    if filters.get("price_list_type") != "Price List" and not filters.get("valid_upto"):
+        frappe.throw("Valid Upto Date is needed for Special Pricing")
+    if not filters.get("tt") and not is_manager:
+        frappe.throw("Please select Tool Type to Proceed")
