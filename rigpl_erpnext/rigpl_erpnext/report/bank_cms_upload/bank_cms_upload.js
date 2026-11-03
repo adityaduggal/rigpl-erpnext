@@ -8,7 +8,7 @@ frappe.query_reports["Bank CMS Upload"] = {
 			"fieldname":"entry_type",
 			"label": "Entry Type",
 			"fieldtype": "Select",
-			"options": "\nEmployee Advance\nPayment Entry",
+			"options": "\nEmployee Advance RIGPL\nPayment Entry",
 			"default": "Payment Entry",
 			"reqd": 1,
 		},

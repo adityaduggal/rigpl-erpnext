@@ -46,5 +46,6 @@ frappe.query_reports["Employee Loan Analysis"] = {
 			"label": "Details",
 			"fieldtype": "Check"
 		},
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 }

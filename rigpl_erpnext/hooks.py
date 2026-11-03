@@ -91,6 +91,7 @@ jenv = {"methods": ["rigpl_variant_table:rigpl_erpnext.website_rigpl.catalog.get
 before_migrate = [
     "rigpl_erpnext.patches.v13.fix_long_item_names.execute",
     "rigpl_erpnext.patches.v13.fix_duplicate_renamed_doctype_tables.execute",
+    "rigpl_erpnext.patches.v13.rename_employee_advance_rigpl.execute",
 ]
 
 # v13 only: backport of v14 pricing rule "Has Priority". Remove at the v14 upgrade.

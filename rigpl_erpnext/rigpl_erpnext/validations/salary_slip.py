@@ -301,51 +301,55 @@ def get_expense_claim(doc, med):
 
 
 def get_loan_deduction(doc, msd, med):
-    existing_loan = []
-    for d in doc.deductions:
-        existing_loan.append(d.employee_loan)
-    # get total loan due for employee
-    query = """SELECT el.name, eld.name, eld.emi, el.deduction_type, eld.loan_amount
-    FROM `tabEmployee Advance` el, `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND el.docstatus = 1
-    AND el.posting_date <= '%s' AND eld.employee = '%s'""" % (med, doc.employee)
+    """
+    Adds a Loan Deduction row for each open Employee Advance RIGPL loan of the employee (#199). The amount
+    is the EMI or the balance if less. Each loan row, added or typed, must not be more than the balance.
+    The balance counts the other submitted slips, not this one, so a submitted slip can be recomputed.
+    """
+    in_slip = {row.employee_loan for row in doc.get("deductions") if row.employee_loan}
+    loans = get_loans(doc.employee, med, in_slip)
+    deducted = get_loan_deducted(doc.employee, list(loans), doc.name)
+    for loan in loans.values():
+        balance = flt(loan.loan_amount) - deducted.get(loan.name, 0)
+        if loan.name in in_slip or getdate(loan.posting_date) > getdate(med) or balance <= 0:
+            continue
+        doc.append("deductions", {"idx": len(doc.get("deductions")) + 1, "depends_on_lwp": 0, "default_amount": balance,
+            "employee_loan": loan.name, "salary_component": loan.deduction_type, "amount": min(flt(loan.emi), balance)})
 
-    loan_list = frappe.db.sql(query, as_list=1)
-    for i in loan_list:
-        emi = i[2]
-        total_loan = i[4]
-        if i[0] not in existing_loan:
-            # Check if the loan has already been deducted
-            query = """SELECT SUM(ssd.amount) FROM `tabSalary Detail` ssd, `tabSalary Slip` ss
-            WHERE ss.docstatus = 1 AND ssd.parent = ss.name AND ssd.employee_loan = '%s'
-            AND ss.employee = '%s'""" % (i[0], doc.employee)
-            deducted_amount = frappe.db.sql(query, as_list=1)
+    for row in doc.get("deductions"):
+        if not row.employee_loan:
+            continue
+        loan = loans.get(row.employee_loan)
+        balance = flt(loan.loan_amount) - deducted.get(row.employee_loan, 0) if loan else 0
+        if flt(row.amount) > balance:
+            frappe.throw(("Max deduction allowed {0} for Loan Deduction {1} check row # {2} in "
+                          "Deduction Table").format(balance, row.employee_loan, row.idx))
 
-            if flt(total_loan) > flt(deducted_amount[0][0]):
-                # Add deduction for each loan separately
-                # Check if EMI is less than balance
-                balance = flt(total_loan) - flt(deducted_amount[0][0])
-                if balance > emi:
-                    doc.append("deductions", {
-                        "idx": len(doc.deductions) + 1, "depends_on_lwp": 0, "default_amount": balance,
-                        "employee_loan": i[0], "salary_component": i[3], "amount": emi})
-                else:
-                    doc.append("deductions", {
-                        "idx": len(doc.deductions) + 1, "d_depends_on_lwp": 0, "default_amount": balance,
-                        "employee_loan": i[0], "salary_component": i[3], "amount": balance
-                    })
-    for d in doc.deductions:
-        if d.employee_loan:
-            total_given = frappe.db.sql("""SELECT eld.loan_amount FROM `tabEmployee Advance` el,
-            `tabEmployee Loan Detail` eld WHERE eld.parent = el.name AND eld.employee = '%s'
-            AND el.name = '%s'""" % (doc.employee, d.employee_loan), as_list=1)
 
-            deducted = frappe.db.sql("""SELECT SUM(ssd.amount) FROM `tabSalary Detail` ssd, `tabSalary Slip` ss
-            WHERE ss.docstatus = 1 AND ssd.parent = ss.name  AND ssd.employee_loan = '%s'
-            AND ss.employee = '%s'""" % (d.employee_loan, doc.employee), as_list=1)
-            balance = flt(total_given[0][0]) - flt(deducted[0][0])
-            if balance < d.amount:
-                frappe.throw(("Max deduction allowed {0} for Loan Deduction {1} check row # {2} in "
-                              "Deduction Table").format(balance, d.employee_loan, d.idx))
+def get_loans(employee, med, names):
+    """Submitted loans of the employee posted on or before med, and the loans in names"""
+    loan, row = frappe.qb.DocType("Employee Advance RIGPL"), frappe.qb.DocType("Employee Loan Detail")
+    in_date = loan.posting_date <= med
+    if names:
+        in_date = in_date | loan.name.isin(list(names))
+    rows = (frappe.qb.from_(loan).join(row).on(row.parent == loan.name)
+        .select(loan.name, loan.posting_date, loan.deduction_type, row.emi, row.loan_amount)
+        .where((loan.docstatus == 1) & (row.employee == employee) & in_date)
+        .orderby(loan.posting_date).orderby(loan.name)).run(as_dict=True)
+    return {loan_row.name: loan_row for loan_row in rows}
+
+
+def get_loan_deducted(employee, loan_names, slip_name):
+    """{loan: amount deducted by the submitted slips of the employee other than slip_name}"""
+    if not loan_names:
+        return {}
+    slip, detail = frappe.qb.DocType("Salary Slip"), frappe.qb.DocType("Salary Detail")
+    rows = (frappe.qb.from_(detail).join(slip).on(detail.parent == slip.name)
+        .select(detail.employee_loan, Sum(detail.amount))
+        .where((slip.docstatus == 1) & (slip.employee == employee) & (slip.name != (slip_name or ""))
+            & detail.employee_loan.isin(loan_names))
+        .groupby(detail.employee_loan)).run()
+    return {name: flt(amount) for name, amount in rows}
 
 
 def get_month_dates(doc):

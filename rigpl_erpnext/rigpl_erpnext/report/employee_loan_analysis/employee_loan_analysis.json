@@ -12,7 +12,7 @@
  "module": "RIGPL ERPNext", 
  "name": "Employee Loan Analysis", 
  "owner": "Administrator", 
- "ref_doctype": "Employee Advance", 
+ "ref_doctype": "Employee Advance RIGPL", 
  "report_name": "Employee Loan Analysis", 
  "report_type": "Script Report", 
  "roles": [

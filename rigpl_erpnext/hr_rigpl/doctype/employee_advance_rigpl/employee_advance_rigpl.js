@@ -1,7 +1,7 @@
 // Copyright (c) 2016, Rohit Industries Ltd. and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Employee Advance', {
+frappe.ui.form.on('Employee Advance RIGPL', {
 	refresh: function(frm) {
 
 	}

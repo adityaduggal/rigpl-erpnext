@@ -6,5 +6,5 @@ from __future__ import unicode_literals
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-class TestEmployeeAdvance(FrappeTestCase):
+class TestEmployeeAdvanceRIGPL(FrappeTestCase):
 	pass

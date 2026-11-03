@@ -3,7 +3,7 @@
   {
    "hidden": 0,
    "label": "RIGPL Docs and Reports",
-   "links": "[\n    {\n        \"description\": \"Employee Advance or Loan.\",\n        \"label\": \"Employee Loan or Advance\",\n        \"name\": \"Employee Advance\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    }\n]"
+   "links": "[\n    {\n        \"description\": \"Employee Advance or Loan.\",\n        \"label\": \"Employee Loan or Advance\",\n        \"name\": \"Employee Advance RIGPL\",\n        \"onboard\": 0,\n        \"type\": \"doctype\"\n    }\n]"
   }
  ],
  "category": "Modules",

@@ -7,8 +7,8 @@ def get_data():
 			"items": [
 				{
 					"type": "doctype",
-					"name": "Employee Advance",
-					"description": _("Employee Advance"),
+					"name": "Employee Advance RIGPL",
+					"description": _("Employee Loans"),
 				},
                 {
                     "type": "report",
@@ -20,7 +20,7 @@ def get_data():
                     "type": "report",
                     "is_query_report": True,
                     "name": "Employee Loan Analysis",
-                    "doctype": "Employee Advance",
+                    "doctype": "Employee Advance RIGPL",
                 },
 			]
 		},
