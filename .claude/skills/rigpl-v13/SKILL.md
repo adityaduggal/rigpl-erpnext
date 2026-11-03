@@ -36,10 +36,15 @@ The bench is at `~/v12` and the dev site is `dev-rigpl-v12`.
 4. **Reports**: show 0 as an empty cell. Do both:
    - server side, wrap each row in `blank_zeros(row)` (`utils/report_utils.py`);
    - JS side, set `"formatter": rigpl_erpnext.report.blank_zero_formatter`.
-5. **SQL**: pass values as parameters (`frappe.db.sql(q, {"k": v})`). Interpolate only fixed table or column names.
-6. **Patches**: add them under `patches/v13/` and append the dotted path to `patches.txt`. Patches that must run before the schema sync go in `before_migrate` in `hooks.py`.
-7. **Style**: match the file you edit. Indent is tabs in some files and 4 spaces in others, so do not reformat. Keep the comment density low. No linter is installed in `env`.
-8. **Bench**: never run `bench migrate`, `backup` or `run-tests`. Give the user the commands. Each `run-tests` command has `--skip-before-tests`: without it, the ERPNext `before_tests` hook deletes all rows in Item Price, Leave Allocation, Leave Application and Salary Slip, and commits. Read-only `bench --site dev-rigpl-v12 mariadb` SELECT/SHOW and `console` reads are fine.
+5. **Permissions**: report rows and whitelisted methods show only what the user can read. Report `roles` control only who opens the report. `frappe.get_all`, `frappe.qb` and `frappe.db.sql` skip role permissions and User Permissions.
+   - Read the base DocType (Employee, Salary Slip, Customer, ...) with `frappe.get_list`.
+   - Run raw `frappe.qb` / SQL joins only on names that `get_list` returned, or keep only the rows in `permitted_names(doctype, filters)` (`utils/report_utils.py`).
+   - Use `get_all` only for config and master data that is not sensitive, or after a permission check.
+   - Add a test that runs the report as a user with a User Permission. See `docs/ai/security.md` (#206).
+6. **SQL**: pass values as parameters (`frappe.db.sql(q, {"k": v})`). Interpolate only fixed table or column names.
+7. **Patches**: add them under `patches/v13/` and append the dotted path to `patches.txt`. Patches that must run before the schema sync go in `before_migrate` in `hooks.py`.
+8. **Style**: match the file you edit. Indent is tabs in some files and 4 spaces in others, so do not reformat. Keep the comment density low. No linter is installed in `env`.
+9. **Bench**: never run `bench migrate`, `backup` or `run-tests`. Give the user the commands. Each `run-tests` command has `--skip-before-tests`: without it, the ERPNext `before_tests` hook deletes all rows in Item Price, Leave Allocation, Leave Application and Salary Slip, and commits. Read-only `bench --site dev-rigpl-v12 mariadb` SELECT/SHOW and `console` reads are fine.
 
 ## Skills to use with this one
 
@@ -56,3 +61,4 @@ The bench is at `~/v12` and the dev site is `dev-rigpl-v12`.
 - `docs/ai/manufacturing.md`: Process Sheet / Job Card pipeline and BOM Templates.
 - `docs/ai/website.md`: website module and which section of its README to open.
 - `docs/ai/github.md`: epics, projects and labels.
+- `docs/ai/security.md`: permissions in reports and whitelisted methods.

@@ -3,6 +3,8 @@
 - Tests are in `rigpl_erpnext/tests/test_*.py` (plus a few next to their DocTypes).
 - All tests subclass `frappe.tests.utils.FrappeTestCase`. Do not use `unittest.TestCase`. v13 has no `IntegrationTestCase`.
 - What the v13 `FrappeTestCase` does: `setUpClass` commits, and `tearDownClass` rolls back. It does not roll back between test methods. If a test must not see data from the one before it, call `frappe.db.rollback()` in `tearDown`. If you override `setUpClass` or `tearDownClass`, call `super()`. Use `_Test RIGPL ...` names.
+- A test that inserts a User with `get_doc(...).insert()` commits. In tests `User.on_update` makes a Contact at once, and the ERPNext Contact hook `call_log.link_existing_conversations` calls `frappe.db.commit()`. Insert the User and its `Has Role` rows with `db_insert` (`raw()` in `tests/test_selling_reports.py`), then call `frappe.clear_cache(user=...)`. See `tests/test_report_permissions.py` (#206).
+- If `setUp` fails, `tearDown` does not run, so nothing rolls back. Give each test module its own `_Test RIGPL ...` branch or names, so rows left by one module do not change another.
 - Helpers in `frappe.tests.utils`:
   - `change_settings(doctype, {...})`: a context manager or decorator that sets a single's fields and restores them afterwards (e.g. RIGPL Settings);
   - `timeout(seconds)`: fails a slow test.
