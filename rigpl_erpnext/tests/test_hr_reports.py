@@ -7,6 +7,7 @@ from frappe.utils import getdate
 
 from rigpl_erpnext.hr_rigpl.utils.attendance_report_utils import get_holidays_by_day, get_leaves_by_day, get_month
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_base_list_holiday_counts
+from rigpl_erpnext.rigpl_erpnext.report.attendance_performance_analysis import attendance_performance_analysis
 from rigpl_erpnext.rigpl_erpnext.report.employee_attendance import employee_attendance
 from rigpl_erpnext.rigpl_erpnext.report.monthly_attendance_time_based import monthly_attendance_time_based
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
@@ -102,3 +103,34 @@ class TestMonthlyAttendanceTimeBased(ReportTestCase):
         self.assertEqual([row[3:6] for row in rows], [["09:00", "Sunday", "09:15"], ["18:30", "Sunday", ""],
             [2, 0, 0]])
         self.assertEqual(rows[0][6], "X")
+
+
+class TestAttendancePerformanceAnalysis(ReportTestCase):
+    def test_totals(self):
+        # This report counts the holidays of the lists made from the employee's base list
+        insert_employee(EMP, holiday_list=BASE_LIST)
+        insert_holiday_list([("2026-09-06", "Sunday")])
+        insert_attendance(EMP, "2026-09-01", overtime=1.5)
+        insert_attendance(EMP, "2026-09-02", status="Absent")
+        insert_leave(EMP, "2026-09-03", "2026-09-04", 2)
+        filters = frappe._dict(from_date="2026-09-01", to_date="2026-09-10", branch=BRANCH)
+
+        data = self.assert_queries(4, lambda: attendance_performance_analysis.execute(filters)[1])
+
+        row = next(row for row in data if row[0] == EMP)
+        # 10 days, 1 holiday, 1 present, 1.5 OT, 2 leave days: 1 cal holiday, 6 unauthorized
+        self.assertEqual(row[2:8], [10, 1, 1, 1.5, 2, 6])
+
+    def test_no_working_days_does_not_fail(self):
+        # This report counts the holidays of the lists made from the employee's base list
+        insert_employee(EMP, holiday_list=BASE_LIST)
+        insert_holiday_list([("2026-09-01", "Sunday"), ("2026-09-02", "Sunday")])
+
+        data = attendance_performance_analysis.execute(frappe._dict(from_date="2026-09-01", to_date="2026-09-02",
+            employee=EMP))[1]
+
+        self.assertEqual([row[2:4] for row in data], [[2, 2]])
+
+    def test_wrong_period(self):
+        filters = frappe._dict(from_date="2026-09-10", to_date="2026-09-01")
+        self.assertRaises(frappe.ValidationError, attendance_performance_analysis.execute, filters)
