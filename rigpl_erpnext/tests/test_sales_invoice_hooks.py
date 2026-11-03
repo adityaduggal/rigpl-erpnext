@@ -13,6 +13,7 @@ STOCK_ITEM = "_Test RIGPL SI Stock"
 SERVICE_ITEM = "_Test RIGPL SI Service"
 SO = "_Test RIGPL SI SO"
 TPT_FEDEX = "_Test RIGPL SI FedEx"
+FEDEX_ACCOUNT = "_Test RIGPL SI FedEx Account"
 TPT_HAND = "_Test RIGPL SI By Hand"
 
 
@@ -43,13 +44,15 @@ class SalesInvoiceHookCase(FrappeTestCase):
             for pl in (PL_OPEN, PL_BLOCKED):
                 insert_raw("Item Price", frappe.generate_hash(length=10), item_code=name, price_list=pl,
                     price_list_rate=100.0, currency="INR", selling=1)
-        insert_raw("Transporters", TPT_FEDEX, fedex_credentials=1)
-        insert_raw("Transporters", TPT_HAND)
+        insert_raw("Shipping Provider Account", FEDEX_ACCOUNT, account_name=FEDEX_ACCOUNT, provider="FedEx", enabled=1)
+        insert_raw("Transporters", TPT_FEDEX, api_mode="Booking and Tracking", shipping_provider_account=FEDEX_ACCOUNT)
+        insert_raw("Transporters", TPT_HAND, api_mode="None")
 
     def tearDown(self):
         frappe.db.rollback()
         for name in (TPT_FEDEX, TPT_HAND):
             frappe.clear_document_cache("Transporters", name)
+        frappe.clear_document_cache("Shipping Provider Account", FEDEX_ACCOUNT)
 
 
 class TestPriceList(SalesInvoiceHookCase):

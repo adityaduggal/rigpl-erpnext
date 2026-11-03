@@ -318,14 +318,14 @@ scheduler_events = {
         ],
     },
     "daily_long": [
-        "rigpl_erpnext.rigpl_erpnext.doctype.carrier_tracking.common.unpublish_old_ctracks",
+        "rigpl_erpnext.rigpl_erpnext.shipping.tracking.daily_shipping_jobs",
         "rigpl_erpnext.utils.role_permission_policy.enforce_role_permission_policy",
     ],
     "hourly_long": [
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.user_permission_sync.execute",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.communication.create_follow_up_todos",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.send_bulk_tracks",
-        "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update.get_all_ship_data",
+        "rigpl_erpnext.rigpl_erpnext.shipping.tracking.push_to_aggregator",
+        "rigpl_erpnext.rigpl_erpnext.shipping.tracking.poll_open_shipments",
         "rigpl_erpnext.rigpl_erpnext.scheduled_tasks.automate_docshare.execute",
     ],
 }

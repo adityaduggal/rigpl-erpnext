@@ -78,6 +78,34 @@ def bulk_set_fields(doctype: str, new_by_name: Dict[str, Dict], old_by_name: Dic
     return changes
 
 
+def bulk_update_rows(doctype: str, values_by_name: Dict[str, Dict], update_modified: bool = False) -> int:
+    """
+    Writes different values to many documents with one UPDATE for each chunk of names:
+    SET field = CASE name WHEN ... THEN ... ELSE field END. Use it when each document gets
+    its own values (bulk_set_fields makes one UPDATE for each distinct set of values).
+    No Version is added, and the hooks do not run. Returns the number of documents.
+    """
+    from pypika import Case
+
+    table = frappe.qb.DocType(doctype)
+    timestamp, user = now(), frappe.session.user
+    names = [name for name, values in values_by_name.items() if values]
+    for chunk in chunks(names):
+        fields = sorted({field for name in chunk for field in values_by_name[name]})
+        query = frappe.qb.update(table)
+        for field in fields:
+            case = Case()
+            for name in chunk:
+                if field in values_by_name[name]:
+                    case = case.when(table.name == name, values_by_name[name][field])
+            query = query.set(table[field], case.else_(table[field]))
+        if update_modified:
+            query = query.set(table.modified, timestamp).set(table.modified_by, user)
+        query.where(table.name.isin(chunk)).run()
+    clear_document_cache(doctype, names)
+    return len(names)
+
+
 def bulk_insert_rows(doctype: str, fields: Iterable[str], rows: List[Tuple], update_fields=()):
     """
     Inserts rows in chunks. With `update_fields`, an existing row (same name) gets those

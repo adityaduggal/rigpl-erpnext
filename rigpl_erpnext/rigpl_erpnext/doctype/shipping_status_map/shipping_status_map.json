@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "creation": "2026-11-03 13:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "provider",
+  "match_on",
+  "carrier_code",
+  "cb_main",
+  "status",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Provider",
+   "options": "\nFedEx\nDTDC\nShipway",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "default": "Code",
+   "description": "Code: the carrier code is equal. Code Starts With: the code starts with it. Text Contains: the status text of the carrier has it. Code rows are checked first, then the longest match.",
+   "fieldname": "match_on",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Match On",
+   "options": "Code\nCode Starts With\nText Contains",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "carrier_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Carrier Code or Text",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "cb_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Empty: not mapped yet. The tracking then stays In Transit and is polled again.",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "\nBooked\nIn Transit\nOut for Delivery\nDelivered\nRTO\nException\nCancelled\nNo Information\nClosed - No Update"
+  },
+  {
+   "description": "The text of the carrier for this code, as last seen.",
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Carrier Description"
+  }
+ ],
+ "links": [],
+ "modified": "2026-11-03 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "RIGPL ERPNext",
+ "name": "Shipping Status Map",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "carrier_code",
+ "track_changes": 1
+}

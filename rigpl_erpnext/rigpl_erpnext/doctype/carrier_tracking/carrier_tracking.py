@@ -1,467 +1,316 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2017, Rohit Industries Ltd. and contributors
 # For license information, please see license.txt
-
-
-from __future__ import unicode_literals
-import re
+"""
+Carrier Tracking. The carrier APIs are in `rigpl_erpnext/shipping/` (#168): the buttons call
+`shipping.actions`, and the jobs in `shipping.tracking` write the tracking data.
+"""
 import frappe
-from fedex.tools.conversion import sobject_to_dict
-from frappe.website.website_generator import WebsiteGenerator
 from frappe.utils import flt
-from frappe.utils.file_manager import remove_all
-from .common import get_shipment_cost
-from ...scheduled_tasks.shipment_data_update import getOrderShipmentDetails, pushOrderData, courier_charges_validation
-from ...validations.sales_invoice import create_new_carrier_track
-from .fedex_functions import shipment_booking, start_delete_shipment, get_signature_proof, \
-    validate_address, get_rates_from_fedex, get_available_services
-from .dtdc_functions import dtdc_shipment_booking, dtdc_get_available_services, dtdc_get_pdf
-from ....utils.sales_utils import validate_address_google_update
+from frappe.website.website_generator import WebsiteGenerator
 from rohit_common.utils.rohit_common_utils import get_email_id
+
+from ...shipping import actions
+from ...shipping.accounts import BOOKING
+from ...shipping.registry import get_carrier, transporter_api
+from ...shipping.tracking import track_now
+from ...shipping.validations import courier_charges_validation
+from ....utils.sales_utils import validate_address_google_update
 
 
 class CarrierTracking(WebsiteGenerator):
-    allowed_docs_items = ['Sales Invoice', 'Purchase Order']
+    allowed_docs_items = ["Sales Invoice", "Purchase Order"]
 
-    def get_dtdc_pdf(self):
-        dtdc_get_pdf(self.awb_number, self)
+    # ------------------------------------------------------------------ buttons (whitelisted for v13)
 
-    def pushdata(self):
-        pushOrderData(self)
-
+    @frappe.whitelist()
     def get_status(self):
-        trans_doc = frappe.get_doc('Transporters', self.carrier_name)
-        if trans_doc.fedex_credentials == 1 or trans_doc.dtdc_credentials == 1:
-            api_booking = 1
-        else:
-            api_booking = 0
-        if self.status == "":
-            if api_booking == 1:
-                frappe.throw("First Book the Shipment.")
-        if self.status is not None or self.status != "Not Booked" or self.status != "":
-            getOrderShipmentDetails(self)
-        else:
-            frappe.throw("First Book the Shipment.")
+        track_now(self)
+        self.reload()
 
-    def get_sign_proof(self):
-        get_signature_proof(self)
+    @frappe.whitelist()
+    def pushdata(self):
+        carrier = get_carrier(self.carrier_name)
+        if not carrier or not carrier.provider.supports("push"):
+            frappe.throw(f"{frappe.get_desk_link('Transporters', self.carrier_name)} is not tracked on Shipway")
+        if self.posted_to_shipway:
+            frappe.msgprint("Already Posted to Shipway")
+            return
+        if carrier.provider.push(self.name, self.awb_number, carrier.service_code):
+            frappe.db.set_value(self.doctype, self.name, {"posted_to_shipway": 1, "status": "Shipment Data Uploaded"})
+        else:
+            frappe.msgprint(f"Some Issues in posting {self.name}")
 
+    @frappe.whitelist()
+    def get_rates(self):
+        self.validate()
+        if not self.shipment_package_details:
+            frappe.throw(f"Shipment Package Details are needed for the rates of {self.name}")
+        actions.get_rates(self)
+        self.save()
+
+    @frappe.whitelist()
+    def book_shipment(self, test_marking=0):
+        self.validate()
+        actions.book(self, test_marking=bool(int(test_marking or 0)))
+
+    @frappe.whitelist()
+    def get_labels(self):
+        actions.get_labels(self)
+
+    @frappe.whitelist()
+    def get_pod(self):
+        actions.get_pod(self)
+
+    @frappe.whitelist()
+    def available_services(self):
+        frappe.msgprint(actions.check_serviceability(self))
+
+    @frappe.whitelist()
     def address_validation(self):
-        validate_address(self)
+        actions.validate_address(self)
 
-    def autoname(self):
-        if self.get("__is_local") == 1:
-            self.validate()
+    @frappe.whitelist()
+    def delete_shipment(self):
+        actions.cancel(self)
+
+    # ------------------------------------------------------------------------------- lifecycle
 
     def validate(self):
-        trans_doc = frappe.get_doc('Transporters', self.carrier_name)
-        if trans_doc.fedex_credentials == 1 or trans_doc.dtdc_credentials == 1:
-            api_booking = 1
-        else:
-            api_booking = 0
-        if self.reference_document_name:
-            if self.reference_document_name.split('-')[0] != self.document_name.split('-')[0]:
-                frappe.throw(f"{self.name} is Already Linked to {self.document}# {self.reference_document_name}")
-        self.update_fields(trans_doc)
+        tpt = frappe.get_cached_doc("Transporters", self.carrier_name)
+        provider, api_mode = transporter_api(self.carrier_name)
+        if self.reference_document_name and \
+                self.reference_document_name.split("-")[0] != (self.document_name or "").split("-")[0]:
+            frappe.throw(f"{self.name} is Already Linked to {self.document}# {self.reference_document_name}")
+        self.update_fields(tpt)
         if self.to_address:
             validate_address_google_update(self.to_address)
         if self.from_address:
             validate_address_google_update(self.from_address)
         if self.docstatus != 1:
             self.published = 0
+        if not self.published:
             self.route = ""
-        if self.status == "" or self.status == "Not Booked" or api_booking == 1:
-            pass
-        else:
-            self.docstatus = 1
-        if self.published == 1:
+        elif not self.route:
             self.route = self.name.lower()
-        else:
-            self.route = ""
-        trans_doc = frappe.get_doc("Transporters", self.carrier_name)
-        if trans_doc.track_on_shipway != 1 and trans_doc.fedex_credentials != 1 and trans_doc.fedex_tracking_only != 1:
-            if trans_doc.docstatus != 1:
-                trans_doc.docstatus = 1
-                trans_doc.manual_exception_removed = 1
-        from_address_doc = frappe.get_doc("Address", self.from_address)
-        to_address_doc = frappe.get_doc("Address", self.to_address)
-        contact_doc = frappe.get_doc("Contact", self.contact_person)
-        self.gen_add_validations(trans_doc, from_address_doc, to_address_doc)
-        self.set_recipient_email(to_address_doc, contact_doc)
-        self.validate_country(self.from_address, self.to_address)
-        # self.shipment_cost = get_shipment_cost(self)
-        if trans_doc.fedex_credentials == 1:
-            self.fedex_account_number = trans_doc.fedex_account_number
-            self.sales_invoice_validations_fedex()
+        from_address = frappe.get_doc("Address", self.from_address)
+        to_address = frappe.get_doc("Address", self.to_address)
+        self.check_invoice_integrity(from_address)
+        self.set_recipient_email(to_address)
+        # The old code ran these checks only for FedEx booking (fedex_credentials), keep that
+        if api_mode == BOOKING and provider == "FedEx":
+            self.fedex_account_number = frappe.get_cached_value(
+                "Shipping Provider Account", tpt.shipping_provider_account, "account_number")
+            self.sales_invoice_validations()
             self.ctrack_validations()
-            courier_charges_validation(self, trans_doc)
-            self.carrier_validations(trans_doc, from_address_doc, to_address_doc)
-        else:
-            self.non_fedex_validations()
+            courier_charges_validation(self, tpt.max_percent_of_invoice_value)
+            self.carrier_validations(tpt, from_address, to_address)
+        elif tpt.is_domestic_only and from_address.country != to_address.country:
+            frappe.throw(f"For {frappe.get_desk_link(self.doctype, self.name)} "
+                         f"{frappe.get_desk_link('Transporters', self.carrier_name)} is Only for Domestic Booking")
 
     def on_submit(self):
-        self.published = 1
-        self.route = self.name.lower()
+        self.db_set({"published": 1, "route": self.route or self.name.lower()})
         self.push_data_to_sales_invoice()
 
     def on_cancel(self):
-        frappe.db.set_value("Carrier Tracking", self.name, "published", 0)
-        frappe.db.set_value("Carrier Tracking", self.name, "route", "")
+        self.db_set({"published": 0, "route": ""})
 
     def push_data_to_sales_invoice(self):
-        if self.document == 'Sales Invoice':
-            frappe.db.set_value('Sales Invoice', self.document_name, 'transporters', self.carrier_name)
-            frappe.db.set_value('Sales Invoice', self.document_name, 'lr_no', self.awb_number)
+        if self.document == "Sales Invoice":
+            frappe.db.set_value("Sales Invoice", self.document_name,
+                                {"transporters": self.carrier_name, "lr_no": self.awb_number})
 
-    def update_fields(self, trans_doc):
-        if self.document == 'Sales Invoice':
+    # ------------------------------------------------------------------------------ validations
+
+    def update_fields(self, tpt):
+        if self.document == "Sales Invoice":
             si_doc = frappe.get_doc("Sales Invoice", self.document_name)
             self.receiver_document = "Customer"
             self.receiver_name = si_doc.customer
-            tax_temp_doc = frappe.get_doc("Sales Taxes and Charges Template", \
-                                          si_doc.taxes_and_charges)
-            if not self.from_address and self.get("__islocal") == 1:
-                if not tax_temp_doc.from_address:
-                    frappe.throw("Update From Address in Tax Template {}".format(tax_temp_doc.name))
-                else:
-                    self.from_address = tax_temp_doc.from_address
-            elif not self.from_address:
-                frappe.throw("From Address is Needed before Saving the Document")
+            tax = frappe.get_cached_value("Sales Taxes and Charges Template", si_doc.taxes_and_charges,
+                                          ["from_address", "is_sample"], as_dict=True) or frappe._dict()
+            self.set_from_address(tax.from_address, si_doc.taxes_and_charges)
             self.to_address = si_doc.shipping_address_name
             self.contact_person = si_doc.contact_person
-            if tax_temp_doc.is_sample == 1:
-                self.purpose = 'SAMPLE'
-                if self.amount == 0:
+            if tax.is_sample == 1:
+                self.purpose = "SAMPLE"
+                if not self.amount:
                     self.amount = 1
             else:
-                self.purpose = 'SOLD'
+                self.purpose = "SOLD"
                 self.amount = si_doc.grand_total
             self.currency = si_doc.currency
-            chrgd_courier = 0
-            for d in si_doc.items:
-                if d.income_account == trans_doc.invoice_courier_charges_account:
-                    chrgd_courier += d.base_amount
-            self.courier_charged = chrgd_courier
-        elif self.document == 'Purchase Order':
+            self.courier_charged = sum(flt(d.base_amount) for d in si_doc.items
+                                       if d.income_account == tpt.invoice_courier_charges_account)
+        elif self.document == "Purchase Order":
             po_doc = frappe.get_doc("Purchase Order", self.document_name)
             self.receiver_document = "Supplier"
             self.receiver_name = po_doc.supplier
-            tax_temp_doc = frappe.get_doc("Purchase Taxes and Charges Template", \
-                                          po_doc.taxes_and_charges)
-            if not self.from_address and self.get("__islocal") == 1:
-                if not tax_temp_doc.from_address:
-                    frappe.throw("Update From Address in Tax Template {}".format(tax_temp_doc.name))
-                else:
-                    self.from_address = tax_temp_doc.from_address
-            elif not self.from_address:
-                frappe.throw("From Address is Needed before Saving the Document")
+            from_address = frappe.get_cached_value("Purchase Taxes and Charges Template", po_doc.taxes_and_charges,
+                                                   "from_address")
+            self.set_from_address(from_address, po_doc.taxes_and_charges)
             self.to_address = po_doc.supplier_address
             self.contact_person = po_doc.contact_person
-            self.purpose = 'NOT_SOLD'
+            self.purpose = "NOT_SOLD"
             self.amount = po_doc.grand_total
             self.currency = po_doc.currency
-        elif self.document in ('Customer', 'Supplier', 'Company', 'Sales Partner', 'Employee'):
-            if not self.carrier_name:
-                frappe.throw('Select the Carrier Through which Shipment is to be Sent')
-            if not self.purpose:
-                frappe.throw('Select the Purpose of Shipment')
-            if not self.from_address:
-                frappe.throw('Select the Address from which Shipment is to be Sent')
-            if not self.shipment_notes:
-                frappe.throw('Add a Small description of the Type of Things in Consignment in Shipment Notes')
-            cu_doc = frappe.get_doc(self.document, self.document_name)
-            self.receiver_document = self.document
-            self.receiver_name = self.document_name
-            # Validate To Address and contact person of customer or supplier only
-            if not self.to_address:
-                def_to_add = frappe.db.sql("""SELECT ad.name FROM `tabAddress` ad, `tabDynamic Link` dl 
-                WHERE  dl.link_doctype = '%s' AND dl.link_name = '%s' AND dl.parent = ad.name""" %
-                                           (self.document, self.document_name), as_list=1)
-                self.to_address = def_to_add[0][0]
-            if not self.contact_person:
-                def_contact = frappe.db.sql("""SELECT con.name FROM `tabContact` con, `tabDynamic Link` dl 
-                WHERE  dl.link_doctype = '%s' AND dl.link_name = '%s' AND dl.parent = con.name""" %
-                                            (self.document, self.document_name), as_list=1)
-                self.contact_person = def_contact[0][0]
-            if self.to_address or self.contact_person:
-                linked_add = frappe.db.sql("""SELECT link_name FROM `tabDynamic Link` WHERE parent = '%s' AND 
-                link_doctype = '%s' AND link_name = '%s'""" % (self.to_address, self.document, self.document_name))
-                if not linked_add:
-                    frappe.throw("To Address: {} not from {}: {}".
-                                 format(self.to_address, self.document, self.document_name))
-                linked_con = frappe.db.sql("""SELECT link_name FROM `tabDynamic Link` WHERE parent = '%s' AND 
-                link_doctype = '%s' AND link_name = '%s'""" % (self.to_address, self.document, self.document_name))
-                if not linked_con:
-                    frappe.throw("Contact: {} not from {}: {}".
-                                 format(self.contact_person, self.document, self.document_name))
-            if not self.amount:
-                self.amount = 1
-            self.currency = 'INR'
+        elif self.document in ("Customer", "Supplier", "Company", "Sales Partner", "Employee"):
+            self.update_fields_for_party()
 
-    def non_fedex_validations(self):
-        if self.document == 'Sales Invoice':
-            si_doc = frappe.get_doc("Sales Invoice", self.document_name)
-            if self.invoice_integrity != 1:
-                if self.posted_to_shipway == 1:
-                    si_awb = re.sub('[^A-Za-z0-9]+', '', str(si_doc.lr_no))
-                    if re.sub('[^A-Za-z0-9]+', '', str(self.awb_number)) != si_awb or \
-                            si_doc.transporters != self.carrier_name:
-                        create_new_carrier_track(si_doc, frappe)
-                        self.submit()
+    def set_from_address(self, template_address, template):
+        if self.from_address:
+            return
+        if not self.get("__islocal"):
+            frappe.throw("From Address is Needed before Saving the Document")
+        if not template_address:
+            frappe.throw(f"Update From Address in Tax Template {template}")
+        self.from_address = template_address
 
-    def gen_add_validations(self, trans_doc, from_address_doc, to_address_doc):
-        if self.status == "Delivered":
-            frappe.db.set_value("Carrier Tracking", self.name, "docstatus", 1)
-        if from_address_doc.pincode is None:
-            frappe.throw("No Pin Code Defined for Address {} if pincode not known enter NA".format(self.from_address))
-        if self.document == 'Sales Invoice':
-            si_doc = frappe.get_doc("Sales Invoice", self.document_name)
-            if self.carrier_name == si_doc.transporters and self.awb_number == si_doc.lr_no:
-                self.invoice_integrity = 1
-            else:
-                self.invoice_integrity = 0
+    def update_fields_for_party(self):
+        for field, message in (("carrier_name", "Select the Carrier Through which Shipment is to be Sent"),
+                               ("purpose", "Select the Purpose of Shipment"),
+                               ("from_address", "Select the Address from which Shipment is to be Sent"),
+                               ("shipment_notes", "Add a Small description of the Type of Things in Consignment in "
+                                                  "Shipment Notes")):
+            if not self.get(field):
+                frappe.throw(message)
+        self.receiver_document = self.document
+        self.receiver_name = self.document_name
+        linked = self.get_party_links()
+        if not self.to_address:
+            self.to_address = next(iter(linked["Address"]), None)
+        if not self.contact_person:
+            self.contact_person = next(iter(linked["Contact"]), None)
+        if self.to_address not in linked["Address"]:
+            frappe.throw(f"To Address: {self.to_address} not from {self.document}: {self.document_name}")
+        if self.contact_person and self.contact_person not in linked["Contact"]:
+            frappe.throw(f"Contact: {self.contact_person} not from {self.document}: {self.document_name}")
+        if not self.amount:
+            self.amount = 1
+        self.currency = "INR"
 
-    def carrier_validations(self, trans_doc, from_address_doc, to_address_doc):
-        contact_doc = frappe.get_doc('Contact', self.contact_person)
-        if trans_doc.is_outward_only == 1:
-            if self.is_inward != 1:
-                if from_address_doc.is_your_company_address != 1:
-                    frappe.throw('Since {} is Outward Transporter, From Address Should be Owned Address'.
-                                 format(self.carrier_name))
-            else:
-                if from_address_doc.is_your_company_address == 1:
-                    frappe.throw('Since {} is Marked For Inward Shipment, From Address Should Not be Owned Address'.
-                                 format(self.carrier_name))
+    def get_party_links(self):
+        """{"Address": [...], "Contact": [...]} linked to the party: 1 query."""
+        rows = frappe.get_all("Dynamic Link", filters={"link_doctype": self.document, "link_name": self.document_name,
+                                                       "parenttype": ["in", ["Address", "Contact"]]},
+                              fields=["parent", "parenttype"], order_by="creation")
+        links = {"Address": [], "Contact": []}
+        for row in rows:
+            links[row.parenttype].append(row.parent)
+        return links
+
+    def check_invoice_integrity(self, from_address):
+        if from_address.pincode is None:
+            frappe.throw(f"No Pin Code Defined for Address {self.from_address} if pincode not known enter NA")
+        if self.document == "Sales Invoice":
+            si = frappe.db.get_value("Sales Invoice", self.document_name, ["transporters", "lr_no"], as_dict=True)
+            self.invoice_integrity = int(bool(si) and self.carrier_name == si.transporters
+                                         and self.awb_number == si.lr_no)
+
+    def carrier_validations(self, tpt, from_address, to_address):
+        name = self.carrier_name
+        own_from, own_to = from_address.is_your_company_address == 1, to_address.is_your_company_address == 1
+        same_country = from_address.country == to_address.country
+        if tpt.is_outward_only == 1:
+            if self.is_inward != 1 and not own_from:
+                frappe.throw(f"Since {name} is Outward Transporter, From Address Should be Owned Address")
+            if self.is_inward == 1 and own_from:
+                frappe.throw(f"Since {name} is Marked For Inward Shipment, From Address Should Not be Owned Address")
         else:
-            if from_address_doc.is_your_company_address == 1:
-                frappe.throw('Since {} is Inward Transporter, From Address Should be not be Owned Address'.
-                             format(self.carrier_name))
-            if to_address_doc.is_your_company_address != 1:
-                frappe.throw('Since {} is Inward Transporter, To Address Should be Owned Address'.
-                             format(self.carrier_name))
-        if trans_doc.is_export_only == 1:
-            if from_address_doc.country == to_address_doc.country:
-                frappe.throw('Since {} is Export Transporter, To Address Should be not be in {}'.
-                             format(self.carrier_name, from_address_doc.country))
-        if trans_doc.is_imports_only == 1:
-            if from_address_doc.is_your_company_address == 1:
-                frappe.throw('Since {} is Import Transporter, From Address Should be not owned Address'.
-                             format(self.carrier_name))
-            if from_address_doc.country == to_address_doc.country:
-                frappe.throw('Since {} is Import Transporter, From Address Country Should not be Same as To Address'.
-                             format(self.carrier_name))
-            if from_address_doc.is_your_company_address != 1:
-                frappe.throw('Since {} is Import Transporter,To Address Should be Owned Address'.
-                             format(self.carrier_name))
-        if trans_doc.is_domestic_only == 1:
-            if from_address_doc.country != to_address_doc.country:
-                frappe.throw('Since {} is Domestic Transporter, From and To Address Should be in Same Country'.
-                             format(self.carrier_name))
-        if flt(trans_doc.minimum_weight) > 0 and self.get("__islocal") != 1:
-            if flt(trans_doc.minimum_weight) > flt(self.total_weight):
-                frappe.throw('Minimum Weight for {} is {} kgs'.format(self.carrier_name, trans_doc.minimum_weight))
-        if trans_doc.maximum_amount > 0:
-            if trans_doc.maximum_amount < self.amount:
-                frappe.throw('Maximum Value for {} is {}'.format(self.carrier_name, trans_doc.maximum_amount))
-        if self.amount < 1:
+            if own_from:
+                frappe.throw(f"Since {name} is Inward Transporter, From Address Should be not be Owned Address")
+            if not own_to:
+                frappe.throw(f"Since {name} is Inward Transporter, To Address Should be Owned Address")
+        if tpt.is_export_only == 1 and same_country:
+            frappe.throw(f"Since {name} is Export Transporter, To Address Should be not be in {from_address.country}")
+        if tpt.is_imports_only == 1:
+            if own_from:
+                frappe.throw(f"Since {name} is Import Transporter, From Address Should be not owned Address")
+            if same_country:
+                frappe.throw(f"Since {name} is Import Transporter, From Address Country Should not be Same as To Address")
+        if tpt.is_domestic_only == 1 and not same_country:
+            frappe.throw(f"Since {name} is Domestic Transporter, From and To Address Should be in Same Country")
+        if flt(tpt.minimum_weight) > 0 and not self.get("__islocal") and flt(tpt.minimum_weight) > flt(self.total_weight):
+            frappe.throw(f"Minimum Weight for {name} is {tpt.minimum_weight} kgs")
+        if flt(tpt.maximum_amount) > 0 and flt(tpt.maximum_amount) < flt(self.amount):
+            frappe.throw(f"Maximum Value for {name} is {tpt.maximum_amount}")
+        if flt(self.amount) < 1:
             frappe.throw("Amount Should be One or More than One")
 
     def ctrack_validations(self):
-        # Only allow SYSTEM MANAGER to make changes to the DOCUMENT with SENDER
-        # DUTIES PAYMENT (Very RISKY OPTION hence this Validation)
-        if self.duties_payment_by == 'SENDER':
-            user = frappe.session.user
-            roles = frappe.db.sql("""SELECT role FROM `tabHas Role` WHERE parent = '%s' """ % user, as_list=1)
-            if any("System Manager" in s for s in roles):
-                pass
-            else:
-                frappe.throw("Only System Managers are Allowed to Make Changes to {} as Duties Payment is by {}".
-                             format(self.name, self.duties_payment_by))
-        # Update Package Details and also Validate UOM and Volumetric Weight
-        for pkg in self.shipment_package_details:
-            pkg_doc = frappe.get_doc("Shipment Package", pkg.shipment_package)
-            pkg.package_name = pkg_doc.title
-            pkg.volumetric_weight = pkg_doc.volumetric_weight_in_kgs
-            if pkg.weight_uom != 'Kg':
+        # Duties paid by the sender is a risky option, so only a System Manager may change it
+        if self.duties_payment_by == "SENDER" and "System Manager" not in frappe.get_roles():
+            frappe.throw(f"Only System Managers are Allowed to Make Changes to {self.name} as Duties Payment is by "
+                         f"{self.duties_payment_by}")
+        packages = {p.name: p for p in frappe.get_all(
+            "Shipment Package", filters={"name": ["in", [r.shipment_package for r in self.shipment_package_details]]},
+            fields=["name", "title", "volumetric_weight_in_kgs"])}
+        for row in self.shipment_package_details:
+            pkg = packages.get(row.shipment_package) or frappe._dict()
+            row.package_name = pkg.title
+            row.volumetric_weight = pkg.volumetric_weight_in_kgs
+            if row.weight_uom != "Kg":
                 frappe.throw("Only Kg is allowed currently in Package Weight UoM")
-            if flt(pkg.volumetric_weight) > flt(pkg.package_weight):
+            if flt(row.volumetric_weight) > flt(row.package_weight):
                 frappe.throw("Parcel Weight Less than Volumetric Weight, USE Smaller Package or Change the "
-                             "Weight in Row {}".format(pkg.idx))
+                             f"Weight in Row {row.idx}")
 
-    def sales_invoice_validations_fedex(self):
+    def sales_invoice_validations(self):
         if self.document in CarrierTracking.allowed_docs_items:
-            si_doc = frappe.get_doc(self.document, self.document_name)
-            other_tracks = frappe.db.sql("""SELECT name FROM `tabCarrier Tracking`WHERE document = '%s' AND 
-            document_name = '%s' AND docstatus != 2 AND name != '%s'""" %
-                                         (self.document, self.document_name, self.name), as_list=1)
-            if other_tracks:
-                frappe.throw('{}: {} is already linked to {}'.format(self.document, self.document_name,
-                                                                     other_tracks[0][0]))
-            if self.awb_number:
-                if self.awb_number != si_doc.lr_no:
-                    self.push_data_to_sales_invoice()
-        else:
-            if self.purpose == 'SOLD':
-                frappe.throw('Purpose SOLD only possible for Sales Invoices')
-        total_weight = 0
-        if self.shipment_package_details:
-            for d in self.shipment_package_details:
-                total_weight += d.package_weight
-                self.weight_uom = d.weight_uom
-                self.total_handling_units = d.idx
-            if total_weight > 0:
-                if flt(self.total_weight) != flt(total_weight):
-                    self.total_weight = total_weight
-
-    def validate_empty_shipment(self):
-        if self.shipment_package_details:
-            pass
-        else:
-            frappe.throw("Shipment Package Details mandatory for Booking Shipment for {}".format(self.name))
-
-    def available_services(self):
-        trans_doc = frappe.get_doc("Transporters", self.carrier_name)
-        if trans_doc.fedex_credentials == 1:
-            get_available_services(self)
-        elif trans_doc.dtdc_credentials == 1:
-            dtdc_get_available_services(self)
-
-    def get_rates(self):
-        tpt_doc = frappe.get_doc("Transporters", self.carrier_name)
-        self.validate()
-        self.validate_empty_shipment()
-        if tpt_doc.calculate_cost_from_quote == 1:
-            self.shipment_cost = get_shipment_cost(self)
-            self.save()
-        else:
-            get_rates_from_fedex(self)
-
-    def book_shipment(self):
-        trans_doc = frappe.get_doc('Transporters', self.carrier_name)
-        self.validate()
-        self.validate_empty_shipment()
-        if self.shipment_package_details:
-            for packages in self.shipment_package_details:
-                if packages.tracking_id and packages.idx == 1:
-                    frappe.throw("Shipment Already Booked with Tracking Number: {}".format(self.awb_number))
-                else:
-                    if self.get("__islocal") != 1:
-                        if packages.idx == 1:
-                            if trans_doc.fedex_credentials == 1:
-                                shipment_booking(self)
-                            elif trans_doc.dtdc_credentials == 1:
-                                self.get_rates()
-                                dtdc_shipment_booking(self)
-                            else:
-                                frappe.throw('Shipment booking for {} is Not Available in {}'.
-                                             format(frappe.get_desk_link('Transporters', self.carrier_name),
-                                                    frappe.get_desk_link(self.doctype, self.name)))
-                            self.published = 1
-                            self.route = self.name.lower()
-                            self.docstatus = 1
-                            self.save(ignore_permissions=True)
-                    else:
-                        frappe.throw('Save the Transaction before Booking Shipment')
-        else:
-            frappe.throw("To Book Shipment, Package Details is Mandatory")
-
-    def delete_shipment(self):
-        if self.status == "Booked":
-            tpt_doc = frappe.get_doc("Transporters", self.carrier_name)
-            if tpt_doc.fedex_credentials == 1:
-                try:
-                    start_delete_shipment(self)
-                except:
-                    frappe.msgprint(('Some ERROR guess AWB not found on Fedex for AWB# {}').format(self.awb_number))
-
-            frappe.db.set_value("Carrier Tracking", self.name, "docstatus", 0)
-            frappe.db.set_value("Carrier Tracking", self.name, "awb_number", "NA")
-            frappe.db.set_value("Carrier Tracking", self.name, "status_code", "")
-            frappe.db.set_value("Carrier Tracking", self.name, "published", 0)
-            frappe.db.set_value("Carrier Tracking", self.name, "route", "")
-            frappe.db.set_value("Carrier Tracking", self.name, "status", "Not Booked")
-            if self.document == 'Sales Invoice':
+            others = frappe.get_all("Carrier Tracking", filters={"document": self.document, "document_name": self.document_name,
+                                                                 "docstatus": ["!=", 2], "name": ["!=", self.name]},
+                                    pluck="name", limit=1)
+            if others:
+                frappe.throw(f"{self.document}: {self.document_name} is already linked to {others[0]}")
+            if self.awb_number and self.document == "Sales Invoice" and \
+                    self.awb_number != frappe.db.get_value("Sales Invoice", self.document_name, "lr_no"):
                 self.push_data_to_sales_invoice()
+        elif self.purpose == "SOLD":
+            frappe.throw("Purpose SOLD only possible for Sales Invoices")
+        if self.shipment_package_details:
+            total_weight = sum(flt(d.package_weight) for d in self.shipment_package_details)
+            self.weight_uom = self.shipment_package_details[-1].weight_uom
+            self.total_handling_units = len(self.shipment_package_details)
+            if total_weight > 0:
+                self.total_weight = total_weight
 
-            shp_pkg_dt = frappe.db.sql("""SELECT name FROM `tabShipment Package Details` 
-                WHERE parent = '%s'""" % (self.name), as_list=1)
-            for shp in shp_pkg_dt:
-                frappe.db.set_value("Shipment Package Details", shp[0], "docstatus", 0)
-                frappe.db.set_value("Shipment Package Details", shp[0], "tracking_id", "")
-            remove_all(self.doctype, self.name)
-        else:
-            frappe.throw("Only Booked Shipments Can be Deleted, {} is in {} Stage".format(self.name, self.status))
-
-    def set_recipient_email(self, to_address_doc, contact_doc):
-        to_add_email = get_email_id(to_address_doc.email_id)
-        contact_email = get_email_id(contact_doc.email_id)
+    def set_recipient_email(self, to_address):
+        to_add_email = get_email_id(to_address.email_id)
+        contact_email = get_email_id(frappe.db.get_value("Contact", self.contact_person, "email_id")) \
+            if self.contact_person else ""
         if self.receiver_document == "Customer":
-            cust_doc = frappe.get_doc(self.receiver_document, self.receiver_name)
-            for sp in cust_doc.sales_team:
-                employee = frappe.get_value("Sales Person", sp.sales_person, "employee")
-                if employee:
-                    emp_doc = frappe.get_doc("Employee", employee)
-                else:
-                    frappe.throw("No Employee Linked with Sales Person {} for Customer {} in Carrier "
-                                 "Tracking {}".format(sp.sales_person, self.receiver_name, self.name))
-                if emp_doc.status != 'Left':
-                    sper_email = get_email_id(emp_doc.user_id)
-                    if len(sper_email) < 140:
-                        self.sales_person_email = sper_email
-        if to_add_email and contact_email:
-            if len(str(to_add_email) + ", " + str(contact_email)) < 140:
-                self.customer_emails = to_add_email + ", " + contact_email
-            else:
-                if len(str(contact_email)) < 140:
-                    self.customer_emails = contact_email
-                elif len(to_add_email) < 140:
-                    self.customer_emails = to_add_email
-        elif to_add_email and not contact_email:
-            if len(str(to_add_email)) < 140:
-                self.customer_emails = to_add_email
-        elif contact_email and not to_add_email:
-            if len(str(contact_email)) < 140:
-                self.customer_emails = contact_email
+            self.set_sales_person_email()
+        emails = [e for e in (to_add_email, contact_email) if e]
+        joined = ", ".join(emails)
+        if len(joined) < 140:
+            self.customer_emails = joined
         else:
-            self.customer_emails = ""
+            self.customer_emails = next((e for e in reversed(emails) if len(e) < 140), "")
+        if not emails:
             frappe.msgprint("No Email in Address or Contact for Customer")
 
-    def location_service(self, credentials, from_address_doc, from_country_doc):
-        from fedex.services.location_service import FedexSearchLocationRequest
-        customer_transaction_id = "*** LocationService Request v3 using Python ***"
-        # Optional transaction_id
-        location_request = FedexSearchLocationRequest(credentials, customer_transaction_id=customer_transaction_id)
-        location_request.Constraints.RadiusDistance.Value = self.radius
-        location_request.Constraints.RadiusDistance.Units = self.radius_uom
-        location_request.Address.PostalCode = from_address_doc.pincode[0:10]
-        location_request.Address.CountryCode = from_country_doc.code
-        location_request.send_request()
-        response_dict = sobject_to_dict(location_request.response)
-        frappe.msgprint(str(response_dict))
-
-    def set_invoice_lr_no(self, si_name, si_doc):
-        if self.awb_number:
-            frappe.db.set_value(si_doc, si_name, "lr_no", self.awb_number)
-        else:
-            frappe.db.set_value(si_doc, si_name, "lr_no", "NA")
-
-    def validate_country(self, frm_add, to_add):
-        tpt_doc = frappe.get_doc('Transporters', self.carrier_name)
-        frm_add_doc = frappe.get_doc('Address', frm_add)
-        to_add_doc = frappe.get_doc('Address', to_add)
-        if tpt_doc.is_domestic_only == 1:
-            if frm_add_doc.country != to_add_doc.country:
-                frappe.throw('For {} {} is Only for Domestic Booking'.
-                             format(frappe.get_desk_link(self.doctype, self.name),
-                                    frappe.get_desk_link('Transporters', self.carrier_name)))
+    def set_sales_person_email(self):
+        sales_persons = frappe.get_all("Sales Team", filters={"parenttype": "Customer", "parent": self.receiver_name},
+                                       pluck="sales_person")
+        if not sales_persons:
+            return
+        employees = dict(frappe.get_all("Sales Person", filters={"name": ["in", sales_persons]},
+                                        fields=["name", "employee"], as_list=True))
+        for sales_person in sales_persons:
+            if not employees.get(sales_person):
+                frappe.throw(f"No Employee Linked with Sales Person {sales_person} for Customer {self.receiver_name} "
+                             f"in Carrier Tracking {self.name}")
+        for emp in frappe.get_all("Employee", filters={"name": ["in", list(employees.values())], "status": ["!=", "Left"]},
+                                  fields=["user_id"]):
+            email = get_email_id(emp.user_id)
+            if email and len(email) < 140:
+                self.sales_person_email = email
 
 
 @frappe.whitelist()
 def carrier_name_query(doctype, txt, searchfield, start, page_len, filters, as_dict=False):
-    query = """SELECT name 
-    FROM `tabTransporters`
-    WHERE (dtdc_credentials = 1 OR fedex_credentials = 1 OR track_on_shipway = 1 
-        OR fedex_tracking_only = 1 OR dtdc_tracking_only = 1) 
-        AND name LIKE {txt} 
-    ORDER BY name ASC""".format(txt=frappe.db.escape('%{0}%'.format(txt)))
-    return frappe.db.sql(query, as_dict=as_dict)
+    """Transporters with an API mode (#168)."""
+    return frappe.get_all("Transporters", filters={"api_mode": ["!=", "None"], "name": ["like", f"%{txt}%"]},
+                          fields=["name"], order_by="name asc", start=start, page_length=page_len,
+                          as_list=not as_dict)

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import frappe, erpnext
-from rigpl_erpnext.rigpl_erpnext.scheduled_tasks.shipment_data_update import *
 from frappe.utils import getdate, add_days, now_datetime
 from rigpl_erpnext.rigpl_erpnext.validations.sales_invoice import check_existing_track, create_new_ship_track
 

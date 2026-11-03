@@ -42,6 +42,7 @@
   "bypass_courier_charged_check",
   "get_rates",
   "book_shipment",
+  "get_label",
   "get_data",
   "validate_address",
   "available_services",
@@ -62,6 +63,8 @@
   "number_of_purchase_invoices_linked",
   "scan_details",
   "last_update",
+  "tracking_source",
+  "pod_file",
   "scans",
   "invoice_integrity",
   "posted_to_shipway",
@@ -97,7 +100,7 @@
    "in_standard_filter": 1,
    "label": "Status",
    "no_copy": 1,
-   "options": "\nBooked\nCancelled\nDelivered\nIn Transit\nNo Information\nNot Booked\nPickup Scheduled\nPosting Error\nShipment Data Uploaded",
+   "options": "\nBooked\nIn Transit\nOut for Delivery\nDelivered\nRTO\nException\nCancelled\nNo Information\nClosed - No Update\nNot Booked\nPickup Scheduled\nPosting Error\nShipment Data Uploaded",
    "permlevel": 1,
    "read_only": 1
   },
@@ -319,6 +322,13 @@
    "options": "book_shipment"
   },
   {
+   "depends_on": "eval:doc.awb_number && doc.awb_number != 'NA'",
+   "fieldname": "get_label",
+   "fieldtype": "Button",
+   "label": "Get Label",
+   "options": "get_labels"
+  },
+  {
    "fieldname": "get_data",
    "fieldtype": "Button",
    "label": "Get Status",
@@ -339,8 +349,8 @@
   {
    "fieldname": "get_signature_proof",
    "fieldtype": "Button",
-   "label": "Get Signature Proof",
-   "options": "get_dtdc_pdf"
+   "label": "Get Proof of Delivery",
+   "options": "get_pod"
   },
   {
    "allow_on_submit": 1,
@@ -442,6 +452,23 @@
   },
   {
    "allow_on_submit": 1,
+   "fieldname": "tracking_source",
+   "fieldtype": "Select",
+   "label": "Tracking Source",
+   "no_copy": 1,
+   "options": "\nPoll\nWebhook\nManual",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "pod_file",
+   "fieldtype": "Attach",
+   "label": "Proof of Delivery",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
    "fieldname": "scans",
    "fieldtype": "Table",
    "label": "Scans",
@@ -519,7 +546,7 @@
  "has_web_view": 1,
  "is_published_field": "published",
  "is_submittable": 1,
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-03 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Carrier Tracking",

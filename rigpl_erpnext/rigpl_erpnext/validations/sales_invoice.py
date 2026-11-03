@@ -5,11 +5,11 @@
 from __future__ import unicode_literals
 import re
 import frappe
+from rigpl_erpnext.rigpl_erpnext.shipping.accounts import BOOKING, NONE
+from rigpl_erpnext.rigpl_erpnext.shipping.registry import transporter_api
 from rigpl_erpnext.utils.sales_utils import check_gst_rules, check_strict_po_rules, copy_address_and_check, \
     copy_so_price_lists, get_item_price_rows, get_linked_so_data
 
-TRACKED_TRANSPORTER_FLAGS = ["fedex_credentials", "fedex_tracking_only", "track_on_shipway", "dtdc_credentials",
-    "dtdc_tracking_only"]
 
 
 def validate(doc, method):
@@ -125,7 +125,7 @@ def update_fields(doc):
     if ctrack:
         doc.transporters = ctrack[0].carrier_name
         doc.lr_no = ctrack[0].awb_number
-    elif doc.transporters and frappe.get_cached_value("Transporters", doc.transporters, "fedex_credentials") == 1:
+    elif doc.transporters and transporter_api(doc.transporters) == ("FedEx", BOOKING):
         doc.lr_no = "NA"
     else:
         doc.lr_no = re.sub('[^A-Za-z0-9]+', '', str(doc.lr_no))
@@ -190,8 +190,7 @@ def check_existing_track(doctype, docname):
 
 
 def is_tracked_transporter(doc, method):
-    flags = frappe.get_cached_value("Transporters", doc.transporters, TRACKED_TRANSPORTER_FLAGS)
-    return 1 if any(flag == 1 for flag in flags) else 0
+    return 0 if transporter_api(doc.transporters)[1] == NONE else 1
 
 
 def new_brc_tracking(doc, method):

@@ -38,14 +38,23 @@
   "sales_weightage",
   "payment_weightage",
   "age_weightage",
-  "published_ctrack_days",
   "sb_website",
   "website_stock_cap",
   "website_route_max_length",
   "cb_website",
   "website_stock_cap_label",
   "website_zero_stock_label",
-  "website_route_max_depth"
+  "website_route_max_depth",
+  "sb_shipping",
+  "unpublish_after_delivery_days",
+  "published_ctrack_days",
+  "ctrack_auto_close_days",
+  "max_track_days",
+  "shipway_max_track_days",
+  "cb_shipping",
+  "ctrack_poll_hours",
+  "ctrack_webhook_poll_hours",
+  "shipway_push_max_days"
  ],
  "fields": [
   {
@@ -253,12 +262,6 @@
    "label": "Max Transactions for Lead Time to Consider"
   },
   {
-   "default": "15",
-   "fieldname": "published_ctrack_days",
-   "fieldtype": "Int",
-   "label": "Published Ctrack Days"
-  },
-  {
    "collapsible": 1,
    "fieldname": "sb_website",
    "fieldtype": "Section Break",
@@ -304,10 +307,69 @@
    "fieldtype": "Int",
    "label": "Website Route Max Depth",
    "non_negative": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sb_shipping",
+   "fieldtype": "Section Break",
+   "label": "Shipping"
+  },
+  {
+   "description": "The tracking page is unpublished these days after delivery. Empty: 7.",
+   "fieldname": "unpublish_after_delivery_days",
+   "fieldtype": "Int",
+   "label": "Unpublish Days After Delivery"
+  },
+  {
+   "default": "90",
+   "description": "A published tracking page is unpublished after these days, even when it is not delivered. Empty: 90.",
+   "fieldname": "published_ctrack_days",
+   "fieldtype": "Int",
+   "label": "Published Ctrack Days"
+  },
+  {
+   "description": "An open tracking older than this is polled once more, then closed as Closed - No Update. Empty: 150.",
+   "fieldname": "ctrack_auto_close_days",
+   "fieldtype": "Int",
+   "label": "Auto Close Days"
+  },
+  {
+   "description": "DTDC and FedEx trackings older than this are not polled. Empty: 150.",
+   "fieldname": "max_track_days",
+   "fieldtype": "Int",
+   "label": "Max Track Days (API)"
+  },
+  {
+   "description": "Shipway trackings older than this are not polled. Empty: 60.",
+   "fieldname": "shipway_max_track_days",
+   "fieldtype": "Int",
+   "label": "Max Track Days (Shipway)"
+  },
+  {
+   "fieldname": "cb_shipping",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "An open tracking is polled when its last update is older than this. Empty: 6.",
+   "fieldname": "ctrack_poll_hours",
+   "fieldtype": "Int",
+   "label": "Poll Every (Hours)"
+  },
+  {
+   "description": "The same, for accounts with webhooks. Empty: 24.",
+   "fieldname": "ctrack_webhook_poll_hours",
+   "fieldtype": "Int",
+   "label": "Poll Every With Webhooks (Hours)"
+  },
+  {
+   "description": "A new AWB is sent to Shipway only in its first days. Empty: 20.",
+   "fieldname": "shipway_push_max_days",
+   "fieldtype": "Int",
+   "label": "Shipway Push Max Days"
   }
  ],
  "issingle": 1,
- "modified": "2026-11-01 16:00:00.000000",
+ "modified": "2026-11-03 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
