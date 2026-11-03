@@ -88,7 +88,7 @@ After submit:
 - Reports:
   - **RM Wastage Analysis**: the excess of each Job Card, or by BOM Template, FG item or RM item, with the real RM cost. Use it to find where RM is lost and to set the 2 limits.
   - **RM Cost of Items Made**: the real RM cost per piece of the items made in 2 periods, grouped by FG attributes (for example HSS Punches in 2025 against 2026).
-- On submit of a Process Sheet, a message (not an error) shows when 2 or more matched BOM Templates do the same work, with the merged rule. Give it to the person who maintains the templates.
+- On submit of a Process Sheet, a message (not an error) shows when 2 or more matched BOM Templates do the same work, with the merged rule. When the templates differ only by an operation (for example Coating), the message gives the Operation Condition to add, for example "Coating: only when Special Treatment Not In None". Give it to the person who maintains the templates.
 
 ## 7. Troubleshooting
 

@@ -113,7 +113,7 @@ def joined_values(bt, table):
     return shown
 
 
-def template_differences(bt, other):
+def template_differences(bt, other, same_work=True):
     """
     Returns the differences of `other` against `bt` as text, apart from the FG values: the
     numeric rules, the RM and WIP values and the map. The FG values are what a merge joins.
@@ -134,7 +134,7 @@ def template_differences(bt, other):
     theirs_map = sorted((d.fg_value, d.rm_attribute, d.rm_values) for d in other.fg_rm_map)
     if mine_map != theirs_map:
         diffs.append("FG to RM Map is different")
-    if work_signature(bt) != work_signature(other) and not diffs:
+    if same_work and work_signature(bt) != work_signature(other) and not diffs:
         diffs.append("Operations, formula or rule attributes are different")
     return diffs
 
@@ -318,41 +318,121 @@ def disable_similar_templates(bom_template, templates):
 
 def get_merge_hint(templates):
     """
-    Returns the HTML of the merge message of a Process Sheet submit (#185), or None: for each group
-    of 2 or more of the matched `templates` with the same work, the templates, the FG values that
-    differ and the merged FG rule. It does not stop the submit.
+    Returns the HTML of the merge message of a Process Sheet submit (#185), or None. It does not
+    stop the submit. See merge_hint_html.
     """
     if len(templates or []) < 2:
         return None
-    data = read_template_data(templates)
-    groups = {}
-    for name in templates:
-        if name in data:
-            groups.setdefault(work_signature(data[name]), []).append(data[name])
-    parts = []
-    for group in groups.values():
-        if len(group) < 2:
+    return merge_hint_html(read_template_data(templates), templates)
+
+
+def merge_hint_html(data, templates):
+    """
+    Returns the merge message for the matched `templates` (data from read_template_data), or None.
+    Pass 1: the groups with the same work, with the FG values that differ and the merged FG rule.
+    Pass 2: the other templates that differ only by operations, with the Operation Condition to add.
+    """
+    found = [data[name] for name in templates if name in data]
+    parts, grouped = [], set()
+    for group in group_by(found, work_signature):
+        parts.append(group_hint(group, group[0]))
+        grouped.update(bt.name for bt in group)
+    for group in group_by([bt for bt in found if bt.name not in grouped], signature_without_operations):
+        full = max(group, key=lambda bt: len(bt.operations))
+        full_ops = [op.operation for op in full.operations]
+        if not all(is_subsequence([op.operation for op in bt.operations], full_ops) for bt in group):
             continue
-        values = [joined_values(bt, "fg_restrictions") for bt in group]
-        attributes = list(dict.fromkeys(a for v in values for a in v))
-        rows = []
-        for attribute in attributes:
-            per_template = [tuple(v.get(attribute, [])) for v in values]
-            if len(set(per_template)) > 1:
-                joined = sorted({value for t in per_template for value in t})
-                found = ", ".join(f"{' / '.join(t) or 'not set'} in {bt.name}" for t, bt in zip(per_template, group))
-                rows.append(f"<li>{frappe.utils.escape_html(attribute)}: {frappe.utils.escape_html(found)}. "
-                            f"Merged rule: <b>{frappe.utils.escape_html(attribute)}: "
-                            f"{frappe.utils.escape_html(' / '.join(joined))}</b></li>")
-        if not rows:
-            rows.append("<li>" + _("The FG rules are the same: the templates are duplicates. Keep 1 of them.") + "</li>")
-        for other in group[1:]:
-            for diff in template_differences(group[0], other):
-                rows.append(f"<li>{frappe.utils.escape_html(other.name)}: {frappe.utils.escape_html(diff)} "
-                            f"({frappe.utils.escape_html(group[0].name)})</li>")
-        links = ", ".join(frappe.get_desk_link(BT, bt.name) for bt in group)
-        parts.append(f"<p>{links} do the same work.</p><ul>{''.join(rows)}</ul>")
+        rows = operation_condition_rows(group, full_ops)
+        if rows:
+            parts.append(group_hint(group, full, rows))
     if not parts:
         return None
     return ("".join(parts) + "<p>" + _("To merge them, see Help > BOM Template Guide (section 9) on the BOM "
             "Template form, then use Disable Similar Templates. The submit continues.") + "</p>")
+
+
+def group_by(templates, signature):
+    """The groups of 2 or more `templates` with the same `signature`, in the order of the templates."""
+    groups = {}
+    for bt in templates:
+        groups.setdefault(signature(bt), []).append(bt)
+    return [g for g in groups.values() if len(g) > 1]
+
+
+def signature_without_operations(bt):
+    return work_signature(bt)[1:]
+
+
+def is_subsequence(part, whole):
+    it = iter(whole)
+    return all(x in it for x in part)
+
+
+def group_hint(group, base, extra_rows=()):
+    """The HTML of 1 group: the FG values that differ with the merged rule, `extra_rows` and the
+    differences of each template against `base`."""
+    esc = frappe.utils.escape_html
+    values = [joined_values(bt, "fg_restrictions") for bt in group]
+    attributes = list(dict.fromkeys(a for v in values for a in v))
+    rows = []
+    for attribute in attributes:
+        per_template = [tuple(v.get(attribute, [])) for v in values]
+        if len(set(per_template)) > 1:
+            joined = sorted({value for t in per_template for value in t})
+            found = ", ".join(f"{' / '.join(t) or 'not set'} in {bt.name}" for t, bt in zip(per_template, group))
+            rows.append(f"<li>{esc(attribute)}: {esc(found)}. "
+                        f"Merged rule: <b>{esc(attribute)}: {esc(' / '.join(joined))}</b></li>")
+    if not rows and not extra_rows:
+        rows.append("<li>" + _("The FG rules are the same: the templates are duplicates. Keep 1 of them.") + "</li>")
+    rows.extend(extra_rows)
+    same_work = not extra_rows
+    for other in group:
+        if other is base:
+            continue
+        for diff in template_differences(base, other, same_work):
+            rows.append(f"<li>{esc(other.name)}: {esc(diff)} ({esc(base.name)})</li>")
+    links = ", ".join(frappe.get_desk_link(BT, bt.name) for bt in group)
+    text = _("do the same work.") if same_work else _("do the same work apart from some operations.")
+    return f"<p>{links} {text}</p><ul>{''.join(rows)}</ul>"
+
+
+def operation_condition_rows(group, full_ops):
+    """1 row for each operation that only some templates of the group have."""
+    rows = []
+    for operation in dict.fromkeys(full_ops):
+        with_op = [bt for bt in group if any(op.operation == operation for op in bt.operations)]
+        without_op = [bt for bt in group if bt not in with_op]
+        if not without_op:
+            continue
+        rule = suggest_operation_condition(operation, with_op, without_op)
+        if rule:
+            rows.append(f"<li>{_('Operation condition')}: <b>{frappe.utils.escape_html(rule)}</b></li>")
+        else:
+            names = ", ".join(bt.name for bt in with_op)
+            rows.append("<li>" + frappe.utils.escape_html(
+                _("Operation condition: {0} is only in {1}. Give it an Operation Condition (guide section 5) "
+                  "on an FG attribute that the templates do not share.").format(operation, names)) + "</li>")
+    return rows
+
+
+def suggest_operation_condition(operation, with_op, without_op):
+    """
+    Returns "<operation>: only when <attribute> Not In <values>", or None. The values are the FG
+    values of the templates without the operation. The templates with it must allow other values.
+    """
+    fg = {bt.name: joined_values(bt, "fg_restrictions") for bt in with_op + without_op}
+    candidates = []
+    for attribute in sorted({a for v in fg.values() for a in v}):
+        if any(attribute not in fg[bt.name] for bt in without_op):
+            continue
+        v_without = {x for bt in without_op for x in fg[bt.name][attribute]}
+        if any(attribute not in fg[bt.name] for bt in with_op):
+            v_with = None
+        else:
+            v_with = {x for bt in with_op for x in fg[bt.name][attribute]}
+        if v_without and (v_with is None or v_with - v_without):
+            candidates.append((len(v_without), attribute, v_without))
+    if not candidates:
+        return None
+    _count, attribute, values = min(candidates)
+    return f"{operation}: only when {attribute} Not In {' / '.join(sorted(values))}"
