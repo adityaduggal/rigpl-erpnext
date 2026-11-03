@@ -82,10 +82,8 @@ class ImportantDocuments(Document):
                 frappe.throw("Attach Only 1 File for Standard with Name = {}.pdf".format(self.name))
 
     def get_files(self):
-        file_dict = frappe.db.sql("""SELECT name, attached_to_doctype, attached_to_name, is_private, file_name
-        FROM `tabFile` WHERE attached_to_doctype = '%s' AND attached_to_name = '%s'""" % (self.doctype,
-                                                                                          self.name), as_dict=1)
-        return file_dict
+        return frappe.get_all("File", filters={"attached_to_doctype": self.doctype, "attached_to_name": self.name},
+            fields=["name", "attached_to_doctype", "attached_to_name", "is_private", "file_name"])
 
     def update_fields(self):
         if self.category:
