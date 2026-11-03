@@ -7,6 +7,7 @@ from frappe.utils import getdate
 from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.rigpl_erpnext.validations import salary_slip, salary_structure_assignment as ssa_hooks
+from rigpl_erpnext.rigpl_erpnext.validations.salary_slip_gl import SalarySlipGL, validate_ec_posting
 
 EMP = "_Test RIGPL Emp Payroll"
 SS_A = "_Test RIGPL Structure A"
@@ -178,3 +179,102 @@ class TestSSAValidate(PayrollCase):
         ssa_hooks.validate(self.ssa(), None)
         with self.assertRaisesRegex(frappe.ValidationError, "To Date should be Blank"):
             ssa_hooks.validate(self.ssa(to_date="2026-11-30"), None)
+
+
+GL_EARN, GL_ESI, GL_ESI_ER = "_Test RIGPL GL Wage", "_Test RIGPL GL ESI", "_Test RIGPL GL ESI Employer"
+GL_COMPONENTS = ((GL_EARN, "TRGLW", dict(account="Wages Account - RIGPL")),
+    (GL_ESI, "TRGLESI", dict(account="RIGB ESI Payable - RIGPL")),
+    (GL_ESI_ER, "TRGLESIER", dict(account="ESI Employers Share - RIGPL", liability_account="RIGB ESI Payable - RIGPL")))
+
+
+def gl_slip(earnings=1, **fields):
+    rows = lambda comp, amount, n: [frappe._dict(salary_component=comp, amount=amount) for _ in range(n)]
+    doc = frappe._dict(name="_Test RIGPL Slip GL", company="RIGPL", posting_date=getdate("2026-10-31"),
+        employee=EMP, net_pay=10000 * earnings - 75, rounded_total=10000 * earnings - 75,
+        earnings=rows(GL_EARN, 10000, earnings), deductions=rows(GL_ESI, 75, 1), contributions=rows(GL_ESI_ER, 325, 1))
+    doc.update(fields)
+    return doc
+
+
+class TestSalarySlipGL(FrappeTestCase):
+    def setUp(self):
+        insert_employee()
+        for name, abbr, accounts in GL_COMPONENTS:
+            frappe.get_doc(dict(doctype="Salary Component", name=name, salary_component=name,
+                salary_component_abbr=abbr, **accounts)).db_insert()
+
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_map_is_balanced_with_payable_to_employee(self):
+        gl_map = SalarySlipGL(gl_slip(rounded_total=9930)).build()
+        self.assertEqual(sum(e.debit for e in gl_map), sum(e.credit for e in gl_map))
+        by_account = {e.account: e for e in gl_map}
+        payable = by_account["Expenses Payable - RIGPL"]
+        self.assertEqual((payable.credit, payable.party_type, payable.party), (9930, "Employee", EMP))
+        self.assertEqual(by_account["Short and Excess - RIGPL"].debit, 5)
+        self.assertEqual(by_account["ESI Employers Share - RIGPL"].debit, 325)
+        self.assertEqual(sum(e.credit for e in gl_map if e.account == "RIGB ESI Payable - RIGPL"), 75 + 325)
+
+    def test_submit_posts_and_cancel_reverses(self):
+        doc = gl_slip()
+        # GL Entry checks that its voucher exists
+        frappe.get_doc(dict(doctype="Salary Slip", name=doc.name, employee=EMP, company=doc.company,
+            posting_date=doc.posting_date, start_date="2026-10-01", end_date="2026-10-31", docstatus=1)).db_insert()
+        salary_slip.post_gl_entry(doc)
+        filters = {"voucher_type": "Salary Slip", "voucher_no": doc.name}
+        posted = frappe.get_all("GL Entry", filters=filters, fields=["debit", "credit"])
+        self.assertTrue(posted)
+        self.assertEqual(sum(r.debit for r in posted), sum(r.credit for r in posted))
+
+        salary_slip.cancel_gl_entry(doc)
+        rows = frappe.get_all("GL Entry", filters=filters, fields=["account", "debit", "credit", "is_cancelled"])
+        self.assertTrue(all(r.is_cancelled for r in rows))
+        for account in {r.account for r in rows}:
+            self.assertEqual(sum(r.debit - r.credit for r in rows if r.account == account), 0, account)
+
+    def test_component_without_account_throws_with_its_name(self):
+        frappe.db.set_value("Salary Component", GL_ESI, "account", None)
+        with self.assertRaisesRegex(frappe.ValidationError, GL_ESI):
+            SalarySlipGL(gl_slip()).build()
+
+    def test_query_count_does_not_depend_on_rows(self):
+        def slip_with_claims(earnings):
+            doc = gl_slip(earnings=earnings)
+            for i, row in enumerate(doc.earnings[1:]):
+                row.expense_claim = "_Test RIGPL EC %s" % i
+            return doc
+
+        validate_ec_posting(slip_with_claims(2))  # load the Company, fiscal year and GL Entry meta caches
+        SalarySlipGL(slip_with_claims(2)).build()
+        counts = []
+        for earnings in (2, 6):
+            doc = slip_with_claims(earnings)
+            with assert_max_queries(4, test_case=self) as guard:
+                SalarySlipGL(doc).build()
+                validate_ec_posting(doc)
+            counts.append(guard.count)
+        self.assertEqual(counts[0], counts[1])
+
+
+class TestDeductionProration(FrappeTestCase):
+    ESI = frappe._dict(depends_on_lwp=1, round_up=1)
+    EPF = frappe._dict(depends_on_lwp=1, round_up=0)
+
+    def amount(self, comp, default_amount, payment_days, days=30):
+        row = frappe._dict(default_amount=default_amount, amount=default_amount)
+        return salary_slip.deduction_amount(row, comp, payment_days, days)
+
+    def test_esi_rounds_up_and_zero_stays_zero(self):
+        self.assertEqual(self.amount(self.ESI, 533, 15), 267)
+        self.assertEqual(self.amount(self.ESI, 600, 15), 300)
+        self.assertEqual(self.amount(self.ESI, 0, 30), 0)
+        self.assertEqual(self.amount(self.ESI, None, 30), 0)
+
+    def test_short_month_prorates_by_deduction_payment_days(self):
+        self.assertEqual(self.amount(self.EPF, 1968, 12), 787)
+        self.assertEqual(self.amount(self.EPF, 1968, 30), 1968)
+        self.assertEqual(salary_slip.prorated(3340, 12, 30), 1336)
+
+    def test_fixed_deduction_is_not_prorated(self):
+        self.assertEqual(self.amount(frappe._dict(depends_on_lwp=0), 200, 10), 200)

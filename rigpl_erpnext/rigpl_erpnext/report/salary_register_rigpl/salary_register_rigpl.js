@@ -62,19 +62,13 @@ frappe.query_reports["Salary Register RIGPL"] = {
 			"options": "\nBank\nCash\nCheque",
 		},
 		{
-			"fieldname":"without_salary_slip",
-			"label": "Emp w/o SS",
-			"fieldtype": "Check"
+			"fieldname":"report_type",
+			"label": "Report Type",
+			"fieldtype": "Select",
+			"options": "Detailed\nBank\nSummary\nEmployees without Salary Slip",
+			"default": "Detailed",
+			"reqd": 1
 		},
-		{
-			"fieldname":"bank_only",
-			"label": "Bank Only",
-			"fieldtype": "Check"
-		},
-		{
-			"fieldname":"summary",
-			"label": "Summary",
-			"fieldtype": "Check"
-		},
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 };

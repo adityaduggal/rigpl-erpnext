@@ -2,115 +2,95 @@
 # For license information, please see license.txt
 # -*- coding: utf-8 -*-
 
-from __future__ import unicode_literals
 import frappe
-from frappe import msgprint, _
-from frappe.utils import flt, cstr
-from erpnext.payroll.doctype.salary_slip.salary_slip import SalarySlip
+from frappe.query_builder.functions import IfNull
+from frappe.utils import getdate
+
+from rigpl_erpnext.utils.item_attribute_utils import chunks
+from rigpl_erpnext.utils.report_utils import blank_zeros
+
+WITHOUT_SSA = "Employees without SSA"
+NO_END = "2099-12-31"
 
 
 def execute(filters=None):
+    filters = frappe._dict(filters or {})
+    if getdate(filters.from_date) > getdate(filters.to_date):
+        frappe.throw("From Date cannot be after To Date")
+    employees = get_employees(filters)
+    assignments = get_assignments(filters, [emp.name for emp in employees])
+    if filters.get("show") == WITHOUT_SSA:
+        data = [[emp.name, emp.employee_name, emp.branch, emp.department, emp.designation, emp.date_of_joining,
+            emp.relieving_date] for emp in employees if emp.name not in assignments]
+        return without_ssa_columns(), data
+
     data = []
-    columns = get_columns(filters)
-    emp_lst = get_employee(filters)
-    for emp in emp_lst:
-        ssa = get_salary_str(filters, emp.name)
-        if filters.get("without_salary_structure") != 1 and ssa:
-            for ss in ssa:
-                row = [ss.name, ss.from_date, ss.to_date, emp.name, emp.employee_name, emp.branch, emp.department,
-                emp.designation, emp.date_of_joining, emp.relieving_date, ss.base, ss.variable, ss.basic_percent,
-                ss.minimum_applicable, ss.salary_structure]
-                data.append(row)
-        elif filters.get("without_salary_structure") == 1 and not ssa:
-            row = [emp.name, emp.employee_name, emp.branch, emp.department, emp.designation, emp.date_of_joining,
-            emp.relieving_date]
-            data.append(row)
-    return columns, data
+    for emp in employees:
+        for ssa in pick_assignments(assignments.get(emp.name, []), filters.get("latest_salary")):
+            data.append(blank_zeros([ssa.name, ssa.from_date, ssa.to_date, emp.name, emp.employee_name, emp.branch,
+                emp.department, emp.designation, emp.date_of_joining, emp.relieving_date, ssa.base, ssa.variable,
+                ssa.basic_percent, ssa.minimum_applicable, ssa.salary_structure]))
+    return assignment_columns(), data
 
 
-def get_salary_str(filters, employee_id):
-    ss = frappe._dict({})
-    salary_str = []
-    conditions_emp, conditions_ss, filters = get_conditions(filters)
-    if filters.get("latest_salary") == "All":
-        LIMIT_KEY = " ASC"
-    elif filters.get("latest_salary") == "Latest":
-        LIMIT_KEY = " DESC LIMIT 1"
-    elif filters.get("latest_salary") == "Earliest":
-        LIMIT_KEY = " ASC LIMIT 1"
-
-    salary_str = frappe.db.sql("""SELECT ss.name, ss.from_date, IFNULL(ss.to_date, '2099-12-31') as to_date,
-        ss.employee, ss.base, ss.variable, ss.basic_percent, ss.salary_structure, ss.minimum_applicable
-        FROM `tabSalary Structure Assignment` ss
-        WHERE ss.docstatus = 1 AND ss.employee = '%s' %s
-        ORDER BY ss.from_date %s""" % (employee_id, conditions_ss, LIMIT_KEY), as_dict=1)
-    return salary_str
+def pick_assignments(rows, latest_salary):
+    """rows are in from_date order"""
+    if latest_salary == "Latest":
+        return rows[-1:]
+    if latest_salary == "Earliest":
+        return rows[:1]
+    return rows
 
 
-def get_employee(filters):
-    conditions_emp, conditions_ss, filters = get_conditions(filters)
-    if filters.get("show_left_employees") != 1:
-        emp_stat = " AND emp.status = 'Active'"
-    else:
-        emp_stat = " AND emp.status = 'Left'"
-
-    query = """SELECT emp.name, emp.employee_name, emp.date_of_joining, emp.status, emp.department, emp.designation,
-    emp.branch, IFNULL(emp.relieving_date, '2099-12-31') as relieving_date
-    FROM `tabEmployee` emp WHERE emp.docstatus =0 %s %s ORDER BY emp.date_of_joining""" % (conditions_emp, emp_stat)
-    emp_lst = frappe.db.sql(query, as_dict=1)
-    if emp_lst:
-        pass
-    else:
-        frappe.throw("No Employees in the Given Criterion")
-    return emp_lst
+def assignment_columns():
+    return ["SSA:Link/Salary Structure Assignment:60", "From Date:Date:80", "To Date:Date:80",
+        "Employee:Link/Employee:80", "Employee Name::150", "Branch::80", "Department::120", "Designation::100",
+        "Joining Date:Date:80", "Relieving Date:Date:80", "Base:Currency:100", "Variable:Currency:100",
+        "Basic Percent:Percent:80", "Min App:Currency:80", "Salary Structure:Link/Salary Structure:120"]
 
 
-def get_columns(filters):
-    if filters.get("without_salary_structure")!=1:
-        columns = [
-                "SSA:Link/Salary Structure Assignment:60", "From Date:Date:80",
-                "To Date:Date:80", "Employee:Link/Employee:80", "Employee Name::150",
-                "Branch::80", "Department::120", "Designation::100", "Joining Date:Date:80",
-                "Relieving Date:Date:80", "Base:Currency:100", "Variable:Currency:100",
-                "Basic Percent:Percent:80", "Min App:Currency:80",
-                "Salary Structure:Link/Salary Structure:120"
-        ]
-    else:
-        columns = [
-                "Employee ID:Link/Employee:100", "Employee Name::200", "Branch::80", "Department::120",
-                "Designation::100", "Joining Date:Date:80", "Relieving Date:Date:80"
-                ]
-    return columns
+def without_ssa_columns():
+    return ["Employee ID:Link/Employee:100", "Employee Name::200", "Branch::80", "Department::120",
+        "Designation::100", "Joining Date:Date:80", "Relieving Date:Date:80"]
 
 
-def get_conditions(filters):
-    conditions_emp = ""
-    conditions_ss = ""
-
-    if filters.get("branch"):
-        conditions_emp += " AND emp.branch = '%s'" % filters["branch"]
-
-    if filters.get("department"):
-        conditions_emp += " AND emp.department = '%s'" % filters["department"]
-
-    if filters.get("designation"):
-        conditions_emp += " AND emp.designation = '%s'" % filters["designation"]
-
+def get_employees(filters):
+    emp = frappe.qb.DocType("Employee")
+    active = (emp.status == "Active") & (emp.date_of_joining <= filters.to_date)
+    left = ((emp.status == "Left") & (emp.date_of_joining <= filters.to_date)
+        & emp.relieving_date.between(filters.from_date, filters.to_date))
+    status = filters.get("employee_status")
+    query = (
+        frappe.qb.from_(emp)
+        .select(emp.name, emp.employee_name, emp.date_of_joining, emp.department, emp.designation, emp.branch,
+            IfNull(emp.relieving_date, NO_END).as_("relieving_date"))
+        .where((emp.docstatus == 0) & (active if status == "Active" else left if status == "Left" else active | left))
+        .orderby(emp.date_of_joining)
+    )
+    for field in ("branch", "department", "designation"):
+        if filters.get(field):
+            query = query.where(emp[field] == filters[field])
     if filters.get("employee"):
-        conditions_emp += " AND emp.name = '%s'" % filters["employee"]
+        query = query.where(emp.name == filters.employee)
+    employees = query.run(as_dict=True)
+    if not employees:
+        frappe.throw("No Employees in the Given Criterion")
+    return employees
 
-    if filters.get("from_date") and filters.get("to_date"):
-        if filters["from_date"] > filters["to_date"]:
-            frappe.throw("From Date cannot be after To Date")
-        else:
-            if filters.get("show_left_employees") == 1:
-                conditions_emp += " AND emp.date_of_joining <= '%s' AND emp.relieving_date BETWEEN '%s' AND '%s'" % \
-                    (filters["to_date"], filters["from_date"], filters["to_date"])
-            else:
-                conditions_emp += " AND emp.date_of_joining <= '%s' AND emp.status = 'Active'" % filters["to_date"]
 
-            conditions_ss += " AND ((ss.from_date <='%s' AND IFNULL(ss.to_date, '2099-12-31') <= '%s' AND \
-                IFNULL(ss.to_date, '2099-12-31') >= '%s') OR (ss.from_date <= '%s' AND IFNULL(ss.to_date, '2099-12-31') >= '%s'))" % \
-                    (filters["from_date"], filters["to_date"], filters["from_date"],
-                    filters["to_date"], filters["from_date"])
-    return conditions_emp, conditions_ss, filters
+def get_assignments(filters, employees):
+    """Submitted SSAs that overlap the dates, by employee, in from_date order"""
+    ssa = frappe.qb.DocType("Salary Structure Assignment")
+    by_employee = {}
+    for names in chunks(employees):
+        rows = (
+            frappe.qb.from_(ssa)
+            .select(ssa.name, ssa.employee, ssa.from_date, IfNull(ssa.to_date, NO_END).as_("to_date"), ssa.base,
+                ssa.variable, ssa.basic_percent, ssa.salary_structure, ssa.minimum_applicable)
+            .where((ssa.docstatus == 1) & ssa.employee.isin(names) & (ssa.from_date <= filters.to_date)
+                & (IfNull(ssa.to_date, NO_END) >= filters.from_date))
+            .orderby(ssa.from_date)
+        ).run(as_dict=True)
+        for row in rows:
+            by_employee.setdefault(row.employee, []).append(row)
+    return by_employee

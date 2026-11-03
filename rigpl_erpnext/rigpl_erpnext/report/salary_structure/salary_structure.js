@@ -49,14 +49,20 @@ frappe.query_reports["Salary Structure"] = {
 			"default": frappe.datetime.get_today()
 		},
 		{
-			"fieldname":"without_salary_structure",
-			"label": "Emp w/o SS",
-			"fieldtype": "Check"
+			"fieldname":"show",
+			"label": "Show",
+			"fieldtype": "Select",
+			"options": "Assignments\nEmployees without SSA",
+			"default": "Assignments",
+			"reqd": 1
 		},
 		{
-			"fieldname":"show_left_employees",
-			"label": "Show Left Employees",
-			"fieldtype": "Check"
+			"fieldname":"employee_status",
+			"label": "Employee Status",
+			"fieldtype": "Select",
+			"options": "\nActive\nLeft",
+			"default": "Active"
 		},
-	]
+	],
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
 }
