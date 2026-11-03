@@ -10,11 +10,10 @@ def validate(doc, method):
     if doc.is_base_list == 1:
         doc.base_holiday_list = ""
     else:
-        holiday_list_based_on = frappe.db.sql("""SELECT name FROM `tabHoliday List` 
-        WHERE base_holiday_list = '%s'""" % doc.name, as_dict=1)
+        holiday_list_based_on = frappe.db.get_value("Holiday List", {"base_holiday_list": doc.name}, "name")
         if holiday_list_based_on:
             frappe.throw("Holiday List {} already is Base List for {} and hence Cannot be made "
-                         "non-base Holiday List".format(doc.name, holiday_list_based_on[0].name))
+                         "non-base Holiday List".format(doc.name, holiday_list_based_on))
         if doc.base_holiday_list == "":
             frappe.throw("Base Holiday List Mandatory for {}".format(doc.name))
         else:
@@ -33,12 +32,11 @@ def validate(doc, method):
 def pull_holidays(hd_name, frm_date, to_date):
     base_hdd = frappe.get_doc("Holiday List", hd_name)
     if base_hdd.is_base_list == 1:
-        linked_hld = frappe.db.sql("""SELECT name FROM `tabHoliday List` WHERE is_base_list = 0 
-        AND base_holiday_list = '%s' AND from_date = '%s' AND to_date = '%s'""" % (hd_name, frm_date,
-                                                                                   to_date), as_dict=1)
+        linked_hld = frappe.db.get_value("Holiday List", {"is_base_list": 0, "base_holiday_list": hd_name,
+            "from_date": frm_date, "to_date": to_date}, "name")
         if linked_hld:
             # Copy and paste the holidays from there to here
-            lnk_hdd = frappe.get_doc("Holiday List", linked_hld[0].name)
+            lnk_hdd = frappe.get_doc("Holiday List", linked_hld)
             base_hdd.from_date = lnk_hdd.from_date
             base_hdd.to_date = lnk_hdd.to_date
             base_hdd.weekly_off = lnk_hdd.weekly_off

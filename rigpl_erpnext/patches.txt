@@ -62,3 +62,4 @@ rigpl_erpnext.patches.v13.merge_shift_assignments
 rigpl_erpnext.patches.v13.stop_time_based_earned_leave
 rigpl_erpnext.patches.v13.delete_unused_selling_reports
 rigpl_erpnext.patches.v13.delete_pending_production_orders_report
+rigpl_erpnext.patches.v13.fix_pull_holidays_client_script
