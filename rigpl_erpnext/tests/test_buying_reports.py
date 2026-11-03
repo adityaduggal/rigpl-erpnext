@@ -107,3 +107,25 @@ class TestPendingPurchaseOrders(ReportTestCase):
         # The old report read calculated_rol from the PO row, so Min Qty was always empty here
         self.assertEqual([row[0] for row in data], [po])
         self.assertEqual(data[0][11:], ["Needed in Next 15~30 Days", auto_round_up(qty.calculated_rol)])
+
+
+class TestRawMaterialNeeded(ReportTestCase):
+    def test_sums_bands_and_filters(self):
+        insert_purchase_item(ITEM, "6", extra=[("Brand", BRAND)])
+        insert_purchase_item(ITEM_2, "3")
+        insert_bin(ITEM, "RM-BGH655 - RIGPL", actual=5)
+        insert_bin(ITEM, "_Test RIGPL O'WH", ordered=3, reserved=2)
+        insert_bin(ITEM_2, "RM-BGH655 - RIGPL", actual=1)
+        # 2 reorder rows multiplied the old Bin sums
+        insert_reorder(ITEM, 4, idx=1)
+        insert_reorder(ITEM, 7, idx=2)
+
+        data = self.assert_queries(4, lambda: raw_material_needed.execute(frappe._dict(bm=BM, brand=BRAND))[1])
+
+        self.assertEqual(len(data), 1)
+        row = data[0]
+        self.assertEqual(row[:3], [ITEM, "-", BRAND])
+        self.assertEqual(row[6:11], [6, None, None, "1<30 Days", "NO STOCK"])
+        self.assertEqual(row[12:16], [8, 4, 2, 3])
+        self.assertEqual(row[20], 5)
+        self.assertRaises(frappe.ValidationError, raw_material_needed.execute, frappe._dict(brand=BRAND))

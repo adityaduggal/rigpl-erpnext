@@ -3,7 +3,26 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import flt, getdate, nowdate
+from frappe.query_builder.functions import IfNull, Sum
+from frappe.utils import cint, flt, nowdate
+from pypika.terms import Case
+from ....utils.item_attribute_utils import attribute_filters, attribute_sort_key, chunks, get_attribute_map
+from ....utils.report_utils import blank_zeros
+from ....utils.stock_utils import get_first_reorder_levels
+
+TEXT = ["Is RM", "Brand", "{bm} Quality", "Special Treatment", "Tool Type"]
+NUMERIC = ["d1_mm", "w1_mm", "l1_mm"]
+SORT_ORDER = ["Is RM", "Brand", "Special Treatment", "Tool Type", "d1_mm", "w1_mm", "l1_mm"]
+# filter: attribute
+ATTRIBUTE_FILTERS = {"rm": "Is RM", "bm": "Base Material", "brand": "Brand", "quality": "{bm} Quality",
+    "spl": "Special Treatment", "tt": "Tool Type"}
+# Bin sums: column
+BIN_FIELDS = {"so": "reserved_qty", "po": "ordered_qty", "plan": "planned_qty", "indent": "indented_qty",
+    "prd": "reserved_qty_for_production"}
+# actual qty of a warehouse: column
+WAREHOUSES = {"brm": "RM-BGH655 - RIGPL", "drm": "RM-DEL20A - RIGPL", "bgh": "BGH655 - RIGPL",
+    "del20a": "DEL20A - RIGPL", "dead": "Dead Stock - RIGPL"}
+BANDS = ["1<30 Days", "2<60 Days", "3<90 Days", "4<120 Days", "5<150 Days", "6<180 Days"]
 
 def execute(filters=None):
     if not filters:
@@ -31,193 +50,99 @@ def get_columns():
     ]
 
 def get_items(filters):
+    """
+    The purchase items of the filters that have Bins, with their stock and the stock bands. The
+    attributes come from get_attribute_map and the stock from grouped Bin queries (#187), in place
+    of 10 self-joins.
+    """
+    bm = filters.get("bm")
+    if not bm:
+        frappe.throw("Select a Base Material", title="Base Material Needed")
+    text = [att.format(bm=bm) for att in TEXT]
+    items = get_item_rows(filters, bm)
+    names = [it.name for it in items]
+    stock = get_stock(names)
+    rol_by_item = {}
+    for chunk in chunks(names):
+        rol_by_item.update(get_first_reorder_levels(chunk))
+    att_map = get_attribute_map(names, text + NUMERIC)
+    items.sort(key=lambda it: attribute_sort_key(att_map.get(it.name, {}), SORT_ORDER, set(NUMERIC)))
     actual_data = []
-    conditions_it = get_conditions(filters)
-    bm = filters["bm"]
-    data = frappe.db.sql("""
-	SELECT
-		it.name, it.lead_time_days,
-		IFNULL(rm.attribute_value, "-") AS rm, IFNULL(brand.attribute_value, "-") AS brand,
-		IFNULL(quality.attribute_value, "-") AS qual, IFNULL(spl.attribute_value, "-") AS spl,
-		IFNULL(tt.attribute_value, "-") AS tt,
-		CAST(d1.attribute_value AS DECIMAL(8,3)) AS d1,
-		CAST(w1.attribute_value AS DECIMAL(8,3)) AS w1,
-		CAST(l1.attribute_value AS DECIMAL(8,3)) AS l1,
-		if(ro.warehouse_reorder_level=0, NULL ,ro.warehouse_reorder_level) AS rol,
-		if(sum(bn.reserved_qty)=0,NULL,sum(bn.reserved_qty)) AS so,
-		if(sum(bn.ordered_qty)=0,NULL,sum(bn.ordered_qty)) AS po,
-		if(sum(bn.planned_qty)=0,NULL,sum(bn.planned_qty)) AS plan,
-		if(sum(bn.indented_qty)=0,NULL,sum(bn.indented_qty)) AS indent,
-		if(sum(bn.reserved_qty_for_production)=0,NULL,sum(bn.reserved_qty_for_production)) AS prd,
-
-		it.description,
-
-		if(min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="RM-BGH655 - RIGPL" THEN bn.actual_qty end)) AS brm,
-
-		if(min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="RM-DEL20A - RIGPL" THEN bn.actual_qty end)) AS drm,
-
-		if(min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="BGH655 - RIGPL" THEN bn.actual_qty end)) AS bgh,
-
-		if(min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="DEL20A - RIGPL" THEN bn.actual_qty end)) AS del20a,
-
-		if(min(case WHEN bn.warehouse="Dead Stock - RIGPL" THEN bn.actual_qty end)=0,NULL,
-			min(case WHEN bn.warehouse="Dead Stock - RIGPL" THEN bn.actual_qty end)) AS dead
-
-	FROM `tabItem` it
-		LEFT JOIN `tabItem Reorder` ro ON it.name = ro.parent
-		LEFT JOIN `tabBin` bn ON it.name = bn.item_code
-		LEFT JOIN `tabItem Variant Attribute` rm ON it.name = rm.parent
-			AND rm.attribute = 'Is RM'
-		LEFT JOIN `tabItem Variant Attribute` bm ON it.name = bm.parent
-			AND bm.attribute = 'Base Material'
-		LEFT JOIN `tabItem Variant Attribute` brand ON it.name = brand.parent
-			AND brand.attribute = 'Brand'
-		LEFT JOIN `tabItem Variant Attribute` quality ON it.name = quality.parent
-			AND quality.attribute = '%s Quality'
-		LEFT JOIN `tabItem Variant Attribute` tt ON it.name = tt.parent
-			AND tt.attribute = 'Tool Type'
-		LEFT JOIN `tabItem Variant Attribute` spl ON it.name = spl.parent
-			AND spl.attribute = 'Special Treatment'
-		LEFT JOIN `tabItem Variant Attribute` d1 ON it.name = d1.parent
-			AND d1.attribute = 'd1_mm'
-		LEFT JOIN `tabItem Variant Attribute` w1 ON it.name = w1.parent
-			AND w1.attribute = 'w1_mm'
-		LEFT JOIN `tabItem Variant Attribute` l1 ON it.name = l1.parent
-			AND l1.attribute = 'l1_mm'
-
-	WHERE bn.item_code != ""
-		AND it.is_purchase_item = 1
-		AND it.has_variants = 0
-		AND bn.item_code = it.name
-		AND it.disabled = 0
-		AND ifnull(it.end_of_life, '2099-12-31') > CURDATE() %s
-
-	GROUP BY bn.item_code
-
-	ORDER BY rm.attribute_value, brand.attribute_value,
-			spl.attribute_value, tt.attribute_value,
-			CAST(d1.attribute_value AS DECIMAL(8,3)) ASC,
-			CAST(w1.attribute_value AS DECIMAL(8,3)) ASC,
-			CAST(l1.attribute_value AS DECIMAL(8,3)) ASC""" % (bm, conditions_it), as_dict=1)
-    for i in range(0, len(data)):
-        rol = flt(data[i].rol)
-        so = flt(data[i].so)
-        po = flt(data[i].po)
-        plan = flt(data[i].plan)
-        ind = flt(data[i].indent)
-        prd = flt(data[i].prd)
-        brm = flt(data[i].brm)
-        drm = flt(data[i].drm)
-        bgh = flt(data[i].bgh)
-        del20a = flt(data[i].del20a)
-        dead = flt(data[i].dead)
+    for it in items:
+        qty = stock.get(it.name, {})
+        values = att_map.get(it.name, {})
+        rol = flt(rol_by_item.get(it.name))
+        so, po, plan, ind, prd = (flt(qty.get(key)) for key in BIN_FIELDS)
+        brm, drm, bgh, del20a, dead = (flt(qty.get(key)) for key in WAREHOUSES)
 
         total = (drm + brm + plan + po + ind + bgh + del20a + dead) - prd
+        stock_qty = drm + brm + bgh + del20a + dead - prd
+        calc_rol = get_calc_rol(rol)
+        fut_stock = "Raise More PO and Indent" if total < so else get_stock_band(total, so, calc_rol, rol)
+        cur_stock = "NO STOCK" if stock_qty < calc_rol else get_stock_band(stock_qty, so, calc_rol, rol)
 
-        stock = drm + brm + bgh + del20a + dead - prd
-        prod = total - stock
-        fut_stock = "X"
-
-        if rol < 10:
-            calc_rol = 3*rol
-        elif 10 <= rol < 20:
-            calc_rol = 2*rol
-        elif 20 <= rol < 50:
-            calc_rol = 1.5*rol
-        else:
-            calc_rol = rol
-
-        if total < so:
-            fut_stock = "Raise More PO and Indent"
-        elif total < so + calc_rol:
-            fut_stock = "1<30 Days"
-        elif total < so + 2*calc_rol:
-            fut_stock = "2<60 Days"
-        elif total < so + 3*calc_rol:
-            fut_stock = "3<90 Days"
-        elif total < so + 4*calc_rol:
-            fut_stock = "4<120 Days"
-        elif total < so + 5*calc_rol:
-            fut_stock = "5<150 Days"
-        elif total < so + 6*calc_rol:
-            fut_stock = "6<180 Days"
-        elif total > so + 6*calc_rol:
-            if rol >0:
-                fut_stock = "7 Over Stocked >180 Days"
-            else:
-                fut_stock = "-"
-        else:
-            fut_stock = "-"
-
-        if stock < calc_rol:
-            cur_stock = "NO STOCK"
-        elif stock < so + calc_rol:
-            cur_stock = "1<30 Days"
-        elif stock < so + 2*calc_rol:
-            cur_stock = "2<60 Days"
-        elif stock < so + 3*calc_rol:
-            cur_stock = "3<90 Days"
-        elif stock < so + 4*calc_rol:
-            cur_stock = "4<120 Days"
-        elif stock < so + 5*calc_rol:
-            cur_stock = "5<150 Days"
-        elif stock < so + 6*calc_rol:
-            cur_stock = "6<180 Days"
-        elif stock > so + 6*calc_rol:
-            if rol >0:
-                cur_stock = "7 Over Stocked >180 Days"
-            else:
-                cur_stock = "-"
-        else:
-            cur_stock = "-"
-
-        row = [
-                data[i].name, data[i].rm, data[i].brand, data[i].qual, data[i].spl,
-                data[i].tt, data[i].d1, data[i].w1, data[i].l1, fut_stock, cur_stock,
-                data[i].lead_time_days, total, rol, so, po, plan, ind, prd, data[i].description,
-                brm, drm, bgh, del20a, dead
-        ]
-        for i in range(0, len(row)):
-            if row[i] == 0:
-                row[i] = None
-        actual_data.append(row)
+        actual_data.append(blank_zeros(
+            [it.name] + [values.get(att) or "-" for att in text]
+            + [flt(values[att], 3) if values.get(att) is not None else None for att in NUMERIC]
+            + [fut_stock, cur_stock, it.lead_time_days, total, rol, so, po, plan, ind, prd, it.description,
+            brm, drm, bgh, del20a, dead]
+        ))
 
     return actual_data
 
-def get_conditions(filters):
-    conditions_it = ""
 
-    if filters.get("rm"):
-        conditions_it += " AND rm.attribute_value = '%s'" % filters["rm"]
-
-    if filters.get("bm"):
-        conditions_it += " AND bm.attribute_value = '%s'" % filters["bm"]
-
-    if filters.get("brand"):
-        conditions_it += " AND brand.attribute_value = '%s'" % filters["brand"]
-
-    if filters.get("quality"):
-        conditions_it += " AND quality.attribute_value = '%s'" % filters["quality"]
-
-    if filters.get("spl"):
-        conditions_it += " AND spl.attribute_value = '%s'" % filters["spl"]
-
-    if filters.get("tt"):
-        conditions_it += " AND tt.attribute_value = '%s'" % filters["tt"]
+def get_calc_rol(rol):
+    if rol < 10:
+        return 3*rol
+    elif 10 <= rol < 20:
+        return 2*rol
+    elif 20 <= rol < 50:
+        return 1.5*rol
+    return rol
 
 
-    if filters.get("show_in_website") ==1:
-        conditions_it += " and it.pl_item = 1"
+def get_stock_band(qty, so, calc_rol, rol):
+    """The months of stock that `qty` covers after the sales orders, at `calc_rol` each month."""
+    for months, band in enumerate(BANDS, start=1):
+        if qty < so + months*calc_rol:
+            return band
+    if qty > so + 6*calc_rol and rol > 0:
+        return "7 Over Stocked >180 Days"
+    return "-"
 
+
+def get_item_rows(filters, bm):
+    """The enabled purchase items that are not templates or end of life, have Bins and the filters."""
+    it = frappe.qb.DocType("Item")
+    bn = frappe.qb.DocType("Bin")
+    query = (
+        frappe.qb.from_(it)
+        .select(it.name, it.lead_time_days, it.description)
+        .where((it.is_purchase_item == 1) & (it.has_variants == 0) & (it.disabled == 0))
+        .where(IfNull(it.end_of_life, "2099-12-31") > nowdate())
+        .where(it.name.isin(frappe.qb.from_(bn).select(bn.item_code)))
+        .where(attribute_filters(it.name, {ATTRIBUTE_FILTERS[key].format(bm=bm): filters.get(key)
+            for key in ATTRIBUTE_FILTERS}))
+        .orderby(it.name)
+    )
+    if cint(filters.get("show_in_website")) == 1:
+        query = query.where(it.pl_item == 1)
     if filters.get("item"):
-        conditions_it += " and it.name = '%s'" % filters["item"]
-
+        query = query.where(it.name == filters["item"])
     if filters.get("variant_of"):
-        conditions_it += " and it.variant_of = '%s'" % filters["variant_of"]
+        query = query.where(it.variant_of == filters["variant_of"])
+    return query.run(as_dict=1)
 
-    return conditions_it
 
+def get_stock(items):
+    """{item: {column: qty}} of the Bin sums and the actual qty of each warehouse in WAREHOUSES"""
+    bn = frappe.qb.DocType("Bin")
+    sums = [Sum(getattr(bn, field)).as_(key) for key, field in BIN_FIELDS.items()]
+    actual = [Sum(Case().when(bn.warehouse == warehouse, bn.actual_qty).else_(0)).as_(key)
+        for key, warehouse in WAREHOUSES.items()]
+    stock = {}
+    for chunk in chunks(items):
+        rows = frappe.qb.from_(bn).select(bn.item_code, *sums, *actual).where(bn.item_code.isin(chunk)) \
+            .groupby(bn.item_code).run(as_dict=1)
+        stock.update({row.item_code: row for row in rows})
+    return stock
