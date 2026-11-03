@@ -9,6 +9,7 @@ from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.rigpl_erpnext.report.brc_tracking import brc_tracking
 from rigpl_erpnext.rigpl_erpnext.report.cforms_analysis import cforms_analysis
+from rigpl_erpnext.rigpl_erpnext.report.compare_pricing import compare_pricing
 from rigpl_erpnext.rigpl_erpnext.report.customer_rating import customer_rating
 from rigpl_erpnext.rigpl_erpnext.report.customers_with_so import customers_with_so
 from rigpl_erpnext.rigpl_erpnext.report.follow_up_customer import follow_up_customer
@@ -261,3 +262,26 @@ class TestFollowUpLead(ReportTestCase):
         self.assertEqual(follow_up_lead.execute(frappe._dict(lead=LEAD))[1], [])
         data = follow_up_lead.execute(frappe._dict(lead=LEAD, status="Lead Lost"))[1]
         self.assertEqual([row[0] for row in data], [LEAD])
+
+
+def insert_priced_items():
+    """2 Items of BM with d1_mm 6 and 3, and prices in the 3 price lists of PL."""
+    for name, d1 in ((ITEM, "6"), (ITEM_2, "3")):
+        insert_item(name, variant_of=TEMPLATE, attributes=[("Base Material", BM), ("Tool Type", "O'Drill"),
+            ("d1_mm", d1)])
+        frappe.db.set_value("Item", name, "pl_item", 1, update_modified=False)
+    insert_item_price(ITEM, 100, PL[0])
+    insert_item_price(ITEM, 110, PL[1])
+    insert_item_price(ITEM_2, 50, PL[0])
+
+
+class TestComparePricing(ReportTestCase):
+    def test_prices_and_sort(self):
+        insert_priced_items()
+        filters = frappe._dict(bm=BM, tt="O'Drill", pl1=PL[0], pl2=PL[1], pl3=PL[2])
+
+        data = self.assert_queries(5, lambda: compare_pricing.execute(filters)[1])
+
+        self.assertEqual([row[0] for row in data], [ITEM_2, ITEM])
+        self.assertEqual(data[1][1:7], [100, "INR", 110, "INR", 10, None])
+        self.assertEqual((data[1][10], data[1][14], data[1][15]), (BM, "O'Drill", 6))
