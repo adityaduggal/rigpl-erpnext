@@ -12,10 +12,10 @@ def validate(doc, method):
     populate_account_name(doc)
     # Only One Bank Account per Party if Allow Multiple is Not Set
     if doc.is_company_account != 1:
-        other_bank = frappe.db.sql("""SELECT name FROM `tabBank Account` WHERE party = '%s' AND party_type = '%s'
-        AND allow_multiple != 1 AND name != '%s'""" % (doc.party, doc.party_type, doc.name), as_dict=1)
+        other_bank = frappe.db.get_value("Bank Account", {"party": doc.party, "party_type": doc.party_type,
+            "allow_multiple": ["!=", 1], "name": ["!=", doc.name]}, "name")
         if other_bank:
-            frappe.throw(f"{frappe.get_desk_link('Bank Account', other_bank[0].name)} Already Exists.")
+            frappe.throw(f"{frappe.get_desk_link('Bank Account', other_bank)} Already Exists.")
 
     if doc.bank:
         bank_ifsc = frappe.get_value("Bank", doc.bank, "bank_ifsc_code")

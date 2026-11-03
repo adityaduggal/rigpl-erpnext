@@ -40,18 +40,13 @@ def update_contact(doc):
 
 
 def update_party_bank_account(doc):
-    ba = frappe.db.sql("""SELECT name, is_default FROM `tabBank Account` WHERE verified = 1 
-    AND is_company_account = 0 AND party_type = '%s' AND party = '%s'""" % (doc.party_type, doc.party), as_dict=1)
+    ba = frappe.get_all("Bank Account", filters={"verified": 1, "is_company_account": 0,
+        "party_type": doc.party_type, "party": doc.party}, pluck="name")
     if ba:
         if not doc.party_bank_account:
-            doc.party_bank_account = ba[0].name
-        else:
-            found = 0
-            for d in ba:
-                if doc.party_bank_account == d.name:
-                    found = 1
-            if found != 1:
-                frappe.throw(f"{d.party_bank_account} Selected is Not a Verified Bank Account in {doc.name}")
+            doc.party_bank_account = ba[0]
+        elif doc.party_bank_account not in ba:
+            frappe.throw(f"{doc.party_bank_account} Selected is Not a Verified Bank Account in {doc.name}")
     else:
         doc.party_bank_account = ""
 
@@ -61,10 +56,5 @@ def update_comp_bank_account(doc):
         account = doc.paid_from
     else:
         account = doc.paid_to
-    query = """SELECT name FROM `tabBank Account` WHERE verified = 1 AND is_company_account = 1 AND account = 
-    '%s'""" % account
-    ba = frappe.db.sql(query, as_dict=1)
-    if ba:
-        doc.bank_account = ba[0].name
-    else:
-        doc.bank_account = ""
+    doc.bank_account = frappe.db.get_value("Bank Account", {"verified": 1, "is_company_account": 1,
+        "account": account}, "name") or ""
