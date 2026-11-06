@@ -34,4 +34,6 @@ bench --site dev-rigpl-v12 run-tests --skip-before-tests --app rigpl_erpnext
 bench --site dev-rigpl-v12 run-tests --skip-before-tests --module rigpl_erpnext.tests.test_report_utils
 ```
 
+Use `--module`, not `--doctype`: `--doctype` makes and commits the test records of all linked DocTypes (roles, email accounts and more) and then fails on `test@example.com`, because `mobile_no` is mandatory on this site.
+
 Always use `--skip-before-tests` on dev-rigpl-v12. The ERPNext `before_tests` hook (`erpnext/setup/utils.py`) deletes all rows in Item Price, Leave Allocation, Leave Application and Salary Slip, and commits. A test rollback does not undo it.
