@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, get_datetime, now_datetime
@@ -7,18 +5,18 @@ from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.rigpl_erpnext.scheduled_tasks import communication as task
 from rigpl_erpnext.rigpl_erpnext.validations.todo import close_follow_up
+from rigpl_erpnext.tests.test_selling_reports import raw
 
 USER = "_test_rigpl_follow_up@example.com"
 OTHER = "_test_rigpl_follow_up_other@example.com"
 DISABLED = "_test_rigpl_follow_up_disabled@example.com"
 
 
-def make_user(email, first_name, mobile_no, enabled=1):
+def make_user(email, first_name, enabled=1):
+    # db_insert: User.insert makes a Contact, whose hook commits. A Contact left by an older run
+    # with the same name also makes that insert fail. See docs/ai/testing.md.
     if not frappe.db.exists("User", email):
-        # mobile_no is mandatory on this site (Property Setter) and unique. The first name names
-        # the Contact that User.on_update makes, so it must be unique too.
-        frappe.get_doc({"doctype": "User", "email": email, "first_name": first_name, "enabled": enabled,
-            "mobile_no": mobile_no, "send_welcome_email": 0}).insert(ignore_permissions=True)
+        raw("User", name=email, email=email, first_name=first_name, enabled=enabled)
 
 
 def make_follow_up(user=USER, ref=USER, due=True):
@@ -59,27 +57,22 @@ def follow_up(name):
 
 
 class TestCommunicationFollowUp(FrappeTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        make_user(USER, "_Test RIGPL Follow Up", "+91-0000000150")
-        make_user(OTHER, "_Test RIGPL Follow Up Other", "+91-0000000151")
-        make_user(DISABLED, "_Test RIGPL Follow Up Disabled", "+91-0000000152", enabled=0)
-
     def setUp(self):
-        mail = patch.object(task, "send_follow_up_email")
-        self.mail = mail.start()
-        self.addCleanup(mail.stop)
+        make_user(USER, "_Test RIGPL Follow Up")
+        make_user(OTHER, "_Test RIGPL Follow Up Other")
+        make_user(DISABLED, "_Test RIGPL Follow Up Disabled", enabled=0)
 
     def tearDown(self):
         frappe.db.rollback()
 
-    def test_makes_one_todo_and_one_email_then_nothing(self):
+    def test_makes_one_todo_with_the_full_notes_then_nothing(self):
+        notes = "Call back about the quotation. " * 10
         name = make_follow_up()
+        frappe.db.set_value("Communication", name, "content", notes, update_modified=False)
         run(name)
         run(name)
         self.assertEqual(len(todos(name)), 1)
-        self.mail.assert_called_once()
+        self.assertIn(notes.strip(), frappe.db.get_value("ToDo", todos(name)[0], "description"))
 
     def test_follow_up_not_due_gets_no_todo(self):
         name = make_follow_up(due=False)
@@ -99,7 +92,7 @@ class TestCommunicationFollowUp(FrappeTestCase):
 
     def test_disabled_or_empty_user_ends_follow_up(self):
         disabled = make_follow_up(user=DISABLED)
-        empty = make_follow_up()
+        empty = make_follow_up(ref=OTHER)
         frappe.db.set_value("Communication", empty, "user", None, update_modified=False)
         old_todo = frappe.get_doc({"doctype": "ToDo", "owner": DISABLED, "status": "Open",
             "description": "_Test RIGPL follow up", "reference_type": "Communication",
@@ -108,7 +101,6 @@ class TestCommunicationFollowUp(FrappeTestCase):
         self.assertEqual((follow_up(disabled), follow_up(empty)), (0, 0))
         self.assertEqual(todos(disabled) + todos(empty), [])
         self.assertEqual(frappe.db.get_value("ToDo", old_todo.name, "status"), "Closed")
-        self.mail.assert_not_called()
 
     def test_ending_follow_ups_runs_a_fixed_number_of_queries(self):
         names = [make_follow_up(user=DISABLED, ref=ref) for ref in (USER, OTHER, DISABLED)]
@@ -154,11 +146,20 @@ class TestCommunicationFollowUp(FrappeTestCase):
         todo.save(ignore_permissions=True)
         self.assertEqual(follow_up(name), 0)
 
-    def test_new_call_ends_older_follow_up_of_same_user(self):
+    def test_new_call_ends_older_follow_ups_of_all_users(self):
         older = make_follow_up()
         run(older)
-        other_user = make_follow_up(user=OTHER)
-        newer = make_follow_up()
-        self.assertEqual(follow_up(older), 0)
+        not_due = make_follow_up(due=False)
+        newer = make_follow_up(user=OTHER)
+        other_party = make_follow_up(ref=OTHER)
+        self.assertEqual((follow_up(older), follow_up(not_due)), (0, 0))
         self.assertEqual(todos(older), [])
-        self.assertEqual((follow_up(newer), follow_up(other_user)), (1, 1))
+        self.assertEqual((follow_up(newer), follow_up(other_party)), (1, 1))
+
+    def test_closed_todo_from_the_list_ends_a_follow_up_not_due(self):
+        name = make_follow_up(due=False)
+        todo = frappe.get_doc({"doctype": "ToDo", "owner": USER, "status": "Open", "description": "_Test RIGPL",
+            "reference_type": "Communication", "reference_name": name}).insert(ignore_permissions=True)
+        todo.status = "Closed"
+        todo.save(ignore_permissions=True)
+        self.assertEqual(follow_up(name), 0)

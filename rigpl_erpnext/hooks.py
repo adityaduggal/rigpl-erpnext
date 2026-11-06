@@ -124,6 +124,7 @@ after_migrate = [
 # -----------
 doctype_js = {
     "Bank Account": "public/js/bank_account.js",
+    "Communication": "public/js/communication.js",
     "Item": "public/js/stock/item.js",
     "ToDo": "public/js/todo.js",
 }

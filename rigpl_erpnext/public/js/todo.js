@@ -1,4 +1,4 @@
-// Follow-up ToDos of a Communication (#150): closing asks "Done" or "Remind me later".
+// Follow-up ToDos of a Communication (#150): closing or cancelling asks "Replan" or "No Follow Up".
 frappe.ui.form.on("ToDo", {
 	refresh(frm) {
 		frm._saved_status = frm.doc.status;
@@ -27,12 +27,12 @@ function close_follow_up_dialog(frm, status) {
 		fields: [
 			{
 				fieldname: "action", fieldtype: "Select", label: __("Action"), reqd: 1,
-				options: [__("Done"), __("Remind me later")].join("\n"), default: __("Done"),
+				options: [__("No Follow Up"), __("Replan")].join("\n"), default: __("No Follow Up"),
 			},
 			{
 				fieldname: "next_action_date", fieldtype: "Datetime", label: __("Next Action Date"),
-				depends_on: `eval:doc.action=="${__("Remind me later")}"`,
-				mandatory_depends_on: `eval:doc.action=="${__("Remind me later")}"`,
+				depends_on: `eval:doc.action=="${__("Replan")}"`,
+				mandatory_depends_on: `eval:doc.action=="${__("Replan")}"`,
 			},
 		],
 		primary_action_label: __("Close"),
@@ -42,7 +42,7 @@ function close_follow_up_dialog(frm, status) {
 				args: {
 					todo: frm.doc.name,
 					status: status,
-					next_action_date: values.action === __("Remind me later") ? values.next_action_date : null,
+					next_action_date: values.action === __("Replan") ? values.next_action_date : null,
 				},
 				freeze: true,
 				callback() {

@@ -5,15 +5,15 @@
 from __future__ import unicode_literals
 import frappe
 import time
-from frappe.utils import now_datetime
-import html2text
+from frappe.utils import escape_html, now_datetime
 from .process_sheet_update import run_write
 from ...utils.follow_up_utils import end_follow_ups
 
 
 def create_follow_up_todos():
     """
-    Runs each hour. Makes 1 ToDo and sends 1 email for each due follow-up that has no Open ToDo.
+    Runs each hour. Makes 1 ToDo for each due follow-up that has no Open ToDo. The ERPNext Email
+    Digest mails each user the list of their Open ToDos.
     Ends the follow-ups of empty, deleted or disabled users. A closed ToDo is never opened again.
     """
     st_time = time.time()
@@ -57,13 +57,14 @@ def make_todo(comm):
     todo.reference_type = "Communication"
     todo.reference_name = comm.name
     todo.assigned_by = comm.owner
-    todo.description = f"{comm.subject or ''}\n{html2text.html2text(comm.content or '')[0:100]}\n" \
-                       f"{comm.reference_doctype or ''} {comm.reference_name or ''}"
+    todo.description = get_todo_description(comm)
     todo.insert()
-    send_follow_up_email(comm.user, comm.owner, comm.subject or "", comm.content or "",
-                         comm.reference_doctype or "", comm.reference_name or "")
 
 
-def send_follow_up_email(user, sender, subject, content, ref_doc, ref_name):
-    frappe.sendmail(recipients=user, sender=sender, subject="Follow Up for: " + subject,
-                   content=content + "\n" + ref_doc + " " + ref_name)
+def get_todo_description(comm):
+    """The subject, the full call notes and the party, as HTML for the ToDo Text Editor."""
+    party = ""
+    if comm.reference_doctype and comm.reference_name:
+        party = frappe.get_desk_link(comm.reference_doctype, comm.reference_name)
+    return "<p><b>{}</b></p>{}<p>{}</p>".format(escape_html(comm.subject or ""),
+        comm.content or "", party)
