@@ -25,8 +25,10 @@ def execute():
         (singles.doctype == "RIGPL Settings") & singles.field.isin(SETTINGS_FIELDS),
     )
 
-    job_log = DocType("Scheduled Job Log")
-    delete_rows("Scheduled Job Logs", job_log, job_log.scheduled_job_type == JOB_TYPE)
+    # A v12 database has no such table: the sync that adds it runs after the patches (#210).
+    if frappe.db.table_exists("Scheduled Job Log"):
+        job_log = DocType("Scheduled Job Log")
+        delete_rows("Scheduled Job Logs", job_log, job_log.scheduled_job_type == JOB_TYPE)
 
     error_log = DocType("Error Log")
     delete_rows(

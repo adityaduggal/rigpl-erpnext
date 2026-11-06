@@ -5,7 +5,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from rohit_common.utils.query_guard import assert_max_queries
 
-from rigpl_erpnext.patches.v13 import update_leave_type_in_attendance
+from rigpl_erpnext.patches.v13 import remove_indiamart, update_leave_type_in_attendance
 from rigpl_erpnext.patches.v13.fix_long_item_names import (
     WEBSITE_ITEM,
     WEBSITE_ITEM_NAME_FIELDS,
@@ -21,6 +21,7 @@ WEB_ITEM = "_Test RIGPL PATCH-WIG-W"
 NO_WEB_ITEM = "_Test RIGPL PATCH-NO-WEB"
 EMPLOYEE = "_Test RIGPL PATCH-EMP"
 UPDATEDB = "frappe.database.mariadb.database.MariaDBDatabase.updatedb"
+TABLE_EXISTS = "frappe.database.mariadb.database.MariaDBDatabase.table_exists"
 
 
 def warm_up(*doctypes):
@@ -192,3 +193,21 @@ class TestWebsiteItemLengthSetters(FrappeTestCase):
         with patch(UPDATEDB) as updatedb:
             add_website_item_length_setters()
         updatedb.assert_not_called()
+
+
+class TestRemoveIndiamart(FrappeTestCase):
+    def deleted_labels(self, job_log_table_exists):
+        with patch(TABLE_EXISTS, return_value=job_log_table_exists), patch("frappe.delete_doc"), patch.object(
+            remove_indiamart, "delete_rows"
+        ) as delete_rows:
+            remove_indiamart.execute()
+        return [call.args[0] for call in delete_rows.call_args_list]
+
+    def test_no_job_log_table_skips_only_the_job_logs(self):
+        # A v12 database has no Scheduled Job Log table when the patches run (#210).
+        labels = self.deleted_labels(job_log_table_exists=False)
+        self.assertNotIn("Scheduled Job Logs", labels)
+        self.assertIn("Error Logs", labels)
+
+    def test_job_logs_are_deleted_when_the_table_exists(self):
+        self.assertIn("Scheduled Job Logs", self.deleted_labels(job_log_table_exists=True))
