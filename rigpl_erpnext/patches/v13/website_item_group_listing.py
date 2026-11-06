@@ -95,6 +95,8 @@ def set_listing_settings():
         frappe.db.set_single_value(settings, "enable_attribute_filters", 0)
         print("E Commerce Settings: Attribute Filters are off.")
 
+    # Patches run before the schema sync, and no v13 patch reloads Item Group (#209).
+    frappe.reload_doc("setup", "doctype", "item_group")
     item_group = frappe.qb.DocType("Item Group")
     condition = (
         (item_group.show_in_website == 1) & (item_group.is_group == 1) & (item_group.include_descendants == 0)
