@@ -8,6 +8,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, now_datetime
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.rigpl_erpnext.scheduled_tasks import communication as follow_up_job
 from rigpl_erpnext.tests.test_selling_reports import raw
 
 USER = "_test_rigpl_dcr@example.com"
@@ -73,6 +74,18 @@ class TestDailyCall(FrappeTestCase):
 		self.assertEqual(dcr.call_details[2].contact, CONTACT)
 		self.assertEqual(frappe.db.get_value("Daily Call Details", dcr.call_details[0].name, "communication"),
 			comms[0].name)
+
+	def test_hourly_job_makes_a_todo_only_for_a_row_with_a_next_action_date(self):
+		dcr = make_dcr([call_row("Lead", LEADS[0], next_action=True), call_row("Lead", LEADS[1])])
+		with_date, without_date = [row.communication for row in dcr.call_details]
+		frappe.db.set_value("Communication", with_date, "next_action_date", add_to_date(now_datetime(), hours=-2),
+			update_modified=False)
+
+		follow_up_job.process_follow_ups(follow_up_job.get_due_follow_ups(names=[with_date, without_date]))
+
+		self.assertIsNone(frappe.db.get_value("Communication", without_date, "next_action_date"))
+		self.assertEqual(frappe.db.count("ToDo", {"reference_type": "Communication", "reference_name": without_date}), 0)
+		self.assertEqual(frappe.db.count("ToDo", {"reference_type": "Communication", "reference_name": with_date}), 1)
 
 	def test_new_call_ends_older_follow_ups_of_all_users_due_or_not(self):
 		lead_comm, lead_todo = make_follow_up("Lead", LEADS[0])
