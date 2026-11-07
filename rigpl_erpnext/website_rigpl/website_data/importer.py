@@ -3,7 +3,8 @@ One-time import of the v12 website into v13 DB documents, so website managers ca
 edit it in Desk: the v12 theme (app SCSS) becomes Website Theme "rigpl-v12", and the
 v12 home page (app-code www/index.html) becomes Page Builder blocks in Web Page "home".
 
-Run it with the manual patch rigpl_erpnext.patches.manual.import_website_data.
+The after_migrate hook import_website_once runs it one time on each site. To run it again,
+use the manual patch rigpl_erpnext.patches.manual.import_website_data.
 Data that the v12 DB already has (Homepage, Homepage Section, Contact Us Settings)
 is read from the site at import time. home.json holds only the values that were
 hard-coded in the v12 code. See website_rigpl/README.md.
@@ -12,13 +13,16 @@ from __future__ import annotations
 
 import json
 import os
+from subprocess import DEVNULL, run
 
 import frappe
+from frappe.modules.patch_handler import update_patch_log
 from frappe.website.render import clear_cache
 from frappe.website.router import resolve_route
 
 IMPORT_PATCH = "rigpl_erpnext.patches.manual.import_website_data"
 SKIP_PATCH = "rigpl_erpnext.patches.manual.skip_website_data_import"
+IMPORT_ERROR_TITLE = "RIGPL website import failed"
 
 ITEM_CARDS_PER_BLOCK = 12  # card slots in the "Item Card Group" web template
 REQUIRED_TEMPLATES = (
@@ -29,6 +33,55 @@ REQUIRED_TEMPLATES = (
     "RIGPL Social Feeds",
     "RIGPL Contact Strip",
 )
+
+
+def import_website_once():
+    """after_migrate: import the v12 website one time. A failed import must not stop the migrate."""
+    if frappe.db.exists("Patch Log", {"patch": ["in", [IMPORT_PATCH, SKIP_PATCH]]}):
+        return
+
+    site = frappe.local.site
+    if not can_compile_scss():
+        print(
+            "\nrigpl_erpnext: the v12 website is not imported, because node-sass cannot run with this "
+            f"Node version.\n  Use Node 14, then run: bench --site {site} migrate\n"
+        )
+        return
+
+    # A savepoint keeps the other after_migrate work in this transaction.
+    frappe.db.savepoint("rigpl_website_import")
+    try:
+        import_website()
+        update_patch_log(IMPORT_PATCH)
+    except Exception as e:
+        frappe.db.rollback(save_point="rigpl_website_import")
+        clear_cache()
+        frappe.log_error(frappe.get_traceback(), IMPORT_ERROR_TITLE)
+        print(
+            f"\nrigpl_erpnext: the v12 website is not imported: {e}\n"
+            f"  Correct the error, then run: bench --site {site} migrate\n"
+        )
+
+
+def import_website():
+    theme_seed = load_json("theme")
+    import_theme(theme_seed)
+    set_default_theme(theme_seed["theme"]["theme"])
+
+    home_seed = load_json("home")
+    import_home_page(home_seed)
+    set_home_page(home_seed["route"])
+
+
+def can_compile_scss() -> bool:
+    """True if node-sass loads, which is what Website Theme uses to compile."""
+    result = run(
+        ["node", "-e", "require('node-sass')"],
+        cwd=frappe.get_app_path("frappe", ".."),
+        stdout=DEVNULL,
+        stderr=DEVNULL,
+    )
+    return result.returncode == 0
 
 
 def load_json(name: str) -> dict:
@@ -193,17 +246,3 @@ def set_home_page(route: str) -> bool:
 def clear_cache_on_blog_change(doc, method=None):
     """Blog Post doc_event: the RIGPL Latest Blogs block on cached pages must show the change."""
     clear_cache()
-
-
-def notify_pending_website_import():
-    """after_migrate: remind the admin until one of the manual website patches was run."""
-    if frappe.db.exists("Patch Log", {"patch": ["in", [IMPORT_PATCH, SKIP_PATCH]]}):
-        return
-
-    site = frappe.local.site
-    print(
-        "\nrigpl_erpnext: the v12 website (theme and home page) is not imported.\n"
-        f"  To import it:  bench --site {site} run-patch {IMPORT_PATCH}\n"
-        f"  To skip it and hide this message:  bench --site {site} run-patch {SKIP_PATCH}\n"
-        "  Read rigpl_erpnext/website_rigpl/README.md first.\n"
-    )

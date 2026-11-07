@@ -1,8 +1,11 @@
+import io
 import json
 import os
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
 import frappe
+from frappe.modules.patch_handler import update_patch_log
 from frappe.tests.utils import FrappeTestCase
 from frappe.website.doctype.website_theme.website_theme import WebsiteTheme
 
@@ -10,6 +13,7 @@ from rigpl_erpnext.website_rigpl.website_data import importer
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(importer.__file__), "..", "web_template")
 TEST_SEED = dict(importer.load_json("home"), name="_test-rigpl-home", route="_test-rigpl-home")
+DONE_PATCHES = [importer.IMPORT_PATCH, importer.SKIP_PATCH]
 
 
 def make_test_theme_seed():
@@ -23,6 +27,13 @@ def make_test_theme_seed():
         dark_color="_test-" + seed["theme"]["dark_color"],
     )
     return seed
+
+
+TEST_THEME_SEED = make_test_theme_seed()
+
+
+def load_test_seed(name):
+    return TEST_THEME_SEED if name == "theme" else TEST_SEED
 
 
 def render_web_template(scrubbed_name, values):
@@ -124,3 +135,62 @@ class TestWebsiteDataImport(FrappeTestCase):
         frappe.db.set_single_value("Website Settings", "website_theme", "Custom")
         self.assertFalse(importer.set_default_theme("_test-rigpl-v12"))
         self.assertEqual(frappe.db.get_single_value("Website Settings", "website_theme"), "Custom")
+
+
+class TestImportWebsiteOnce(FrappeTestCase):
+    def setUp(self):
+        frappe.db.delete("Patch Log", {"patch": ["in", DONE_PATCHES]})
+
+    def tearDown(self):
+        frappe.db.rollback()
+
+    @patch.object(WebsiteTheme, "generate_bootstrap_theme")
+    @patch.object(importer, "can_compile_scss", return_value=True)
+    @patch.object(importer, "load_json", side_effect=load_test_seed)
+    def test_first_run_imports_and_writes_patch_log(self, _seed, _can_compile, _compile):
+        importer.import_website_once()
+
+        self.assertTrue(frappe.db.exists("Website Theme", "_test-rigpl-v12"))
+        self.assertTrue(frappe.db.exists("Web Page", TEST_SEED["name"]))
+        self.assertTrue(frappe.db.exists("Patch Log", {"patch": importer.IMPORT_PATCH}))
+
+    @patch.object(importer, "can_compile_scss", return_value=True)
+    def test_second_run_does_not_import(self, _can_compile):
+        with patch.object(importer, "import_website"):
+            importer.import_website_once()
+        with patch.object(importer, "import_website") as import_website:
+            importer.import_website_once()
+        import_website.assert_not_called()
+        self.assertEqual(frappe.db.count("Patch Log", {"patch": importer.IMPORT_PATCH}), 1)
+
+    @patch.object(importer, "can_compile_scss", return_value=True)
+    def test_skip_patch_row_stops_the_import(self, _can_compile):
+        update_patch_log(importer.SKIP_PATCH)
+        with patch.object(importer, "import_website") as import_website:
+            importer.import_website_once()
+        import_website.assert_not_called()
+
+    @patch.object(importer, "can_compile_scss", return_value=False)
+    def test_no_scss_compile_skips_the_import_and_tells_the_user(self, _can_compile):
+        output = io.StringIO()
+        with patch.object(importer, "import_website") as import_website, redirect_stdout(output):
+            importer.import_website_once()
+
+        import_website.assert_not_called()
+        self.assertFalse(frappe.db.exists("Patch Log", {"patch": importer.IMPORT_PATCH}))
+        self.assertIn("Node 14", output.getvalue())
+
+    @patch.object(WebsiteTheme, "generate_bootstrap_theme")
+    @patch.object(importer, "can_compile_scss", return_value=True)
+    @patch.object(importer, "load_json", side_effect=load_test_seed)
+    def test_failed_import_undoes_changes_and_does_not_raise(self, _seed, _can_compile, _compile):
+        error_logs = frappe.db.count("Error Log", {"method": importer.IMPORT_ERROR_TITLE})
+        output = io.StringIO()
+        with patch.object(importer, "import_home_page", side_effect=frappe.ValidationError("broken")):
+            with redirect_stdout(output):
+                importer.import_website_once()
+
+        self.assertFalse(frappe.db.exists("Website Theme", "_test-rigpl-v12"))
+        self.assertFalse(frappe.db.exists("Patch Log", {"patch": importer.IMPORT_PATCH}))
+        self.assertEqual(frappe.db.count("Error Log", {"method": importer.IMPORT_ERROR_TITLE}), error_logs + 1)
+        self.assertIn("not imported", output.getvalue())

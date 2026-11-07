@@ -2,7 +2,7 @@ import hashlib
 
 import frappe
 
-from rigpl_erpnext.website_rigpl.website_data.importer import load_json, read_data_file
+from rigpl_erpnext.website_rigpl.website_data.importer import can_compile_scss, load_json, read_data_file
 
 SECTION_MARKER = "// RIGPL tables"  # prefix of every version of the section
 # sha256 of each earlier version of the section, exactly as a patch wrote it. A section with
@@ -71,16 +71,3 @@ def save_custom_scss(theme_name: str, custom_scss: str):
     theme.custom_scss = custom_scss
     theme.save()  # validate() compiles the SCSS and throws on an error
     print(f"Website Theme {theme_name}: the RIGPL tables styles were updated. CSS: {theme.theme_url}")
-
-
-def can_compile_scss() -> bool:
-    """True if node-sass loads, which is what Website Theme uses to compile."""
-    from subprocess import DEVNULL, run
-
-    result = run(
-        ["node", "-e", "require('node-sass')"],
-        cwd=frappe.get_app_path("frappe", ".."),
-        stdout=DEVNULL,
-        stderr=DEVNULL,
-    )
-    return result.returncode == 0

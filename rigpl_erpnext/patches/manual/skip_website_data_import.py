@@ -1,6 +1,6 @@
 """
-Manual patch, not in patches.txt. Run it to stop the website import message on
-migrate without importing anything:
+Manual patch, not in patches.txt. Run it before the migrate to stop the website import
+on this site:
     bench --site <site> run-patch rigpl_erpnext.patches.manual.skip_website_data_import
 """
 

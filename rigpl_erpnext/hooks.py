@@ -98,7 +98,7 @@ before_migrate = [
 before_request = ["rigpl_erpnext.overrides.pricing_rule_utils.apply_overrides"]
 before_job = ["rigpl_erpnext.overrides.pricing_rule_utils.apply_overrides"]
 after_migrate = [
-    "rigpl_erpnext.website_rigpl.website_data.importer.notify_pending_website_import",
+    "rigpl_erpnext.website_rigpl.website_data.importer.import_website_once",
     "rigpl_erpnext.utils.role_permission_policy.enforce_role_permission_policy",
 ]
 
