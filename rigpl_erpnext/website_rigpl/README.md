@@ -156,6 +156,11 @@ Colors:
 | `rigpl-v12-midnight-blue` | `#18427B` |
 | `rigpl-v12-light-grey` | `#E2DBD4` |
 | `rigpl-v12-slate-grey` | `#7F8487` |
+| `rigpl-v12-panel-background` | `#F7FAFC` |
+| `rigpl-v12-panel-border` | `#CED5DB` |
+| `rigpl-v12-image-border` | `#D1D8DD` |
+| `rigpl-v12-dark-grey` | `#333333` |
+| `rigpl-v12-white` | `#FFFFFF` |
 
 Website Theme `rigpl-v12`:
 

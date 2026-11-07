@@ -138,6 +138,7 @@ def import_home_page(seed: dict | None = None) -> bool:
     else:
         page = frappe.new_doc("Web Page")
         page.name = seed["name"]
+        page.flags.name_set = True  # without it, insert names the page from its title
 
     missing = [name for name in REQUIRED_TEMPLATES if not frappe.db.exists("Web Template", name)]
     if missing:

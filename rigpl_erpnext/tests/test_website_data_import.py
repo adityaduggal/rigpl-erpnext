@@ -12,8 +12,10 @@ from frappe.website.doctype.website_theme.website_theme import WebsiteTheme
 from rigpl_erpnext.website_rigpl.website_data import importer
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(importer.__file__), "..", "web_template")
-TEST_SEED = dict(importer.load_json("home"), name="_test-rigpl-home", route="_test-rigpl-home")
+TEST_SEED = dict(importer.load_json("home"), name="_test-rigpl-home", route="test-rigpl-home")
 DONE_PATCHES = [importer.IMPORT_PATCH, importer.SKIP_PATCH]
+# Every hex value in version-12 public/scss/variables.scss and index.scss
+V12_COLORS = {"#8BBF46", "#191B69", "#18427B", "#E2DBD4", "#7F8487", "#F7FAFC", "#D1D8DD", "#CED5DB", "#333333", "#FFFFFF"}
 
 
 def make_test_theme_seed():
@@ -124,6 +126,10 @@ class TestWebsiteDataImport(FrappeTestCase):
 
         self.assertFalse(importer.import_theme(seed))
         self.assertEqual(frappe.db.get_value("Website Theme", theme.name, "modified"), theme.modified)
+
+    def test_theme_seed_has_every_v12_color(self):
+        colors = set(importer.load_json("theme")["colors"].values())
+        self.assertEqual(colors, V12_COLORS)
 
     def test_set_default_theme_replaces_empty_or_standard(self):
         for current in ("", "Standard"):
