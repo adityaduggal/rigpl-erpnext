@@ -72,6 +72,156 @@ img {
     max-width: 100%;
 }
 
+// RIGPL v12 rules (#211): the other rules of the v12 theme (version-12 branch: public/scss/index.scss
+// and multilevel-dropdown.scss). A website manager can delete a rule here that no page uses.
+// .avatar and .standard-image are not copied: they override the v13 avatar sizes.
+// A clicked item keeps focus while the mouse is in its submenu.
+.navbar .dropdown-item:focus {
+    background-color: $dark;
+    color: $primary;
+}
+
+// v13 limits the logo to 25px high. The v12 logo was 80px.
+.navbar-brand img {
+    max-height: 80px;
+}
+
+.navbar .nav-item {
+    padding: 0rem 1rem;
+}
+
+.dropdown-submenu {
+    position: relative;
+}
+
+.dropdown-submenu a::after {
+    transform: rotate(-90deg);
+    position: absolute;
+    right: 6px;
+    top: .8em;
+}
+
+.dropdown-submenu .dropdown-menu {
+    top: 0;
+    left: 100%;
+    margin-left: .1rem;
+    margin-right: .1rem;
+}
+
+.input-dark {
+    background-color: $dark;
+    border-color: darken($primary, 40%);
+    color: $light;
+}
+
+.breadcrumb {
+    font-size: 0.75rem;
+}
+
+a.card {
+    text-decoration: none;
+}
+
+.hidden {
+    @extend .d-none;
+}
+
+.video-background {
+    width: 100vw;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+
+    &-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--dark);
+        opacity: 0.4;
+    }
+}
+
+.hero-section {
+    background-size: cover;
+}
+
+.panel {
+    margin-bottom: 20px;
+    background-color: #fff;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    -webkit-box-shadow: 0 1px 1px rgba(0, 0, 0, .05);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .05);
+}
+
+.panel-default {
+    border-color: #ced5db;
+}
+
+.panel-bg {
+    background-color: #f7fafc;
+}
+
+.panel-default > .panel-heading {
+    color: #333;
+    background-color: #f7fafc;
+    border-color: #ced5db;
+}
+
+.panel-heading, .panel-body {
+    padding-left: 15px;
+}
+
+.panel-body {
+    padding: 15px;
+}
+
+.panel-heading {
+    padding: 10px 15px;
+    border-bottom: 1px solid transparent;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+
+.input-group-lg > .form-control, .input-group-lg > .input-group-addon, .input-group-lg > .input-group-btn > .btn {
+    height: 46px;
+    padding: 10px 16px;
+    font-size: 18px;
+    line-height: 1.33;
+    border-radius: 6px;
+}
+
+.frappe-chat .dropdown-toggle::after {
+    content: none;
+}
+
+.avatar-medium {
+    margin-right: 5px;
+}
+
+.media-middle {
+    vertical-align: middle;
+}
+
+.frappe-fab {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    border-radius: 50%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25);
+    margin: 20px;
+    width: 48px;
+    height: 48px;
+}
+
+.fa-fw.fa-times {
+    width: auto;
+}
+
 // RIGPL tables v5 (#126): the common specifications table and the variant table on template pages,
 // and the product description font. Edit the look here, in Website Theme > Custom SCSS. The variables
 // use the theme colors ($primary, $dark) and the Bootstrap greys. The page script only sets

@@ -61,7 +61,7 @@ def save_custom_scss(theme_name: str, custom_scss: str):
     if not can_compile_scss():
         frappe.db.set_value("Website Theme", theme_name, "custom_scss", custom_scss)
         print(
-            f"Website Theme {theme_name}: the RIGPL tables styles were saved, but node-sass cannot "
+            f"Website Theme {theme_name}: the Custom SCSS was saved, but node-sass cannot "
             "run with this Node version, so the website still uses the old CSS. Use Node 14, then "
             "open the Website Theme in Desk and save it."
         )
@@ -70,4 +70,4 @@ def save_custom_scss(theme_name: str, custom_scss: str):
     theme = frappe.get_doc("Website Theme", theme_name)
     theme.custom_scss = custom_scss
     theme.save()  # validate() compiles the SCSS and throws on an error
-    print(f"Website Theme {theme_name}: the RIGPL tables styles were updated. CSS: {theme.theme_url}")
+    print(f"Website Theme {theme_name}: the Custom SCSS was updated. CSS: {theme.theme_url}")

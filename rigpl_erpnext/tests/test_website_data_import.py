@@ -9,11 +9,35 @@ from frappe.modules.patch_handler import update_patch_log
 from frappe.tests.utils import FrappeTestCase
 from frappe.website.doctype.website_theme.website_theme import WebsiteTheme
 
+from rigpl_erpnext.patches.v13 import add_v12_rules_to_website_theme as v12_rules_patch
 from rigpl_erpnext.website_rigpl.website_data import importer
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(importer.__file__), "..", "web_template")
 TEST_SEED = dict(importer.load_json("home"), name="_test-rigpl-home", route="test-rigpl-home")
 DONE_PATCHES = [importer.IMPORT_PATCH, importer.SKIP_PATCH]
+# Selectors in version-12 public/scss/index.scss and multilevel-dropdown.scss, except the two
+# avatar rules that override the v13 avatar sizes
+V12_SELECTORS = (
+    ".nav-item",
+    ".dropdown-submenu",
+    ".input-dark",
+    ".breadcrumb",
+    "a.card",
+    ".hidden",
+    ".video-background",
+    ".hero-section",
+    ".btn-primary",
+    ".text-underline",
+    ".panel-default > .panel-heading",
+    ".panel-bg",
+    ".input-group-lg > .form-control",
+    ".frappe-chat .dropdown-toggle::after",
+    ".avatar-medium",
+    ".media-middle",
+    ".frappe-fab",
+    ".fa-fw.fa-times",
+)
+LOGO_RULE = ".navbar-brand img {\n    max-height: 80px;\n}"
 # Every hex value in version-12 public/scss/variables.scss and index.scss
 V12_COLORS = {"#8BBF46", "#191B69", "#18427B", "#E2DBD4", "#7F8487", "#F7FAFC", "#D1D8DD", "#CED5DB", "#333333", "#FFFFFF"}
 
@@ -200,3 +224,67 @@ class TestImportWebsiteOnce(FrappeTestCase):
         self.assertFalse(frappe.db.exists("Patch Log", {"patch": importer.IMPORT_PATCH}))
         self.assertEqual(frappe.db.count("Error Log", {"method": importer.IMPORT_ERROR_TITLE}), error_logs + 1)
         self.assertIn("not imported", output.getvalue())
+
+
+class TestAddV12RulesPatch(FrappeTestCase):
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_theme_seed_has_every_v12_rule(self):
+        scss = importer.read_data_file(importer.load_json("theme")["custom_scss_file"])
+        for selector in V12_SELECTORS:
+            self.assertIn(selector, scss)
+
+    def test_v12_rules_section_keeps_clicked_navbar_item_dark(self):
+        scss = importer.read_data_file(importer.load_json("theme")["custom_scss_file"])
+        section = scss[scss.index(v12_rules_patch.V12_RULES_MARKER) : scss.index(v12_rules_patch.TABLES_MARKER)]
+        self.assertIn(".navbar .dropdown-item:focus", section)
+
+    def test_v12_rules_section_sets_navbar_logo_height(self):
+        scss = importer.read_data_file(importer.load_json("theme")["custom_scss_file"])
+        section = scss[scss.index(v12_rules_patch.V12_RULES_MARKER) : scss.index(v12_rules_patch.TABLES_MARKER)]
+        self.assertIn(LOGO_RULE, section)
+
+    def test_seed_does_not_override_v13_avatars(self):
+        scss = importer.read_data_file(importer.load_json("theme")["custom_scss_file"])
+        self.assertNotIn("\n.avatar {", scss)
+        self.assertNotIn("\n.standard-image {", scss)
+
+    def test_seed_keeps_rules_before_tables_section(self):
+        scss = importer.read_data_file(importer.load_json("theme")["custom_scss_file"])
+        self.assertLess(scss.index(v12_rules_patch.V12_RULES_MARKER), scss.index(v12_rules_patch.TABLES_MARKER))
+
+    def run_patch_on_theme(self, custom_scss):
+        with patch.object(WebsiteTheme, "generate_bootstrap_theme"):
+            frappe.get_doc(
+                {"doctype": "Website Theme", "theme": "_test-rigpl-v12", "custom": 1, "custom_scss": custom_scss}
+            ).insert()
+        return self.run_patch()
+
+    def run_patch(self):
+        with patch.object(v12_rules_patch, "load_json", side_effect=load_test_seed), patch.object(
+            v12_rules_patch, "save_custom_scss"
+        ) as save:
+            v12_rules_patch.execute()
+        return save
+
+    def test_rules_go_before_tables_and_keep_manager_edits(self):
+        save = self.run_patch_on_theme(".mine {}\n\n// RIGPL tables v5\n.t {}\n")
+
+        saved = save.call_args[0][1]
+        self.assertTrue(saved.startswith(".mine {}"))
+        self.assertLess(saved.index(v12_rules_patch.V12_RULES_MARKER), saved.index("// RIGPL tables v5"))
+        self.assertIn(".dropdown-submenu", saved)
+
+    def test_rules_are_appended_when_theme_has_no_tables_section(self):
+        save = self.run_patch_on_theme(".mine {}")
+
+        saved = save.call_args[0][1]
+        self.assertLess(saved.index(".mine {}"), saved.index(v12_rules_patch.V12_RULES_MARKER))
+
+    def test_theme_with_rules_is_not_changed(self):
+        save = self.run_patch_on_theme(v12_rules_patch.V12_RULES_MARKER + "\n.edited {}")
+        save.assert_not_called()
+
+    def test_missing_theme_is_skipped(self):
+        self.run_patch().assert_not_called()

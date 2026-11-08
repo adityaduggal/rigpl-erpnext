@@ -175,7 +175,7 @@ Website Theme `rigpl-v12`:
 | Button Rounded Corners | Yes |
 | Button Shadows | No |
 | Button Gradients | No |
-| Custom SCSS | The content of `rigpl_v12_theme.scss`: the dark navbar with the green top line, the dark dropdown menus, the dark footer, white text on primary buttons |
+| Custom SCSS | The content of `rigpl_v12_theme.scss`: the dark navbar with the green top line, the dark dropdown menus, the dark footer, white text on primary buttons, and the other v12 rules except `.avatar` and `.standard-image`, which override the v13 avatar sizes |
 
 The import also sets `rigpl-v12` as the website theme in Website Settings, but only if no other theme is set.
 
