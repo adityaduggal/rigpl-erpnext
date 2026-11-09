@@ -48,36 +48,38 @@ Notes:
 
 ## 3. Import the v12 website
 
-The import makes the v12 theme and the v12 home page in the database. Do these steps one time on each site, after the v13 migration.
+The import makes the v12 theme and the v12 home page in the database. `bench migrate` runs the import one time on each site. It runs at the end of the migrate, after the web templates are installed. After that, the data is yours to edit in Desk, and a later migrate does not change it.
 
-### 3.1 Before the import
+### 3.1 Before the migrate
 
 1. Make a backup of the site.
-2. Run `bench --site <site> migrate`. This installs the four web templates.
-3. At the end of the migrate, look for this message:
+2. In Desk, open **Homepage**. Make sure that **Slideshow** is set and that the **Products** table has the products that you want on the home page.
+3. Open **Contact Us Settings**. Make sure that **Email Id** and **Phone** are correct.
 
-   ```
-   rigpl_erpnext: the v12 website (theme and home page) is not imported.
-   ```
+### 3.2 The import on migrate
 
-   The message shows on each migrate until you do step 3.2 or step 3.3.
-4. In Desk, open **Homepage**. Make sure that **Slideshow** is set and that the **Products** table has the products that you want on the home page.
-5. Open **Contact Us Settings**. Make sure that **Email Id** and **Phone** are correct.
+The theme compile needs Node 14. Run the migrate with Node 14:
 
-### 3.2 Import the theme and the home page
+```
+PATH=$HOME/.nvm/versions/node/v14.21.3/bin:$PATH bench --site <site> migrate
+```
 
-1. Run this command:
+Read the output. It tells you what the import did:
 
-   ```
-   bench --site <site> run-patch rigpl_erpnext.patches.manual.import_website_data
-   ```
+- `Website Theme rigpl-v12 was imported. CSS: /files/website_theme/...`
+- `Website Settings theme changed from None to 'rigpl-v12'.`
+- `Web Page home was imported with N blocks at /rohit-cutting-tools.`
+- `Website Settings home page changed from 'index' to 'rohit-cutting-tools'.`
+- `Website Settings footer logo set to /files/rohit_cutting_tools_logo_192x192.png.`
 
-2. Read the output. It tells you what the import did:
-   - `Website Theme rigpl-v12 was imported. CSS: /files/website_theme/...`
-   - `Website Settings theme changed from None to 'rigpl-v12'.`
-   - `Web Page home was imported with N blocks at /rohit-cutting-tools.`
-   - `Website Settings home page changed from 'index' to 'rohit-cutting-tools'.`
-3. Open the site root `/` in a private browser window. Compare it with the v12 home page (section 5 of this guide).
+If the import cannot finish, the migrate continues and prints one of these messages:
+
+- `the v12 website is not imported, because node-sass cannot run with this Node version`: run the migrate again with Node 14.
+- `the v12 website is not imported: <reason>`: correct the reason and run the migrate again. The Error Log has the details, with the title `RIGPL website import failed`.
+
+The next migrate tries the import again until it succeeds.
+
+Open the site root `/` in a private browser window. Compare it with the v12 home page (section 5 of this guide).
 
 The import makes the theme first. Section 4.2 lists the theme records.
 
@@ -100,11 +102,12 @@ Safety rules of the import:
 - The import changes Website Settings **Website Theme** only if it is empty or `Standard`.
 - If Web Page `home` already has blocks or content, the import does not change it.
 - The import changes Website Settings **Home Page** only if the current value shows no page.
-- If a step fails, the import stops with an error and saves nothing. This includes an SCSS error in the theme, a missing slideshow, a product with no Website Item, or a missing web template. Correct the data and run the command again with `--force`.
+- The import changes Website Settings **Footer Logo** only if it is empty.
+- If a step fails, the import stops with an error and saves nothing. This includes an SCSS error in the theme, a missing slideshow, a product with no Website Item, or a missing web template. Correct the data and run the migrate again.
 
 ### 3.3 Skip the import
 
-If you do not want the import, run this command. It does not change data. It only stops the migrate message.
+If you do not want the import, run this command before the migrate. It does not change data. It only stops the import on this site.
 
 ```
 bench --site <site> run-patch rigpl_erpnext.patches.manual.skip_website_data_import
@@ -124,6 +127,20 @@ The import does not change records that exist. To make a record again from the v
 - For the home page: open Web Page `home`, delete all rows in **Page Blocks**, and save.
 
 Then run the command with `--force`.
+
+### 3.5 Upgrade the production site
+
+1. Make a backup of the site.
+2. Run the migrate with Node 14:
+
+   ```
+   PATH=<folder of Node 14>/bin:$PATH bench --site <site> migrate
+   ```
+
+3. Read the output for the import lines in section 3.2.
+4. If the output says `not imported`, correct the reason and run the migrate again.
+5. Open `/` in a private browser window and do the checks in section 5.
+6. If the navbar logo has the wrong size, open Website Settings and change `max-width` in **Brand HTML**. The logo height limit is in the theme.
 
 ## 4. The v12 website theme
 
