@@ -121,6 +121,16 @@ class TestWebsiteDataImport(FrappeTestCase):
             self.assertTrue(importer.set_home_page("_test-rigpl-home"))
         self.assertEqual(frappe.db.get_single_value("Website Settings", "home_page"), "_test-rigpl-home")
 
+    def test_set_footer_logo_fills_an_empty_value(self):
+        frappe.db.set_single_value("Website Settings", "footer_logo", "")
+        self.assertTrue(importer.set_footer_logo("/files/_test-logo.png"))
+        self.assertEqual(frappe.db.get_single_value("Website Settings", "footer_logo"), "/files/_test-logo.png")
+
+    def test_set_footer_logo_keeps_a_chosen_value(self):
+        frappe.db.set_single_value("Website Settings", "footer_logo", "/files/_test-chosen.png")
+        self.assertFalse(importer.set_footer_logo("/files/_test-logo.png"))
+        self.assertEqual(frappe.db.get_single_value("Website Settings", "footer_logo"), "/files/_test-chosen.png")
+
     def test_social_feeds_escape_values(self):
         html = render_web_template("rigpl_social_feeds", {"twitter_handle": '"><script>x</script>'})
         self.assertNotIn("<script>x</script>", html)

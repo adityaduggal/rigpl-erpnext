@@ -206,7 +206,7 @@ These values are already in the database from v12. Make sure that they are corre
 | Hide Footer Signup | Yes |
 | Head HTML | The Facebook Pixel code |
 
-The v12 footer showed the logo. v13 shows it only when **Footer Logo** is set. Set **Footer Logo** to `/files/rohit_cutting_tools_logo_192x192.png`.
+The v12 footer showed the logo. v13 shows it only when **Footer Logo** is set. If **Footer Logo** is empty, the import sets it to `/files/rohit_cutting_tools_logo_192x192.png`.
 
 ## 5. Compare v13 with v12
 

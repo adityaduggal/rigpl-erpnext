@@ -71,6 +71,7 @@ def import_website():
     home_seed = load_json("home")
     import_home_page(home_seed)
     set_home_page(home_seed["route"])
+    set_footer_logo(home_seed["footer_logo"])
 
 
 def can_compile_scss() -> bool:
@@ -241,6 +242,19 @@ def set_home_page(route: str) -> bool:
     frappe.cache().delete_key("home_page")
     clear_cache()
     print(f"Website Settings home page changed from {current!r} to {route!r}.")
+    return True
+
+
+def set_footer_logo(path: str) -> bool:
+    """Set Website Settings.footer_logo, but only when it is empty."""
+    current = frappe.db.get_single_value("Website Settings", "footer_logo")
+    if current:
+        print(f"Website Settings footer logo {current} is kept. It was not changed.")
+        return False
+
+    frappe.db.set_single_value("Website Settings", "footer_logo", path)
+    clear_cache()
+    print(f"Website Settings footer logo set to {path}.")
     return True
 
 

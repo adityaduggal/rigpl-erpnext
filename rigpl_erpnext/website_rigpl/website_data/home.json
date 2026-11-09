@@ -1,6 +1,7 @@
 {
 	"name": "home",
 	"route": "rohit-cutting-tools",
+	"footer_logo": "/files/rohit_cutting_tools_logo_192x192.png",
 	"products": {
 		"title": "Products"
 	},
