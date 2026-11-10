@@ -2086,6 +2086,29 @@
    "property": "hidden",
    "property_type": "Check",
    "value": "0"
+  },
+  {
+   "_assign": null,
+   "_comments": null,
+   "_liked_by": null,
+   "_user_tags": null,
+   "creation": "2026-11-10 12:00:00.000000",
+   "default_value": null,
+   "doc_type": "Sales Order Item",
+   "docstatus": 0,
+   "doctype_or_field": "DocField",
+   "field_name": "supplier",
+   "idx": 0,
+   "modified": "2026-11-10 12:00:00.000000",
+   "modified_by": "Administrator",
+   "name": "Sales Order Item-supplier-ignore_user_permissions",
+   "owner": "Administrator",
+   "parent": null,
+   "parentfield": null,
+   "parenttype": null,
+   "property": "ignore_user_permissions",
+   "property_type": "Check",
+   "value": "1"
   }
  ],
  "sync_on_migrate": 1

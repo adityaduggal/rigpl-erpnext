@@ -52,6 +52,7 @@ def enforce_role_permission_policy():
     changes = delete_orphan_permissions()
     changes += customise_standard_violations()
     changes += strip_capped_role_rights()
+    changes += open_report_read_to_all()
     if not changes:
         return
 
@@ -175,6 +176,26 @@ def strip_capped_role_rights():
             .where(custom_perm.name.isin(names_to_select))
         ).run()
     return changes
+
+
+def open_report_read_to_all():
+    """
+    Frappe v13 lists the reports a user may open (Report View menu, awesomebar) with
+    get_list on Report. An old All read right with if_owner shows only the reports the
+    user owns, so users without Report Manager see none. Report roles still decide access.
+    """
+    custom_perm = DocType("Custom DocPerm")
+    where = (
+        (custom_perm.parent == "Report")
+        & (custom_perm.role == "All")
+        & (custom_perm.permlevel == 0)
+        & (custom_perm.read == 1)
+        & (custom_perm.if_owner == 1)
+    )
+    if not frappe.qb.from_(custom_perm).select(custom_perm.name).where(where).run():
+        return []
+    frappe.qb.update(custom_perm).set(custom_perm.if_owner, 0).where(where).run()
+    return ["All on Report: removed the if_owner condition from read."]
 
 
 def get_rights_to_remove(row):
