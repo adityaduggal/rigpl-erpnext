@@ -23,6 +23,8 @@ def on_submit(doc, method):
 
 
 def on_cancel(doc, method):
+    # GL rows keep docstatus 1 after reversal, so Frappe's link check would stop the cancel
+    doc.ignore_linked_doctypes = ("GL Entry",)
     set_expense_claims_paid(doc, paid=False)
     cancel_gl_entry(doc)
 

@@ -2,6 +2,7 @@ import json
 import os
 
 import frappe
+from frappe.model.delete_doc import check_if_doc_is_dynamically_linked
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import getdate
 from rohit_common.utils.query_guard import assert_max_queries
@@ -232,6 +233,17 @@ class TestSalarySlipGL(FrappeTestCase):
         self.assertTrue(all(r.is_cancelled for r in rows))
         for account in {r.account for r in rows}:
             self.assertEqual(sum(r.debit - r.credit for r in rows if r.account == account), 0, account)
+
+    def test_cancel_passes_the_link_check(self):
+        doc = gl_slip(doctype="Salary Slip")
+        frappe.get_doc(dict(doctype="Salary Slip", name=doc.name, employee=EMP, company=doc.company,
+            posting_date=doc.posting_date, start_date="2026-10-01", end_date="2026-10-31", docstatus=1)).db_insert()
+        salary_slip.post_gl_entry(doc)
+        with self.assertRaises(frappe.LinkExistsError):
+            check_if_doc_is_dynamically_linked(doc, method="Cancel")
+
+        salary_slip.on_cancel(doc, "on_cancel")
+        check_if_doc_is_dynamically_linked(doc, method="Cancel")
 
     def test_component_without_account_throws_with_its_name(self):
         frappe.db.set_value("Salary Component", GL_ESI, "account", None)
