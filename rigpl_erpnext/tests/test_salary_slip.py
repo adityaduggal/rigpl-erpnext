@@ -7,6 +7,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import getdate
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.hr_rigpl.utils import hr_utils
 from rigpl_erpnext.rigpl_erpnext.validations import salary_slip, salary_structure_assignment as ssa_hooks
 from rigpl_erpnext.rigpl_erpnext.validations.salary_slip_gl import SalarySlipGL, validate_ec_posting
 
@@ -195,6 +196,54 @@ def gl_slip(earnings=1, **fields):
         earnings=rows(GL_EARN, 10000, earnings), deductions=rows(GL_ESI, 75, 1), contributions=rows(GL_ESI_ER, 325, 1))
     doc.update(fields)
     return doc
+
+
+PE_NAME = "_Test RIGPL Payroll Entry"
+PE_PAYABLE = "Expenses Payable - RIGPL"
+
+
+class TestPayrollEntryOverride(FrappeTestCase):
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def entry(self, account=PE_PAYABLE):
+        return frappe.get_doc(dict(doctype="Payroll Entry", name=PE_NAME, payroll_payable_account=account))
+
+    def insert_slip(self, name, gross_pay=1000):
+        frappe.get_doc(dict(doctype="Salary Slip", name=name, employee=EMP, company="RIGPL", docstatus=1,
+            payroll_entry=PE_NAME, gross_pay=gross_pay, start_date="2026-10-01", end_date="2026-10-31")).db_insert()
+
+    def insert_gl(self, slip):
+        frappe.get_doc(dict(doctype="GL Entry", name="_Test RIGPL GL " + slip, voucher_type="Salary Slip",
+            voucher_no=slip, is_cancelled=0, company="RIGPL", account=PE_PAYABLE)).db_insert()
+
+    def test_controller_is_the_rigpl_class(self):
+        self.assertIsInstance(self.entry(), hr_utils.RigplPayrollEntry)
+
+    def test_payable_account_passes(self):
+        self.entry().validate_payroll_payable_account()
+
+    def test_bank_account_still_throws(self):
+        bank = frappe.db.get_value("Account", {"account_type": "Bank", "is_group": 0, "company": "RIGPL"})
+        self.assertTrue(bank)
+        with self.assertRaisesRegex(frappe.ValidationError, "Account type cannot be set"):
+            self.entry(bank).validate_payroll_payable_account()
+
+    def test_accrual_makes_no_journal_entry(self):
+        self.insert_slip("_Test RIGPL PE Slip")
+        self.insert_gl("_Test RIGPL PE Slip")
+        before = frappe.db.count("Journal Entry")
+        self.entry().make_accrual_jv_entry()
+        self.assertEqual(frappe.db.count("Journal Entry"), before)
+
+    def test_accrual_throws_for_slip_without_gl(self):
+        self.insert_slip("_Test RIGPL PE Slip")
+        with self.assertRaisesRegex(frappe.ValidationError, "_Test RIGPL PE Slip"):
+            self.entry().make_accrual_jv_entry()
+
+    def test_accrual_ignores_zero_slip_without_gl(self):
+        self.insert_slip("_Test RIGPL PE Zero Slip", gross_pay=0)
+        self.entry().make_accrual_jv_entry()
 
 
 class TestSalarySlipGL(FrappeTestCase):

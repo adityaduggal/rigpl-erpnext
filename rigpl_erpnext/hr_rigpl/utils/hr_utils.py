@@ -4,6 +4,7 @@
 from typing import Dict, Iterable, List, Optional
 
 import frappe
+from erpnext.payroll.doctype.payroll_entry.payroll_entry import PayrollEntry
 from frappe.query_builder.functions import Count
 from frappe.utils import flt, getdate
 
@@ -115,6 +116,37 @@ def validate_payroll_entry(doc, method):
     doc.number_of_employees = len(doc.employees)
     frappe.msgprint("<br>".join(block_message(emp, others, "a Salary Slip is made. Removed from this Payroll Entry")
         for emp, others in blocked.items()), title="Duplicate Aadhaar", indicator="orange")
+
+
+class RigplPayrollEntry(PayrollEntry):
+    """GL posts per Employee on Salary Slip submit, so the Payroll Entry makes no accrual Journal Entry"""
+
+    def validate_payroll_payable_account(self):
+        # ERPNext needs a blank type only for its accrual entry, which has no party
+        if frappe.db.get_value("Account", self.payroll_payable_account, "account_type") != "Payable":
+            super().validate_payroll_payable_account()
+
+    def make_accrual_jv_entry(self):
+        # ERPNext submits the slips in a loop and catches ValidationError, so a slip can stay submitted without GL
+        missing = self.get_submitted_slips_without_gl()
+        if missing:
+            frappe.throw("Salary Slips are submitted without GL Entry: {}".format(", ".join(missing)),
+                title="Salary Slip GL Entry Missing")
+
+    def get_submitted_slips_without_gl(self) -> List[str]:
+        slip = frappe.qb.DocType("Salary Slip")
+        gl_entry = frappe.qb.DocType("GL Entry")
+        rows = (
+            frappe.qb.from_(slip)
+            .left_join(gl_entry).on(
+                (gl_entry.voucher_type == "Salary Slip") & (gl_entry.voucher_no == slip.name)
+                & (gl_entry.is_cancelled == 0))
+            .select(slip.name)
+            .where((slip.payroll_entry == self.name) & (slip.docstatus == 1) & (slip.gross_pay > 0))
+            .where(gl_entry.name.isnull())
+            .run()
+        )
+        return [row[0] for row in rows]
 
 
 def get_half_day_fraction() -> float:

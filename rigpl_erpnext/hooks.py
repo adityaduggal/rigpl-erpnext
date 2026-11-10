@@ -129,6 +129,10 @@ doctype_js = {
     "ToDo": "public/js/todo.js",
 }
 
+override_doctype_class = {
+    "Payroll Entry": "rigpl_erpnext.hr_rigpl.utils.hr_utils.RigplPayrollEntry",
+}
+
 # Document Events
 # ---------------
 # Hook on document methods and events
