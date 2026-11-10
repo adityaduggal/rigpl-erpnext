@@ -1106,6 +1106,26 @@ def get_reconciliations_after(pairs, posting_date, posting_time, inclusive=True)
     return first
 
 
+def get_stock_shortfalls(pairs_qty):
+    """Return {(item, warehouse): units short} for the pairs whose total `{(item, warehouse): qty}`
+    is more than the Bin actual quantity. One Bin query for all pairs; a pair without a Bin has 0 stock."""
+    pairs_qty = {pair: qty for pair, qty in pairs_qty.items() if all(pair) and flt(qty) > 0}
+    if not pairs_qty:
+        return {}
+    bin_ = frappe.qb.DocType("Bin")
+    stock = {}
+    for chunk in chunks(sorted(pairs_qty)):
+        for item, warehouse, actual in (
+            frappe.qb.from_(bin_)
+            .select(bin_.item_code, bin_.warehouse, bin_.actual_qty)
+            .where(Tuple(bin_.item_code, bin_.warehouse).isin([Tuple(*pair) for pair in chunk]))
+            .run()
+        ):
+            stock[(item, warehouse)] = flt(actual)
+    short = {pair: flt(qty - stock.get(pair, 0), 6) for pair, qty in pairs_qty.items()}
+    return {pair: qty for pair, qty in short.items() if qty > 0}
+
+
 def make_sales_job_work_ste(so_no):
     """
     Utility checks Sales Order if there any Job Work Items then it would Receive the

@@ -206,6 +206,17 @@ class TestSalesValidations(FrappeTestCase):
         self.assertRaisesRegex(frappe.ValidationError, "Only allowed to Submit Qty= 5",
             validate_made_to_order_items, self.made_to_order_doc(6))
 
+    def test_all_failing_rows_are_in_one_message(self):
+        doc = self.made_to_order_doc(1)
+        doc.items.append(row(item_code=ITEM, so_detail=SO_DETAIL, qty=2, warehouse=FINISHED_WH, idx=2))
+
+        with self.assertRaises(frappe.ValidationError):
+            validate_made_to_order_items(doc)
+
+        message = frappe.local.message_log[-1]
+        self.assertRegex(str(message), "Row# 1 .*No Processing Done|No Processing Done.*Row# 1")
+        self.assertRegex(str(message), "Row# 2")
+
     def test_item_price_and_quotation_rates(self):
         frappe.get_doc(doctype="Price List", name=PRICE_LIST, price_list_name=PRICE_LIST, currency="INR",
             selling=1, enabled=1, disable_so=0).db_insert()

@@ -3,10 +3,11 @@ from __future__ import unicode_literals
 import frappe
 from datetime import datetime as dt
 from datetime import date
-from frappe.utils import getdate
+from frappe.utils import flt, getdate
+from erpnext.stock.stock_ledger import NegativeStockError
 from ...utils.sales_utils import check_strict_po_rules, copy_address_and_check, copy_so_price_lists, \
     get_linked_so_data, validate_made_to_order_items
-from ...utils.stock_utils import get_reconciliations_after
+from ...utils.stock_utils import get_reconciliations_after, get_stock_shortfalls
 
 
 def validate(doc, method):
@@ -17,10 +18,22 @@ def validate(doc, method):
     so_data = get_linked_so_data(doc)
     check_strict_po_rules(doc, so_data)
     copy_address_and_check(doc, so_data)
-    check_price_list(doc, method)
+    copy_so_price_lists(doc)
+    check_sales_order_rows(doc)
+    check_reconciliations(doc)
+    if getattr(doc, "_action", None) == "submit":
+        # Before ERPNext posts the stock rows, which takes long for many rows of one item (#215)
+        validate_made_to_order_items(doc)
+        check_stock_available(doc)
+
+
+def check_sales_order_rows(doc):
     for dnd in doc.get("items"):
         if not dnd.against_sales_order:
             frappe.throw("Delivery Note {} not against any Sales Order at Row {}".format(doc.name, dnd.idx))
+
+
+def check_reconciliations(doc):
     srs = get_reconciliations_after([(d.item_code, d.warehouse) for d in doc.get("items")],
         doc.posting_date, doc.posting_time)
     for dnd in doc.get("items"):
@@ -34,6 +47,34 @@ def validate(doc, method):
                      format(dnd.item_code))
 
 
+def check_stock_available(doc):
+    """
+    Stop a submit that ERPNext would reject for stock. ERPNext posts the rows one by one and raises the error
+    only after the rows before the short one are posted, which took 20 s for 31 rows (#215). The total quantity
+    of each Item and Warehouse is compared with the Bin in one query. ERPNext still does the exact check.
+    """
+    if doc.is_return or frappe.db.get_single_value("Stock Settings", "allow_negative_stock"):
+        return
+    rows = [d for d in doc.get("items") if d.warehouse]
+    stock_items = set(frappe.get_all("Item", filters={"name": ("in", {d.item_code for d in rows}),
+        "is_stock_item": 1}, pluck="name"))
+    needed, row_nos = {}, {}
+    for dnd in rows:
+        if dnd.item_code in stock_items:
+            key = (dnd.item_code, dnd.warehouse)
+            needed[key] = needed.get(key, 0) + (flt(dnd.stock_qty) or flt(dnd.qty) * flt(dnd.conversion_factor or 1))
+            row_nos.setdefault(key, []).append(dnd.idx)
+    short = get_stock_shortfalls(needed)
+    if not short:
+        return
+    lines = ["Row# {0}: {1} units of {2} needed in {3}".format(", ".join(str(i) for i in row_nos[pair]), qty,
+        frappe.get_desk_link("Item", pair[0]), frappe.get_desk_link("Warehouse", pair[1]))
+        for pair, qty in short.items()]
+    frappe.throw("{0}<br>on {1} {2} for {3} to complete this transaction.".format("<br>".join(lines),
+        doc.posting_date, doc.posting_time, frappe.get_desk_link(doc.doctype, doc.name)),
+        NegativeStockError, title="Insufficient Stock")
+
+
 def check_draft_dn(dn_doc):
     if dn_doc.is_new() == 1:
         oth_dn = frappe.db.get_value("Delivery Note", {"docstatus": 0, "customer": dn_doc.customer,
@@ -43,12 +84,7 @@ def check_draft_dn(dn_doc):
                          f"{dn_doc.customer} Use that Delivery Note")
 
 
-def check_price_list(doc, method):
-    copy_so_price_lists(doc)
-
-
 def on_submit(doc, method):
-    validate_made_to_order_items(doc)
     update_trial_status(doc, "Material Ready")
 
 

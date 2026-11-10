@@ -2,14 +2,19 @@
 Item, Warehouse, Purchase Receipt and Made to Order validations after the move from '%s' SQL to
 parameters (#187). Each name or value has a quote: the old code put it into the SQL text and failed.
 """
+from unittest.mock import patch
+
 import frappe
+from erpnext.stock.stock_ledger import NegativeStockError
 from rohit_common.utils.rohit_common_utils import fn_check_digit
 
+from rigpl_erpnext.rigpl_erpnext.validations import delivery_note
 from rigpl_erpnext.rigpl_erpnext.validations import warehouse as warehouse_validation
 from rigpl_erpnext.rigpl_erpnext.validations.item import generate_item_code
 from rigpl_erpnext.rigpl_erpnext.validations.purchase_receipt import get_existing_ste
 from rigpl_erpnext.tests.test_selling_reports import ReportTestCase, raw
 from rigpl_erpnext.utils.item_utils import get_desc
+from rigpl_erpnext.utils.stock_utils import get_stock_shortfalls
 
 TEXT_ATT = "_Test RIGPL O'Code Attribute"
 NUM_ATT = "_Test RIGPL O'Num Attribute"
@@ -108,3 +113,80 @@ class TestMadeToOrderAttributes(ReportTestCase):
 
         self.assertEqual([(d.attribute, d.attribute_value) for d in doc.attributes],
             [("Base Material", "O'Metal"), ("Tool Type", "O'Drill")])
+
+
+DN_ITEM = "_Test RIGPL DN Stock Item"
+DN_WH = "_Test RIGPL DN Warehouse"
+
+
+def dn_with_rows(*rows, **values):
+    items = [frappe._dict(idx=i + 1, item_code=item, warehouse=wh, qty=qty, stock_qty=qty, conversion_factor=1)
+        for i, (item, wh, qty) in enumerate(rows)]
+    doc = frappe._dict(doctype="Delivery Note", name="_Test DN", posting_date="2026-01-10",
+        posting_time="10:00:00", is_return=0, items=items)
+    doc.update(values)
+    return doc
+
+
+class TestDeliveryNoteStockCheck(ReportTestCase):
+    def setUp(self):
+        raw("Item", name=DN_ITEM, item_code=DN_ITEM, is_stock_item=1)
+        raw("Bin", item_code=DN_ITEM, warehouse=DN_WH, actual_qty=10)
+
+    def check(self, doc):
+        with patch.object(frappe.db, "get_single_value", return_value=0):
+            delivery_note.check_stock_available(doc)
+
+    def test_rows_of_one_item_are_added_before_the_comparison(self):
+        doc = dn_with_rows((DN_ITEM, DN_WH, 6), (DN_ITEM, DN_WH, 6))
+
+        with self.assertRaisesRegex(NegativeStockError, "Row# 1, 2: .*2.0 units of .*needed in"):
+            self.check(doc)
+
+    def test_enough_stock_passes_in_two_queries(self):
+        doc = dn_with_rows((DN_ITEM, DN_WH, 4), (DN_ITEM, DN_WH, 6))
+
+        self.assert_queries(2, lambda: self.check(doc))
+
+    def test_item_without_bin_is_short_by_the_full_quantity(self):
+        with self.assertRaisesRegex(NegativeStockError, "Row# 1: .*3.0 units"):
+            self.check(dn_with_rows((DN_ITEM, "_Test RIGPL No Warehouse", 3)))
+
+    def test_every_short_pair_is_listed_with_its_rows(self):
+        doc = dn_with_rows((DN_ITEM, DN_WH, 11), (DN_ITEM, "_Test RIGPL No Warehouse", 3), (DN_ITEM, DN_WH, 1))
+
+        with self.assertRaises(NegativeStockError) as ctx:
+            self.check(doc)
+
+        message = frappe.local.message_log[-1] if frappe.local.message_log else str(ctx.exception)
+        self.assertRegex(str(message), r"Row# 1, 3: .*2.0 units")
+        self.assertRegex(str(message), r"Row# 2: .*3.0 units")
+
+    def test_return_and_negative_stock_setting_skip_the_check(self):
+        self.check(dn_with_rows((DN_ITEM, DN_WH, 99), is_return=1))
+        with patch.object(frappe.db, "get_single_value", return_value=1):
+            delivery_note.check_stock_available(dn_with_rows((DN_ITEM, DN_WH, 99)))
+
+    def test_validate_checks_stock_only_on_submit(self):
+        names = ["check_draft_dn", "get_linked_so_data", "check_strict_po_rules", "copy_address_and_check",
+            "copy_so_price_lists", "check_sales_order_rows", "check_reconciliations"]
+        names.append("validate_made_to_order_items")
+        patches = [patch.object(delivery_note, name) for name in names]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        doc = dn_with_rows((DN_ITEM, DN_WH, 99))
+        with patch.object(delivery_note, "check_stock_available") as check:
+            delivery_note.validate(doc, "validate")
+            check.assert_not_called()
+            doc._action = "submit"
+            delivery_note.validate(doc, "validate")
+            check.assert_called_once_with(doc)
+            delivery_note.validate_made_to_order_items.assert_called_once_with(doc)
+
+    def test_shortfalls_use_one_query(self):
+        pairs = {(DN_ITEM, DN_WH): 15, (DN_ITEM, "_Test RIGPL No Warehouse"): 0, (DN_ITEM, None): 5}
+
+        shortfalls = self.assert_queries(1, lambda: get_stock_shortfalls(pairs))
+
+        self.assertEqual(shortfalls, {(DN_ITEM, DN_WH): 5})

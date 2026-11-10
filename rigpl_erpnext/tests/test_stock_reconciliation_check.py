@@ -79,7 +79,7 @@ class TestValidationMessages(FrappeTestCase):
                 patch.object(delivery_note, "get_linked_so_data"), \
                 patch.object(delivery_note, "check_strict_po_rules"), \
                 patch.object(delivery_note, "copy_address_and_check"), \
-                patch.object(delivery_note, "check_price_list"), \
+                patch.object(delivery_note, "copy_so_price_lists"), \
                 patch.object(delivery_note, "get_reconciliations_after", return_value=srs):
             delivery_note.validate(self.dn(), "validate")
 

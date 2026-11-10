@@ -651,11 +651,24 @@ def validate_made_to_order_items(doc):
         "name": ["in", [it.item_code for it in doc.items]], "made_to_order": 1}))
     special = get_special_item_data([it for it in doc.items if it.item_code in made_to_order])
     warehouses = get_warehouse_data([it.warehouse for it in doc.items])
+    errors = []
     for it in doc.items:
         if it.item_code in made_to_order:
             # Check if the Item as per the Process Sheet or Not
-            check_special_item(doc, it, special)
-        validate_warehouse(doc, it, warehouses)
+            errors.append((it, get_special_item_error(special, it)))
+        errors.append((it, get_warehouse_error(it, warehouses)))
+    errors = sorted(((it, error) for it, error in errors if error), key=lambda pair: pair[0].idx)
+    if errors:
+        frappe.throw(get_rows_error_table(doc, errors), title="Cannot Submit {}".format(doc.doctype))
+
+
+def get_rows_error_table(doc, errors):
+    """HTML with one table row per failing document row. `errors` is [(row, text)] in row order."""
+    lines = "".join("<tr><td>{}</td><td>{}</td><td>{}</td></tr>".format(
+        row.idx, frappe.get_desk_link("Item", row.item_code), error) for row, error in errors)
+    return ("{} has {} row(s) to fix or remove:<br><br><table class='table table-bordered'>"
+            "<tr><th>Row#</th><th>Item</th><th>Problem</th></tr>{}</table>").format(
+        frappe.get_desk_link(doc.doctype, doc.name), len(errors), lines)
 
 
 def get_special_item_data(rows):
@@ -688,17 +701,30 @@ def get_special_item_data(rows):
     return {"pro_sheets": pro_sheets, "final_ops": final_ops, "completed": get_completed_jc_qtys(keys)}
 
 
-def check_special_item(doc, row, special):
+def get_special_item_error(special, row):
+    """Return why a Made to Order row cannot be delivered, or None when the row is fine."""
     pro_sheet = special["pro_sheets"].get((row.item_code, row.so_detail))
     if not pro_sheet:
-        frappe.throw("There is No Processing Done for {} in Row# {} for {}".
-                     format(row.item_code, row.idx, frappe.get_desk_link(doc.doctype, doc.name)))
+        return ("No Processing Done. Made to Order Item: it needs a submitted Process Sheet for this Sales "
+                "Order row.")
     # If there is a Submitted Process Sheet then Check if all the Job Cards are Submitted for the Same Quantity
     for operation in special["final_ops"].get(pro_sheet, []):
-        qty_completed = special["completed"].get((row.item_code, operation, row.so_detail), 0)
-        if row.qty > flt(qty_completed):
-            frappe.throw("Only allowed to Submit Qty= {} for Row# {} for {}".
-                         format(flt(qty_completed), row.idx, frappe.get_desk_link(doc.doctype, doc.name)))
+        qty_completed = flt(special["completed"].get((row.item_code, operation, row.so_detail), 0))
+        if row.qty > qty_completed:
+            return ("Only allowed to Submit Qty= {}. Made to Order Item: the Job Cards of the final operation {} "
+                    "of {} completed Qty {}, the row has Qty {}.".format(
+                        qty_completed, operation, frappe.get_desk_link("Process Sheet", pro_sheet), qty_completed,
+                        flt(row.qty)))
+
+
+def check_special_item(doc, row, special):
+    throw_row_error(doc, row, get_special_item_error(special, row))
+
+
+def throw_row_error(doc, row, error):
+    if error:
+        frappe.throw("{} Row# {} {}: {}".format(frappe.get_desk_link(doc.doctype, doc.name), row.idx,
+            frappe.get_desk_link("Item", row.item_code), error))
 
 
 def validate_special_items(doc, row):
@@ -713,19 +739,20 @@ def get_warehouse_data(warehouses):
         filters={"name": ["in", list(set(warehouses)) or [""]]})}
 
 
-def validate_warehouse(doc, row, warehouses=None):
-    """Only Allow from Finished Stock Warehouse"""
+def get_warehouse_error(row, warehouses=None):
+    """Only Allow from Finished Stock Warehouse. Returns why the row is refused or None."""
     if warehouses is None:
         warehouses = get_warehouse_data([row.warehouse])
     wh_doc = warehouses.get(row.warehouse) or frappe._dict()
+    wh_link = frappe.get_desk_link("Warehouse", row.warehouse)
     if wh_doc.warehouse_type != 'Finished Stock':
-        frappe.throw("In {}, Row# {} and {} the {} selected is Not Finished Stock Warehouse".
-            format(frappe.get_desk_link(doc.doctype, doc.name), row.idx, frappe.get_desk_link('Item', row.item_code),
-                   frappe.get_desk_link('Warehouse', row.warehouse)))
+        return "{} is Not Finished Stock Warehouse".format(wh_link)
     elif wh_doc.disabled == 1:
-        frappe.throw("In {}, Row# {} and {} the {} selected is Disabled Warehouse".
-            format(frappe.get_desk_link(doc.doctype, doc.name), row.idx, frappe.get_desk_link('Item', row.item_code),
-                   frappe.get_desk_link('Warehouse', row.warehouse)))
+        return "{} is Disabled Warehouse".format(wh_link)
+
+
+def validate_warehouse(doc, row, warehouses=None):
+    throw_row_error(doc, row, get_warehouse_error(row, warehouses))
 
 
 def validate_address_google_update(add_doc_name):
