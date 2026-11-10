@@ -2,14 +2,32 @@
 // For license information, please see license.txt
 /* eslint-disable */
 
+const DEFAULT_VIEW = "Process Sheets";
+const PENDING = "Pending Process Sheets";
+const PROCESS_WISE = "Process Wise Details";
+const RM_USED = "RM Used Details";
+
+function in_views(...views) {
+	return "eval:" + JSON.stringify(views) + ".includes(doc.view)";
+}
+
 frappe.query_reports["Process Sheet Analysis"] = {
 	"filters": [
+		{
+			"fieldname":"view",
+			"label": "View",
+			"fieldtype": "Select",
+			"options": [DEFAULT_VIEW, PENDING, PROCESS_WISE, RM_USED].join("\n"),
+			"default": DEFAULT_VIEW,
+			"reqd": 1
+		},
 		{
 			"fieldname":"status",
 			"label": "Status",
 			"fieldtype": "Select",
 			"options": "\nCancelled\nCompleted\nDraft\nIn Progress\nShort Closed\nStopped\nSubmitted",
-			"default": "Draft"
+			"default": "Draft",
+			"depends_on": in_views(DEFAULT_VIEW)
 		},
 		{
 			"fieldname":"bm",
@@ -63,28 +81,10 @@ frappe.query_reports["Process Sheet Analysis"] = {
 			"get_query": function(){ return {'filters': [['Sales Order', 'docstatus','=', 1]]}}
 		},
 		{
-			"fieldname":"process_wise",
-			"label": "Process Wise Details",
-			"fieldtype": "Check",
-			"reqd": 0
-		},
-		{
-			"fieldname":"pending",
-			"label": "Pending Process Sheets",
-			"fieldtype": "Check",
-			"reqd": 0
-		},
-		{
-			"fieldname":"rm_used",
-			"label": "Get RM Used Details",
-			"fieldtype": "Check",
-			"reqd": 0
-		},
-		{
 			"fieldname":"show_zero_qty",
 			"label": "Show Zero Qty Process Sheet",
 			"fieldtype": "Check",
-			"reqd": 0
+			"depends_on": in_views(DEFAULT_VIEW)
 		}
 	],
 	"formatter": rigpl_erpnext.report.blank_zero_formatter,

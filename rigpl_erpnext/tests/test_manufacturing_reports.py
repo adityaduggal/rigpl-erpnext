@@ -66,13 +66,53 @@ class TestPickLastJobCard(FrappeTestCase):
         self.assertEqual(jc.remarks, " Marking Pending and Coating Completed")
 
 
-class TestProcessSheetAnalysis(FrappeTestCase):
+PS_USER = "_test_rigpl_ps_analysis@example.com"
+PS_ITEM, PS_HIDDEN_ITEM = "_Test RIGPL PSA Item", "_Test RIGPL PSA Hidden Item"
+PS_DATE = "2030-01-01"
+
+
+class TestProcessSheetAnalysis(ReportTestCase):
     def test_view(self):
         self.assertEqual(psa.get_view(frappe._dict()), "default")
-        self.assertEqual(psa.get_view(frappe._dict(pending=1)), "pending")
-        self.assertRaises(frappe.ValidationError, psa.get_view, frappe._dict(pending=1, process_wise=1, item="X"))
-        self.assertRaises(frappe.ValidationError, psa.get_view, frappe._dict(rm_used=1))
-        self.assertRaises(frappe.ValidationError, psa.get_view, frappe._dict(process_wise=1))
+        self.assertEqual(psa.get_view(frappe._dict(view="Process Sheets")), "default")
+        self.assertEqual(psa.get_view(frappe._dict(view="Pending Process Sheets")), "pending")
+        self.assertEqual(psa.get_view(frappe._dict(view="RM Used Details", item="X")), "rm_used")
+        self.assertEqual(psa.get_view(frappe._dict(view="Process Wise Details", item="X")), "process_wise")
+        self.assertRaises(frappe.ValidationError, psa.get_view, frappe._dict(view="RM Used Details"))
+        self.assertRaises(frappe.ValidationError, psa.get_view, frappe._dict(view="Process Wise Details"))
+        self.assertRaises(frappe.ValidationError, psa.get_view, frappe._dict(view="Unknown"))
+        self.assertRaises(frappe.ValidationError, psa.get_view, frappe._dict(view=["!=", ""]))
+
+    def insert_sheets(self):
+        for item in (PS_ITEM, PS_HIDDEN_ITEM):
+            raw("Item", name=item, item_code=item, item_name=item, item_group="All Item Groups", stock_uom="Nos")
+            raw("Process Sheet", production_item=item, docstatus=1, status="Submitted", quantity=10,
+                produced_qty=0, date=PS_DATE, priority=1, description=item)
+
+    def test_user_sees_only_permitted_process_sheets(self):
+        self.insert_sheets()
+        raw("User", name=PS_USER, email=PS_USER, first_name="_Test RIGPL PSA", user_type="System User", enabled=1)
+        raw("Has Role", parent=PS_USER, parenttype="User", parentfield="roles", role="Production Inventory User")
+        frappe.clear_cache(user=PS_USER)
+        frappe.get_doc(dict(doctype="User Permission", user=PS_USER, allow="Item", for_value=PS_ITEM,
+            apply_to_all_doctypes=1)).insert(ignore_permissions=True)
+        for view in ("Process Sheets", "Pending Process Sheets"):
+            filters = frappe._dict(view=view, status="Submitted")
+            self.assertEqual(self.items(filters, "Administrator"), {PS_ITEM, PS_HIDDEN_ITEM})
+            self.assertEqual(self.items(filters, PS_USER), {PS_ITEM})
+
+    def items(self, filters, user):
+        col = 4 if filters.view == "Pending Process Sheets" else 3
+        frappe.set_user(user)
+        try:
+            return {row[col] for row in psa.execute(filters)[1] if row[col] in (PS_ITEM, PS_HIDDEN_ITEM)}
+        finally:
+            frappe.set_user("Administrator")
+
+    def test_queries_do_not_grow_with_rows(self):
+        self.insert_sheets()
+        filters = frappe._dict(view="Pending Process Sheets", item=PS_ITEM)
+        self.assert_queries(8, lambda: psa.execute(filters))
 
     def test_sizes_sort_as_numbers_after_no_value(self):
         numeric = set(psa.SIZE_ATTS)

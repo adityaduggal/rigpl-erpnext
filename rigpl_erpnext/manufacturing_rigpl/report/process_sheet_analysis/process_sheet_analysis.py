@@ -3,8 +3,10 @@
 
 from __future__ import unicode_literals
 import frappe
-from frappe.utils import cint, flt
-from ....utils.item_attribute_utils import attribute_filters, attribute_sort_key, get_attribute_map
+from frappe.utils import cint, cstr, flt
+from ....utils.item_attribute_utils import (
+    attribute_filters, attribute_sort_key, chunks, get_attribute_map
+)
 from ....utils.report_utils import blank_zeros
 
 TEXT_ATTS = ["Base Material", "Tool Type", "Special Treatment", "Series"]
@@ -12,6 +14,13 @@ SIZE_ATTS = ["d1_mm", "w1_mm", "l1_mm", "d2_mm", "l2_mm"]
 SORT_ATTS = TEXT_ATTS + SIZE_ATTS
 CLOSED_STATUS = ("Stopped", "Completed", "Short Closed")
 CLOSED_OP_STATUS = ("Short Closed", "Stopped", "Obsolete")
+DEFAULT_VIEW = "Process Sheets"
+VIEWS = {
+    DEFAULT_VIEW: "default",
+    "Pending Process Sheets": "pending",
+    "Process Wise Details": "process_wise",
+    "RM Used Details": "rm_used",
+}
 
 
 def execute(filters=None):
@@ -23,16 +32,34 @@ def execute(filters=None):
 
 def get_view(filters):
     """
-    Returns the checked view (pending, rm_used, process_wise or default) and checks its filters
+    Returns the internal key of the selected view and checks its filters
     """
-    views = [view for view in ("pending", "rm_used", "process_wise") if cint(filters.get(view))]
-    if len(views) > 1:
-        frappe.throw("Maximum 1 Checkbox can be Selected")
-    if "rm_used" in views and not filters.get("item"):
+    view = VIEWS.get(cstr(filters.get("view")) or DEFAULT_VIEW)
+    if not view:
+        frappe.throw("Select a valid View")
+    if view == "rm_used" and not filters.get("item"):
         frappe.throw("Please Select the Item Code to Check its Usage as RM")
-    if "process_wise" in views and not filters.get("item"):
+    if view == "process_wise" and not filters.get("item"):
         frappe.throw("Item Code is Mandatory to Get Process Wise Details")
-    return views[0] if views else "default"
+    return view
+
+
+def only_permitted(rows, item=None):
+    """
+    Returns the rows of Process Sheets that the user can read (role and User Permissions).
+    The views read with frappe.qb, which skips both. With an item, 1 query reads its Process Sheets.
+    """
+    if item:
+        permitted = set(frappe.get_list("Process Sheet", filters={"production_item": item},
+                                        pluck="name", limit_page_length=0))
+    else:
+        permitted = set()
+        for chunk in chunks(d.name for d in rows):
+            permitted.update(
+                frappe.get_list("Process Sheet", filters={"name": ["in", chunk]}, pluck="name",
+                                limit_page_length=0)
+            )
+    return [d for d in rows if d.name in permitted]
 
 
 def get_columns(view):
@@ -103,7 +130,7 @@ def get_process_wise_data(item):
         .run(as_dict=True)
     )
     data = []
-    for d in rows:
+    for d in only_permitted(rows, item):
         op_balance = flt(d.planned_qty) - flt(d.completed_qty)
         if op_balance <= 0 or d.op_status is None or d.op_status in CLOSED_OP_STATUS:
             op_balance = 0
@@ -141,7 +168,7 @@ def get_rm_used_data(item):
         .run(as_dict=True)
     )
     data = []
-    for d in rows:
+    for d in only_permitted(rows, item):
         row = [
             d.name, d.date, d.item_code, d.rm_desc, d.calculated_qty, d.qty,
             flt(d.calculated_qty) - flt(d.qty), d.source_warehouse, d.production_item,
@@ -203,7 +230,7 @@ def get_process_sheets(filters, pending):
         query = query.where(ps.production_item == filters["item"])
     if filters.get("so"):
         query = query.where(ps.sales_order == filters["so"])
-    return query.run(as_dict=True)
+    return only_permitted(query.run(as_dict=True))
 
 
 def get_attribute_values(filters):
