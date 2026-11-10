@@ -10,6 +10,36 @@ from ...utils.sales_utils import check_strict_po_rules, copy_address_and_check, 
 from ...utils.stock_utils import get_reconciliations_after, get_stock_shortfalls
 
 
+SO_PRICE_FIELDS = ["rate", "price_list_rate", "discount_percentage", "discount_amount", "margin_type",
+    "margin_rate_or_amount", "rate_with_margin", "pricing_rules"]
+
+
+def before_validate(doc, method):
+    restore_so_rates(doc)
+
+
+def restore_so_rates(doc):
+    """
+    Rate and the other price fields of Delivery Note Item are at permlevel 1. Frappe resets them to 0 for a row that a
+    user without that permlevel adds to a saved Delivery Note, for example by pulling the Sales Orders again (#216).
+    Runs after the reset: a row with rate 0 gets the price fields of its Sales Order Item, then the totals are redone.
+    """
+    rows = [d for d in doc.get("items") if d.so_detail and not flt(d.rate)]
+    if doc.is_return or not rows:
+        return
+    so_rows = {d.name: d for d in frappe.get_all("Sales Order Item", filters={"name": ("in", {d.so_detail for d in rows})},
+        fields=["name"] + SO_PRICE_FIELDS)}
+    changed = False
+    for dnd in rows:
+        so_row = so_rows.get(dnd.so_detail)
+        if so_row and flt(so_row.rate):
+            for field in SO_PRICE_FIELDS:
+                setattr(dnd, field, so_row[field])
+            changed = True
+    if changed:
+        doc.calculate_taxes_and_totals()
+
+
 def validate(doc, method):
     # Check if the Item has a Stock Reconciliation after the date and time or NOT.
     # if there is a Stock Reconciliation then the Update would FAIL

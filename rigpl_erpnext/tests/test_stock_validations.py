@@ -2,7 +2,7 @@
 Item, Warehouse, Purchase Receipt and Made to Order validations after the move from '%s' SQL to
 parameters (#187). Each name or value has a quote: the old code put it into the SQL text and failed.
 """
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import frappe
 from erpnext.stock.stock_ledger import NegativeStockError
@@ -190,3 +190,35 @@ class TestDeliveryNoteStockCheck(ReportTestCase):
         shortfalls = self.assert_queries(1, lambda: get_stock_shortfalls(pairs))
 
         self.assertEqual(shortfalls, {(DN_ITEM, DN_WH): 5})
+
+
+class TestDeliveryNoteSoRates(ReportTestCase):
+    def dn(self, *rows, **values):
+        items = [frappe._dict(idx=i + 1, so_detail=so_detail, rate=rate, price_list_rate=0, discount_percentage=0,
+            discount_amount=0, margin_type="", margin_rate_or_amount=0, rate_with_margin=0, pricing_rules=None)
+            for i, (so_detail, rate) in enumerate(rows)]
+        doc = Mock(is_return=0)
+        doc.get.return_value = items
+        doc.items = items
+        doc.configure_mock(**values)
+        return doc
+
+    def test_zero_rate_row_gets_the_sales_order_prices_in_one_query(self):
+        so_row = raw("Sales Order Item", rate=756.5, price_list_rate=800, discount_percentage=5, discount_amount=0,
+            margin_rate_or_amount=0, rate_with_margin=0)
+        doc = self.dn((so_row, 0), (so_row, 0))
+
+        self.assert_queries(1, lambda: delivery_note.restore_so_rates(doc))
+
+        self.assertEqual([d.rate for d in doc.items], [756.5, 756.5])
+        self.assertEqual(doc.items[0].price_list_rate, 800)
+        doc.calculate_taxes_and_totals.assert_called_once_with()
+
+    def test_rows_with_a_rate_or_without_sales_order_are_not_touched(self):
+        so_row = raw("Sales Order Item", rate=756.5)
+        doc = self.dn((so_row, 100), (None, 0), ("_Test RIGPL No SO Row", 0))
+
+        delivery_note.restore_so_rates(doc)
+
+        self.assertEqual([d.rate for d in doc.items], [100, 0, 0])
+        doc.calculate_taxes_and_totals.assert_not_called()

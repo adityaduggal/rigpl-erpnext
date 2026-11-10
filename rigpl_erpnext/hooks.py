@@ -165,6 +165,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.customer.validate",
     },
     "Delivery Note": {
+        "before_validate": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.before_validate",
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_submit",
         "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel",
