@@ -86,7 +86,8 @@ class TestProcessSheetAnalysis(ReportTestCase):
     def insert_sheets(self):
         for item in (PS_ITEM, PS_HIDDEN_ITEM):
             raw("Item", name=item, item_code=item, item_name=item, item_group="All Item Groups", stock_uom="Nos")
-            raw("Process Sheet", production_item=item, docstatus=1, status="Submitted", quantity=10,
+            # User Permission on Item applies to every Item link field, so best_rm_item must match too
+            raw("Process Sheet", production_item=item, best_rm_item=item, docstatus=1, status="Submitted", quantity=10,
                 produced_qty=0, date=PS_DATE, priority=1, description=item)
 
     def test_user_sees_only_permitted_process_sheets(self):
