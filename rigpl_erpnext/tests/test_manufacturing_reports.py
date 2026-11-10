@@ -110,6 +110,14 @@ class TestProcessSheetAnalysis(ReportTestCase):
         finally:
             frappe.set_user("Administrator")
 
+    def test_rm_used_shows_sheet_of_another_production_item(self):
+        self.insert_sheets()
+        sheet = frappe.db.get_value("Process Sheet", {"production_item": PS_ITEM}, "name")
+        raw("Process Sheet Items", parent=sheet, parenttype="Process Sheet", parentfield="rm_consumed",
+            item_code=PS_HIDDEN_ITEM, calculated_qty=30, qty=0, donot_consider_rm_for_production=0)
+        rows = psa.execute(frappe._dict(view="RM Used Details", item=PS_HIDDEN_ITEM))[1]
+        self.assertEqual([(row[0], row[2], row[4]) for row in rows], [(sheet, PS_HIDDEN_ITEM, 30)])
+
     def test_queries_do_not_grow_with_rows(self):
         self.insert_sheets()
         filters = frappe._dict(view="Pending Process Sheets", item=PS_ITEM)

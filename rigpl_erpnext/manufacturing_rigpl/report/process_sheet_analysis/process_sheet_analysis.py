@@ -47,7 +47,7 @@ def get_view(filters):
 def only_permitted(rows, item=None):
     """
     Returns the rows of Process Sheets that the user can read (role and User Permissions).
-    The views read with frappe.qb, which skips both. With an item, 1 query reads its Process Sheets.
+    The views read with frappe.qb, which skips both. With an item (the production item), 1 query reads its Process Sheets.
     """
     if item:
         permitted = set(frappe.get_list("Process Sheet", filters={"production_item": item},
@@ -168,7 +168,7 @@ def get_rm_used_data(item):
         .run(as_dict=True)
     )
     data = []
-    for d in only_permitted(rows, item):
+    for d in only_permitted(rows):
         row = [
             d.name, d.date, d.item_code, d.rm_desc, d.calculated_qty, d.qty,
             flt(d.calculated_qty) - flt(d.qty), d.source_warehouse, d.production_item,
