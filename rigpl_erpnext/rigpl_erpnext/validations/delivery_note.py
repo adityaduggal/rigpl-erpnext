@@ -6,7 +6,7 @@ from datetime import date
 from frappe.utils import flt, getdate
 from erpnext.stock.stock_ledger import NegativeStockError
 from ...utils.sales_utils import check_strict_po_rules, copy_address_and_check, copy_so_price_lists, \
-    get_linked_so_data, validate_made_to_order_items
+    get_linked_so_data, get_rows_error_table, validate_made_to_order_items
 from ...utils.stock_utils import get_reconciliations_after, get_stock_shortfalls
 
 
@@ -67,12 +67,12 @@ def check_stock_available(doc):
     short = get_stock_shortfalls(needed)
     if not short:
         return
-    lines = ["Row# {0}: {1} units of {2} needed in {3}".format(", ".join(str(i) for i in row_nos[pair]), qty,
-        frappe.get_desk_link("Item", pair[0]), frappe.get_desk_link("Warehouse", pair[1]))
+    errors = [(frappe._dict(idx=", ".join(str(i) for i in row_nos[pair]), item_code=pair[0]),
+        "{0} units short in {1} for the posting date {2} {3}. The rows of the same Item and Warehouse are added.".
+        format(qty, frappe.get_desk_link("Warehouse", pair[1]), doc.posting_date, doc.posting_time))
         for pair, qty in short.items()]
-    frappe.throw("{0}<br>on {1} {2} for {3} to complete this transaction.".format("<br>".join(lines),
-        doc.posting_date, doc.posting_time, frappe.get_desk_link(doc.doctype, doc.name)),
-        NegativeStockError, title="Insufficient Stock")
+    errors.sort(key=lambda error: int(error[0].idx.split(",")[0]))
+    frappe.throw(get_rows_error_table(doc, errors), NegativeStockError, title="Insufficient Stock")
 
 
 def check_draft_dn(dn_doc):

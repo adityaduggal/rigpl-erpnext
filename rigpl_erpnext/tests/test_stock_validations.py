@@ -140,7 +140,7 @@ class TestDeliveryNoteStockCheck(ReportTestCase):
     def test_rows_of_one_item_are_added_before_the_comparison(self):
         doc = dn_with_rows((DN_ITEM, DN_WH, 6), (DN_ITEM, DN_WH, 6))
 
-        with self.assertRaisesRegex(NegativeStockError, "Row# 1, 2: .*2.0 units of .*needed in"):
+        with self.assertRaisesRegex(NegativeStockError, "<td>1, 2</td>.*2.0 units short"):
             self.check(doc)
 
     def test_enough_stock_passes_in_two_queries(self):
@@ -149,7 +149,7 @@ class TestDeliveryNoteStockCheck(ReportTestCase):
         self.assert_queries(2, lambda: self.check(doc))
 
     def test_item_without_bin_is_short_by_the_full_quantity(self):
-        with self.assertRaisesRegex(NegativeStockError, "Row# 1: .*3.0 units"):
+        with self.assertRaisesRegex(NegativeStockError, "<td>1</td>.*3.0 units short"):
             self.check(dn_with_rows((DN_ITEM, "_Test RIGPL No Warehouse", 3)))
 
     def test_every_short_pair_is_listed_with_its_rows(self):
@@ -159,8 +159,8 @@ class TestDeliveryNoteStockCheck(ReportTestCase):
             self.check(doc)
 
         message = frappe.local.message_log[-1] if frappe.local.message_log else str(ctx.exception)
-        self.assertRegex(str(message), r"Row# 1, 3: .*2.0 units")
-        self.assertRegex(str(message), r"Row# 2: .*3.0 units")
+        self.assertRegex(str(message), r"<td>1, 3</td>.*2.0 units short")
+        self.assertRegex(str(message), r"<td>2</td>.*3.0 units short")
 
     def test_return_and_negative_stock_setting_skip_the_check(self):
         self.check(dn_with_rows((DN_ITEM, DN_WH, 99), is_return=1))
