@@ -143,6 +143,23 @@ class TestSyncWebItems(FrappeTestCase):
         self.assertEqual([call.args[0].name for call in make.call_args_list], ["_Test RIGPL Sync New"])
         self.assertEqual(make_missing_web_items([]), 0)
 
+    def test_missing_web_item_is_made_without_a_file(self):
+        """#218: make_thumbnail made a File with no file_name, and the Item save failed."""
+        # Website Item validate refuses a route that starts with "-", so no leading "_" here.
+        code = "Test RIGPL Sync No File"
+        frappe.db.set_value("Website Item", {"item_code": TEMPLATE}, "route", "test-rigpl-sync-template")
+        # the setUp Website Item is db_insert, so the template Item is not marked published yet
+        frappe.db.set_value("Item", TEMPLATE, "published_in_website", 1, update_modified=False)
+        insert_item(code, variant_of=TEMPLATE)
+        frappe.db.set_value("Item", code, {"image": IMAGE, "pl_item": 1}, update_modified=False)
+        files = frappe.db.count("File")
+
+        on_item_update(item_doc(code, variant_of=TEMPLATE))
+
+        web_item = self.web_item(code)
+        self.assertEqual((web_item.website_image, web_item.thumbnail, web_item.published), (IMAGE, IMAGE, 1))
+        self.assertEqual(frappe.db.count("File"), files)
+
     def test_long_description_writes_only_a_difference(self):
         self.assertTrue(set_web_long_description(VARIANT, "Dia 10 mm"))
         self.assertFalse(set_web_long_description(VARIANT, "Dia 10 mm"))

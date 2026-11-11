@@ -124,7 +124,8 @@ def get_default_warehouses(item_codes: Iterable[str]) -> Dict[str, str]:
 def make_missing_web_items(item_codes: Optional[List[str]] = None) -> int:
     """Make a Website Item with ERPNext `make_website_item` for each enabled `pl_item` Item
     of `item_codes` (or all Items if None) that has none (#106). Return the number made.
-    `sync_web_items` then sets its image and publish state.
+    `sync_web_items` then sets its image and publish state. ERPNext `save()` also puts the item in
+    the redisearch index; the site does not use it, so the insert here skips that.
     """
     make_website_item = get_ecommerce("make_website_item")
 
@@ -148,7 +149,11 @@ def make_missing_web_items(item_codes: Optional[List[str]] = None) -> int:
     for (item_code,) in query.run():
         # a variant's Website Item can make its template's one (WebsiteItem.update_template_item)
         if not frappe.db.exists("Website Item", {"item_code": item_code}):
-            make_website_item(frappe.get_doc("Item", item_code))
+            # No image on insert: WebsiteItem.make_thumbnail would make a File (#218).
+            # sync_web_items sets the image and thumbnail after.
+            web_item_doc = make_website_item(frappe.get_doc("Item", item_code), save=False)
+            web_item_doc.website_image = None
+            web_item_doc.insert()
             made += 1
     return made
 
