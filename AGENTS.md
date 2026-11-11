@@ -5,3 +5,4 @@ Topic notes: docs/ai/<topic>.md. Read only the one the task needs.
 Never run bench migrate, backup or run-tests. The user runs them.
 Each run-tests command for the user has --skip-before-tests. Without it, the ERPNext hook deletes all Item Price rows on dev-rigpl-v12.
 Never commit without asking. Show the changes and wait until the user says yes.
+GitHub: all repos, issues and PRs are in `adityaduggal`, never in `erpnext-apps` (including rohit-common). Pass `-R adityaduggal/<repo>` to `gh`.
