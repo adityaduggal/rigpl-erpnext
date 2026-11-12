@@ -204,8 +204,10 @@ ROL_FREQUENCY_CLASSES = (
     ("Regular", 13, 12, 7),
     ("Occasional", 4, 24, 30),
 )
-# Items with fewer orders, or with all orders from fewer customers, are Rare
+# Items with fewer orders are Rare. With orders from fewer than ROL_MIN_CUSTOMERS customers an
+# item needs ROL_FEW_CUSTOMERS_MIN_ORDERS orders in 12 months to be in a class.
 ROL_MIN_CUSTOMERS = 3
+ROL_FEW_CUSTOMERS_MIN_ORDERS = 13
 ROL_RARE_MONTHS = 24
 # Consumption with Stock Entries adds to the ROL of an item with more than this many Stock Entries
 # in a period: (months, entries). These months must be in get_rol_consumption_windows.
@@ -311,10 +313,10 @@ def get_sales_rol(itm, order_lines, to_date):
     no_of_customers = len({line.customer for line in last_year})
     lead_time = flt(itm.lead_time_days) or DEFAULT_LEAD_TIME_DAYS
 
-    rol_class = None
     is_rare = False
-    if no_of_customers >= ROL_MIN_CUSTOMERS:
-        rol_class = next((cls for cls in ROL_FREQUENCY_CLASSES if no_of_orders >= cls[1]), None)
+    few_customers_min = 0 if no_of_customers >= ROL_MIN_CUSTOMERS else ROL_FEW_CUSTOMERS_MIN_ORDERS
+    rol_class = next((cls for cls in ROL_FREQUENCY_CLASSES
+        if no_of_orders >= max(cls[1], few_customers_min)), None)
     if rol_class:
         name, _min_orders, months, bucket_days = rol_class
         from_date = add_months(to_date, -months)

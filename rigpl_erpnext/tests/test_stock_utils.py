@@ -109,11 +109,17 @@ class TestRareItemRol(FrappeTestCase):
         self.assertIn("Rare", basis)
         self.assertIn("no ROL", basis)
 
-    def test_rare_item_with_few_customers_gets_zero_rol(self):
-        # 13 orders would be Regular, but all from 1 customer
-        new_rol, _basis, _ch = compute(make_item(), make_lines(13, customers=1),
+    def test_item_with_few_orders_from_few_customers_gets_zero_rol(self):
+        # 12 orders would be Occasional, but all from 1 customer
+        new_rol, _basis, _ch = compute(make_item(), make_lines(12, customers=1),
             make_consumption())
         self.assertEqual(new_rol, 0)
+
+    def test_item_with_many_orders_from_few_customers_is_not_rare(self):
+        # 13 orders from 2 customers is a Regular item
+        _rol, basis, is_rare = get_sales_rol(make_item(), make_lines(13, customers=2), TO_DATE)
+        self.assertFalse(is_rare)
+        self.assertIn("Regular", basis)
 
     def test_limits_do_not_keep_old_rol_of_rare_item(self):
         # The change limits would stop 32 from falling to 0

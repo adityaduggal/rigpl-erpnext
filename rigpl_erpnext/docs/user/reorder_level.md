@@ -25,7 +25,7 @@ The system counts the submitted Sales Orders and the customers of the last 12 mo
 | Occasional | 4 or more | 24 | 30 days |
 | Rare | all other items | 24 | not used |
 
-An item needs orders from at least 3 customers to be in Fast, Regular or Occasional. An item with many orders from 1 or 2 customers is **Rare**.
+An item with orders from 1 or 2 customers needs at least 13 orders in 12 months to be in Fast or Regular. With fewer orders it is **Rare**.
 
 A single order counts only up to **Big Order Multiple for ROL** times the median order quantity, so one big order does not raise the ROL.
 
