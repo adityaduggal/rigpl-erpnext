@@ -8,7 +8,7 @@ import statistics
 from datetime import date
 import frappe
 from frappe.query_builder.functions import Count, Max, Sum
-from frappe.utils import nowdate, nowtime, add_months, cstr, flt, get_time, getdate, now
+from frappe.utils import nowdate, nowtime, add_months, cint, cstr, flt, get_time, getdate, now
 from pypika.terms import Case, Criterion, Tuple
 from .batch_write_utils import bulk_insert_rows, bulk_insert_versions, clear_document_cache
 from .item_attribute_utils import chunks
@@ -207,19 +207,28 @@ ROL_FREQUENCY_CLASSES = (
 # Items with fewer orders, or with all orders from fewer customers, are Rare
 ROL_MIN_CUSTOMERS = 3
 ROL_RARE_MONTHS = 24
+# Consumption with Stock Entries adds to the ROL of an item with more than this many Stock Entries
+# in a period: (months, entries). These months must be in get_rol_consumption_windows.
+ROL_CONSUMPTION_MIN_ENTRIES = ((6, 3), (12, 6))
+ROL_CONSUMPTION_MONTHS = 12
+ROL_CONSUMPTION_BUCKET_DAYS = 7
 DEFAULT_LEAD_TIME_DAYS = 30
 
 
-def compute_rol_for_items(items, to_date=None, consumption=None, order_lines=None):
+def compute_rol_for_items(items, to_date=None, consumption=None, order_lines=None,
+        consumption_lines=None):
     """
     Returns {item name: (new_rol, basis, change type)} like auto_compute_rol_for_item, for the
     item rows from get_items_for_rol with a fixed number of queries for each chunk.
     Sales items get their ROL from how often they are ordered (get_sales_rol), other items
     from their purchases or consumption in the periods of RIGPL Settings.
+    The consumption of an item with Stock Entries is added to the ROL from sales
+    (get_consumption_rol).
     consumption is optional, from get_consumption_by_window with the windows of
     get_rol_consumption_windows, so a caller can read more windows in the same query.
     order_lines is optional, the lines of get_order_lines_for_items in the 24 months before
-    to_date.
+    to_date. consumption_lines is optional, the lines of get_consumption_lines_for_items in
+    the ROL_CONSUMPTION_MONTHS before to_date for the items which have consumption.
     """
     to_date = getdate(to_date or date.today())
     sales_items = [itm for itm in items if itm.is_sales_item == 1]
@@ -234,9 +243,18 @@ def compute_rol_for_items(items, to_date=None, consumption=None, order_lines=Non
             to_date)
     if consumption is None:
         consumption = get_consumption_by_window(names, get_rol_consumption_windows(to_date))
+    if consumption_lines is None:
+        consumption_lines = get_consumption_lines_for_items(
+            [name for name in names if has_regular_consumption(name, consumption)],
+            add_months(to_date, -ROL_CONSUMPTION_MONTHS), to_date)
     for itm in sales_items:
-        calc_rol, basis = get_sales_rol(itm, order_lines.get(itm.name, []), consumption, to_date)
-        new_rols[itm.name] = limit_rol_change(itm, calc_rol, basis)
+        calc_rol, basis, is_rare = get_sales_rol(itm, order_lines.get(itm.name, []), to_date)
+        if has_regular_consumption(itm.name, consumption):
+            calc_rol += get_consumption_rol(itm, consumption_lines.get(itm.name, []), to_date)
+            basis += " + Consumption"
+        if is_rare and not calc_rol:
+            basis += ", no ROL"
+        new_rols[itm.name] = limit_rol_change(itm, calc_rol, basis, is_rare)
     return new_rols
 
 
@@ -249,14 +267,43 @@ def get_rol_consumption_windows(to_date):
     return {month: (add_months(to_date, -month), to_date) for month in months}
 
 
-def get_sales_rol(itm, order_lines, consumption, to_date):
+def has_regular_consumption(item_name, consumption):
     """
-    Returns (calculated ROL, basis) for a sales item based on how often it is ordered:
+    Returns True if the item has more Stock Entries than ROL_CONSUMPTION_MIN_ENTRIES in any of
+    its periods. consumption is from get_consumption_by_window.
+    """
+    for months, min_entries in ROL_CONSUMPTION_MIN_ENTRIES:
+        con = consumption[months].get(item_name)
+        if con and cint(con.no_of_ste) > min_entries:
+            return True
+    return False
+
+
+def get_consumption_rol(itm, lines, to_date):
+    """
+    Returns the ROL for the consumption of an item with Stock Entries, from lines
+    [(posting_date, qty)] of the last ROL_CONSUMPTION_MONTHS: the consumption in the lead time
+    plus safety stock (RIGPL Settings ROL Consumption Safety Factor x the variation of the
+    consumption in the lead time).
+    """
+    from_date = add_months(to_date, -ROL_CONSUMPTION_MONTHS)
+    daily_demand, daily_sigma = get_daily_demand(
+        [(dt, flt(qty)) for dt, qty in lines if from_date <= getdate(dt) < to_date], from_date,
+        to_date, ROL_CONSUMPTION_BUCKET_DAYS)
+    lead_time = flt(itm.lead_time_days) or DEFAULT_LEAD_TIME_DAYS
+    safety_factor = flt(frappe.get_cached_value("RIGPL Settings", "RIGPL Settings",
+        "rol_consumption_safety_factor")) or 1
+    return daily_demand * lead_time + safety_factor * daily_sigma * math.sqrt(lead_time)
+
+
+def get_sales_rol(itm, order_lines, to_date):
+    """
+    Returns (calculated ROL, basis, is_rare) for a sales item based on how often it is ordered:
     - Fast, Regular and Occasional items: the demand in the lead time plus safety stock
       (RIGPL Settings ROL Safety Factor x the variation of demand in the lead time)
-    - Rare items: the median order qty
+    - Rare items: no ROL, since it is better to order them when a customer asks
     Big orders count only up to Big Order Multiple x the median order qty, so one big order
-    does not make the ROL jump. Consumption with Stock Entries in the lead time is added.
+    does not make the ROL jump.
     """
     year_ago = add_months(to_date, -12)
     last_year = [line for line in order_lines if line.transaction_date >= year_ago]
@@ -265,6 +312,7 @@ def get_sales_rol(itm, order_lines, consumption, to_date):
     lead_time = flt(itm.lead_time_days) or DEFAULT_LEAD_TIME_DAYS
 
     rol_class = None
+    is_rare = False
     if no_of_customers >= ROL_MIN_CUSTOMERS:
         rol_class = next((cls for cls in ROL_FREQUENCY_CLASSES if no_of_orders >= cls[1]), None)
     if rol_class:
@@ -279,16 +327,11 @@ def get_sales_rol(itm, order_lines, consumption, to_date):
         basis = f"{name} ({no_of_orders} Orders in 12 months) on {months} months Data"
     else:
         months = ROL_RARE_MONTHS
-        qtys = cap_big_orders([(line.transaction_date, line.stock_qty) for line in order_lines])
-        calc_rol = statistics.median([qty for _dt, qty in qtys]) if qtys else 0
-        basis = (f"Rare ({no_of_orders} Orders from {no_of_customers} Customers in 12 months) "
-            f"on Median Order of {months} months")
+        is_rare = True
+        calc_rol = 0
+        basis = f"Rare ({no_of_orders} Orders from {no_of_customers} Customers in 12 months)"
 
-    con = consumption[months].get(itm.name)
-    if con:
-        con_days = max((to_date - add_months(to_date, -months)).days, 1)
-        calc_rol += flt(con.qty) / con_days * lead_time
-    return calc_rol, basis
+    return calc_rol, basis, is_rare
 
 
 def cap_big_orders(qtys):
@@ -319,11 +362,14 @@ def get_daily_demand(qtys, from_date, to_date, bucket_days):
     return daily_demand, daily_sigma
 
 
-def limit_rol_change(itm, calc_rol, basis):
+def limit_rol_change(itm, calc_rol, basis, is_rare=False):
     """
     Returns (new_rol, basis, change type) with the change from the existing ROL limited by the
-    qty and value rules of RIGPL Settings (get_min_max_rol_qty) and the Minimum ROL Value
+    qty and value rules of RIGPL Settings (get_min_max_rol_qty) and the Minimum ROL Value.
+    A Rare item without ROL goes to 0 at once, since the limits would keep its old ROL.
     """
+    if is_rare and not calc_rol:
+        return 0, basis, "decrease" if itm.existing_rol > 0 else "same"
     min_max_dict = get_min_max_rol_qty(itm, ex_rol=itm.existing_rol)
     new_rol = auto_round_down(calc_rol)
     if new_rol > itm.existing_rol:
@@ -894,6 +940,32 @@ def get_sle_qty_by_group(item_names, groups, from_date, to_date):
         .run(as_dict=True)
     )
     return split_by_group(rows, groups, ("qty", "transactions"), "transactions")
+
+
+def get_consumption_lines_for_items(item_names, from_date, to_date):
+    """
+    Returns {item_code: [(posting_date, qty)]} for the qty consumed with Stock Entries (source
+    warehouse only, like get_consumption_by_window) in the period, with one query for each
+    chunk of items
+    """
+    ste = frappe.qb.DocType("Stock Entry")
+    sted = frappe.qb.DocType("Stock Entry Detail")
+    lines = {}
+    for chunk in chunks(item_names):
+        rows = (
+            frappe.qb.from_(sted)
+            .join(ste)
+            .on(sted.parent == ste.name)
+            .select(sted.item_code, ste.posting_date, sted.qty)
+            .where((ste.docstatus == 1) & sted.s_warehouse.isnotnull())
+            .where(sted.t_warehouse.isnull() | (sted.t_warehouse == ""))
+            .where(sted.item_code.isin(chunk))
+            .where((ste.posting_date >= from_date) & (ste.posting_date < to_date))
+            .run(as_dict=True)
+        )
+        for row in rows:
+            lines.setdefault(row.item_code, []).append((row.posting_date, row.qty))
+    return lines
 
 
 def get_consumption_for_items(item_names, from_date, to_date):

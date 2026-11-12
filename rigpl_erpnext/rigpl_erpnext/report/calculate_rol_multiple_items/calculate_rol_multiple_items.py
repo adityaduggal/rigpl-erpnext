@@ -8,9 +8,10 @@ from frappe.utils import add_days, add_months, flt, getdate, nowdate
 from ....utils.item_attribute_utils import attribute_filters, attribute_sort_key, chunks, \
     get_attribute_map
 from ....utils.report_utils import blank_zeros
-from ....utils.stock_utils import ROL_RARE_MONTHS, compute_rol_for_items, \
-    get_consumption_by_window, get_items_for_rol, get_order_lines_for_items, \
-    get_rol_consumption_windows, get_rol_data_for_items, get_selling_data_from_lines
+from ....utils.stock_utils import ROL_CONSUMPTION_MONTHS, ROL_RARE_MONTHS, compute_rol_for_items, \
+    get_consumption_by_window, get_consumption_lines_for_items, get_items_for_rol, \
+    get_order_lines_for_items, get_rol_consumption_windows, get_rol_data_for_items, \
+    get_selling_data_from_lines, has_regular_consumption
 
 # Filter fieldname: attribute. Quality is "<Base Material> Quality".
 ATTRIBUTE_FILTERS = [
@@ -79,8 +80,11 @@ def get_data(filters):
         lines = get_order_lines_for_items(chunk, min(from_date, rol_from), period_to)
         rol_lines = {item: [line for line in item_lines
             if rol_from <= line.transaction_date < to_date] for item, item_lines in lines.items()}
+        con_lines = get_consumption_lines_for_items(
+            [name for name in chunk if has_regular_consumption(name, consumption)],
+            add_months(to_date, -ROL_CONSUMPTION_MONTHS), to_date)
         new_rols = compute_rol_for_items(items, to_date=to_date, consumption=consumption,
-            order_lines=rol_lines)
+            order_lines=rol_lines, consumption_lines=con_lines)
         frequency = get_selling_data_from_lines(lines, add_months(to_date, -12), to_date)
         period_data = get_rol_data_for_items(items, period=months, to_date=period_to,
             from_date=from_date, consumption=consumption["period"],

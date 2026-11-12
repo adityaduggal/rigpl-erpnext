@@ -6,7 +6,7 @@
   - `process_sheet_update`: batched reads, writes only what changed;
   - `create_new_job_cards`: short closes Job Cards of delivered or closed Sales Orders, and deletes Job Cards without a Sales Order that still have a zero qty. One batched Sales Order read;
   - `update_job_card_status`;
-  - `auto_reorder` (ROL).
+  - `auto_reorder` (ROL, quarterly). Rare sales items get ROL 0 and consumption with Stock Entries is added (`stock_utils.get_sales_rol`, `get_consumption_rol`, #219). User guide: `rigpl_erpnext/docs/user/reorder_level.md`.
 - Batch read helpers: `utils/stock_utils.get_quantities_for_items`, `utils/sales_utils.get_open_so_lines` and `manufacturing_rigpl/utils/batch_qty_utils.py` (Bins, operations, Job Card rows, pending Process Sheet operations).
 - `update_job_card_status` calculates the `validate` fields of all draft Job Cards with these reads and writes only the changes (`bulk_set_fields`). A Job Card gets a full `save()` only when `total_qty`, `for_quantity` or its structure changes. The single-Job-Card functions in `job_card_utils.py` take the same pre-loaded inputs as optional arguments.
 - Reports: `manufacturing_rigpl/report/` (bom_templates, items_for_production, items_without_bom_templates, process_sheet_analysis, production_and_planning_report_rigpl).

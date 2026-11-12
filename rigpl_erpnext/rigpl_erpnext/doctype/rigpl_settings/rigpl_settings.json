@@ -21,6 +21,7 @@
   "minimum_rol_value",
   "max_rol_fluctuation",
   "rol_safety_factor",
+  "rol_consumption_safety_factor",
   "big_order_multiple",
   "base_rol_multiplier",
   "max_months_for_manufacturing_qty",
@@ -211,6 +212,13 @@
    "fieldname": "rol_safety_factor",
    "fieldtype": "Float",
    "label": "ROL Safety Factor"
+  },
+  {
+   "default": "1",
+   "description": "Safety stock factor (z) for the ROL from consumption with Stock Entries. It is multiplied by the variation of the weekly consumption in the lead time.",
+   "fieldname": "rol_consumption_safety_factor",
+   "fieldtype": "Float",
+   "label": "ROL Consumption Safety Factor"
   },
   {
    "default": "5",
