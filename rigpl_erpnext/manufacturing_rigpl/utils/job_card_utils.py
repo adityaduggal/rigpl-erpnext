@@ -1021,6 +1021,9 @@ def create_submit_ste_from_job_card(jc_doc):
             it_dict.setdefault("s_warehouse", jc_doc.s_warehouse)
             it_dict.setdefault("t_warehouse", jc_doc.t_warehouse)
             it_dict.setdefault("qty", jc_doc.total_completed_qty)
+            if jc_doc.t_warehouse:
+                # A transfer row has a source warehouse too, so ERPNext does not mark it finished
+                it_dict.setdefault("is_finished_item", 1)
             item_table.append(it_dict.copy())
         for row in jc_doc.time_logs:
             if row.rejected_qty > 0 and jc_doc.s_warehouse:
@@ -1075,6 +1078,8 @@ def create_submit_ste_from_job_card(jc_doc):
                     it_dict.setdefault("qty", row.qty)
                     it_dict.setdefault("s_warehouse", row.source_warehouse)
                     it_dict.setdefault("t_warehouse", row.target_warehouse)
+                    if row.target_warehouse and not any(i.get("is_finished_item") for i in item_table):
+                        it_dict.setdefault("is_finished_item", 1)
                     item_table.append(it_dict.copy())
         scrap_rows = get_scrap_ste_rows(jc_doc)
         if scrap_rows and item_table:
