@@ -22,7 +22,7 @@ All wiring is in `rigpl_erpnext/hooks.py`. Read it first when you trace behaviou
 | `manufacturing_rigpl/` | Process Sheet, Process Job Card RIGPL, BOM Template RIGPL. See `manufacturing.md` |
 | `accounts_rigpl/`, `hr_rigpl/`, `selling_rigpl/`, `stock_rigpl/`, `management_rigpl/` | reports and DocTypes by domain |
 | `website_rigpl/` | Frappe website catalog and SEO. See `website.md` |
-| `utils/` | shared helpers: `batch_write_utils`, `item_attribute_utils` (`chunks`, attribute pivots), `stock_utils`, `sales_utils`, `report_utils` |
+| `utils/` | shared helpers: `batch_write_utils`, `item_attribute_utils` (`chunks`, attribute pivots), `stock_utils`, `sales_utils`, `so_rate_utils` (Sales Order rates for DN and SI, #223), `report_utils` |
 | `overrides/` | ERPNext monkey patches applied per request or job |
 | `patches/` | old patches by date, plus `patches/v13/` for new ones |
 | `tests/` | app tests. See `testing.md` |

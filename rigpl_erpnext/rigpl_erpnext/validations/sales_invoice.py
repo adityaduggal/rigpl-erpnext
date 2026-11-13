@@ -7,12 +7,22 @@ import re
 import frappe
 from rigpl_erpnext.rigpl_erpnext.shipping.accounts import BOOKING, NONE
 from rigpl_erpnext.rigpl_erpnext.shipping.registry import transporter_api
+from rigpl_erpnext.utils.so_rate_utils import check_dn_rates_match_so, copy_so_rates, ignore_pricing_rule_for_so_rows
 from rigpl_erpnext.utils.sales_utils import check_gst_rules, check_strict_po_rules, copy_address_and_check, \
     copy_so_price_lists, get_item_price_rows, get_linked_so_data
 
 
 
+def before_validate(doc, method):
+    # Stops a drifted Delivery Note first. Then the Sales Order rates are set before ERPNext checks them (#223)
+    check_dn_rates_match_so(doc)
+    ignore_pricing_rule_for_so_rows(doc)
+    copy_so_rates(doc)
+
+
 def validate(doc, method):
+    # ERPNext has priced the rows again in its own validate: put the Sales Order rates back (#223)
+    copy_so_rates(doc)
     update_fields(doc)
     check_gst_rules(doc, doc.customer_address, doc.taxes_and_charges)
     validate_price_list(doc, method)

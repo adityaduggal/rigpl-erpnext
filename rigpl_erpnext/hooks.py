@@ -263,6 +263,7 @@ doc_events = {
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.salary_structure_assignment.on_submit",
     },
     "Sales Invoice": {
+        "before_validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.before_validate",
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.validate",
         "on_submit": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_submit",
         "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.sales_invoice.on_cancel",
