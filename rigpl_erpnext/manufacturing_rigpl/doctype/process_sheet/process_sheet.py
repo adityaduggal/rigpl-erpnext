@@ -8,6 +8,7 @@ from frappe.model.document import Document
 from frappe.query_builder.functions import Sum
 from frappe.utils import flt, nowdate
 
+from ....utils.item_attribute_utils import get_size_sort_keys
 from ....utils.sales_utils import get_priority_for_so
 from ....utils.stock_utils import get_quantities_for_item, get_stock_ages
 from ...utils.job_card_utils import delete_job_card
@@ -22,6 +23,7 @@ from ...utils.manufacturing_utils import (
     get_priority_for_stock_prd,
     get_qty_to_manufacture,
     get_rm_rule_errors,
+    merge_wip_items,
     operation_applies,
     rank_rm_rows,
     round_up_qty,
@@ -301,7 +303,7 @@ class ProcessSheet(Document):
                 "2. Change Raw Material Warehouse in the Process Sheet \n"
                 "3. Change the BOM Template from {}".format(self.bom_template)
             )
-        wip_list = []
+        wip_lists = []
         for rm in rm_item_dict:
             wip_item_dict = get_req_wip_sizes_from_template(
                 self.bom_template,
@@ -311,19 +313,12 @@ class ProcessSheet(Document):
                 allow_zero_rol=self.allow_zero_rol_for_wip,
                 process_sheet_name=self.name,
             )
-            dont_add = 0
-            if wip_item_dict:
-                for wip in wip_item_dict:
-                    if wip_list:
-                        for final in wip_list:
-                            if wip.name in final.name:
-                                dont_add = 1
-                        if dont_add == 0:
-                            wip_list.append(wip.copy())
-                    else:
-                        wip_list.append(wip.copy())
-            else:
+            if not wip_item_dict:
                 self.item_manufactured = []
+            wip_lists.append(wip_item_dict)
+        wip_list = merge_wip_items(wip_lists)
+        size_keys = get_size_sort_keys([wip.name for wip in wip_list])
+        wip_list.sort(key=lambda wip: size_keys[wip.name])
         if rm_item_dict:
             if not self.rm_consumed:
                 update_item_table(rm_item_dict, "rm_consumed", self)
@@ -409,7 +404,7 @@ class ProcessSheet(Document):
         ))
         # The stock age discount is a part of the rank, so the ages come first
         self.set_rm_stock_ages(rows)
-        rank_rm_rows(rows, rates)
+        rank_rm_rows(rows, rates, size_keys=get_size_sort_keys([rm.item_code for rm in rows]))
 
     def validate_qty_to_manufacture(self, it_doc):
         auto_qty, max_auto_qty = get_qty_to_manufacture(it_doc)

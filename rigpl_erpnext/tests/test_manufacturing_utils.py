@@ -26,6 +26,7 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     get_template_usage,
     match_bom_templates,
     match_bom_templates_bulk,
+    merge_wip_items,
     operation_applies,
     prepare_fg_rules,
     prepare_template_fg_rules,
@@ -36,8 +37,9 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     split_allowed_values,
 )
 from rigpl_erpnext.tests.test_check_update_bin_values import insert_bin, insert_process_sheet, insert_stock_item
-from rigpl_erpnext.tests.test_variant_table import insert_item
+from rigpl_erpnext.tests.test_variant_table import D1, L1, insert_item, insert_numeric_attribute
 from rigpl_erpnext.utils.guide_utils import get_user_guide
+from rigpl_erpnext.utils.item_attribute_utils import get_size_sort_keys
 from rohit_common.utils.query_guard import assert_max_queries
 
 
@@ -236,6 +238,59 @@ class TestRankRmRows(FrappeTestCase):
         self.assertEqual(rows[0].age_adjusted_rate, 75)
         self.assertEqual(rows[0].rm_cost, 1500)
         self.assertEqual(rows[0].adjusted_rm_cost, 750)
+
+    def test_same_cost_sorts_by_size(self):
+        # Item code order is A, B, C; size order is C (d1 3), A (d1 10), B (d1 12)
+        size_keys = {
+            "RM-A": ("T", ((0, 10.0, ""),), "RM-A"),
+            "RM-B": ("T", ((0, 12.0, ""),), "RM-B"),
+            "RM-C": ("T", ((0, 3.0, ""),), "RM-C"),
+        }
+        no_rate = [frappe._dict(item_code=code, calculated_qty=1) for code in ("RM-A", "RM-B", "RM-C")]
+        rank_rm_rows(no_rate, {}, settings=(100, 5), size_keys=size_keys)
+        self.assertEqual([d.item_code for d in no_rate], ["RM-C", "RM-A", "RM-B"])
+
+        same_rate = [frappe._dict(item_code=code, calculated_qty=1) for code in ("RM-A", "RM-B", "RM-C")]
+        rank_rm_rows(same_rate, {"RM-A": 80, "RM-B": 50, "RM-C": 50}, settings=(100, 5), size_keys=size_keys)
+        self.assertEqual([d.item_code for d in same_rate], ["RM-C", "RM-B", "RM-A"])
+
+    def test_without_size_keys_same_cost_sorts_by_item_code(self):
+        rows = [frappe._dict(item_code=code, calculated_qty=1) for code in ("RM-B", "RM-C", "RM-A")]
+        rank_rm_rows(rows, {}, settings=(100, 5))
+        self.assertEqual([d.item_code for d in rows], ["RM-A", "RM-B", "RM-C"])
+
+
+class TestMergeWipItems(FrappeTestCase):
+    def test_duplicate_does_not_skip_later_items(self):
+        wip = lambda name: frappe._dict(name=name, description=name)  # noqa: E731
+        merged = merge_wip_items([[wip("W-1"), wip("W-2")], [wip("W-2"), wip("W-3")], None, [wip("W-12")]])
+        self.assertEqual([d.name for d in merged], ["W-1", "W-2", "W-3", "W-12"])
+
+
+SIZE_TEMPLATE = "_Test RIGPL PS Size Template"
+
+
+class TestSizeSortKeys(FrappeTestCase):
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_sorts_by_template_attributes_in_table_order(self):
+        for attribute in (D1, L1):
+            if not frappe.db.exists("Item Attribute", attribute):
+                insert_numeric_attribute(attribute)
+        insert_item(SIZE_TEMPLATE, attributes=[(D1, ""), (L1, "")])
+        # Item code order is A, B, C, D; size order is d1, then l1, with "10" after "9"
+        sizes = {"A": ("10", "50"), "B": ("9", "60"), "C": ("9", "40"), "D": ("10", "5")}
+        for code, (d1, l1) in sizes.items():
+            insert_item(f"_Test RIGPL PS Size {code}", SIZE_TEMPLATE, attributes=[(D1, d1), (L1, l1)])
+        items = [f"_Test RIGPL PS Size {code}" for code in sizes]
+        get_size_sort_keys(items)  # fills the meta cache
+
+        with assert_max_queries(3, test_case=self):
+            keys = get_size_sort_keys(items)
+        ordered = sorted(items, key=keys.get)
+        self.assertEqual([name[-1] for name in ordered], ["C", "B", "D", "A"])
+        self.assertEqual(get_size_sort_keys([]), {})
 
 
 class TestAgeAdjustedRate(FrappeTestCase):

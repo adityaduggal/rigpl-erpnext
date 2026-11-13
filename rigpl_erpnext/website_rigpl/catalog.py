@@ -10,6 +10,11 @@ from typing import Dict, List, Optional, Tuple
 import frappe
 from frappe.utils import cint, flt, fmt_money, nowdate
 
+from ..utils.item_attribute_utils import (  # noqa: F401 (pick_sort_attribute: tests use it here)
+    get_template_attributes,
+    pick_sort_attribute,
+    sort_key,
+)
 from .compat import get_ecommerce
 
 DEFAULT_STOCK_CAP = 100
@@ -53,59 +58,6 @@ def get_variant_table(website_item: str) -> dict:
     shop, shop_rows = get_shop_info(template, variants)
     rows = add_shop_info(sort_variant_rows(rows, columns), shop_rows)
     return {"common": common, "columns": columns, "rows": rows, "shop": shop}
-
-
-def get_template_attributes(template: str) -> List[dict]:
-    """The template's Variant Attributes rows with Use in Description, in table order.
-
-    `label` is the row's Field Name (for example d1_mm is "Flute Dia (mm)"). `numeric`
-    comes from Item Attribute, because the values are stored as strings. `sort_attribute`
-    is the attribute whose value sorts the column (see `pick_sort_attribute`).
-    """
-    iva = frappe.qb.DocType("Item Variant Attribute")
-    item_attribute = frappe.qb.DocType("Item Attribute")
-    rows = (
-        frappe.qb.from_(iva)
-        .left_join(item_attribute)
-        .on(item_attribute.name == iva.attribute)
-        .select(
-            iva.attribute,
-            iva.field_name,
-            iva.use_in_description,
-            item_attribute.numeric_values,
-            item_attribute.source,
-            item_attribute.update_from,
-        )
-        .where((iva.parent == template) & (iva.parenttype == "Item"))
-        .orderby(iva.idx)
-    ).run(as_dict=True)
-    return [
-        dict(
-            {
-                "attribute": row.attribute,
-                "label": (row.field_name or "").strip() or row.attribute,
-            },
-            **pick_sort_attribute(row, rows),
-        )
-        for row in rows
-        if row.use_in_description
-    ]
-
-
-def pick_sort_attribute(row: dict, template_rows: List[dict]) -> dict:
-    """How a column sorts (#128). A text size such as d1_inch (1/8, 3/16) sorts by its numeric
-    twin d1_mm: an attribute of the same template made from the same value in another UOM, so
-    with the same `update_from` and source UOM. With no twin, a column sorts by its own value.
-    """
-    if not row.get("numeric_values") and row.get("source") == "UOM" and row.get("update_from"):
-        for twin in template_rows:
-            if (
-                twin.get("numeric_values")
-                and twin.get("source") == "UOM"
-                and twin.get("update_from") == row["update_from"]
-            ):
-                return {"numeric": True, "sort_attribute": twin["attribute"]}
-    return {"numeric": bool(row.get("numeric_values")), "sort_attribute": row["attribute"]}
 
 
 def get_published_variants(template: str) -> list:
@@ -195,17 +147,6 @@ def sort_variant_rows(rows: List[dict], columns: List[dict]) -> List[dict]:
         return tuple(sort_key(row["values"][c["sort_attribute"]], c["numeric"]) for c in columns)
 
     return sorted(rows, key=key)
-
-
-def sort_key(value: str, numeric: bool) -> tuple:
-    if not value:
-        return (2, 0.0, "")
-    if numeric:
-        try:
-            return (0, float(value), "")
-        except ValueError:
-            pass
-    return (1, 0.0, value.lower())
 
 
 def get_shop_info(template: dict, variants: list) -> Tuple[dict, Dict[str, dict]]:

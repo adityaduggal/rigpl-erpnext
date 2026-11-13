@@ -44,6 +44,7 @@ The RM table lists all RM items that pass the RM rules of the template.
 - **Age Adjusted Rate** = Valuation Rate less a discount for old stock. For each full **100 days** of **Average Stock Age**, the rate is **5%** less. For example, a rate of 100 at 1000 days of age is 50. The rate is never less than 0. The 100 days and the 5% are in **RIGPL Settings > Manufacturing Settings** (RM Stock Age Step and RM Rate Discount per Age Step).
 - **Adjusted RM Cost** = Calculated Qty × Age Adjusted Rate.
 - The rows are sorted by Adjusted RM Cost. **Rank 1 is at the top.** RM with no valuation rate is at the bottom. Thus old stock moves up, but an old RM that costs much more stays lower.
+- RM rows with the same Adjusted RM Cost are sorted by size, in the same order as on the website. For a Round tool, this is d1_mm, then l1_mm. RM with no valuation rate is also sorted by size.
 - RM with no stock (Qty Available = 0) is hidden. Tick **Show Unavailable RM** to see it.
 - Click a row to see more: Valuation Rate, Age Adjusted Rate, Projected Qty, Current Projected Qty, **Oldest Stock Age** and **Average Stock Age** (in days) of the RM in the source warehouse.
 - Delete the rows that you will not use. On submit, the number of rows must be the **No of RM Items** of the template (usually 1).
@@ -56,6 +57,7 @@ How to select:
 ## 5. WIP items
 
 - The **Item Manufactured** table lists the WIP items that the template makes from the selected RM.
+- The WIP items are sorted by size, in the same order as on the website (for a Round tool, d1_mm, then l1_mm).
 - To get the WIP items again, clear the table and save.
 - **Allow Zero ROL for WIP** also lists WIP items with no re-order level.
 

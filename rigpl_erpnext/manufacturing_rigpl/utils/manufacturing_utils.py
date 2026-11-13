@@ -232,6 +232,20 @@ def set_wip_row_quantities(wip, qty_rows):
     wip.qty = 0
 
 
+def merge_wip_items(wip_lists):
+    """
+    Returns one list of the WIP items of each RM, without duplicates. The first row of an item
+    is kept. A duplicate does not skip the items after it (#222).
+    """
+    merged, seen = [], set()
+    for wip_items in wip_lists:
+        for wip in wip_items or []:
+            if wip.name not in seen:
+                seen.add(wip.name)
+                merged.append(wip.copy())
+    return merged
+
+
 def round_up_qty(qty):
     """Returns the qty rounded up to a whole number. A float error such as 26.0000001 stays 26."""
     return math.ceil(round(flt(qty), 6))
@@ -265,13 +279,19 @@ def set_rm_row_costs(rows, rates=None, settings=None):
         row.adjusted_rm_cost = flt(row.calculated_qty) * row.age_adjusted_rate
 
 
-def rank_rm_rows(rows, rates, settings=None):
+def rank_rm_rows(rows, rates, settings=None, size_keys=None):
     """
     Sets the costs of the RM rows (set_rm_row_costs) and sorts them with the lowest Adjusted RM
-    Cost first. Rows with no valuation rate come last.
+    Cost first. Rows with no valuation rate come last. Rows with the same cost sort by size
+    (`size_keys` from get_size_sort_keys, #222), or by item code without `size_keys`.
     """
     set_rm_row_costs(rows, rates, settings)
-    rows.sort(key=lambda row: (flt(row.valuation_rate) <= 0, row.adjusted_rm_cost, row.item_code))
+    size_keys = size_keys or {}
+    rows.sort(key=lambda row: (
+        flt(row.valuation_rate) <= 0,
+        row.adjusted_rm_cost,
+        size_keys.get(row.item_code, ("", (), row.item_code)),
+    ))
     for idx, row in enumerate(rows, start=1):
         row.idx = idx
 
