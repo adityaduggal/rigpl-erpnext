@@ -9,7 +9,7 @@ Do these steps before you run `bench migrate` on v14:
    `has_priority` as a standard field. If the custom field is still there, sync fails with
    `UniqueFieldnameError`. Use the same method as
    `patches/v13/remove_lead_designation_custom_field.py`.
-2. Remove `rigpl_erpnext/overrides/pricing_rule_utils.py`, its test
+2. Remove the `get_pricing_rules` backport in `rigpl_erpnext/overrides/pricing_rule_utils.py` but keep `skip_so_rows` (#223: no pricing for rows from a Sales Order), its test
    `rigpl_erpnext/tests/test_pricing_rule_override.py`, and the `before_request` and
    `before_job` entries in `hooks.py`.
    (On ERPNext other than v13, the override does nothing and writes a warning to the

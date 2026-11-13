@@ -49,3 +49,26 @@ class TestPricingRuleOverride(FrappeTestCase):
         with patch.object(pricing_rule_utils.erpnext, "__version__", "14.0.0"):
             pricing_rule_utils.apply_overrides()
             self.assertIs(utils.get_pricing_rules, original)
+
+
+class TestSkipSoRows(FrappeTestCase):
+    def args(self, **values):
+        return frappe._dict(dict(doctype="Sales Invoice", name="_Test RIGPL SI", parent="_Test RIGPL SI",
+            parenttype="Sales Invoice", child_docname="row1", item_code="_Test RIGPL Item", so_detail="SOI"), **values)
+
+    def test_so_row_gets_no_pricing_rule(self):
+        with patch.object(pricing_rule_utils, "ERPNEXT_GET_PRICING_RULE_FOR_ITEM") as erpnext_function:
+            result = pricing_rule_utils.skip_so_rows(self.args(), 1000, None, True)
+        erpnext_function.assert_not_called()
+        self.assertEqual((result.doctype, result.child_docname, result.get("pricing_rules")),
+            ("Sales Invoice", "row1", None))
+
+    def test_row_without_so_and_other_doctypes_use_erpnext(self):
+        for args in (self.args(so_detail=None), self.args(doctype="Quotation")):
+            with patch.object(pricing_rule_utils, "ERPNEXT_GET_PRICING_RULE_FOR_ITEM") as erpnext_function:
+                pricing_rule_utils.skip_so_rows(args, 1000)
+            erpnext_function.assert_called_once_with(args, 1000)
+
+    def test_override_patches_get_item_details(self):
+        pricing_rule_utils.apply_overrides()
+        self.assertIs(pricing_rule_utils.get_item_details.get_pricing_rule_for_item, pricing_rule_utils.skip_so_rows)

@@ -9,18 +9,22 @@ Group rule on orders below the MOV. Upstream fixed this in v14 with commit
 when the top rule has has_priority, the lookup continues to the next stage and
 the normal qty/amount filter and priority selection pick one rule.
 
-REMOVE THIS MODULE AT THE v14 UPGRADE. See patches/v13/NOTES_v14_upgrade.md.
+The module also stops pricing of Delivery Note and Sales Invoice rows that come from a Sales Order (#223).
+At the v14 upgrade keep that part (move `skip_so_rows`) and check how v14 calls get_pricing_rule_for_item.
+
+REMOVE THE has_priority PART AT THE v14 UPGRADE. See patches/v13/NOTES_v14_upgrade.md.
 """
 
 import erpnext
 import frappe
 from erpnext.accounts.doctype.pricing_rule import utils
+from erpnext.stock import get_item_details
+
+ERPNEXT_GET_PRICING_RULE_FOR_ITEM = get_item_details.get_pricing_rule_for_item
 
 
 def apply_overrides(**kwargs):
     """Replace utils.get_pricing_rules on ERPNext v13 only. Safe to call on every request/job."""
-    if utils.get_pricing_rules is get_pricing_rules:
-        return
     if not erpnext.__version__.startswith("13."):
         frappe.logger("rigpl_erpnext").warning(
             f"Pricing rule override skipped: ERPNext {erpnext.__version__} is not v13. "
@@ -30,6 +34,20 @@ def apply_overrides(**kwargs):
     # get_pricing_rule_for_item imports get_pricing_rules inside the function, so the
     # module attribute is looked up on every call.
     utils.get_pricing_rules = get_pricing_rules
+    # get_item_details binds the function with "from ... import", so patch its own name.
+    get_item_details.get_pricing_rule_for_item = skip_so_rows
+
+
+def skip_so_rows(args, *a, **kwargs):
+    """
+    A row that comes from a Sales Order gets no pricing rule. The Sales Order is the only source of rates (#223).
+    ERPNext prices again in its own validate, before the rigpl hooks run, and then checks the rate against the
+    Delivery Note and the billed amount. Gives the empty result that ERPNext gives for a free item.
+    """
+    if args.get("so_detail") and args.get("doctype") in ("Delivery Note", "Sales Invoice"):
+        return frappe._dict(doctype=args.doctype, has_margin=False, name=args.name, free_item_data=[],
+            parent=args.parent, parenttype=args.parenttype, child_docname=args.get("child_docname"))
+    return ERPNEXT_GET_PRICING_RULE_FOR_ITEM(args, *a, **kwargs)
 
 
 def get_pricing_rules(args, doc=None):
