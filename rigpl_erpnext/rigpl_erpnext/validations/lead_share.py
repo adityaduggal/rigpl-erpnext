@@ -16,3 +16,7 @@ def opportunity_on_update(doc, method):
 
 def address_on_update(doc, method):
     sync_lead_shares([link.link_name for link in doc.links if link.link_doctype == "Lead"])
+
+
+def contact_on_update(doc, method):
+    address_on_update(doc, method)

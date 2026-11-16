@@ -130,6 +130,7 @@ doctype_js = {
 }
 
 override_doctype_class = {
+    "Lead": "rigpl_erpnext.rigpl_erpnext.validations.lead.RigplLead",
     "Payroll Entry": "rigpl_erpnext.hr_rigpl.utils.hr_utils.RigplPayrollEntry",
 }
 
@@ -160,6 +161,7 @@ doc_events = {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.communication.validate",
         "after_insert": "rigpl_erpnext.rigpl_erpnext.validations.communication.after_insert",
     },
+    "Contact": {"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead_share.contact_on_update"},
     "Customer": {
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.customer.on_update",
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.customer.validate",

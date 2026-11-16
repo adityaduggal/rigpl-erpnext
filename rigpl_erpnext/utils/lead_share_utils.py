@@ -5,6 +5,8 @@ Shares a Lead and its Quotations, Opportunities and Addresses with the lead owne
 Sales Representatives see these doctypes only if they own them or they are shared, so a Lead
 made by someone else for a rep must be shared with the rep. On a shared document only the
 lead owner keeps a share: all other shares, also shares with everyone, are removed.
+Addresses and Contacts are shared also when the lead owner made them. Reps have User Permissions
+on these doctypes, and Frappe gives the owner no access past a User Permission, only a share does.
 """
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -26,7 +28,11 @@ WANTED_QUERIES = {
     "Address": """SELECT DISTINCT a.name, l.lead_owner FROM `tabDynamic Link` dl
         JOIN `tabAddress` a ON a.name = dl.parent
         JOIN `tabLead` l ON l.name = dl.link_name
-        WHERE dl.parenttype = 'Address' AND dl.link_doctype = 'Lead' AND a.owner != l.lead_owner {lead_cond}""",
+        WHERE dl.parenttype = 'Address' AND dl.link_doctype = 'Lead' AND l.lead_owner IS NOT NULL {lead_cond}""",
+    "Contact": """SELECT DISTINCT c.name, l.lead_owner FROM `tabDynamic Link` dl
+        JOIN `tabContact` c ON c.name = dl.parent
+        JOIN `tabLead` l ON l.name = dl.link_name
+        WHERE dl.parenttype = 'Contact' AND dl.link_doctype = 'Lead' AND l.lead_owner IS NOT NULL {lead_cond}""",
 }
 
 
@@ -49,7 +55,8 @@ def sync_lead_shares(leads: Optional[List[str]] = None):
 def load_share_rules() -> Dict[str, frappe._dict]:
     """
     {doctype: rule} for the doctypes above, where rule.users are the enabled users with a role
-    of the rule. System Managers see all documents and get no share.
+    of the rule. System Managers see all documents and get no share. Contacts follow the Address
+    rule when User Share Settings has no Contact rule.
     """
     rows = frappe.db.sql("""SELECT role, document_type, write_access, share_access, notify_by_email
         FROM `tabUser Share Rules` WHERE parent = 'User Share Settings' AND parentfield = 'rules'
@@ -65,6 +72,8 @@ def load_share_rules() -> Dict[str, frappe._dict]:
         rule = rules.setdefault(row.document_type, frappe._dict(row, users=set()))
         rule.users.update(user for user, roles in roles_by_user.items()
                           if row.role in roles and "System Manager" not in roles)
+    if "Contact" not in rules and "Address" in rules:
+        rules["Contact"] = rules["Address"]
     return rules
 
 

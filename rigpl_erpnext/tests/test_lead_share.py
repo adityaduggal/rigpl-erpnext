@@ -1,10 +1,11 @@
 from unittest.mock import patch
 
 import frappe
-from erpnext.crm.doctype.lead.lead import Lead
 from frappe.tests.utils import FrappeTestCase
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.rigpl_erpnext.validations.lead import RigplLead
+from rigpl_erpnext.tests.test_selling_reports import raw
 from rigpl_erpnext.utils.lead_share_utils import get_changes, sync_lead_shares
 
 REP = "_test_rigpl_lead_share_rep@example.com"
@@ -30,11 +31,18 @@ def make_lead(lead_owner):
         "company_name": "_Test RIGPL Lead Share Co", "email_id": "_test_rigpl_lead_share_lead@example.com",
         "lead_owner": lead_owner})
     lead.flags.ignore_mandatory = True
-    # ERPNext makes a Contact before the Lead exists, and rohit_common rejects a Contact
-    # without links. The share tests do not need it.
-    with patch.object(Lead, "before_insert", lambda self: None), \
-            patch.object(Lead, "after_insert", lambda self: None):
+    # The share tests do not need the Contact that RigplLead makes after insert
+    with patch.object(RigplLead, "after_insert", lambda self: None):
         return lead.insert(ignore_permissions=True)
+
+
+def ensure_share_rule(doctype, role="Sales Representative"):
+    """The test site may not have the rule. Contacts use the Address rule, so tests add no Contact rule."""
+    if not frappe.db.exists("User Share Rules", {"parent": "User Share Settings", "role": role,
+                                                 "document_type": doctype}):
+        raw("User Share Rules", parent="User Share Settings", parenttype="User Share Settings",
+            parentfield="rules", role=role, document_type=doctype, apply_to_all_values=1, read_access=1,
+            write_access=1)
 
 
 def shared_users(dn, dt="Lead"):
@@ -82,12 +90,23 @@ class TestSyncLeadShares(FrappeTestCase):
         lead.save(ignore_permissions=True)
         self.assertEqual(shared_users(lead.name), [REP2])
 
+    def test_address_and_contact_of_lead_owner_are_shared(self):
+        lead = make_lead(REP)
+        ensure_share_rule("Address")
+        for doctype in ("Address", "Contact"):
+            name = raw(doctype, owner=REP)
+            raw("Dynamic Link", parent=name, parenttype=doctype, parentfield="links", link_doctype="Lead",
+                link_name=lead.name)
+            sync_lead_shares([lead.name])
+            self.assertEqual(shared_users(name, doctype), [REP], doctype)
+
     def test_system_manager_lead_owner_gets_no_share(self):
         lead = make_lead(SYS)
         self.assertEqual(shared_users(lead.name), [])
 
     def test_sync_runs_a_fixed_number_of_queries(self):
         lead = make_lead(REP)
-        with assert_max_queries(8, test_case=self):
+        # One query per doctype in WANTED_QUERIES, Contact added
+        with assert_max_queries(9, test_case=self):
             to_add, to_remove = sync_lead_shares([lead.name])
         self.assertEqual((to_add, to_remove), ([], []))
