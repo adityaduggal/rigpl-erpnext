@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import flt
+from frappe.utils import escape_html, flt, now
 
 from rigpl_erpnext.utils.batch_write_utils import bulk_insert_rows
 
@@ -21,6 +21,10 @@ ACCOUNT_FIELDS = (
     "debit_in_account_currency", "credit_in_account_currency", "exchange_rate", "reference_type", "reference_name",
     "against_account", "is_advance",
 )
+COMMENT_FIELDS = (
+    "name", "creation", "modified", "modified_by", "owner", "docstatus", "comment_type", "reference_doctype",
+    "reference_name", "comment_email", "content",
+)
 # The new Employee Advance name: the same text as the SQL expression NEW_NAME_SQL.
 NEW_NAME_SQL = "CONCAT(d.parent, '-Row-', d.idx)"
 # The Employee Loan Detail row of an old doc, joined by the old doc name and the employee.
@@ -34,18 +38,20 @@ def execute():
     - one Employee Advance per loan row, named `<old name>-Row-<idx>`;
     - one Journal Entry per old doc with the old name. ERPNext v13 Employee Advance posts no GL: its paid
       amount is the sum of the GL debits against it, and a Journal Entry posts them;
-    - the GL rows, the Salary Slip GL rows and Salary Detail.employee_loan point to the new advances.
+    - the GL rows, the Salary Slip GL rows and Salary Detail.employee_loan point to the new advances;
+    - the files of an old doc move to its first advance (Row 1), the other advances get a Comment about it.
     Submitted and cancelled docs are converted (the cancelled ones with no GL). A draft is not: enter it again.
-    Safe to run again: a converted old doc has a Journal Entry with its name.
+    Safe to run again: a converted old doc has a Journal Entry with its name, and a moved file is no longer
+    attached to the old doc. The files step also runs when there is nothing left to convert.
     """
     if f"tab{OLD}" not in frappe.db.get_tables(cached=False):
         return
     names = frappe.db.sql_list(f"""SELECT name FROM `tab{OLD}` p WHERE docstatus IN (1, 2)
         AND NOT EXISTS (SELECT 1 FROM `tabJournal Entry` j WHERE j.name = p.name) ORDER BY name""")
-    if not names:
-        return
     try:
-        convert(names)
+        if names:
+            convert(names)
+        link_attachments(frappe.db.sql_list(f"SELECT name FROM `tab{OLD}` WHERE docstatus IN (1, 2)"))
         frappe.db.commit()
     except Exception:
         frappe.db.rollback()
@@ -237,3 +243,47 @@ def check_conversion(names, docs, rows, expected, ledger):
         problems.append(f"{old_pointers} GL or Salary Detail rows still point to an old name")
     if problems:
         frappe.throw("<br>".join(problems[:20]), title=ERROR_TITLE)
+
+
+def link_attachments(names):
+    """
+    Moves the files of the old docs to their first advance (Row 1): one File record and one physical file.
+    The other advances of the doc get a Comment that names the file. No commit, throws when a check fails.
+    """
+    if not names:
+        return
+    names = tuple(names)
+    # Not filtered by `IN names` in SQL: with the join below MariaDB returns no rows for a long IN list.
+    in_scope = set(names)
+    files = [file for file in frappe.db.sql(f"""SELECT f.name, f.file_name, f.file_url, f.owner,
+        f.attached_to_name old_name, fr.idx first_row FROM `tabFile` f
+        JOIN (SELECT parent, MIN(idx) idx FROM `tabEmployee Loan Detail` WHERE parenttype = '{OLD}'
+            GROUP BY parent) fr ON fr.parent = f.attached_to_name
+        JOIN `tab{NEW}` a ON a.name = CONCAT(fr.parent, '-Row-', fr.idx)
+        WHERE f.attached_to_doctype = '{OLD}'""", as_dict=True) if file.old_name in in_scope]
+    if not files:
+        return
+    rows_by_doc = {}
+    for old_name, idx in frappe.db.sql(f"""SELECT parent, idx FROM `tabEmployee Loan Detail`
+            WHERE parenttype = '{OLD}' AND parent IN %(names)s ORDER BY parent, idx""", {"names": names}):
+        rows_by_doc.setdefault(old_name, []).append(idx)
+
+    comments = []
+    for file in files:
+        first = new_name(file.old_name, file.first_row)
+        link = f"<a href='{escape_html(file.file_url)}' target='_blank'>{escape_html(file.file_name)}</a>"
+        for idx in rows_by_doc[file.old_name]:
+            if idx != file.first_row:
+                comments.append((frappe.generate_hash(length=10), now(), now(),
+                    file.owner, file.owner, 0, "Comment", NEW, new_name(file.old_name, idx), file.owner,
+                    f"Attachment of this loan is on {first}: {link}"))
+    frappe.db.sql(f"""UPDATE `tabFile` f
+        JOIN (SELECT parent, MIN(idx) idx FROM `tabEmployee Loan Detail` WHERE parenttype = '{OLD}'
+            GROUP BY parent) fr ON fr.parent = f.attached_to_name
+        SET f.attached_to_doctype = '{NEW}', f.attached_to_name = CONCAT(fr.parent, '-Row-', fr.idx)
+        WHERE f.name IN %(files)s""", {"files": tuple(file.name for file in files)})
+    moved = frappe.db._cursor.rowcount
+    bulk_insert_rows("Comment", COMMENT_FIELDS, comments)
+    print(f"Moved {moved} files to the first Employee Advance, {len(comments)} Comments for the other rows")
+    if moved != len(files):
+        frappe.throw(f"{moved} files moved, {len(files)} expected", title=ERROR_TITLE)

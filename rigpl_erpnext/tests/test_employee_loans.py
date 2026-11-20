@@ -357,3 +357,58 @@ class TestConvertPatch(LoanCase):
         with assert_max_queries(1000) as several:
             convert_employee_advance_rigpl.convert(many)
         self.assertEqual(single.count, several.count)
+
+    def insert_file(self, loan, file_name):
+        frappe.get_doc(dict(doctype="File", name=frappe.generate_hash(length=10), file_name=file_name,
+            file_url=f"/private/files/{file_name}", attached_to_doctype=DT, attached_to_name=loan, is_private=1,
+            folder="Home/Attachments")).db_insert()
+
+    def attached_to(self, file_name):
+        return frappe.db.get_value("File", {"file_name": file_name}, ["attached_to_doctype", "attached_to_name"])
+
+    def comments(self, advance):
+        return frappe.get_all("Comment", filters={"reference_doctype": "Employee Advance", "reference_name": advance,
+            "comment_type": "Comment"}, pluck="content")
+
+    def test_file_moves_to_row_1_and_other_rows_get_a_comment(self):
+        insert_second_employee()
+        doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2),
+            dict(employee=EMP2, loan_amount=3000, emi=1000, repayment_period=3)])
+        self.insert_file(doc.name, "_t-loan-sheet.pdf")
+        convert_employee_advance_rigpl.convert([doc.name])
+
+        convert_employee_advance_rigpl.link_attachments([doc.name])
+
+        first, second = f"{doc.name}-Row-1", f"{doc.name}-Row-2"
+        self.assertEqual(self.attached_to("_t-loan-sheet.pdf"), ("Employee Advance", first))
+        self.assertEqual(self.comments(first), [])
+        comment = self.comments(second)
+        self.assertEqual(len(comment), 1)
+        self.assertIn(f"on {first}", comment[0])
+        self.assertIn("_t-loan-sheet.pdf", comment[0])
+
+        convert_employee_advance_rigpl.link_attachments([doc.name])
+        self.assertEqual(len(self.comments(second)), 1)
+
+    def test_file_of_a_single_row_loan_moves_without_a_comment(self):
+        doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2)])
+        self.insert_file(doc.name, "_t-single.pdf")
+        convert_employee_advance_rigpl.convert([doc.name])
+        convert_employee_advance_rigpl.link_attachments([doc.name])
+        self.assertEqual(self.attached_to("_t-single.pdf"), ("Employee Advance", f"{doc.name}-Row-1"))
+        self.assertEqual(frappe.db.count("Comment", {"reference_name": ["like", f"{doc.name}-Row-%"],
+            "comment_type": "Comment"}), 0)
+
+    def test_file_of_a_cancelled_loan_follows_row_1(self):
+        doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2)])
+        doc.cancel()
+        self.insert_file(doc.name, "_t-cancelled.pdf")
+        convert_employee_advance_rigpl.convert([doc.name])
+        convert_employee_advance_rigpl.link_attachments([doc.name])
+        self.assertEqual(self.attached_to("_t-cancelled.pdf"), ("Employee Advance", f"{doc.name}-Row-1"))
+
+    def test_file_of_a_loan_that_is_not_converted_stays(self):
+        doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2)])
+        self.insert_file(doc.name, "_t-stays.pdf")
+        convert_employee_advance_rigpl.link_attachments([doc.name])
+        self.assertEqual(self.attached_to("_t-stays.pdf"), (DT, doc.name))
