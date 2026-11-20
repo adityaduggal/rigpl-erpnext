@@ -11,6 +11,8 @@
   "column_break_1",
   "advance_account",
   "payment_account",
+  "reference_no",
+  "reference_date",
   "deduction_type",
   "employees_section",
   "employee_loan_detail"
@@ -54,6 +56,17 @@
    "label": "Payment Account",
    "options": "Account",
    "reqd": 1
+  },
+  {
+   "description": "Cheque or UTR number. Needed when the payment account is a Bank account",
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No"
+  },
+  {
+   "fieldname": "reference_date",
+   "fieldtype": "Date",
+   "label": "Reference Date"
   },
   {
    "description": "Empty: the Loan Deduction Component of RIGPL Settings",

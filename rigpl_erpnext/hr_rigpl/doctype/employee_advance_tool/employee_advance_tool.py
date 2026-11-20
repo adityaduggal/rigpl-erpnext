@@ -34,6 +34,7 @@ class EmployeeAdvanceTool(Document):
             frappe.db.rollback(save_point=SAVEPOINT)
             raise
         self.set("employee_loan_detail", [])
+        self.reference_no = self.reference_date = None
         self.save()
         return journal.name
 
@@ -46,6 +47,8 @@ class EmployeeAdvanceTool(Document):
             if count > 1]
         if duplicates:
             frappe.throw(_("{0} is entered multiple times").format(employees[duplicates[0]].employee_name))
+        if self.get_voucher_type() == "Bank Entry" and not (self.reference_no and self.reference_date):
+            frappe.throw(_("Reference No and Reference Date are required when the Payment Account is a Bank account"))
         posting_date = getdate(self.posting_date)
         for row in self.employee_loan_detail:
             emp = employees[row.employee]
@@ -54,6 +57,10 @@ class EmployeeAdvanceTool(Document):
                 frappe.throw(_("{0} left on {1} hence cannot give advance on {2}").format(
                     emp.employee_name, formatdate(emp.relieving_date), formatdate(posting_date)))
         return employees
+
+    def get_voucher_type(self):
+        return VOUCHER_TYPES.get(frappe.get_cached_value("Account", self.payment_account, "account_type"),
+            "Journal Entry")
 
     def make_advance(self, row, employee):
         """A submitted loan. Its validate (validations/employee_advance.py) makes the EMI whole months."""
@@ -70,11 +77,11 @@ class EmployeeAdvanceTool(Document):
     def make_journal_entry(self, advances):
         """Debits the advance account per employee, credits the payment account. is_advance makes ERPNext
         update the paid amount and the status of each advance on submit and on cancel."""
-        account_type = frappe.get_cached_value("Account", self.payment_account, "account_type")
         cost_center = erpnext.get_default_cost_center(self.company)
         journal = frappe.new_doc("Journal Entry")
-        journal.update(dict(voucher_type=VOUCHER_TYPES.get(account_type, "Journal Entry"), company=self.company,
-            posting_date=self.posting_date, user_remark=_("Employee Loans: {0}").format(
+        journal.update(dict(voucher_type=self.get_voucher_type(), company=self.company,
+            posting_date=self.posting_date, cheque_no=self.reference_no, cheque_date=self.reference_date,
+            user_remark=_("Employee Loans: {0}").format(
                 self.purpose or ", ".join(advance.name for advance in advances))))
         for advance in advances:
             journal.append("accounts", dict(account=self.advance_account, party_type="Employee",

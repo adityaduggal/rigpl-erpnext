@@ -514,8 +514,8 @@ class TestEmployeeAdvanceTool(LoanCase):
 
     def tool(self, rows, **fields):
         tool = frappe.get_doc("Employee Advance Tool")
-        tool.update(dict(posting_date="2026-10-05", company="RIGPL", advance_account=DEBIT, payment_account=CREDIT,
-            purpose=self.PURPOSE, **fields))
+        tool.update(dict(dict(posting_date="2026-10-05", company="RIGPL", advance_account=DEBIT,
+            payment_account=CREDIT, purpose=self.PURPOSE, reference_no=None, reference_date=None), **fields))
         tool.set("employee_loan_detail", [dict(employee=emp, loan_amount=amount, emi=emi, repayment_period=0)
             for emp, amount, emi in rows])
         return tool
@@ -580,6 +580,20 @@ class TestEmployeeAdvanceTool(LoanCase):
                 tool.create_advances()
         self.assertEqual(self.advances(), [])
         self.assertEqual(len(tool.employee_loan_detail), 3)
+
+    def test_bank_payment_needs_a_reference_and_passes_it_to_the_journal_entry(self):
+        bank = frappe.db.get_value("Account", {"account_type": "Bank", "is_group": 0, "disabled": 0, "company": "RIGPL"})
+        self.assertTrue(bank)
+        rows = [(EMP, 1000, 500)]
+        with self.assertRaisesRegex(frappe.ValidationError, "Reference No and Reference Date"):
+            self.tool(rows, payment_account=bank).create_advances()
+        self.assertEqual(self.advances(), [])
+
+        tool = self.tool(rows, payment_account=bank, reference_no="UTR-TEST-1", reference_date="2026-10-05")
+        journal = frappe.get_doc("Journal Entry", tool.create_advances())
+        self.assertEqual((journal.voucher_type, journal.cheque_no, str(journal.cheque_date)),
+            ("Bank Entry", "UTR-TEST-1", "2026-10-05"))
+        self.assertEqual((tool.reference_no, tool.reference_date), (None, None))
 
     def test_cancel_of_the_journal_entry_sets_the_advances_back_to_unpaid(self):
         journal_name = self.tool(self.three_rows()).create_advances()
