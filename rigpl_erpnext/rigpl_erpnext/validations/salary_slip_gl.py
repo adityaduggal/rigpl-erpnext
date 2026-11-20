@@ -19,6 +19,16 @@ def cancel_gl_entry(doc):
     make_reverse_gl_entries(voucher_type="Salary Slip", voucher_no=doc.name)
 
 
+def update_employee_advances(doc):
+    """
+    The loan credit rows of the slip change the return_amount and status of each Employee Advance.
+    ERPNext sums them from the GL, so this runs after the GL is posted or reversed.
+    """
+    loans = {row.employee_loan for row in doc.get("deductions") if row.employee_loan and flt(row.amount) > 0}
+    for name in sorted(loans):
+        frappe.get_doc("Employee Advance", name).set_total_advance_paid()
+
+
 def set_expense_claims_paid(doc, paid):
     for row in doc.earnings:
         if row.expense_claim:
@@ -74,7 +84,8 @@ class SalarySlipGL:
             account = self.components[row.salary_component].account
             if row.employee_loan:
                 entries.append(self.entry(row.salary_component, account, credit=row.amount,
-                    party_type="Employee", party=self.doc.employee, against=row.employee_loan))
+                    party_type="Employee", party=self.doc.employee, against=row.employee_loan,
+                    against_voucher_type="Employee Advance", against_voucher=row.employee_loan))
             else:
                 entries.append(self.entry(row.salary_component, account, credit=row.amount,
                     against=self.company.default_payroll_payable_account))

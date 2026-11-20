@@ -30,7 +30,7 @@
    "modified_by": "aditya@rigpl.com", 
    "name": "Salary Slip Deduction-employee_loan", 
    "no_copy": 0, 
-   "options": "Employee Advance RIGPL", 
+   "options": "Employee Advance", 
    "owner": "aditya@rigpl.com", 
    "parent": null, 
    "parentfield": null, 
@@ -43,7 +43,7 @@
    "read_only": 1, 
    "report_hide": 0, 
    "reqd": 0, 
-   "search_index": 0, 
+   "search_index": 1, 
    "unique": 0, 
    "width": null
   }, 

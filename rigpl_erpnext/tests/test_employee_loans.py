@@ -11,6 +11,7 @@ from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.patches.v13 import convert_employee_advance_rigpl, rename_employee_advance_rigpl
 from rigpl_erpnext.rigpl_erpnext.validations import employee_advance, expense_claim, salary_slip
+from rigpl_erpnext.rigpl_erpnext.validations.salary_slip_gl import SalarySlipGL, update_employee_advances
 from rigpl_erpnext.tests.test_salary_slip import EMP, insert_employee, new_slip
 
 DT = "Employee Advance RIGPL"
@@ -29,14 +30,13 @@ def loan_doc(rows, posting_date="2026-10-05"):
         deduction_type="Loan Deduction", employee_loan_detail=rows))
 
 
-def insert_loan(name, loan_amount, emi, posting_date="2026-09-05", employee=EMP):
-    doc = frappe.get_doc(dict(doctype=DT, name=name, docstatus=1, posting_date=posting_date, debit_account=DEBIT,
-        credit_account=CREDIT, deduction_type="Loan Deduction", total_loan=loan_amount,
-        employee_loan_detail=[dict(employee=employee, loan_amount=loan_amount, emi=emi,
-            repayment_period=loan_amount / emi)]))
-    doc.db_insert()
-    for row in doc.employee_loan_detail:
-        row.db_insert()
+def insert_loan(name, loan_amount, emi, posting_date="2026-09-05", employee=EMP, loan=1):
+    """A submitted loan on the ERPNext Employee Advance (#229); loan=0 makes a normal advance"""
+    frappe.get_doc(dict(doctype="Employee Advance", name=name, employee=employee, posting_date=posting_date,
+        purpose="Test", advance_amount=loan_amount, paid_amount=loan_amount, advance_account=DEBIT,
+        company="RIGPL", currency="INR", exchange_rate=1, docstatus=1, status="Paid",
+        repay_unclaimed_amount_from_salary=loan, deduction_type="Loan Deduction" if loan else None, emi=emi,
+        repayment_period=loan_amount / emi if emi else 0)).db_insert()
 
 
 def insert_paid_slip(name, start_date, deductions):
@@ -143,6 +143,20 @@ class TestLoanDeduction(LoanCase):
             amount=100, default_amount=100)])
         slip.name = "_T-SS-10"
         self.assertEqual(self.deduct(slip), [("_T-EA1", 100, 100)])
+
+    def test_zero_emi_loan_gets_a_row_with_zero_amount(self):
+        insert_loan("_T-EA1", 1000, 0)
+        self.assertEqual(self.deduct(new_slip("2026-10-01")), [("_T-EA1", 0, 1000)])
+
+    def test_typed_amount_up_to_the_balance_stays(self):
+        insert_loan("_T-EA1", 1000, 300)
+        slip = new_slip("2026-10-01", deductions=[dict(salary_component="Loan Deduction", employee_loan="_T-EA1",
+            amount=1000, default_amount=1000)])
+        self.assertEqual(self.deduct(slip), [("_T-EA1", 1000, 1000)])
+
+    def test_normal_advance_gives_no_row(self):
+        insert_loan("_T-EA1", 1000, 300, loan=0)
+        self.assertEqual(self.deduct(new_slip("2026-10-01")), [])
 
     def test_query_count_does_not_depend_on_loans(self):
         counts = []
@@ -269,11 +283,21 @@ def submitted_loan(rows):
     return doc
 
 
-def insert_slip_gl(slip, loan, credit, employee=EMP):
-    frappe.get_doc(dict(doctype="GL Entry", name=frappe.generate_hash(length=10), voucher_type="Salary Slip",
+def insert_slip_gl(slip, loan, credit, employee=EMP, to_advance=False):
+    """A Salary Slip GL credit row of a loan. to_advance=True links it to the Employee Advance (#229)"""
+    link = dict(against_voucher_type="Employee Advance", against_voucher=loan) if to_advance else {}
+    return frappe.get_doc(dict(doctype="GL Entry", name=frappe.generate_hash(length=10), voucher_type="Salary Slip",
         voucher_no=slip, account=DEBIT, party_type="Employee", party=employee, credit=credit,
         credit_in_account_currency=credit, against=loan, docstatus=1, is_cancelled=0, company="RIGPL",
-        posting_date="2026-10-31")).db_insert()
+        posting_date="2026-10-31", **link)).db_insert()
+
+
+def insert_loan_gl(loan, debit, employee=EMP):
+    """The Journal Entry GL debit that pays the loan: ERPNext sums it into paid_amount"""
+    frappe.get_doc(dict(doctype="GL Entry", name=frappe.generate_hash(length=10), voucher_type="Journal Entry",
+        voucher_no="_T-JV-" + loan, account=DEBIT, party_type="Employee", party=employee, debit=debit,
+        debit_in_account_currency=debit, against_voucher_type="Employee Advance", against_voucher=loan,
+        docstatus=1, is_cancelled=0, company="RIGPL", posting_date="2026-09-05")).db_insert()
 
 
 class TestConvertPatch(LoanCase):
@@ -412,3 +436,61 @@ class TestConvertPatch(LoanCase):
         self.insert_file(doc.name, "_t-stays.pdf")
         convert_employee_advance_rigpl.link_attachments([doc.name])
         self.assertEqual(self.attached_to("_t-stays.pdf"), (DT, doc.name))
+
+
+class TestLoanSlipPosting(LoanCase):
+    """The Salary Slip GL and the Employee Advance after submit and cancel (#229)"""
+
+    def slip(self, *loans):
+        return frappe._dict(name="_T-SS-GL", employee=EMP, company="RIGPL", posting_date="2026-10-31",
+            deductions=[frappe._dict(salary_component="Loan Deduction", employee_loan=loan, amount=amount)
+                for loan, amount in loans])
+
+    def advance(self, name="_T-EA1"):
+        return frappe.db.get_value("Employee Advance", name, ["paid_amount", "return_amount", "status"], as_dict=True)
+
+    def test_loan_credit_row_links_to_the_employee_advance(self):
+        doc = self.slip(("_T-EA1", 400))
+        gl = SalarySlipGL.__new__(SalarySlipGL)
+        gl.doc, gl.fiscal_year = doc, "2026-2027"
+        gl.company = frappe._dict(default_payroll_payable_account="Expenses Payable - RIGPL")
+        gl.components = {"Loan Deduction": frappe._dict(account=DEBIT)}
+        row, = gl.deduction_entries()
+        self.assertEqual((row.credit, row.party_type, row.party), (400, "Employee", EMP))
+        self.assertEqual((row.against_voucher_type, row.against_voucher), ("Employee Advance", "_T-EA1"))
+
+    def test_return_amount_and_status_follow_the_slips(self):
+        insert_loan("_T-EA1", 1000, 300)
+        insert_loan_gl("_T-EA1", 1000)
+        insert_slip_gl("_T-SS-1", "_T-EA1", 400, to_advance=True)
+        update_employee_advances(self.slip(("_T-EA1", 400)))
+        self.assertEqual(tuple(self.advance().values()), (1000, 400, "Paid"))
+
+        insert_slip_gl("_T-SS-2", "_T-EA1", 600, to_advance=True)
+        update_employee_advances(self.slip(("_T-EA1", 600)))
+        self.assertEqual(tuple(self.advance().values()), (1000, 1000, "Returned"))
+
+    def test_cancelled_slip_gl_is_not_counted(self):
+        insert_loan("_T-EA1", 1000, 300)
+        insert_loan_gl("_T-EA1", 1000)
+        insert_slip_gl("_T-SS-1", "_T-EA1", 1000, to_advance=True)
+        update_employee_advances(self.slip(("_T-EA1", 1000)))
+        self.assertEqual(self.advance().status, "Returned")
+        frappe.db.sql("UPDATE `tabGL Entry` SET is_cancelled = 1 WHERE voucher_no = '_T-SS-1'")
+        update_employee_advances(self.slip(("_T-EA1", 1000)))
+        self.assertEqual(tuple(self.advance().values()), (1000, 0, "Paid"))
+
+    def test_zero_amount_rows_do_not_touch_the_advance(self):
+        with patch.object(frappe, "get_doc") as get_doc:
+            update_employee_advances(self.slip(("_T-EA1", 0)))
+        get_doc.assert_not_called()
+
+    def test_submit_and_cancel_update_the_advances_after_the_gl(self):
+        calls = []
+        doc = frappe._dict(name="_T-SS-GL", net_pay=100, earnings=[], deductions=[])
+        with patch.object(salary_slip, "post_gl_entry", side_effect=lambda d: calls.append("post")), \
+                patch.object(salary_slip, "cancel_gl_entry", side_effect=lambda d: calls.append("cancel")), \
+                patch.object(salary_slip, "update_employee_advances", side_effect=lambda d: calls.append("update")):
+            salary_slip.on_submit(doc, "on_submit")
+            salary_slip.on_cancel(doc, "on_cancel")
+        self.assertEqual(calls, ["post", "update", "cancel", "update"])

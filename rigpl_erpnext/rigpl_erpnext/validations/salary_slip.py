@@ -10,8 +10,9 @@ from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
 from frappe.query_builder.functions import Count, Sum
 
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_half_day_fraction
+from rigpl_erpnext.rigpl_erpnext.validations.employee_advance import get_loan_component
 from rigpl_erpnext.rigpl_erpnext.validations.salary_slip_gl import (  # noqa: F401 (patches import post_gl_entry)
-    cancel_gl_entry, post_gl_entry, set_expense_claims_paid, validate_ec_posting)
+    cancel_gl_entry, post_gl_entry, set_expense_claims_paid, update_employee_advances, validate_ec_posting)
 
 
 def on_submit(doc, method):
@@ -20,6 +21,7 @@ def on_submit(doc, method):
     # Mark the claims paid so that no new JV can be made for them
     set_expense_claims_paid(doc, paid=True)
     post_gl_entry(doc)
+    update_employee_advances(doc)
 
 
 def on_cancel(doc, method):
@@ -27,6 +29,7 @@ def on_cancel(doc, method):
     doc.ignore_linked_doctypes = ("GL Entry",)
     set_expense_claims_paid(doc, paid=False)
     cancel_gl_entry(doc)
+    update_employee_advances(doc)
 
 
 def validate(doc, method):
@@ -304,39 +307,41 @@ def get_expense_claim(doc, med):
 
 def get_loan_deduction(doc, msd, med):
     """
-    Adds a Loan Deduction row for each open Employee Advance RIGPL loan of the employee (#199). The amount
-    is the EMI or the balance if less. Each loan row, added or typed, must not be more than the balance.
-    The balance counts the other submitted slips, not this one, so a submitted slip can be recomputed.
+    Adds a Loan Deduction row for each open loan of the employee (#199, #229): an Employee Advance with Repay
+    Unclaimed Amount from Salary ticked. The amount is the EMI or the balance if less. The user can type 0 or
+    more, up to the balance. The balance is the paid amount less the other submitted slips, not this one, so a
+    submitted slip can be recomputed.
     """
     in_slip = {row.employee_loan for row in doc.get("deductions") if row.employee_loan}
     loans = get_loans(doc.employee, med, in_slip)
     deducted = get_loan_deducted(doc.employee, list(loans), doc.name)
     for loan in loans.values():
-        balance = flt(loan.loan_amount) - deducted.get(loan.name, 0)
+        balance = flt(loan.paid_amount) - deducted.get(loan.name, 0)
         if loan.name in in_slip or getdate(loan.posting_date) > getdate(med) or balance <= 0:
             continue
         doc.append("deductions", {"idx": len(doc.get("deductions")) + 1, "depends_on_lwp": 0, "default_amount": balance,
-            "employee_loan": loan.name, "salary_component": loan.deduction_type, "amount": min(flt(loan.emi), balance)})
+            "employee_loan": loan.name, "salary_component": loan.deduction_type or get_loan_component(), "amount": min(flt(loan.emi), balance)})
 
     for row in doc.get("deductions"):
         if not row.employee_loan:
             continue
         loan = loans.get(row.employee_loan)
-        balance = flt(loan.loan_amount) - deducted.get(row.employee_loan, 0) if loan else 0
+        balance = flt(loan.paid_amount) - deducted.get(row.employee_loan, 0) if loan else 0
         if flt(row.amount) > balance:
             frappe.throw(("Max deduction allowed {0} for Loan Deduction {1} check row # {2} in "
                           "Deduction Table").format(balance, row.employee_loan, row.idx))
 
 
 def get_loans(employee, med, names):
-    """Submitted loans of the employee posted on or before med, and the loans in names"""
-    loan, row = frappe.qb.DocType("Employee Advance RIGPL"), frappe.qb.DocType("Employee Loan Detail")
+    """Submitted loans (Employee Advance with the loan switch) of the employee posted on or before med, and the loans in names"""
+    loan = frappe.qb.DocType("Employee Advance")
     in_date = loan.posting_date <= med
     if names:
         in_date = in_date | loan.name.isin(list(names))
-    rows = (frappe.qb.from_(loan).join(row).on(row.parent == loan.name)
-        .select(loan.name, loan.posting_date, loan.deduction_type, row.emi, row.loan_amount)
-        .where((loan.docstatus == 1) & (row.employee == employee) & in_date)
+    rows = (frappe.qb.from_(loan)
+        .select(loan.name, loan.posting_date, loan.deduction_type, loan.emi, loan.paid_amount)
+        .where((loan.docstatus == 1) & (loan.employee == employee) & (loan.repay_unclaimed_amount_from_salary == 1)
+            & in_date)
         .orderby(loan.posting_date).orderby(loan.name)).run(as_dict=True)
     return {loan_row.name: loan_row for loan_row in rows}
 
