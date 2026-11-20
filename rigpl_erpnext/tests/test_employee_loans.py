@@ -3,6 +3,8 @@
 # See license.txt
 """Employee loans (#199): bulk entry, GL and the Salary Slip deduction"""
 
+from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from rohit_common.utils.query_guard import assert_max_queries
@@ -230,5 +232,30 @@ class TestEmployeeAdvanceLoanFields(LoanCase):
 
 class TestRenamePatch(FrappeTestCase):
     def test_second_run_does_nothing(self):
-        with assert_max_queries(1, test_case=self):
+        """No rigpl column total_loan in Employee Advance: no DDL and no update (#237)"""
+        with patch.object(frappe.db, "sql_ddl") as ddl, assert_max_queries(3, test_case=self):
             rename_employee_advance_rigpl.execute()
+        ddl.assert_not_called()
+
+    def check(self, names, parents, is_rigpl_module, tables, new_rows=0):
+        with patch.object(frappe.db, "sql_list", side_effect=[names, parents]), \
+                patch.object(frappe.db, "count", return_value=new_rows):
+            return rename_employee_advance_rigpl.check_before_rename(tables, is_rigpl_module)
+
+    def test_check_returns_names_when_they_match_the_loan_details(self):
+        self.assertEqual(self.check(["EA1", "EA2"], ["EA2", "EA1"], False, []), {"EA1", "EA2"})
+
+    def test_check_throws_when_names_and_loan_details_differ(self):
+        with self.assertRaisesRegex(frappe.ValidationError, "differ from Employee Loan Detail"):
+            self.check(["EA1", "EA3"], ["EA1", "EA2"], False, [])
+
+    def test_check_throws_when_the_rigpl_table_exists_on_prod(self):
+        with self.assertRaisesRegex(frappe.ValidationError, "exists already"):
+            self.check(["EA1"], ["EA1"], True, ["tabEmployee Advance RIGPL"])
+
+    def test_check_throws_when_the_rigpl_table_has_rows_on_dev(self):
+        with self.assertRaisesRegex(frappe.ValidationError, "is not empty"):
+            self.check(["EA1"], ["EA1"], False, ["tabEmployee Advance RIGPL"], new_rows=3)
+
+    def test_check_passes_with_an_empty_rigpl_table_on_dev(self):
+        self.assertEqual(self.check(["EA1"], ["EA1"], False, ["tabEmployee Advance RIGPL"]), {"EA1"})
