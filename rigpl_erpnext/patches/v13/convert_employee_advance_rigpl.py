@@ -138,7 +138,7 @@ def journal_entry_rows(docs, rows, companies):
             account_rows.append((frappe.generate_hash(length=10), *common, idx, doc.debit_account,
                 account_types.get(doc.debit_account), "INR", cost_center, "Employee", row.employee,
                 row.loan_amount, 0, row.loan_amount, 0, 1, NEW, new_name(row.parent, row.idx),
-                doc.credit_account, "No"))
+                doc.credit_account, "Yes"))
         account_rows.append((frappe.generate_hash(length=10), *common, len(rows_by_doc[doc.name]) + 1,
             doc.credit_account, account_types.get(doc.credit_account), "INR", cost_center, None, None, 0, total,
             0, total, 1, None, None, doc.debit_account, "No"))

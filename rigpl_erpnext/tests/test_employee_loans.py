@@ -332,6 +332,7 @@ class TestConvertPatch(LoanCase):
         self.assertEqual((journal.voucher_type, journal.total_debit, journal.docstatus), ("Cash Entry", 4000, 1))
         self.assertEqual([(row.account, row.party, row.debit, row.credit, row.reference_name) for row in journal.accounts],
             [(DEBIT, EMP, 1000, 0, first), (DEBIT, EMP2, 3000, 0, second), (CREDIT, None, 0, 4000, None)])
+        self.assertEqual([row.is_advance for row in journal.accounts], ["Yes", "Yes", "No"])
 
         gl = frappe.get_all("GL Entry", filters={"voucher_no": doc.name},
             fields=["voucher_type", "against_voucher_type", "against_voucher", "party"])
