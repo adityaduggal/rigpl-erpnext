@@ -3,7 +3,7 @@
 
 frappe.ui.form.on('Employee Advance Tool', {
 	setup: function(frm) {
-		frm.set_query('advance_account', () => ({filters: {company: frm.doc.company, is_group: 0, account_type: 'Receivable'}}));
+		frm.set_query('advance_account', () => ({filters: {company: frm.doc.company, is_group: 0, account_type: 'Payable'}}));
 		frm.set_query('payment_account', () => ({filters: {company: frm.doc.company, is_group: 0, account_type: ['in', ['Bank', 'Cash']]}}));
 	},
 

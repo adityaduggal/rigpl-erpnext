@@ -40,7 +40,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Account that holds the loans of the employees (Receivable)",
+   "description": "Account that holds the loans of the employees (type Payable, as a Journal Entry needs for the party Employee)",
    "fieldname": "advance_account",
    "fieldtype": "Link",
    "label": "Advance Account",
