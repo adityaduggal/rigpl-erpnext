@@ -155,44 +155,67 @@ class TestLoanDeduction(LoanCase):
         self.assertEqual(counts[0], counts[1])
 
 
-def advance(advance_amount=1000, emi=0, deduction_type=None, repayment_period=0):
-    return frappe._dict(advance_amount=advance_amount, emi=emi, deduction_type=deduction_type,
-        repayment_period=repayment_period)
+def advance(advance_amount=20000, emi=0, loan=1, deduction_type=None, advance_account=DEBIT):
+    return frappe._dict(advance_amount=advance_amount, emi=emi, repay_unclaimed_amount_from_salary=loan,
+        deduction_type=deduction_type, repayment_period=0, company="RIGPL", advance_account=advance_account)
 
 
-def insert_advance(name, deduction_type=None):
+def insert_advance(name, loan=0):
     frappe.get_doc(dict(doctype="Employee Advance", name=name, employee=EMP, posting_date="2026-10-05",
         purpose="Test", advance_amount=1000, paid_amount=1000, advance_account=DEBIT, company="RIGPL",
-        currency="INR", exchange_rate=1, docstatus=1, status="Paid", deduction_type=deduction_type,
-        emi=100 if deduction_type else 0)).db_insert()
+        currency="INR", exchange_rate=1, docstatus=1, status="Paid", repay_unclaimed_amount_from_salary=loan,
+        deduction_type="Loan Deduction" if loan else None, emi=100 if loan else 0)).db_insert()
+
+
+def validated(doc):
+    employee_advance.validate(doc, "validate")
+    return doc
 
 
 class TestEmployeeAdvanceLoanFields(LoanCase):
-    """#228: loan fields on the ERPNext Employee Advance"""
+    """#228, #236: loans on the ERPNext Employee Advance"""
 
-    def test_emi_is_rounded_and_period_is_set(self):
-        doc = advance(emi=333, deduction_type="Loan Deduction")
-        employee_advance.validate(doc, "validate")
-        self.assertEqual((doc.emi, round(doc.repayment_period, 4)), (340, round(1000 / 340, 4)))
-        doc = advance(emi=500, deduction_type="Loan Deduction", repayment_period=2)
-        employee_advance.validate(doc, "validate")
-        self.assertEqual((doc.emi, doc.repayment_period), (500, 2))
+    def test_emi_is_rounded_up_to_100_and_months_are_whole(self):
+        for amount, emi, expected in ((20000, 3500, (3500, 6)), (20000, 1999, (2000, 10)),
+                (20000, 20000, (20000, 1)), (150, 150, (150, 1))):
+            doc = validated(advance(advance_amount=amount, emi=emi))
+            self.assertEqual((doc.emi, doc.repayment_period), expected, (amount, emi))
 
-    def test_loan_with_zero_emi_throws(self):
-        with self.assertRaisesRegex(frappe.ValidationError, "greater than ZERO"):
-            employee_advance.validate(advance(deduction_type="Loan Deduction"), "validate")
+    def test_loan_emi_must_be_a_whole_number_above_zero(self):
+        for emi in (0, 1999.5):
+            with self.assertRaisesRegex(frappe.ValidationError, "whole number greater than ZERO"):
+                validated(advance(emi=emi))
 
-    def test_emi_without_deduction_type_throws(self):
-        with self.assertRaisesRegex(frappe.ValidationError, "needs a Deduction Type"):
-            employee_advance.validate(advance(emi=100), "validate")
+    def test_loan_gets_the_default_deduction_type_and_advance_account(self):
+        # The rollback in tearDown does not clear the cached single values
+        self.addCleanup(frappe.db.value_cache.pop, "RIGPL Settings", None)
+        frappe.db.set_single_value("RIGPL Settings", "loan_deduction_component", "")
+        doc = validated(advance(emi=2000, advance_account=None))
+        self.assertEqual((doc.deduction_type, doc.advance_account), ("Loan Deduction", DEBIT))
+        frappe.db.set_single_value("RIGPL Settings", "loan_deduction_component", "_Test RIGPL Loan Comp")
+        self.assertEqual(validated(advance(emi=2000)).deduction_type, "_Test RIGPL Loan Comp")
+        self.assertEqual(validated(advance(emi=2000, deduction_type="Other")).deduction_type, "Other")
 
-    def test_normal_advance_is_not_changed(self):
-        doc = advance(advance_amount=1234.5)
-        employee_advance.validate(doc, "validate")
-        self.assertEqual((doc.advance_amount, doc.emi, doc.repayment_period), (1234.5, 0, 0))
+    def test_emi_without_loan_throws(self):
+        with self.assertRaisesRegex(frappe.ValidationError, "only for a loan"):
+            validated(advance(emi=100, loan=0))
+
+    def test_normal_advance_clears_the_loan_fields(self):
+        doc = validated(advance(advance_amount=1234.5, loan=0, deduction_type="Loan Deduction"))
+        self.assertEqual((doc.advance_amount, doc.deduction_type, doc.emi, doc.repayment_period),
+            (1234.5, None, 0, 0))
+
+    def test_additional_salary_for_a_loan_throws(self):
+        insert_advance("_T-EADV-LOAN", loan=1)
+        insert_advance("_T-EADV-CASH")
+        employee_advance.validate_additional_salary(
+            frappe._dict(ref_doctype="Employee Advance", ref_docname="_T-EADV-CASH"), "validate")
+        with self.assertRaisesRegex(frappe.ValidationError, "is a loan"):
+            employee_advance.validate_additional_salary(
+                frappe._dict(ref_doctype="Employee Advance", ref_docname="_T-EADV-LOAN"), "validate")
 
     def test_expense_claim_drops_loan_rows_and_stops_an_allocated_loan(self):
-        insert_advance("_T-EADV-LOAN", deduction_type="Loan Deduction")
+        insert_advance("_T-EADV-LOAN", loan=1)
         insert_advance("_T-EADV-CASH")
         claim = frappe.new_doc("Expense Claim")
         for name in ("_T-EADV-LOAN", "_T-EADV-CASH"):

@@ -55,7 +55,9 @@
   "cb_shipping",
   "ctrack_poll_hours",
   "ctrack_webhook_poll_hours",
-  "shipway_push_max_days"
+  "shipway_push_max_days",
+  "sb_hr",
+  "loan_deduction_component"
  ],
  "fields": [
   {
@@ -374,10 +376,23 @@
    "fieldname": "shipway_push_max_days",
    "fieldtype": "Int",
    "label": "Shipway Push Max Days"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sb_hr",
+   "fieldtype": "Section Break",
+   "label": "HR Settings"
+  },
+  {
+   "description": "Salary Component that a new loan (Employee Advance repaid from salary) uses. Empty: Loan Deduction.",
+   "fieldname": "loan_deduction_component",
+   "fieldtype": "Link",
+   "label": "Loan Deduction Component",
+   "options": "Salary Component"
   }
  ],
  "issingle": 1,
- "modified": "2026-11-03 14:00:00.000000",
+ "modified": "2026-11-20 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

@@ -12,14 +12,14 @@ def validate(doc, method):
 
 def remove_loan_advances(doc):
     """
-    A loan (Employee Advance with a Deduction Type, #228) is paid back from the Salary Slip, not by a claim.
-    ERPNext Get Advances adds every paid advance, so drop the loan rows and stop an allocated one.
+    A loan (Employee Advance with Repay Unclaimed Amount from Salary, #236) is paid back from the Salary Slip,
+    not by a claim. ERPNext Get Advances adds every paid advance, so drop the loan rows and stop an allocated one.
     """
     names = [row.employee_advance for row in doc.get("advances") if row.employee_advance]
     if not names:
         return
     loans = set(frappe.get_all("Employee Advance",
-        filters={"name": ("in", names), "deduction_type": ("is", "set")}, pluck="name"))
+        filters={"name": ("in", names), "repay_unclaimed_amount_from_salary": 1}, pluck="name"))
     if not loans:
         return
     for row in doc.advances:

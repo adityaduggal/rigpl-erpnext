@@ -140,6 +140,9 @@ override_doctype_class = {
 
 doc_events = {
     "Account": {"validate": "rigpl_erpnext.rigpl_erpnext.validations.account.validate"},
+    "Additional Salary": {
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.employee_advance.validate_additional_salary"
+    },
     "Address": {"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead_share.address_on_update"},
     "Attendance": {
         "validate": [
