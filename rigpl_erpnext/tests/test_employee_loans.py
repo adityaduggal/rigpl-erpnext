@@ -233,7 +233,8 @@ class TestEmployeeAdvanceLoanFields(LoanCase):
 class TestRenamePatch(FrappeTestCase):
     def test_second_run_does_nothing(self):
         """No rigpl column total_loan in Employee Advance: no DDL and no update (#237)"""
-        with patch.object(frappe.db, "sql_ddl") as ddl, assert_max_queries(3, test_case=self):
+        with patch.object(frappe.db, "has_column", return_value=False), \
+                patch.object(frappe.db, "sql_ddl") as ddl, assert_max_queries(3, test_case=self):
             rename_employee_advance_rigpl.execute()
         ddl.assert_not_called()
 
