@@ -534,20 +534,20 @@ class TestEmployeeAdvanceTool(LoanCase):
         tool = self.tool(self.three_rows())
         journal_name = tool.create_advances()
 
-        advances = self.advances()
-        self.assertEqual([(a.employee, a.advance_amount, a.paid_amount, a.status, a.docstatus) for a in advances],
-            [(EMP, 1000, 1000, "Paid", 1), (EMP2, 2000, 2000, "Paid", 1), (EMP3, 500, 500, "Paid", 1)])
-        self.assertEqual([(a.emi, a.repayment_period, a.repay_unclaimed_amount_from_salary, a.deduction_type)
-            for a in advances], [(400, 3, 1, "Loan Deduction"), (1000, 2, 1, "Loan Deduction"),
-            (500, 1, 1, "Loan Deduction")])
+        advances = {a.employee: a for a in self.advances()}
+        self.assertEqual({emp: (a.advance_amount, a.paid_amount, a.status, a.docstatus) for emp, a in advances.items()},
+            {EMP: (1000, 1000, "Paid", 1), EMP2: (2000, 2000, "Paid", 1), EMP3: (500, 500, "Paid", 1)})
+        self.assertEqual({emp: (a.emi, a.repayment_period, a.repay_unclaimed_amount_from_salary, a.deduction_type)
+            for emp, a in advances.items()}, {EMP: (400, 3, 1, "Loan Deduction"), EMP2: (1000, 2, 1, "Loan Deduction"),
+            EMP3: (500, 1, 1, "Loan Deduction")})
 
         journal = frappe.get_doc("Journal Entry", journal_name)
         self.assertEqual((journal.docstatus, journal.voucher_type, journal.total_debit), (1, "Cash Entry", 3500))
         self.assertEqual(frappe.db.count("Journal Entry", {"user_remark": ["like", f"%{self.PURPOSE}%"]}), 1)
-        by_name = {a.name: a for a in advances}
+        by_name = {a.name: a for a in advances.values()}
         self.assertEqual(sorted((r.party, r.debit, by_name[r.reference_name].employee, r.is_advance)
             for r in journal.accounts if r.account == DEBIT),
-            [(EMP, 1000, EMP, "Yes"), (EMP2, 2000, EMP2, "Yes"), (EMP3, 500, EMP3, "Yes")])
+            sorted([(EMP, 1000, EMP, "Yes"), (EMP2, 2000, EMP2, "Yes"), (EMP3, 500, EMP3, "Yes")]))
         self.assertEqual([(r.account, r.credit) for r in journal.accounts if r.credit], [(CREDIT, 3500)])
         self.assertEqual(tool.employee_loan_detail, [])
 
