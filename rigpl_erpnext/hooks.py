@@ -181,6 +181,9 @@ doc_events = {
         "autoname": "rigpl_erpnext.rigpl_erpnext.validations.employee.autoname",
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.employee.on_update",
     },
+    "Employee Advance": {
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.employee_advance.validate"
+    },
     "Expense Claim": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.expense_claim.validate"
     },

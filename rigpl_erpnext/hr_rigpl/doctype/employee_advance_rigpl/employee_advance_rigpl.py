@@ -7,7 +7,6 @@ Employee loans (#199). One entry gives loans to many employees. Salary Slips ded
 ERPNext DocType. The move to the Lending app is planned for v16 (#200).
 """
 
-import math
 from collections import Counter
 
 import frappe
@@ -16,6 +15,8 @@ from frappe.model.document import Document
 from frappe.utils import flt, formatdate, getdate
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_fiscal_years
+
+from rigpl_erpnext.rigpl_erpnext.validations.employee_advance import get_emi_and_period, validate_loan_amounts
 
 
 class EmployeeAdvanceRIGPL(Document):
@@ -75,16 +76,8 @@ def get_employees(names):
 
 
 def set_emi_and_period(row):
-    """v12 rule: when loan != EMI x period, round the EMI up to a multiple of 10 and set the period"""
-    if flt(row.emi) <= 0 or flt(row.loan_amount) == flt(row.emi) * flt(row.repayment_period):
-        return
-    if flt(row.emi) % 10:
-        row.emi = int(math.ceil(flt(row.emi) / 10)) * 10
-    row.repayment_period = flt(row.loan_amount) / flt(row.emi)
+    row.emi, row.repayment_period = get_emi_and_period(row.loan_amount, row.emi, row.repayment_period)
 
 
 def validate_amounts(row):
-    if flt(row.loan_amount) % 1 or flt(row.emi) % 1:
-        frappe.throw(_("Loan Amount and EMI should be multiples of 1"))
-    if flt(row.loan_amount) < 0 or flt(row.emi) <= 0 or flt(row.repayment_period) < 0:
-        frappe.throw(_("Loan Amount, EMI and Repayment Period should be greater than ZERO"))
+    validate_loan_amounts(row.loan_amount, row.emi, row.repayment_period)
