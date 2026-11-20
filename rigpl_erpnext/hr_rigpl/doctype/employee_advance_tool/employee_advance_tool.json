@@ -1,0 +1,103 @@
+{
+ "actions": [],
+ "creation": "2026-11-21 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "posting_date",
+  "company",
+  "purpose",
+  "column_break_1",
+  "advance_account",
+  "payment_account",
+  "deduction_type",
+  "employees_section",
+  "employee_loan_detail"
+ ],
+ "fields": [
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Small Text",
+   "label": "Purpose"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Account that holds the loans of the employees (Receivable)",
+   "fieldname": "advance_account",
+   "fieldtype": "Link",
+   "label": "Advance Account",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "description": "Bank or Cash account that pays the loans",
+   "fieldname": "payment_account",
+   "fieldtype": "Link",
+   "label": "Payment Account",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "description": "Empty: the Loan Deduction Component of RIGPL Settings",
+   "fieldname": "deduction_type",
+   "fieldtype": "Link",
+   "label": "Deduction Type",
+   "options": "Salary Component"
+  },
+  {
+   "fieldname": "employees_section",
+   "fieldtype": "Section Break",
+   "label": "Employees"
+  },
+  {
+   "fieldname": "employee_loan_detail",
+   "fieldtype": "Table",
+   "label": "Employees",
+   "options": "Employee Loan Detail"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-21 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HR-RIGPL",
+ "name": "Employee Advance Tool",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "read": 1,
+   "role": "HR User",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 0
+}

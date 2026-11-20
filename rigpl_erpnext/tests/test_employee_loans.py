@@ -9,6 +9,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from rohit_common.utils.query_guard import assert_max_queries
 
+from rigpl_erpnext.hr_rigpl.doctype.employee_advance_tool.employee_advance_tool import EmployeeAdvanceTool
 from rigpl_erpnext.patches.v13 import convert_employee_advance_rigpl, rename_employee_advance_rigpl
 from rigpl_erpnext.rigpl_erpnext.validations import employee_advance, expense_claim, salary_slip
 from rigpl_erpnext.rigpl_erpnext.validations.salary_slip_gl import SalarySlipGL, update_employee_advances
@@ -16,13 +17,18 @@ from rigpl_erpnext.tests.test_salary_slip import EMP, insert_employee, new_slip
 
 DT = "Employee Advance RIGPL"
 EMP2 = "_Test RIGPL Emp Loan 2"
+EMP3 = "_Test RIGPL Emp Loan 3"
 DEBIT, CREDIT = "Advances to Employees - RIGPL", "Cash BGH MGMT - RIGPL"
 
 
-def insert_second_employee(status="Active", relieving_date=None):
-    frappe.get_doc(dict(doctype="Employee", name=EMP2, employee_name=EMP2, first_name=EMP2, status=status,
+def insert_employee_named(name, status="Active", relieving_date=None):
+    frappe.get_doc(dict(doctype="Employee", name=name, employee_name=name, first_name=name, status=status,
         relieving_date=relieving_date, gender="Male", date_of_birth="1990-01-01",
         date_of_joining="2020-01-01")).db_insert()
+
+
+def insert_second_employee(status="Active", relieving_date=None):
+    insert_employee_named(EMP2, status, relieving_date)
 
 
 def loan_doc(rows, posting_date="2026-10-05"):
@@ -495,3 +501,87 @@ class TestLoanSlipPosting(LoanCase):
             salary_slip.on_submit(doc, "on_submit")
             salary_slip.on_cancel(doc, "on_cancel")
         self.assertEqual(calls, ["post", "update", "cancel", "update"])
+
+
+class TestEmployeeAdvanceTool(LoanCase):
+    """The Single that gives loans to many employees in one transaction (#231)"""
+    PURPOSE = "_Test Loan Tool"
+
+    def setUp(self):
+        super().setUp()
+        # A Journal Entry takes the party Employee only on a Payable account. Rolled back in tearDown.
+        frappe.db.set_value("Account", DEBIT, "account_type", "Payable")
+
+    def tool(self, rows, **fields):
+        tool = frappe.get_doc("Employee Advance Tool")
+        tool.update(dict(posting_date="2026-10-05", company="RIGPL", advance_account=DEBIT, payment_account=CREDIT,
+            purpose=self.PURPOSE, **fields))
+        tool.set("employee_loan_detail", [dict(employee=emp, loan_amount=amount, emi=emi, repayment_period=0)
+            for emp, amount, emi in rows])
+        return tool
+
+    def advances(self):
+        return frappe.get_all("Employee Advance", filters={"purpose": self.PURPOSE}, order_by="employee",
+            fields=["name", "employee", "advance_amount", "paid_amount", "status", "docstatus", "emi",
+                "repayment_period", "repay_unclaimed_amount_from_salary", "deduction_type"])
+
+    def three_rows(self):
+        insert_second_employee()
+        insert_employee_named(EMP3)
+        return [(EMP, 1000, 333), (EMP2, 2000, 1000), (EMP3, 500, 500)]
+
+    def test_three_rows_make_three_paid_advances_and_one_journal_entry(self):
+        tool = self.tool(self.three_rows())
+        journal_name = tool.create_advances()
+
+        advances = self.advances()
+        self.assertEqual([(a.employee, a.advance_amount, a.paid_amount, a.status, a.docstatus) for a in advances],
+            [(EMP, 1000, 1000, "Paid", 1), (EMP2, 2000, 2000, "Paid", 1), (EMP3, 500, 500, "Paid", 1)])
+        self.assertEqual([(a.emi, a.repayment_period, a.repay_unclaimed_amount_from_salary, a.deduction_type)
+            for a in advances], [(400, 3, 1, "Loan Deduction"), (1000, 2, 1, "Loan Deduction"),
+            (500, 1, 1, "Loan Deduction")])
+
+        journal = frappe.get_doc("Journal Entry", journal_name)
+        self.assertEqual((journal.docstatus, journal.voucher_type, journal.total_debit), (1, "Cash Entry", 3500))
+        self.assertEqual(frappe.db.count("Journal Entry", {"user_remark": ["like", f"%{self.PURPOSE}%"]}), 1)
+        by_name = {a.name: a for a in advances}
+        self.assertEqual(sorted((r.party, r.debit, by_name[r.reference_name].employee, r.is_advance)
+            for r in journal.accounts if r.account == DEBIT),
+            [(EMP, 1000, EMP, "Yes"), (EMP2, 2000, EMP2, "Yes"), (EMP3, 500, EMP3, "Yes")])
+        self.assertEqual([(r.account, r.credit) for r in journal.accounts if r.credit], [(CREDIT, 3500)])
+        self.assertEqual(tool.employee_loan_detail, [])
+
+    def test_duplicate_employee_makes_nothing(self):
+        insert_second_employee()
+        tool = self.tool([(EMP, 1000, 500), (EMP2, 1000, 500), (EMP, 2000, 500)])
+        with self.assertRaisesRegex(frappe.ValidationError, "multiple times"):
+            tool.create_advances()
+        self.assertEqual(self.advances(), [])
+
+    def test_employee_who_left_before_posting_makes_nothing(self):
+        insert_second_employee(status="Left", relieving_date="2026-09-30")
+        tool = self.tool([(EMP, 1000, 500), (EMP2, 1000, 500)])
+        with self.assertRaisesRegex(frappe.ValidationError, "left on"):
+            tool.create_advances()
+        self.assertEqual(self.advances(), [])
+
+    def test_empty_sheet_and_bad_amounts_throw(self):
+        with self.assertRaisesRegex(frappe.ValidationError, "at least one"):
+            self.tool([]).create_advances()
+        with self.assertRaisesRegex(frappe.ValidationError, "multiples of 1"):
+            self.tool([(EMP, 1000.5, 500)]).create_advances()
+        with self.assertRaisesRegex(frappe.ValidationError, "greater than ZERO"):
+            self.tool([(EMP, 1000, 0)]).create_advances()
+
+    def test_error_after_the_advances_undoes_them(self):
+        tool = self.tool(self.three_rows())
+        with patch.object(EmployeeAdvanceTool, "make_journal_entry", side_effect=frappe.ValidationError("stop")):
+            with self.assertRaisesRegex(frappe.ValidationError, "stop"):
+                tool.create_advances()
+        self.assertEqual(self.advances(), [])
+        self.assertEqual(len(tool.employee_loan_detail), 3)
+
+    def test_cancel_of_the_journal_entry_sets_the_advances_back_to_unpaid(self):
+        journal_name = self.tool(self.three_rows()).create_advances()
+        frappe.get_doc("Journal Entry", journal_name).cancel()
+        self.assertEqual([(a.status, a.paid_amount) for a in self.advances()], [("Unpaid", 0)] * 3)

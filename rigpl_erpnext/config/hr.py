@@ -10,6 +10,11 @@ def get_data():
 					"name": "Employee Advance RIGPL",
 					"description": _("Employee Loans"),
 				},
+				{
+					"type": "doctype",
+					"name": "Employee Advance Tool",
+					"description": _("Give loans to many employees in one sheet"),
+				},
                 {
                     "type": "report",
                     "is_query_report": True,
