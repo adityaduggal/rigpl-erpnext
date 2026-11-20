@@ -15,7 +15,7 @@ frappe.ui.form.on('Employee Advance Tool', {
 		frm.page.set_primary_action(__('Create Advances'), () => {
 			frm.call('create_advances').then((r) => {
 				if (!r.exc && r.message) {
-					frappe.msgprint(__('Loans are paid with Journal Entry {0}', [frappe.utils.get_form_link('Journal Entry', r.message, true)]));
+					frappe.msgprint(__('Draft Employee Advances and Journal Entry {0} are made. Check them, submit the Employee Advances, then submit the Journal Entry.', [frappe.utils.get_form_link('Journal Entry', r.message, true)]));
 					frm.reload_doc();
 				}
 			});

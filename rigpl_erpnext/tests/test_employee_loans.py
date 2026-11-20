@@ -530,19 +530,19 @@ class TestEmployeeAdvanceTool(LoanCase):
         insert_employee_named(EMP3)
         return [(EMP, 1000, 333), (EMP2, 2000, 1000), (EMP3, 500, 500)]
 
-    def test_three_rows_make_three_paid_advances_and_one_journal_entry(self):
+    def test_three_rows_make_three_draft_advances_and_one_draft_journal_entry(self):
         tool = self.tool(self.three_rows())
         journal_name = tool.create_advances()
 
         advances = {a.employee: a for a in self.advances()}
         self.assertEqual({emp: (a.advance_amount, a.paid_amount, a.status, a.docstatus) for emp, a in advances.items()},
-            {EMP: (1000, 1000, "Paid", 1), EMP2: (2000, 2000, "Paid", 1), EMP3: (500, 500, "Paid", 1)})
+            {EMP: (1000, 0, "Draft", 0), EMP2: (2000, 0, "Draft", 0), EMP3: (500, 0, "Draft", 0)})
         self.assertEqual({emp: (a.emi, a.repayment_period, a.repay_unclaimed_amount_from_salary, a.deduction_type)
             for emp, a in advances.items()}, {EMP: (400, 3, 1, "Loan Deduction"), EMP2: (1000, 2, 1, "Loan Deduction"),
             EMP3: (500, 1, 1, "Loan Deduction")})
 
         journal = frappe.get_doc("Journal Entry", journal_name)
-        self.assertEqual((journal.docstatus, journal.voucher_type, journal.total_debit), (1, "Cash Entry", 3500))
+        self.assertEqual((journal.docstatus, journal.voucher_type, journal.total_debit), (0, "Cash Entry", 3500))
         self.assertEqual(frappe.db.count("Journal Entry", {"user_remark": ["like", f"%{self.PURPOSE}%"]}), 1)
         by_name = {a.name: a for a in advances.values()}
         self.assertEqual(sorted((r.party, r.debit, by_name[r.reference_name].employee, r.is_advance)
@@ -550,6 +550,7 @@ class TestEmployeeAdvanceTool(LoanCase):
             sorted([(EMP, 1000, EMP, "Yes"), (EMP2, 2000, EMP2, "Yes"), (EMP3, 500, EMP3, "Yes")]))
         self.assertEqual([(r.account, r.credit) for r in journal.accounts if r.credit], [(CREDIT, 3500)])
         self.assertEqual(tool.employee_loan_detail, [])
+        self.assertFalse(frappe.db.count("GL Entry", {"voucher_no": journal_name}))
 
     def test_duplicate_employee_makes_nothing(self):
         insert_second_employee()
@@ -595,7 +596,13 @@ class TestEmployeeAdvanceTool(LoanCase):
             ("Bank Entry", "UTR-TEST-1", "2026-10-05"))
         self.assertEqual((tool.reference_no, tool.reference_date), (None, None))
 
-    def test_cancel_of_the_journal_entry_sets_the_advances_back_to_unpaid(self):
+    def test_submitting_the_drafts_pays_the_advances_and_cancel_unpays_them(self):
         journal_name = self.tool(self.three_rows()).create_advances()
-        frappe.get_doc("Journal Entry", journal_name).cancel()
-        self.assertEqual([(a.status, a.paid_amount) for a in self.advances()], [("Unpaid", 0)] * 3)
+        for advance in self.advances():
+            frappe.get_doc("Employee Advance", advance.name).submit()
+        journal = frappe.get_doc("Journal Entry", journal_name)
+        journal.submit()
+        self.assertEqual({(a.status, a.paid_amount == a.advance_amount) for a in self.advances()}, {("Paid", True)})
+
+        journal.cancel()
+        self.assertEqual({(a.status, a.paid_amount) for a in self.advances()}, {("Unpaid", 0)})

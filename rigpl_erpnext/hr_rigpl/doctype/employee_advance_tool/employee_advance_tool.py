@@ -3,8 +3,9 @@
 # For license information, please see license.txt
 """
 One sheet to give loans to many employees (#231). The Single keeps no batch document: Create Advances makes
-one submitted Employee Advance per row and one submitted Journal Entry that pays them. The Journal Entry is
-the batch record. ERPNext sets the paid amount and the status Paid of each advance from that Journal Entry.
+one draft Employee Advance per row and one draft Journal Entry that pays them, so the user can still change
+them. The user submits the advances, then the Journal Entry. The Journal Entry is the batch record: on submit,
+ERPNext sets the paid amount and the status Paid of each advance from it.
 """
 from collections import Counter
 
@@ -63,7 +64,7 @@ class EmployeeAdvanceTool(Document):
             "Journal Entry")
 
     def make_advance(self, row, employee):
-        """A submitted loan. Its validate (validations/employee_advance.py) makes the EMI whole months."""
+        """A draft loan. Its validate (validations/employee_advance.py) makes the EMI whole months."""
         advance = frappe.get_doc(dict(doctype="Employee Advance", employee=row.employee,
             employee_name=employee.employee_name, posting_date=self.posting_date, company=self.company,
             purpose=self.purpose or _("Employee Loan"), advance_amount=row.loan_amount,
@@ -71,12 +72,11 @@ class EmployeeAdvanceTool(Document):
             exchange_rate=1, repay_unclaimed_amount_from_salary=1, emi=row.emi,
             deduction_type=self.deduction_type or get_loan_component()))
         advance.insert()
-        advance.submit()
         return advance
 
     def make_journal_entry(self, advances):
-        """Debits the advance account per employee, credits the payment account. is_advance makes ERPNext
-        update the paid amount and the status of each advance on submit and on cancel."""
+        """A draft that debits the advance account per employee and credits the payment account. is_advance makes
+        ERPNext update the paid amount and the status of each advance when it is submitted and cancelled."""
         cost_center = erpnext.get_default_cost_center(self.company)
         journal = frappe.new_doc("Journal Entry")
         journal.update(dict(voucher_type=self.get_voucher_type(), company=self.company,
@@ -91,7 +91,6 @@ class EmployeeAdvanceTool(Document):
         journal.append("accounts", dict(account=self.payment_account, cost_center=cost_center,
             credit_in_account_currency=sum(flt(advance.advance_amount) for advance in advances)))
         journal.insert()
-        journal.submit()
         return journal
 
 
