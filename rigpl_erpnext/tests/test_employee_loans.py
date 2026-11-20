@@ -9,7 +9,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from rohit_common.utils.query_guard import assert_max_queries
 
-from rigpl_erpnext.patches.v13 import rename_employee_advance_rigpl
+from rigpl_erpnext.patches.v13 import convert_employee_advance_rigpl, rename_employee_advance_rigpl
 from rigpl_erpnext.rigpl_erpnext.validations import employee_advance, expense_claim, salary_slip
 from rigpl_erpnext.tests.test_salary_slip import EMP, insert_employee, new_slip
 
@@ -260,3 +260,100 @@ class TestRenamePatch(FrappeTestCase):
 
     def test_check_passes_with_an_empty_rigpl_table_on_dev(self):
         self.assertEqual(self.check(["EA1"], ["EA1"], False, ["tabEmployee Advance RIGPL"]), {"EA1"})
+
+
+def submitted_loan(rows):
+    doc = loan_doc(rows)
+    doc.insert()
+    doc.submit()
+    return doc
+
+
+def insert_slip_gl(slip, loan, credit, employee=EMP):
+    frappe.get_doc(dict(doctype="GL Entry", name=frappe.generate_hash(length=10), voucher_type="Salary Slip",
+        voucher_no=slip, account=DEBIT, party_type="Employee", party=employee, credit=credit,
+        credit_in_account_currency=credit, against=loan, docstatus=1, is_cancelled=0, company="RIGPL",
+        posting_date="2026-10-31")).db_insert()
+
+
+class TestConvertPatch(LoanCase):
+    """Conversion of the old loans to Employee Advance and Journal Entry (#230)"""
+
+    def old_pointers(self, name):
+        gl = frappe.db.count("GL Entry", {"voucher_type": DT, "voucher_no": name})
+        gl += frappe.db.count("GL Entry", {"voucher_type": "Salary Slip", "against": name})
+        return gl + frappe.db.count("Salary Detail", {"employee_loan": name})
+
+    def test_loan_slip_and_detail_point_to_the_new_advances(self):
+        insert_second_employee()
+        doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2),
+            dict(employee=EMP2, loan_amount=3000, emi=1000, repayment_period=3)])
+        insert_paid_slip("_T-SLIP-CONVERT", "2026-10-01", [(doc.name, 400)])
+        insert_slip_gl("_T-SLIP-CONVERT", doc.name, 400)
+
+        convert_employee_advance_rigpl.convert([doc.name])
+
+        first, second = f"{doc.name}-Row-1", f"{doc.name}-Row-2"
+        advances = {row.name: row for row in frappe.get_all("Employee Advance", filters={"name": ["in", [first, second]]},
+            fields=["name", "employee", "advance_amount", "paid_amount", "return_amount", "status", "docstatus",
+                "advance_account", "company", "repay_unclaimed_amount_from_salary"])}
+        self.assertEqual((advances[first].employee, advances[first].advance_amount, advances[first].paid_amount),
+            (EMP, 1000, 1000))
+        self.assertEqual((advances[first].return_amount, advances[first].status), (400, "Paid"))
+        self.assertEqual((advances[second].paid_amount, advances[second].return_amount, advances[second].status),
+            (3000, 0, "Paid"))
+        self.assertEqual((advances[first].advance_account, advances[first].repay_unclaimed_amount_from_salary), (DEBIT, 1))
+
+        journal = frappe.get_doc("Journal Entry", doc.name)
+        self.assertEqual((journal.voucher_type, journal.total_debit, journal.docstatus), ("Cash Entry", 4000, 1))
+        self.assertEqual([(row.account, row.party, row.debit, row.credit, row.reference_name) for row in journal.accounts],
+            [(DEBIT, EMP, 1000, 0, first), (DEBIT, EMP2, 3000, 0, second), (CREDIT, None, 0, 4000, None)])
+
+        gl = frappe.get_all("GL Entry", filters={"voucher_no": doc.name},
+            fields=["voucher_type", "against_voucher_type", "against_voucher", "party"])
+        self.assertEqual({row.voucher_type for row in gl}, {"Journal Entry"})
+        self.assertEqual({row.party: row.against_voucher for row in gl if row.party}, {EMP: first, EMP2: second})
+        slip_gl = frappe.get_all("GL Entry", filters={"voucher_no": "_T-SLIP-CONVERT"},
+            fields=["against", "against_voucher_type", "against_voucher"])
+        self.assertEqual([(r.against, r.against_voucher_type, r.against_voucher) for r in slip_gl],
+            [(first, "Employee Advance", first)])
+        self.assertEqual(frappe.db.get_value("Salary Detail", {"parent": "_T-SLIP-CONVERT"}, "employee_loan"), first)
+        self.assertEqual(self.old_pointers(doc.name), 0)
+
+    def test_second_run_finds_nothing_to_convert(self):
+        doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2)])
+        convert_employee_advance_rigpl.convert([doc.name])
+        self.assertTrue(frappe.db.exists("Journal Entry", doc.name))
+        names = frappe.db.sql_list("""SELECT name FROM `tabEmployee Advance RIGPL` p WHERE name = %(name)s
+            AND docstatus IN (1, 2) AND NOT EXISTS (SELECT 1 FROM `tabJournal Entry` j WHERE j.name = p.name)""",
+            {"name": doc.name})
+        self.assertEqual(names, [])
+
+    def test_cancelled_loan_is_converted_as_cancelled(self):
+        doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2)])
+        doc.cancel()
+        convert_employee_advance_rigpl.convert([doc.name])
+        advance = frappe.db.get_value("Employee Advance", f"{doc.name}-Row-1", ["docstatus", "status", "paid_amount"],
+            as_dict=True)
+        self.assertEqual((advance.docstatus, advance.status, advance.paid_amount), (2, "Cancelled", 0))
+        self.assertEqual(frappe.db.get_value("Journal Entry", doc.name, "docstatus"), 2)
+
+    def test_balance_difference_throws(self):
+        doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2)])
+        frappe.db.sql("UPDATE `tabGL Entry` SET debit = 900 WHERE voucher_no = %(name)s AND party = %(emp)s",
+            {"name": doc.name, "emp": EMP})
+        with self.assertRaisesRegex(frappe.ValidationError, "old balance"):
+            convert_employee_advance_rigpl.convert([doc.name])
+
+    def test_query_count_does_not_depend_on_loans(self):
+        insert_second_employee()
+        rows = [dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2)]
+        warm = submitted_loan(rows)
+        convert_employee_advance_rigpl.convert([warm.name])
+        one = submitted_loan(rows)
+        many = [submitted_loan(rows).name for _ in range(3)]
+        with assert_max_queries(1000) as single:
+            convert_employee_advance_rigpl.convert([one.name])
+        with assert_max_queries(1000) as several:
+            convert_employee_advance_rigpl.convert(many)
+        self.assertEqual(single.count, several.count)
