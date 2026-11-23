@@ -114,6 +114,26 @@ class TestReportPermissions(ReportTestCase):
         with self.assertRaises(frappe.PermissionError):
             employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=HIDDEN))
 
+    def test_employee_loan_analysis_left_employee_first(self):
+        """A restricted user sees the loan of an employee who left, in any Department, and the left employee
+        with a balance is listed before the others. A left employee with no balance stays hidden."""
+        left, left_zero = "_Test RIGPL Perm Left Employee", "_Test RIGPL Perm Left Zero Employee"
+        for emp in (left, left_zero):
+            raw("Employee", name=emp, employee_name=emp, first_name=emp, branch=BRANCH, department=OTHER_DEPT,
+                status="Left", date_of_joining="2020-01-01", relieving_date="2026-08-31")
+        for emp in (EMP, HIDDEN, left):
+            make_loan(emp, [("2026-09-05", 1000, 0, "Journal Entry")])
+        make_loan(left_zero, [("2026-08-05", 1000, 0, "Journal Entry"), ("2026-08-20", 0, 1000, "Salary Slip")])
+        run = lambda: employee_loan_analysis.execute(frappe._dict(PERIOD))
+        frappe.set_user(USER)
+        try:
+            rows = run()[1]
+            details = employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=left))[1]
+        finally:
+            frappe.set_user("Administrator")
+        self.assertEqual([row[0] for row in rows], [left, EMP, "Total"])
+        self.assertTrue(details)
+
     def test_employee_loan_analysis_balances(self):
         """Opening, given, deducted and closing come from the GL of loans only; cancelled rows and advances
         that are not loans are ignored."""

@@ -9,23 +9,23 @@ employee with a running balance. Each view runs a fixed number of queries.
 
 import frappe
 from frappe.query_builder.functions import Sum
-from frappe.utils import cint, flt
+from frappe.utils import cint, flt, getdate
 from pypika.terms import Case
 
-from rigpl_erpnext.utils.report_utils import blank_zeros
+from rigpl_erpnext.utils.report_utils import blank_zeros, employees_with_left
 
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	if cint(filters.details) and not filters.employee:
 		frappe.throw("Please select an Employee for getting Loan Details")
-	employees = get_employees(filters)
+	employees, only_left = get_employees(filters)
 	if cint(filters.details):
 		if filters.employee not in employees:
 			frappe.throw("Not permitted to read Employee {0}".format(filters.employee), frappe.PermissionError)
 		data = get_details(filters, employees[filters.employee])
 	else:
-		data = get_summary(filters, employees)
+		data = get_summary(filters, employees, only_left)
 	return get_columns(filters), [blank_zeros(row) for row in data]
 
 
@@ -38,23 +38,24 @@ def get_columns(filters):
 			{"label": "Document No", "fieldname": "doc_no", "fieldtype": "Dynamic Link", "options": "doc",
 				"width": 150},
 		]
-	return [
-		"Employee:Link/Employee:100", "Employee Name::180", "Status::100",
-		"Relieving Date:Date:100", "Opening Balance:Currency:100",
-		"Loan Given:Currency:100", "Loan Deducted:Currency:100", "Closing Balance:Currency:100",
-	]
+	columns = [("employee", "Employee", "Link", "Employee", 100), ("employee_name", "Employee Name", "Data", None, 180),
+		("status", "Status", "Data", None, 100), ("relieving_date", "Relieving Date", "Date", None, 100),
+		("opening", "Opening Balance", "Currency", None, 100), ("given", "Loan Given", "Currency", None, 100),
+		("deducted", "Loan Deducted", "Currency", None, 100), ("closing", "Closing Balance", "Currency", None, 100)]
+	return [{"fieldname": name, "label": label, "fieldtype": fieldtype, "options": options, "width": width}
+		for name, label, fieldtype, options, width in columns]
 
 
 def get_employees(filters):
-	"""Employees the user can read (#206). Loans are then kept only for them."""
+	"""Employees the user can read (#206) and the employees who left on or before To Date (a restricted user
+	must see their loans too). Returns the rows and the names that only the left rule adds."""
 	emp_filters = {"docstatus": 0}
 	for key, field in (("company", "company_registered_with"), ("branch", "branch"),
 			("department", "department"), ("employee", "name")):
 		if filters.get(key):
 			emp_filters[field] = filters.get(key)
-	rows = frappe.get_list("Employee", filters=emp_filters, limit_page_length=0,
-		fields=["name", "employee_name", "relieving_date", "status"])
-	return {row.name: row for row in rows}
+	return employees_with_left(emp_filters, ["name", "employee_name", "relieving_date", "status"],
+		filters.to_date)
 
 
 def loan_gl(*fields, employee=None):
@@ -81,16 +82,22 @@ def get_balances(filters, employee=None):
 		query.run()}
 
 
-def get_summary(filters, employees):
+def get_summary(filters, employees, only_left):
+	"""Employees who left on or before To Date with a Closing balance come first (red in the .js file)"""
 	balances = get_balances(filters)
-	data = []
+	to_date = getdate(filters.to_date)
+	left, data = [], []
 	for emp in sorted(employees):
 		opening, given, deducted = balances.get(emp, (0, 0, 0))
 		closing = opening + given - deducted
-		if opening > 0 or given > 0 or deducted > 0 or closing > 0:
+		if emp in only_left and not closing:
+			continue
+		if opening > 0 or given > 0 or deducted > 0 or closing > 0 or emp in only_left:
 			det = employees[emp]
-			data.append([emp, det.employee_name, det.status, det.relieving_date or "2099-12-31", opening,
-				given, deducted, closing])
+			row = [emp, det.employee_name, det.status, det.relieving_date or "2099-12-31", opening, given,
+				deducted, closing]
+			(left if closing and det.relieving_date and getdate(det.relieving_date) <= to_date else data).append(row)
+	data = left + data
 	if data:
 		data.append(["Total", "", "", "", *[sum(row[col] for row in data) for col in range(4, 8)]])
 	return data
