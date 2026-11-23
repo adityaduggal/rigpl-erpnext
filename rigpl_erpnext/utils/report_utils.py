@@ -48,8 +48,10 @@ def employees_with_left(emp_filters: Dict, fields: List[str], to_date) -> Tuple[
     the names that only this exception adds; `fields` must have `name`. 2 queries."""
     rows = {row.name: row for row in frappe.get_list("Employee", filters=emp_filters, fields=fields,
         limit_page_length=0)}
-    left = frappe.get_all("Employee", filters=dict(emp_filters, relieving_date=("<=", to_date)), fields=fields,
-        limit_page_length=0)
+    # "is set" is needed: Frappe reads an empty date as 0001-01-01 in "<=", so every working employee would match.
+    left_filters = [["Employee", field, "=", value] for field, value in emp_filters.items()] + [
+        ["Employee", "relieving_date", "is", "set"], ["Employee", "relieving_date", "<=", to_date]]
+    left = frappe.get_all("Employee", filters=left_filters, fields=fields, limit_page_length=0)
     extra = {row.name for row in left} - set(rows)
     rows.update({row.name: row for row in left if row.name in extra})
     return rows, extra
