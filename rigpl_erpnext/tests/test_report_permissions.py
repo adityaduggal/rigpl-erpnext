@@ -22,6 +22,17 @@ BRANCH = "_Test RIGPL Perm Branch"
 PERIOD = {"from_date": "2026-09-01", "to_date": "2026-09-30", "branch": BRANCH}
 
 
+def make_loan(employee, gl_rows, loan=1, cancelled=False):
+    """An Employee Advance with GL rows (posting_date, debit, credit, voucher_type), no hooks"""
+    advance = raw("Employee Advance", docstatus=1, employee=employee, posting_date="2026-08-01",
+        repay_unclaimed_amount_from_salary=loan)
+    for posting_date, debit, credit, voucher_type in gl_rows:
+        raw("GL Entry", party_type="Employee", party=employee, posting_date=posting_date, debit=debit,
+            credit=credit, against_voucher_type="Employee Advance", against_voucher=advance,
+            voucher_type=voucher_type, voucher_no=frappe.generate_hash(length=10), is_cancelled=int(cancelled))
+    return advance
+
+
 class TestReportPermissions(ReportTestCase):
     def setUp(self):
         for lft, dept in ((900001, DEPT), (900003, OTHER_DEPT)):
@@ -83,15 +94,46 @@ class TestReportPermissions(ReportTestCase):
 
     def test_employee_loan_analysis(self):
         for emp in (EMP, HIDDEN):
-            loan = raw("Employee Advance RIGPL", docstatus=1, posting_date="2026-09-05", total_loan=1000)
-            raw("Employee Loan Detail", parent=loan, parenttype="Employee Advance RIGPL",
-                parentfield="employee_loan_detail", employee=emp, loan_amount=1000, emi=100)
+            make_loan(emp, [("2026-09-05", 1000, 0, "Journal Entry")])
         run = lambda: employee_loan_analysis.execute(frappe._dict(PERIOD))
-        self.assertEqual(self.employees(run), {EMP})
+        self.assertEqual(self.employees(run), {EMP, "Total"})
 
         frappe.set_user(USER)
         with self.assertRaises(frappe.PermissionError):
             employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=HIDDEN))
+
+    def test_employee_loan_analysis_balances(self):
+        """Opening, given, deducted and closing come from the GL of loans only; cancelled rows and advances
+        that are not loans are ignored."""
+        make_loan(EMP, [("2026-08-10", 1000, 0, "Journal Entry"), ("2026-09-05", 0, 100, "Salary Slip"),
+            ("2026-09-10", 500, 0, "Journal Entry"), ("2026-09-20", 0, 200, "Salary Slip"),
+            ("2026-10-05", 0, 50, "Salary Slip")])
+        make_loan(EMP, [("2026-09-06", 0, 300, "Salary Slip")], cancelled=True)
+        make_loan(EMP, [("2026-09-07", 700, 0, "Journal Entry")], loan=0)
+        data = employee_loan_analysis.execute(frappe._dict(PERIOD))[1]
+        self.assertEqual(data[0], [EMP, EMP, "Active", "2099-12-31", 1000, 500, 300, 1200])
+        self.assertEqual(data[-1], ["Total", "", "", "", 1000, 500, 300, 1200])
+
+        data = employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=EMP))[1]
+        self.assertEqual([(row[3], row[4], row[5], row[6]) for row in data], [
+            ("", "", 1000, ""), (None, 100, 900, "Salary Slip"), (500, None, 1400, "Journal Entry"),
+            (None, 200, 1200, "Salary Slip"), (500, 300, 1200, "")])
+
+    def test_employee_loan_analysis_query_count(self):
+        """The queries do not grow with the number of employees or GL rows"""
+        make_loan(EMP, [("2026-09-05", 1000, 0, "Journal Entry")])
+        summary = lambda: employee_loan_analysis.execute(frappe._dict(PERIOD))
+        details = lambda: employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=EMP))
+        self.assert_queries(5, summary)
+        self.assert_queries(5, details)
+        for idx in range(20):
+            name = "_Test RIGPL Perm Extra Employee {0}".format(idx)
+            raw("Employee", name=name, employee_name=name, first_name=name, branch=BRANCH, department=DEPT,
+                status="Active", date_of_joining="2020-01-01")
+            make_loan(name, [("2026-09-05", 100, 0, "Journal Entry")])
+        make_loan(EMP, [("2026-09-{0:02d}".format(day), 0, 10, "Salary Slip") for day in range(6, 26)])
+        self.assert_queries(5, summary)
+        self.assert_queries(5, details)
 
     def test_salary_structure(self):
         for emp, dept in ((EMP, DEPT), (HIDDEN, OTHER_DEPT)):
