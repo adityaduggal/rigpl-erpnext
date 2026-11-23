@@ -50,7 +50,9 @@ def get_columns(filters):
 	if entry_type == "Payment Entry":
 		cols += ["Swift Number::100"]
 	else:
-		cols += ["Existing Loans Pending:Currency:130", "Date of Joining:Date:100"]
+		cols += ["Existing Loans Pending:Currency:130", "Date of Joining:Date:100",
+			{"label": "Employee Advance", "fieldname": "employee_advance", "fieldtype": "Link",
+				"options": "Employee Advance", "width": 150}]
 	return cols
 
 
@@ -78,7 +80,9 @@ def get_loan_data(filters):
 	"""
 	One row per employee debit row of the Journal Entries that pay Employee Advances (#232). The paying account
 	is the credit row. Existing Loans Pending is the employee's balance of the advance account on the To Date
-	without the loan of the row's own entry. Date of Joining follows the Employee permissions of the user.
+	without this row's Employee Advance (its payment and what was deducted from it), and it is blank if not above
+	zero. The last column is the Employee Advance of the row. Date of Joining follows the Employee permissions
+	of the user.
 	"""
 	from_date, to_date = getdate(filters["from_date"]), getdate(filters["to_date"])
 	entry_filters = {"posting_date": ["between", [from_date, to_date]]}
@@ -99,7 +103,7 @@ def get_loan_data(filters):
 		.join(pay).on((pay.parent == je.name) & (pay.credit > 0))
 		.left_join(ba).on((ba.party_type == "Employee") & (ba.party == debit.party) & (ba.verified == 1))
 		.select(je.posting_date, je.name, ba.name, ValueWrapper("Employee"), debit.party, pay.account,
-			ba.name_in_bank_records, ba.bank_account_no, ba.branch_code, debit.debit, debit.account)
+			ba.name_in_bank_records, ba.bank_account_no, ba.branch_code, debit.debit, debit.account, debit.reference_name)
 		.where(je.name.isin(list(names))).orderby(je.name)
 	).run(as_list=1)
 	if not rows:
@@ -107,13 +111,13 @@ def get_loan_data(filters):
 
 	employees, accounts = {row[4] for row in rows}, {row[10] for row in rows}
 	balance = get_balances(employees, accounts, to_date)
-	own = get_own_amounts({row[1] for row in rows}, employees, accounts)
+	own = get_own_amounts({row[11] for row in rows}, employees, accounts, to_date)
 	joining = dict(frappe.get_list("Employee", filters={"name": ["in", list(employees)]},
 		fields=["name", "date_of_joining"], as_list=True, limit_page_length=0))
 	result = []
 	for row in rows:
-		pending = round(flt(balance.get(row[4])) - flt(own.get((row[1], row[4]))), 2)
-		result.append(row[:10] + [pending or None, joining.get(row[4])])
+		pending = round(flt(balance.get(row[4])) - flt(own.get(row[11])), 2)
+		result.append(row[:10] + [pending if pending > 0 else None, joining.get(row[4]), row[11]])
 	return result
 
 
@@ -133,12 +137,13 @@ def get_balances(employees, accounts, to_date):
 	return {party: flt(amount) for party, amount in rows}
 
 
-def get_own_amounts(vouchers, employees, accounts):
-	"""{(Journal Entry, employee): what the entry itself posted to the advance accounts}"""
+def get_own_amounts(advances, employees, accounts, to_date):
+	"""{Employee Advance: debit less credit of the advance accounts against it up to to_date}"""
 	gle, query = gl_balance_query(accounts, employees)
-	rows = (query.where((gle.voucher_type == "Journal Entry") & gle.voucher_no.isin(list(vouchers)))
-		.select(gle.voucher_no, gle.party, Sum(gle.debit - gle.credit)).groupby(gle.voucher_no, gle.party)).run()
-	return {(voucher, party): flt(amount) for voucher, party, amount in rows}
+	rows = (query.where((gle.against_voucher_type == "Employee Advance") & gle.against_voucher.isin(list(advances))
+		& (gle.posting_date <= to_date)).select(gle.against_voucher, Sum(gle.debit - gle.credit))
+		.groupby(gle.against_voucher)).run()
+	return {advance: flt(amount) for advance, amount in rows}
 
 
 def get_max_days(filters):

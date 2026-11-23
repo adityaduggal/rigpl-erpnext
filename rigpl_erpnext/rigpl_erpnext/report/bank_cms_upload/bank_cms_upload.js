@@ -36,6 +36,14 @@ function check_max_days(report) {
 }
 
 frappe.query_reports["Bank CMS Upload"] = {
+	// The Employee Advance link opens in a new window
+	"formatter": function(value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+		if (column.fieldname === "employee_advance" && value) {
+			value = value.replace("<a ", "<a target='_blank' ");
+		}
+		return value;
+	},
 	"filters": [
 		{
 			"fieldname":"entry_type",

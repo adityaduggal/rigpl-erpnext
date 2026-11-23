@@ -229,22 +229,27 @@ class TestBankCmsUpload(ReportTestCase):
         return name
 
     def advance_gl(self, voucher, employee, debit=0, credit=0, date="2026-09-01", voucher_type="Journal Entry",
-            account=None):
+            account=None, advance=None):
+        """A GL row of the advance account. advance links it to an Employee Advance, as ERPNext does"""
+        link = dict(against_voucher_type="Employee Advance", against_voucher=advance) if advance else {}
         raw("GL Entry", voucher_type=voucher_type, voucher_no=voucher, account=account or self.ADVANCE_ACCOUNT,
             party_type="Employee", party=employee, debit=debit, credit=credit, docstatus=1, is_cancelled=0,
-            posting_date=date, company="RIGPL")
+            posting_date=date, company="RIGPL", **link)
 
     def loan_entry(self, employee, amount, date="2026-10-02", docstatus=1, reference_type="Employee Advance",
             with_gl=True):
         je = raw("Journal Entry", posting_date=date, voucher_type="Bank Entry", docstatus=docstatus)
         raw("Journal Entry Account", parent=je, parenttype="Journal Entry", parentfield="accounts", idx=1,
             account=self.ADVANCE_ACCOUNT, party_type="Employee", party=employee, debit=amount,
-            reference_type=reference_type, reference_name="_Test Cms Advance")
+            reference_type=reference_type, reference_name=self.advance_of(je))
         raw("Journal Entry Account", parent=je, parenttype="Journal Entry", parentfield="accounts", idx=2,
             account=self.PAY_ACCOUNT, credit=amount)
         if with_gl and docstatus == 1:
-            self.advance_gl(je, employee, debit=amount, date=date)
+            self.advance_gl(je, employee, debit=amount, date=date, advance=self.advance_of(je))
         return je
+
+    def advance_of(self, journal_entry):
+        return "_T-EA-" + journal_entry
 
     def make_cms_user(self):
         raw("User", name=self.CMS_USER, email=self.CMS_USER, first_name="_Test RIGPL Cms", user_type="System User",
@@ -272,10 +277,12 @@ class TestBankCmsUpload(ReportTestCase):
 
         self.assertEqual([row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9]],
             [je, bank, "Employee", employee, self.PAY_ACCOUNT, "Cms Name", "34", "IFSC1", 3000])
-        self.assertEqual((row[10], str(row[11])), (None, "2021-03-04"))
+        self.assertEqual((row[10], str(row[11]), row[12]), (None, "2021-03-04", self.advance_of(je)))
         columns = bank_cms_upload.execute(frappe._dict(self.LOANS))[0]
         self.assertEqual(columns[1], "Entry#: Link/Journal Entry:120")
-        self.assertEqual(columns[-2:], ["Existing Loans Pending:Currency:130", "Date of Joining:Date:100"])
+        self.assertEqual(columns[-3:-1], ["Existing Loans Pending:Currency:130", "Date of Joining:Date:100"])
+        self.assertEqual((columns[-1]["fieldname"], columns[-1]["fieldtype"], columns[-1]["options"]),
+            ("employee_advance", "Link", "Employee Advance"))
 
     def test_pending_is_the_balance_on_to_date_without_this_loan(self):
         employee = self.loan_employee()
@@ -288,6 +295,30 @@ class TestBankCmsUpload(ReportTestCase):
         row, = self.loans()
 
         self.assertEqual(row[10], 4000)
+
+    def test_repayment_of_this_loan_does_not_make_pending_negative(self):
+        employee = self.loan_employee()
+        je = self.loan_entry(employee, 3000)
+        self.advance_gl("_T-SLIP-1", employee, credit=1000, date="2026-10-04", voucher_type="Salary Slip",
+            advance=self.advance_of(je))
+        row, = self.loans()
+        self.assertEqual(row[10], None)
+
+    def test_older_loan_balance_stays_when_this_loan_is_repaid(self):
+        employee = self.loan_employee()
+        self.advance_gl("_T-OLD-LOAN", employee, debit=5000)
+        je = self.loan_entry(employee, 3000)
+        self.advance_gl("_T-SLIP-1", employee, credit=1000, date="2026-10-04", voucher_type="Salary Slip",
+            advance=self.advance_of(je))
+        row, = self.loans()
+        self.assertEqual(row[10], 5000)
+
+    def test_overpaid_balance_is_blank_not_negative(self):
+        employee = self.loan_employee()
+        self.advance_gl("_T-OLD-SLIP", employee, credit=500, voucher_type="Salary Slip")
+        self.loan_entry(employee, 3000)
+        row, = self.loans()
+        self.assertEqual(row[10], None)
 
     def test_draft_entry_has_no_gl_and_pending_is_the_earlier_balance(self):
         employee = self.loan_employee()
