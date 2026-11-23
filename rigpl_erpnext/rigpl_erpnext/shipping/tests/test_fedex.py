@@ -7,7 +7,8 @@ from unittest.mock import patch
 from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.rigpl_erpnext.shipping import status as st
-from rigpl_erpnext.rigpl_erpnext.shipping.base import Account, Address, Commodity, Package, ProviderError, ShipmentRequest
+from rigpl_erpnext.rigpl_erpnext.shipping.base import (Account, Address, BookingResult, Commodity, Package, ProviderError,
+                                                       ShipmentRequest)
 from rigpl_erpnext.rigpl_erpnext.shipping.http import clear_token
 from rigpl_erpnext.rigpl_erpnext.shipping.providers import fedex
 from rigpl_erpnext.rigpl_erpnext.shipping.providers import fedex_payloads as fp
@@ -103,6 +104,26 @@ class TestFedExBodies(FrappeTestCase):
         body = fp.ship_body(shipment(destination=address(country_code="IN")), "1")
         self.assertNotIn("shippingDocumentSpecification", body["requestedShipment"])
 
+    def test_export_sale_asks_for_electronic_trade_documents(self):
+        req = fp.ship_body(shipment(), "1")["requestedShipment"]
+        self.assertEqual(req["shipmentSpecialServices"], {
+            "specialServiceTypes": ["ELECTRONIC_TRADE_DOCUMENTS"],
+            "etdDetail": {"requestedDocumentTypes": ["COMMERCIAL_INVOICE"]}})
+        self.assertNotIn("customerImageUsages", req["shippingDocumentSpecification"]["commercialInvoiceDetail"])
+        for other in (shipment(purpose="SAMPLE"), shipment(destination=address(country_code="IN")),
+                      shipment(invoice_number="")):
+            self.assertNotIn("shipmentSpecialServices", fp.ship_body(other, "1")["requestedShipment"])
+
+    def test_invoice_prints_the_uploaded_letterhead_and_signature(self):
+        images = {"LETTER_HEAD": "IMAGE_1", "SIGNATURE": "IMAGE_2"}
+        detail = fp.ship_body(shipment(), "1", images)["requestedShipment"]["shippingDocumentSpecification"]
+        self.assertEqual(detail["commercialInvoiceDetail"]["customerImageUsages"], [
+            {"id": "IMAGE_1", "type": "LETTER_HEAD", "providedImageType": "LETTER_HEAD"},
+            {"id": "IMAGE_2", "type": "SIGNATURE", "providedImageType": "SIGNATURE"}])
+        detail = fp.ship_body(shipment(), "1", {"LETTER_HEAD": "", "SIGNATURE": "IMAGE_2"})[
+            "requestedShipment"]["shippingDocumentSpecification"]["commercialInvoiceDetail"]
+        self.assertEqual([u["type"] for u in detail["customerImageUsages"]], ["SIGNATURE"])
+
 
 class TestFedExReplies(FrappeTestCase):
     def test_rates_flag_oda_and_read_transit_days(self):
@@ -121,6 +142,29 @@ class TestFedExReplies(FrappeTestCase):
         self.assertEqual([l.filename for l in result.labels], ["FEDEX-100000000010.pdf", "FEDEX-100000000011.pdf",
                                                                "COMMER-INV-CTRACK-T1-100000000010.pdf"])
         self.assertTrue(result.labels[0].content.startswith(b"%PDF"))
+        self.assertEqual((result.etd_type, result.invoice_copies), ("", 0))
+
+    def test_ship_reply_with_originals_gives_the_invoice_copies(self):
+        reply = fixture("ship")
+        shipment_reply = reply["output"]["transactionShipments"][0]
+        shipment_reply["completedShipmentDetail"]["completedEtdDetail"] = {"type": fp.WITH_ORIGINALS}
+        shipment_reply["shipmentDocuments"][0]["minimumCopiesRequired"] = 2
+        result = fp.parse_ship(reply, "CTRACK-T1")
+        self.assertEqual((result.etd_type, result.invoice_copies), (fp.WITH_ORIGINALS, 2))
+
+        del shipment_reply["shipmentDocuments"][0]["minimumCopiesRequired"]
+        self.assertEqual(fp.parse_ship(reply, "CTRACK-T1").invoice_copies, 1)  # with originals: at least one
+
+        shipment_reply["completedShipmentDetail"]["completedEtdDetail"] = {"type": "ELECTRONIC_DOCUMENTS_ONLY"}
+        result = fp.parse_ship(reply, "CTRACK-T1")
+        self.assertEqual((result.etd_type, result.invoice_copies), ("ELECTRONIC_DOCUMENTS_ONLY", 0))
+
+    def test_booking_message_says_what_to_print(self):
+        from rigpl_erpnext.rigpl_erpnext.shipping.actions import invoice_note
+
+        self.assertIn("Print 2 copies", invoice_note(BookingResult("1", [], etd_type=fp.WITH_ORIGINALS, invoice_copies=2)))
+        self.assertIn("No paper copy", invoice_note(BookingResult("1", [], etd_type="ELECTRONIC_DOCUMENTS_ONLY")))
+        self.assertEqual(invoice_note(BookingResult("1", [])), "")
 
     def test_tracking_delivered_in_transit_and_not_found(self):
         items = fp.track_items(fixture("track"))

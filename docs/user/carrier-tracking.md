@@ -18,6 +18,19 @@ Admins: see [Shipping Providers setup](../setup/shipping-providers.md).
 The booking sets the AWB number, attaches the labels and submits the tracking. The AWB also goes to the
 Sales Invoice.
 
+### FedEx export: what to print
+
+For a FedEx export sale, FedEx also makes the commercial invoice and sends it to customs electronically
+(ETD). The booking attaches the invoice PDF. The booking message tells you what to print:
+
+| Booking message | FedEx ETD field | Print |
+|---|---|---|
+| "Print N copies of the commercial invoice" | ELECTRONIC_DOCUMENTS_WITH_ORIGINALS | The labels, and N copies of the invoice. Put the invoices in a pouch on the box. The label shows "EWO". |
+| "No paper copy is needed" | ELECTRONIC_DOCUMENTS_ONLY | The labels only. |
+| No invoice text | Empty | The labels and the invoice, as before. |
+
+**Invoice Copies to Print** on the tracking keeps the number of invoices.
+
 For a transporter with no booking API, type the AWB number from the carrier receipt, then submit.
 
 ## The Shipment menu

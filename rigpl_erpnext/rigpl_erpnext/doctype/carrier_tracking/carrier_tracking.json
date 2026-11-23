@@ -34,6 +34,8 @@
   "shipment_notes",
   "courier_charged",
   "fedex_account_number",
+  "etd_type",
+  "invoice_copies_required",
   "sign_proof",
   "allow_oda_shipment",
   "is_inward",
@@ -476,12 +478,32 @@
    "label": "Sales Person Email",
    "options": "Email",
    "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "depends_on": "etd_type",
+   "description": "FedEx Electronic Trade Documents. ELECTRONIC_DOCUMENTS_WITH_ORIGINALS (EWO): also send printed invoices with the shipment.",
+   "fieldname": "etd_type",
+   "fieldtype": "Data",
+   "label": "FedEx ETD",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "depends_on": "invoice_copies_required",
+   "description": "Printed commercial invoices that FedEx needs with the shipment.",
+   "fieldname": "invoice_copies_required",
+   "fieldtype": "Int",
+   "label": "Invoice Copies to Print",
+   "no_copy": 1,
+   "read_only": 1
   }
  ],
  "has_web_view": 1,
  "is_published_field": "published",
  "is_submittable": 1,
- "modified": "2026-11-03 13:00:00.000000",
+ "modified": "2026-11-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Carrier Tracking",

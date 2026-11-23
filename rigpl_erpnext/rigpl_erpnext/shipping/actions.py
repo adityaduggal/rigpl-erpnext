@@ -88,11 +88,24 @@ def book(doc, test_marking: bool = False) -> None:
         doc.shipment_cost = result.cost
     for row, package_id in zip(doc.shipment_package_details, result.package_ids):
         row.tracking_id = package_id
+    doc.etd_type = result.etd_type
+    doc.invoice_copies_required = result.invoice_copies
     save_labels(doc, result.labels)
     doc.flags.ignore_permissions = True
     doc.submit() if doc.docstatus == 0 else doc.save()
     frappe.msgprint(f"Booked {doc.name} with {carrier.provider.name} AWB {result.awb}"
-                    + (" (TEST booking: cancel it)" if test_marking else ""))
+                    + (" (TEST booking: cancel it)" if test_marking else "") + invoice_note(result))
+
+
+def invoice_note(result) -> str:
+    """What to print for customs (#240). See docs/user/carrier-tracking.md."""
+    if result.invoice_copies:
+        copies = "1 copy" if result.invoice_copies == 1 else f"{result.invoice_copies} copies"
+        return (f". Print {copies} of the commercial invoice and send them with the "
+                "shipment (EWO: FedEx needs the paper originals).")
+    if result.etd_type:
+        return ". FedEx sent the commercial invoice to customs electronically. No paper copy is needed."
+    return ""
 
 
 def validate_address(doc) -> None:
@@ -133,7 +146,8 @@ def cancel(doc) -> None:
     else:
         frappe.msgprint(f"{carrier.provider.name} has no cancel API. Cancel AWB {doc.awb_number} on the carrier portal.")
     frappe.db.set_value(doc.doctype, doc.name, {"docstatus": 0, "awb_number": "NA", "status_code": "", "published": 0,
-                                                "route": "", "status": st.NOT_BOOKED})
+                                                "route": "", "status": st.NOT_BOOKED, "etd_type": "",
+                                                "invoice_copies_required": 0})
     pkg = frappe.qb.DocType("Shipment Package Details")
     (frappe.qb.update(pkg).set(pkg.docstatus, 0).set(pkg.tracking_id, "")
      .where(pkg.parent == doc.name).where(pkg.parenttype == doc.doctype)).run()

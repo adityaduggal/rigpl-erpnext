@@ -35,7 +35,8 @@ class FedEx(ShippingProvider):
         return rates
 
     def book(self, req: ShipmentRequest) -> BookingResult:
-        result = fp.parse_ship(self.call("POST", "/ship/v1/shipments", fp.ship_body(req, self.account_number)),
+        images = {"LETTER_HEAD": self.account.fedex_letterhead_image, "SIGNATURE": self.account.fedex_signature_image}
+        result = fp.parse_ship(self.call("POST", "/ship/v1/shipments", fp.ship_body(req, self.account_number, images)),
                                req.reference)
         if not result.awb:
             raise ProviderError(f"FedEx: booking of {req.reference} gave no tracking number")

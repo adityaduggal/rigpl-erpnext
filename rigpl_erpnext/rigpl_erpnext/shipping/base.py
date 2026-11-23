@@ -98,6 +98,8 @@ class BookingResult:
     labels: List[Label] = field(default_factory=list)
     cost: Optional[float] = None
     currency: str = ""
+    etd_type: str = ""  # FedEx ETD: ELECTRONIC_DOCUMENTS_ONLY or ELECTRONIC_DOCUMENTS_WITH_ORIGINALS
+    invoice_copies: int = 0  # paper commercial invoices to send with the shipment
     raw: dict = field(default_factory=dict)
 
 
@@ -152,6 +154,8 @@ class Account:
     tracking_base_url: str = ""
     serviceability_url: str = ""
     webhook_enabled: bool = False
+    fedex_letterhead_image: str = ""
+    fedex_signature_image: str = ""
 
 
 class ShippingProvider:

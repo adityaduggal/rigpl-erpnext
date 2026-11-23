@@ -5,7 +5,7 @@ tests use JSON fixtures. `fedex.py` sends the bodies.
 import base64
 import re
 from datetime import date, datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pytz
 
@@ -16,6 +16,7 @@ from ..base import Address, BookingResult, Commodity, Label, Rate, Scan, Shipmen
 PRINTED_MATTER = ("PRINTED TRADE ADVERTISING MATERIAL, CATALOGUES", "49111010")
 NOT_FOUND_CODES = ("TRACKING.TRACKINGNUMBER.NOTFOUND", "TRACKING.TRACKINGNUMBER.INVALID")
 NO_TIN = ("", "NA")
+WITH_ORIGINALS = "ELECTRONIC_DOCUMENTS_WITH_ORIGINALS"
 
 
 def rate_body(req: ShipmentRequest, account_number: str) -> dict:
@@ -32,7 +33,9 @@ def rate_body(req: ShipmentRequest, account_number: str) -> dict:
     }
 
 
-def ship_body(req: ShipmentRequest, account_number: str) -> dict:
+def ship_body(req: ShipmentRequest, account_number: str, images: Optional[Dict[str, str]] = None) -> dict:
+    """`images` is {"LETTER_HEAD": "IMAGE_1", "SIGNATURE": "IMAGE_2"}: the ids of the images uploaded
+    to FedEx once, printed on the FedEx-made commercial invoice."""
     shipment = shipment_base(req, account_number)
     shipment.update({
         "shipper": party(req.origin),
@@ -53,8 +56,11 @@ def ship_body(req: ShipmentRequest, account_number: str) -> dict:
             {"customerReferenceType": "INVOICE_NUMBER", "value": req.invoice_number}]
         shipment["shippingDocumentSpecification"] = {
             "shippingDocumentTypes": ["COMMERCIAL_INVOICE"],
-            "commercialInvoiceDetail": {"documentFormat": {"docType": "PDF", "stockType": "PAPER_LETTER"}},
+            "commercialInvoiceDetail": invoice_detail(images),
         }
+        # ETD (#240): FedEx sends its invoice to customs electronically. The PDF still comes back.
+        shipment["shipmentSpecialServices"] = {"specialServiceTypes": ["ELECTRONIC_TRADE_DOCUMENTS"],
+                                               "etdDetail": {"requestedDocumentTypes": ["COMMERCIAL_INVOICE"]}}
     return {"labelResponseOptions": "LABEL", "accountNumber": {"value": account_number}, "requestedShipment": shipment}
 
 
@@ -85,14 +91,29 @@ def parse_ship(reply: dict, reference: str) -> BookingResult:
                for doc in shipment.get("shipmentDocuments") or [] if doc.get("encodedLabel")]
     rating = ((shipment.get("completedShipmentDetail") or {}).get("shipmentRating") or {})
     rate = (rating.get("shipmentRateDetails") or [{}])[0]
+    etd_type, copies = etd_result(shipment)
     return BookingResult(
         awb=awb,
         package_ids=[p.get("trackingNumber") for p in pieces],
         labels=labels,
         cost=float(rate["totalNetCharge"]) if rate.get("totalNetCharge") is not None else None,
         currency=rate.get("currency") or "",
+        etd_type=etd_type,
+        invoice_copies=copies,
         raw={"masterTrackingNumber": awb, "serviceType": shipment.get("serviceType")},
     )
+
+
+def etd_result(shipment: dict) -> Tuple[str, int]:
+    """(ETD type, paper invoice copies) of a booked shipment. FedEx has not given us a sample
+    reply yet, so this finds WITH_ORIGINALS and minimumCopiesRequired anywhere in the shipment."""
+    etd_type = str(((shipment.get("completedShipmentDetail") or {}).get("completedEtdDetail") or {}).get("type") or "")
+    copies = cint_or_zero(first_value(shipment, "minimumCopiesRequired"))
+    if not etd_type and WITH_ORIGINALS in str(shipment):
+        etd_type = WITH_ORIGINALS
+    if etd_type == WITH_ORIGINALS:
+        copies = copies or 1
+    return etd_type, copies
 
 
 def parse_tracking(awb: str, item: dict, resolve, tz: str) -> TrackingResult:
@@ -305,6 +326,15 @@ def customer_references(req: ShipmentRequest) -> List[dict]:
     return refs
 
 
+def invoice_detail(images: Optional[Dict[str, str]]) -> dict:
+    detail = {"documentFormat": {"docType": "PDF", "stockType": "PAPER_LETTER"}}
+    usages = [{"id": image_id, "type": kind, "providedImageType": kind}
+              for kind, image_id in (images or {}).items() if image_id]
+    if usages:
+        detail["customerImageUsages"] = usages
+    return detail
+
+
 def needs_commercial_invoice(req: ShipmentRequest) -> bool:
     international = req.origin.country_code != req.destination.country_code
     return international and (req.purpose or "SOLD") == "SOLD" and bool(req.invoice_number)
@@ -335,6 +365,27 @@ def delivery_date(detail: dict) -> Optional[date]:
         return datetime.fromisoformat(value).date() if value else None
     except ValueError:
         return None
+
+
+def first_value(data, key: str):
+    """The value of the first `key` in nested dicts and lists, or None."""
+    if isinstance(data, dict):
+        if data.get(key) is not None:
+            return data[key]
+        data = list(data.values())
+    if isinstance(data, list):
+        for value in data:
+            found = first_value(value, key)
+            if found is not None:
+                return found
+    return None
+
+
+def cint_or_zero(value) -> int:
+    try:
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def scan(event: dict, tz: str) -> Scan:
