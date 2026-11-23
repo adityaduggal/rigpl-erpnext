@@ -92,6 +92,18 @@ class TestReportPermissions(ReportTestCase):
         run = lambda: employee_balances_rigpl.execute(frappe._dict(PERIOD, non_zero=1))
         self.assertEqual(self.employees(run), {EMP})
 
+    def test_employee_balances_left_employee_is_visible(self):
+        """A restricted user sees the balance of an employee who left, in any Department. A left employee
+        without a balance, and an employee who did not leave, stay hidden."""
+        left, left_zero = "_Test RIGPL Perm Left Employee", "_Test RIGPL Perm Left Zero Employee"
+        for emp in (left, left_zero):
+            raw("Employee", name=emp, employee_name=emp, first_name=emp, branch=BRANCH, department=OTHER_DEPT,
+                status="Left", date_of_joining="2020-01-01", relieving_date="2026-08-31")
+        for emp in (EMP, HIDDEN, left):
+            raw("GL Entry", party_type="Employee", party=emp, posting_date="2026-09-05", credit=500, debit=0)
+        run = lambda: employee_balances_rigpl.execute(frappe._dict(PERIOD, non_zero=1))
+        self.assertEqual(self.employees(run), {EMP, left})
+
     def test_employee_loan_analysis(self):
         for emp in (EMP, HIDDEN):
             make_loan(emp, [("2026-09-05", 1000, 0, "Journal Entry")])

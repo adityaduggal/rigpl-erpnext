@@ -8,7 +8,7 @@ from frappe.query_builder.functions import Sum
 from frappe.utils import flt, getdate
 from pypika.terms import Case
 from ....utils.item_attribute_utils import chunks
-from ....utils.report_utils import blank_zeros
+from ....utils.report_utils import blank_zeros, employees_with_left
 
 # filter: Employee field
 EMPLOYEE_FILTERS = {"employee": "name", "branch": "branch", "department": "department", "designation": "designation",
@@ -20,7 +20,7 @@ def execute(filters=None):
 	if from_date > to_date:
 		frappe.throw("From Date cannot be after To Date", title="Wrong Period")
 	columns = get_columns(filters)
-	emp_map = get_employee_details(filters)
+	emp_map, only_left = get_employee_details(filters, to_date)
 	balances = get_balances(list(emp_map), from_date, to_date, filters.get("company"))
 
 	data, left_with_balance = [], []
@@ -28,6 +28,8 @@ def execute(filters=None):
 		emp_det = emp_map[emp]
 		open_bal, bet_inc, bet_dec, loans = balances.get(emp, (0, 0, 0, 0))
 		closing = open_bal + bet_inc - bet_dec
+		if emp in only_left and not closing:
+			continue
 		# Non-zero rows always show. Zero rows show only when Non Zero is off and the employee was active in the period.
 		if not (open_bal or bet_inc or bet_dec or closing):
 			joined = not emp_det.date_of_joining or getdate(emp_det.date_of_joining) <= to_date
@@ -55,16 +57,16 @@ def get_columns(filters):
 	return [{"fieldname": name, "label": label, "fieldtype": fieldtype, "options": options, "width": width}
 		for name, label, fieldtype, options, width in columns]
 
-def get_employee_details(filters):
-	"""Employees the user can read (#206). GL Entries are then read only for them."""
+def get_employee_details(filters, to_date):
+	"""Employees the user can read (#206) and the employees who left on or before To Date (a restricted user
+	must see their balance too; only those with a Closing balance show). GL Entries are read for them."""
 	emp_filters = {"docstatus": 0}
 	emp_filters.update({field: filters[key] for key, field in EMPLOYEE_FILTERS.items() if filters.get(key)})
-	rows = frappe.get_list("Employee", filters=emp_filters, limit_page_length=0,
-		fields=["name", "employee_name", "designation", "department", "branch", "company_registered_with",
-			"date_of_joining", "relieving_date"])
-	for row in rows:
+	rows, only_left = employees_with_left(emp_filters, ["name", "employee_name", "designation", "department",
+		"branch", "company_registered_with", "date_of_joining", "relieving_date"], to_date)
+	for row in rows.values():
 		row.relieving_date = row.relieving_date or getdate("2099-12-31")
-	return {d.name: d for d in rows}
+	return rows, only_left
 
 
 def get_balances(employees, from_date, to_date, company=None):

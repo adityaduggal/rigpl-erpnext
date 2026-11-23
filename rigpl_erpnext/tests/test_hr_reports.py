@@ -175,7 +175,7 @@ class TestEmployeeBalances(ReportTestCase):
             raw("GL Entry", party_type="Employee", party=EMP, posting_date=date, credit=credit, debit=debit)
         filters = dict(from_date="2026-09-01", to_date="2026-09-30", branch=BRANCH)
 
-        data = self.assert_queries(3, lambda: employee_balances_rigpl.execute(frappe._dict(filters, non_zero=1))[1])
+        data = self.assert_queries(4, lambda: employee_balances_rigpl.execute(frappe._dict(filters, non_zero=1))[1])
 
         self.assertEqual([[row[0]] + row[8:] for row in data], [[EMP, 1000, 500, 300, 1200, None, 1200]])
         all_rows = employee_balances_rigpl.execute(frappe._dict(filters))[1]
@@ -194,7 +194,7 @@ class TestEmployeeBalances(ReportTestCase):
                 against_voucher_type=against, is_cancelled=cancelled, company=company)
         filters = dict(from_date="2026-09-01", to_date="2026-09-30", branch=BRANCH, non_zero=1)
 
-        data = self.assert_queries(3, lambda: employee_balances_rigpl.execute(frappe._dict(filters))[1])
+        data = self.assert_queries(4, lambda: employee_balances_rigpl.execute(frappe._dict(filters))[1])
         self.assertEqual([row[8:] for row in data], [[600, None, 200, 400, -600, 1000]])
         data = employee_balances_rigpl.execute(frappe._dict(filters, company="_Test RIGPL Company 1"))[1]
         self.assertEqual([row[8:] for row in data], [[600, None, None, 600, -400, 1000]])
@@ -215,7 +215,7 @@ class TestEmployeeBalances(ReportTestCase):
             raw("GL Entry", party_type="Employee", party=names[key], posting_date="2026-06-10", credit=100, debit=0)
         filters = dict(from_date="2026-09-01", to_date="2026-09-30", branch=BRANCH)
 
-        data = self.assert_queries(3, lambda: employee_balances_rigpl.execute(frappe._dict(filters))[1])
+        data = self.assert_queries(4, lambda: employee_balances_rigpl.execute(frappe._dict(filters))[1])
         self.assertEqual([row[0] for row in data], [names["left_before_bal"], names["left_in_bal"],
             names["active"], names["active_zero"]])
         non_zero = employee_balances_rigpl.execute(frappe._dict(filters, non_zero=1))[1]

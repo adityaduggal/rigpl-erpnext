@@ -14,7 +14,7 @@ whose name is in `permitted_names`.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import frappe
 from frappe.utils.nestedset import get_descendants_of
@@ -40,6 +40,19 @@ def tree_and_descendants(doctype: str, name: str) -> List[str]:
     if not frappe.db.exists(doctype, name):
         frappe.throw(frappe._("{0} {1} not found").format(doctype, name))
     return [name] + get_descendants_of(doctype, name, ignore_permissions=True)
+
+
+def employees_with_left(emp_filters: Dict, fields: List[str], to_date) -> Tuple[Dict, Set[str]]:
+    """Employees the user can read (#206), plus every employee who left on or before `to_date` (same filters).
+    A user with a User Permission must still see the balance of a left employee. Return the rows by name and
+    the names that only this exception adds; `fields` must have `name`. 2 queries."""
+    rows = {row.name: row for row in frappe.get_list("Employee", filters=emp_filters, fields=fields,
+        limit_page_length=0)}
+    left = frappe.get_all("Employee", filters=dict(emp_filters, relieving_date=("<=", to_date)), fields=fields,
+        limit_page_length=0)
+    extra = {row.name for row in left} - set(rows)
+    rows.update({row.name: row for row in left if row.name in extra})
+    return rows, extra
 
 
 def permitted_names(doctype: str, filters: Optional[Dict] = None) -> Set[str]:
