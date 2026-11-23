@@ -5,9 +5,12 @@ About 6 queries for any number of packages and items.
 from typing import Dict, List
 
 import frappe
+from frappe.query_builder.functions import Coalesce
 from frappe.utils import flt, getdate, nowdate
 
-from .base import Address, Commodity, Package, ShipmentRequest
+from ...utils.batch_write_utils import bulk_set_values
+from . import status as st
+from .base import Address, Commodity, Package, ShipmentRequest, TradeDocument
 
 ADDRESS_FIELDS = ["name", "address_title", "address_line1", "address_line2", "city", "state", "state_rigpl",
                   "pincode", "country", "phone", "email_id", "gstin"]
@@ -114,3 +117,71 @@ def purchase_order(doc) -> str:
     if doc.document == "Sales Invoice" and doc.document_name:
         return frappe.db.get_value("Sales Invoice", doc.document_name, "po_no") or ""
     return ""
+
+
+# ----------------------------------------------------------------------------- trade documents (#240)
+
+DOCUMENT_FIELDS = ("customs_invoice", "other_trade_document")
+MAX_DOCUMENT_BYTES = 5 * 1024 * 1024  # the FedEx limit for one document
+# The file types that the FedEx document upload takes, by extension
+CONTENT_TYPES = {"pdf": "application/pdf", "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                 "txt": "text/plain", "doc": "application/msword", "xls": "application/vnd.ms-excel",
+                 "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                 "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+
+
+def trade_documents(doc) -> List[TradeDocument]:
+    """The customs documents of an export booking. The invoice is a tax invoice for a sale, and a
+    pro forma invoice for all other purposes (FedEx: SOLD is not valid with a pro forma invoice)."""
+    if not doc.customs_invoice:
+        frappe.throw(f"Attach the invoice PDF in Customs Invoice PDF before you book export {doc.name}. "
+                     "FedEx sends it to customs electronically.", title="Customs Invoice Needed")
+    invoice_type = "COMMERCIAL_INVOICE" if (doc.purpose or "SOLD") == "SOLD" else "PRO_FORMA_INVOICE"
+    documents = [trade_document(doc, "customs_invoice", invoice_type, pdf_only=True)]
+    if doc.other_trade_document:
+        documents.append(trade_document(doc, "other_trade_document", "OTHER", pdf_only=False))
+    return documents
+
+
+def trade_document(doc, fieldname: str, doc_type: str, pdf_only: bool) -> TradeDocument:
+    label = doc.meta.get_label(fieldname)
+    url = doc.get(fieldname)
+    name = frappe.db.get_value("File", {"file_url": url, "attached_to_doctype": doc.doctype,
+                                        "attached_to_name": doc.name}, "name")
+    if not name:
+        frappe.throw(f"{label}: attach the file again. {url} is not a file of {doc.name}.")
+    file_doc = frappe.get_doc("File", name)
+    extension = (file_doc.file_name or url).rsplit(".", 1)[-1].lower()
+    content = file_doc.get_content()
+    content = content.encode() if isinstance(content, str) else content
+    if pdf_only and (extension != "pdf" or not content.startswith(b"%PDF")):
+        frappe.throw(f"{label} must be a PDF file.")
+    if extension not in CONTENT_TYPES:
+        frappe.throw(f"{label}: FedEx does not take .{extension} files. Use PDF, an image, Word or Excel.")
+    if len(content) > MAX_DOCUMENT_BYTES:
+        frappe.throw(f"{label} is {len(content) / 1024 / 1024:.1f} MB. FedEx takes at most 5 MB.")
+    return TradeDocument(doc_type, file_doc.file_name, content, CONTENT_TYPES[extension])
+
+
+def delete_delivered_documents(limit: int = 500) -> int:
+    """Daily: deletes the trade documents of delivered trackings. Customs has them by then.
+    The File delete runs per file, because its hook removes the file from the disk."""
+    ct = frappe.qb.DocType("Carrier Tracking")
+    rows = (frappe.qb.from_(ct).select(ct.name, *(ct[f] for f in DOCUMENT_FIELDS))
+            .where(ct.status == st.DELIVERED)
+            .where((Coalesce(ct.customs_invoice, "") != "") | (Coalesce(ct.other_trade_document, "") != ""))
+            .limit(limit)).run(as_dict=True)
+    if not rows:
+        return 0
+    urls = {(r.name, r[f]) for r in rows for f in DOCUMENT_FIELDS if r[f]}
+    files = frappe.get_all("File", filters={"attached_to_doctype": "Carrier Tracking",
+                                            "attached_to_name": ["in", [r.name for r in rows]],
+                                            "file_url": ["in", list({url for _, url in urls})]},
+                           fields=["name", "attached_to_name", "file_url"])
+    for f in files:
+        if (f.attached_to_name, f.file_url) in urls:
+            frappe.delete_doc("File", f.name, ignore_permissions=True)
+    for fieldname in DOCUMENT_FIELDS:
+        bulk_set_values("Carrier Tracking", fieldname, {r.name: "" for r in rows if r[fieldname]},
+                        {r.name: r[fieldname] for r in rows if r[fieldname]})
+    return len(rows)

@@ -5,6 +5,8 @@ FedEx REST API (#170). It replaces the retired SOAP `fedex` library.
   `client_secret` on the Shipping Provider Account. The token is cached in Redis.
 - Labels come back with the booking, so there is no `label` capability (REST has no reprint).
 - The bodies and parsers are in `fedex_payloads.py`.
+- Exports send our invoice electronically (ETD, #240): it is uploaded to the document API
+  just before the booking, and the booking names its docId.
 """
 from datetime import date
 from typing import Dict, List, Tuple
@@ -18,11 +20,14 @@ from . import fedex_payloads as fp
 
 PRODUCTION_URL = "https://apis.fedex.com"
 SANDBOX_URL = "https://apis-sandbox.fedex.com"
+# The Trade Documents Upload API has its own hosts (servers of the FedEx OpenAPI file)
+DOCUMENT_URL = "https://documentapi.prod.fedex.com"
+DOCUMENT_SANDBOX_URL = "https://documentapitest.prod.fedex.com/sandbox"
 
 
 class FedEx(ShippingProvider):
     name = "FedEx"
-    capabilities = frozenset(("rate", "book", "cancel", "track", "pod", "address", "serviceability"))
+    capabilities = frozenset(("rate", "book", "cancel", "track", "pod", "address", "serviceability", "etd"))
     track_batch_size = 30  # the most FedEx takes in one trackingnumbers call
     check_service_before_booking = False  # the rate quote before booking already checks it
     SEED_RULES = SEED_RULES["FedEx"]
@@ -35,12 +40,20 @@ class FedEx(ShippingProvider):
         return rates
 
     def book(self, req: ShipmentRequest) -> BookingResult:
-        images = {"LETTER_HEAD": self.account.fedex_letterhead_image, "SIGNATURE": self.account.fedex_signature_image}
-        result = fp.parse_ship(self.call("POST", "/ship/v1/shipments", fp.ship_body(req, self.account_number, images)),
+        doc_ids = self.upload_documents(req) if req.documents else []
+        result = fp.parse_ship(self.call("POST", "/ship/v1/shipments", fp.ship_body(req, self.account_number, doc_ids)),
                                req.reference)
         if not result.awb:
             raise ProviderError(f"FedEx: booking of {req.reference} gave no tracking number")
         return result
+
+    def upload_documents(self, req: ShipmentRequest) -> List[str]:
+        reply = self.call("POST", "/documents/v1/etds/encodedmultiupload", fp.upload_body(req), base=self.document_url)
+        doc_ids = fp.parse_upload(reply, req)
+        missing = [d.filename for d, doc_id in zip(req.documents, doc_ids) if not doc_id]
+        if missing:
+            raise ProviderError(f"FedEx did not take the trade documents {', '.join(missing)} of {req.reference}")
+        return doc_ids
 
     def cancel(self, awb: str) -> None:
         reply = self.call("PUT", "/ship/v1/shipments/cancel", fp.cancel_body(awb, self.account_number))
@@ -81,6 +94,10 @@ class FedEx(ShippingProvider):
         return (self.account.base_url or (SANDBOX_URL if self.account.is_sandbox else PRODUCTION_URL)).rstrip("/")
 
     @property
+    def document_url(self) -> str:
+        return DOCUMENT_SANDBOX_URL if self.account.is_sandbox else DOCUMENT_URL
+
+    @property
     def account_number(self) -> str:
         if not self.account.account_number:
             raise ProviderError(f"FedEx: Shipping Provider Account {self.account.name} has no Account Number")
@@ -90,13 +107,13 @@ class FedEx(ShippingProvider):
     def token_key(self) -> str:
         return f"fedex:{self.account.name}"
 
-    def call(self, method: str, path: str, body: dict) -> dict:
+    def call(self, method: str, path: str, body: dict, base: str = "") -> dict:
         """A JSON call with the bearer token. A 401 renews the token once. FedEx errors
         become ProviderError with the FedEx code and message."""
-        reply = self.send(method, path, body)
+        reply = self.send(method, path, body, base)
         if reply.status_code == 401:
             clear_token(self.token_key)
-            reply = self.send(method, path, body)
+            reply = self.send(method, path, body, base)
         data = json_or_error(reply, self.name)
         errors = data.get("errors") or []
         if errors and not (data.get("output")):
@@ -105,9 +122,9 @@ class FedEx(ShippingProvider):
             raise ProviderError(f"FedEx: {method} {path} gave HTTP {reply.status_code}")
         return data
 
-    def send(self, method: str, path: str, body: dict):
+    def send(self, method: str, path: str, body: dict, base: str = ""):
         headers = {"Authorization": f"Bearer {self.token()}", "Content-Type": "application/json", "X-locale": "en_US"}
-        return request(method, self.base_url + path, self.name, headers=headers, json=body)
+        return request(method, (base or self.base_url) + path, self.name, headers=headers, json=body)
 
     def token(self) -> str:
         def fetch():

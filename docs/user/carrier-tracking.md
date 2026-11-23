@@ -11,25 +11,38 @@ Admins: see [Shipping Providers setup](../setup/shipping-providers.md).
 1. Open the Carrier Tracking of the Sales Invoice.
 2. Check the From Address, To Address and Contact Person.
 3. Add a row in **Shipment Package Details** for each box. Enter the weight in Kg.
-4. Save.
-5. Click **Shipment > Get Rates** to see the cost. This step is optional.
-6. Click **Shipment > Book Shipment**.
+4. For a FedEx export, attach the invoice PDF in **Customs Invoice PDF** (see below).
+5. Save.
+6. Click **Shipment > Get Rates** to see the cost. This step is optional.
+7. Click **Shipment > Book Shipment**.
 
 The booking sets the AWB number, attaches the labels and submits the tracking. The AWB also goes to the
 Sales Invoice.
 
-### FedEx export: what to print
+### FedEx export: the customs documents
 
-For a FedEx export sale, FedEx also makes the commercial invoice and sends it to customs electronically
-(ETD). The booking attaches the invoice PDF. The booking message tells you what to print:
+FedEx sends the customs documents to customs electronically (ETD). You attach them on the tracking before
+you book.
 
-| Booking message | FedEx ETD field | Print |
-|---|---|---|
-| "Print N copies of the commercial invoice" | ELECTRONIC_DOCUMENTS_WITH_ORIGINALS | The labels, and N copies of the invoice. Put the invoices in a pouch on the box. The label shows "EWO". |
-| "No paper copy is needed" | ELECTRONIC_DOCUMENTS_ONLY | The labels only. |
-| No invoice text | Empty | The labels and the invoice, as before. |
+1. Make the invoice PDF:
+   - Purpose SOLD: the tax invoice of the Sales Invoice.
+   - Any other purpose (sample, gift, catalogs, repair): a pro forma invoice.
+2. Attach the PDF in **Customs Invoice PDF**.
+3. Optional: attach one more document, for example a packing list, in **Other Trade Document**.
+4. Save, then book.
 
-**Invoice Copies to Print** on the tracking keeps the number of invoices.
+The booking stops when the invoice PDF is missing, when it is not a PDF, or when a file is more than 5 MB.
+
+The booking message tells you what to print:
+
+| Booking message | Print |
+|---|---|
+| "Print N copies of the Customs Invoice PDF" | The labels, and N copies of the invoice PDF. Put the invoices in a pouch on the box. The label shows "EWO". |
+| "No paper copy is needed" | The labels only. |
+
+**FedEx ETD** shows the documents that FedEx took. **Invoice Copies to Print** keeps the number of copies.
+
+The system deletes the two files from the tracking a day after delivery.
 
 For a transporter with no booking API, type the AWB number from the carrier receipt, then submit.
 

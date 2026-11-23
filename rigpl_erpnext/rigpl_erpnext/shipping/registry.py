@@ -14,8 +14,7 @@ from .status_map import StatusResolver
 
 SECRET_FIELDS = ("client_secret", "api_key", "password", "webhook_secret")
 ACCOUNT_FIELDS = ("name", "provider", "enabled", "is_sandbox", "account_number", "customer_code", "client_id",
-                  "username", "base_url", "tracking_base_url", "serviceability_url", "webhook_enabled",
-                  "fedex_letterhead_image", "fedex_signature_image")
+                  "username", "base_url", "tracking_base_url", "serviceability_url", "webhook_enabled")
 
 
 def provider_classes() -> Dict[str, type]:

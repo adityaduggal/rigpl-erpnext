@@ -26,11 +26,7 @@
   "tracking_base_url",
   "serviceability_url",
   "cb_urls",
-  "webhook_enabled",
-  "sb_fedex_invoice",
-  "fedex_letterhead_image",
-  "cb_fedex_invoice",
-  "fedex_signature_image"
+  "webhook_enabled"
  ],
  "fields": [
   {
@@ -158,35 +154,10 @@
    "fieldname": "webhook_enabled",
    "fieldtype": "Check",
    "label": "Webhook Enabled"
-  },
-  {
-   "collapsible": 1,
-   "depends_on": "eval:doc.provider==\"FedEx\"",
-   "fieldname": "sb_fedex_invoice",
-   "fieldtype": "Section Break",
-   "label": "FedEx Commercial Invoice"
-  },
-  {
-   "description": "The FedEx image id of the letterhead, uploaded once with the FedEx Trade Documents Upload API. FedEx prints it on the commercial invoice. Empty: no letterhead.",
-   "fieldname": "fedex_letterhead_image",
-   "fieldtype": "Select",
-   "label": "Letterhead Image",
-   "options": "\nIMAGE_1\nIMAGE_2\nIMAGE_3\nIMAGE_4\nIMAGE_5"
-  },
-  {
-   "fieldname": "cb_fedex_invoice",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "The FedEx image id of the signature, uploaded once with the FedEx Trade Documents Upload API. FedEx prints it on the commercial invoice. Empty: no signature.",
-   "fieldname": "fedex_signature_image",
-   "fieldtype": "Select",
-   "label": "Signature Image",
-   "options": "\nIMAGE_1\nIMAGE_2\nIMAGE_3\nIMAGE_4\nIMAGE_5"
   }
  ],
  "links": [],
- "modified": "2026-11-23 12:00:00.000000",
+ "modified": "2026-11-23 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Shipping Provider Account",

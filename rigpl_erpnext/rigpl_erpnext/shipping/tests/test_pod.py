@@ -106,6 +106,7 @@ class TestFetchPods(PodCase):
         self.assertEqual(selected, {"_Test RIGPL R1"})
 
     def test_daily_job_retries_pods(self, _save, _commit):
-        with patch.object(tracking, "unpublish_ctracks"), patch.object(tracking, "retry_missing_pods") as retry:
+        with patch.object(tracking, "unpublish_ctracks"), patch.object(tracking, "delete_delivered_documents"), \
+                patch.object(tracking, "retry_missing_pods") as retry:
             tracking.daily_shipping_jobs()
         retry.assert_called_once()

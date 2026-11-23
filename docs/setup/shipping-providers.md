@@ -90,7 +90,6 @@ Make one account for each set of credentials. Transporters link to the account.
 | Password | Not used | The DTDC tracking password | The Shipway license key |
 | Base URL, Tracking Base URL, Serviceability URL | Leave empty | Leave empty | Leave empty |
 | Webhook Secret, Webhook Enabled | Leave empty (section 7) | Leave empty | Leave empty |
-| Letterhead Image, Signature Image | The FedEx image ids for the commercial invoice (see "Electronic trade documents") | Not used | Not used |
 
 Leave a URL field empty to use the default URL of the provider. Fill it only when the provider gives you a new URL.
 
@@ -109,35 +108,44 @@ A test booking puts `TEST-RIGPL` in the references. Cancel each test booking wit
 
 #### Electronic trade documents (ETD and EWO)
 
-With ETD, FedEx sends the commercial invoice to customs electronically. Customs can then clear the shipment
-before it arrives.
+With ETD, FedEx sends our customs documents to customs electronically. Customs can then clear the shipment
+before it arrives. ETD is active on the production account.
 
-A FedEx booking asks for ETD when all of these are true:
+Each FedEx export needs an invoice PDF on the Carrier Tracking. The user attaches it in **Customs Invoice PDF**
+before the booking. FedEx does not make an invoice of its own.
 
-- The shipment goes to another country.
-- The Purpose is SOLD.
-- The Carrier Tracking is for a Sales Invoice.
+The Purpose of the Carrier Tracking sets the document type that FedEx gets:
 
-Other shipments (samples, domestic, no invoice) do not use ETD and do not get a FedEx invoice.
-
-FedEx makes the commercial invoice PDF and attaches it to the Carrier Tracking. The booking reply tells which
-kind of ETD the destination accepts:
-
-| FedEx ETD on the Carrier Tracking | Meaning | What dispatch prints |
+| Purpose | Document type | The PDF to attach |
 |---|---|---|
-| ELECTRONIC_DOCUMENTS_ONLY | Customs takes the electronic invoice. | The labels only. |
-| ELECTRONIC_DOCUMENTS_WITH_ORIGINALS | EWO, "Electronic with Originals". Customs also needs paper invoices. The label shows "EWO". | The labels, and the number of invoices in **Invoice Copies to Print**. |
-| Empty | FedEx gave no ETD result. | The labels and the invoice, as before. |
+| SOLD | COMMERCIAL_INVOICE | The tax invoice of the Sales Invoice. |
+| SAMPLE, GIFT, NOT_SOLD, REPAIR_AND_RETURN, PERSONAL_EFFECTS | PRO_FORMA_INVOICE | A pro forma invoice. FedEx does not take a pro forma invoice for SOLD. |
 
-Before the first ETD booking:
+Catalogs and other printed matter go with a purpose other than SOLD, so they also need a pro forma invoice.
 
-1. Ask the FedEx account manager to enable ETD on the FedEx account.
-2. On the FedEx Developer Portal, add the Trade Documents Upload API to the production project.
-3. Upload the company letterhead and the signature with the Trade Documents Upload API. FedEx gives each image an id, IMAGE_1 to IMAGE_5.
-4. Open the FedEx Shipping Provider Account and expand **FedEx Commercial Invoice**.
-5. Select the letterhead id in **Letterhead Image** and the signature id in **Signature Image**.
+**Other Trade Document** is optional. It takes one more document, for example a packing list. FedEx gets
+it as OTHER.
 
-Without the image ids, FedEx makes the invoice with no letterhead and no signature.
+The booking checks the files before it calls FedEx:
+
+- Customs Invoice PDF must be a PDF.
+- Other Trade Document can be a PDF, an image (PNG, JPG), a text file, Word or Excel.
+- Each file can be at most 5 MB.
+
+Then the booking uploads the files to the FedEx Trade Documents Upload API, and books the shipment with the
+ids that FedEx gives.
+
+The destination can also need paper originals (EWO, "Electronic with Originals"). Then FedEx gives the number
+of copies in the booking reply, and the label shows "EWO". The booking writes:
+
+- **FedEx ETD**: the document types that FedEx took, for example COMMERCIAL_INVOICE.
+- **Invoice Copies to Print**: the number of paper copies. It is empty when no paper copy is needed.
+
+The daily job deletes the two files from each Delivered Carrier Tracking. FedEx and customs have them by then.
+The Comment "Attachment Removed" on the tracking shows each deleted file.
+
+Before the first booking, add the Trade Documents Upload API to the production project on the FedEx
+Developer Portal.
 
 Some countries do not accept ETD. Then FedEx refuses the booking, and the booking error shows the FedEx
 message. Send the message to the FedEx account manager.
@@ -231,7 +239,7 @@ Open the **Error Log** list and search for the title:
 | Shipping: could not submit CTRACK… | A draft tracking got a status but could not be submitted. Open it and save it to see the error. |
 | Shipping: Shipway push failed | Shipway refused an AWB. Check the Provider Service Code (the Shipway carrier id) on the Transporter. |
 | Shipping: N proof of delivery fetches failed | FedEx had no POD yet for these trackings. The daily retry tries again. |
-| Shipping: Booking failed, with an ETD or trade document message | FedEx has not enabled ETD on the account, or the destination does not accept ETD (section 2, FedEx). |
+| Shipping: Booking failed, with an ETD or trade document message | The Trade Documents Upload API is not in the FedEx project, FedEx refused a file, or the destination does not accept ETD (section 2, FedEx). |
 
 A form action shows its error at once, with the title "Shipping: … failed".
 

@@ -59,6 +59,15 @@ class Commodity:
 
 
 @dataclass
+class TradeDocument:
+    """A customs document that the carrier gets electronically (FedEx ETD, #240)."""
+    doc_type: str  # COMMERCIAL_INVOICE, PRO_FORMA_INVOICE or OTHER
+    filename: str
+    content: bytes
+    content_type: str = "application/pdf"
+
+
+@dataclass
 class ShipmentRequest:
     """Everything a provider needs to rate or book one Carrier Tracking."""
     reference: str  # the Carrier Tracking name
@@ -77,6 +86,11 @@ class ShipmentRequest:
     commodities: List[Commodity] = field(default_factory=list)
     ship_date: Optional[date] = None
     test_marking: bool = False
+    documents: List[TradeDocument] = field(default_factory=list)
+
+    @property
+    def is_export(self) -> bool:
+        return self.origin.country_code != self.destination.country_code
 
     @property
     def references(self) -> List[str]:
@@ -98,8 +112,8 @@ class BookingResult:
     labels: List[Label] = field(default_factory=list)
     cost: Optional[float] = None
     currency: str = ""
-    etd_type: str = ""  # FedEx ETD: ELECTRONIC_DOCUMENTS_ONLY or ELECTRONIC_DOCUMENTS_WITH_ORIGINALS
-    invoice_copies: int = 0  # paper commercial invoices to send with the shipment
+    etd_type: str = ""  # the document types the carrier took electronically, for example COMMERCIAL_INVOICE
+    invoice_copies: int = 0  # paper invoices to send with the shipment (FedEx EWO)
     raw: dict = field(default_factory=dict)
 
 
@@ -154,8 +168,6 @@ class Account:
     tracking_base_url: str = ""
     serviceability_url: str = ""
     webhook_enabled: bool = False
-    fedex_letterhead_image: str = ""
-    fedex_signature_image: str = ""
 
 
 class ShippingProvider:

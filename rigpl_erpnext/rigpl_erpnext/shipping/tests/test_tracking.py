@@ -163,8 +163,29 @@ class TestUnpublishAndClose(TrackingCase):
                                                      "reference_name": "_Test RIGPL CT old b"}, pluck="content")
         self.assertIn("Status before: In Transit", comment[0])
 
+    def test_trade_documents_of_delivered_trackings_are_deleted(self):
+        from rigpl_erpnext.rigpl_erpnext.shipping.request import delete_delivered_documents
+
+        for name, status in (("_Test RIGPL CT doc done", st.DELIVERED), ("_Test RIGPL CT doc open", st.IN_TRANSIT)):
+            ctrack(name, status=status, customs_invoice=f"/private/files/{name}.pdf",
+                   other_trade_document=f"/private/files/{name}.png")
+            for ext in ("pdf", "png", "label.pdf"):
+                insert("File", f"_Test RIGPL file {name} {ext}", file_name=f"{name}.{ext}", is_private=1,
+                       file_url=f"/private/files/{name}.{ext}", attached_to_doctype="Carrier Tracking",
+                       attached_to_name=name)
+        with patch.object(frappe.db, "commit"):
+            delete_delivered_documents()
+
+        files = set(frappe.get_all("File", filters={"attached_to_name": ["like", "_Test RIGPL CT doc%"]}, pluck="file_name"))
+        self.assertEqual(files, {"_Test RIGPL CT doc done.label.pdf", "_Test RIGPL CT doc open.pdf",
+                                 "_Test RIGPL CT doc open.png", "_Test RIGPL CT doc open.label.pdf"})
+        self.assertEqual(frappe.db.get_value("Carrier Tracking", "_Test RIGPL CT doc done",
+                                             ["customs_invoice", "other_trade_document"]), ("", ""))
+        self.assertTrue(frappe.db.get_value("Carrier Tracking", "_Test RIGPL CT doc open", "customs_invoice"))
+
     def test_daily_job_does_not_close(self):
         with patch.object(tracking, "refresh_and_close_stale") as close, patch.object(tracking, "unpublish_ctracks"), \
+                patch.object(tracking, "delete_delivered_documents"), \
                 patch.object(tracking, "retry_missing_pods"), patch.object(frappe.db, "commit"):
             tracking.daily_shipping_jobs()
         close.assert_not_called()

@@ -34,6 +34,8 @@
   "shipment_notes",
   "courier_charged",
   "fedex_account_number",
+  "customs_invoice",
+  "other_trade_document",
   "etd_type",
   "invoice_copies_required",
   "sign_proof",
@@ -482,7 +484,7 @@
   {
    "allow_on_submit": 1,
    "depends_on": "etd_type",
-   "description": "FedEx Electronic Trade Documents. ELECTRONIC_DOCUMENTS_WITH_ORIGINALS (EWO): also send printed invoices with the shipment.",
+   "description": "The documents that FedEx took electronically (ETD), for example COMMERCIAL_INVOICE.",
    "fieldname": "etd_type",
    "fieldtype": "Data",
    "label": "FedEx ETD",
@@ -492,18 +494,32 @@
   {
    "allow_on_submit": 1,
    "depends_on": "invoice_copies_required",
-   "description": "Printed commercial invoices that FedEx needs with the shipment.",
+   "description": "EWO: the destination also needs paper invoices. Print this many and send them with the shipment.",
    "fieldname": "invoice_copies_required",
    "fieldtype": "Int",
    "label": "Invoice Copies to Print",
    "no_copy": 1,
    "read_only": 1
+  },
+  {
+   "description": "FedEx exports: the invoice PDF for customs (SOLD: tax invoice, other purposes: pro forma invoice). PDF only, at most 5 MB. It is deleted after delivery.",
+   "fieldname": "customs_invoice",
+   "fieldtype": "Attach",
+   "label": "Customs Invoice PDF",
+   "no_copy": 1
+  },
+  {
+   "description": "FedEx exports, optional: one more customs document, for example a packing list. At most 5 MB. It is deleted after delivery.",
+   "fieldname": "other_trade_document",
+   "fieldtype": "Attach",
+   "label": "Other Trade Document",
+   "no_copy": 1
   }
  ],
  "has_web_view": 1,
  "is_published_field": "published",
  "is_submittable": 1,
- "modified": "2026-11-23 12:00:00.000000",
+ "modified": "2026-11-23 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Carrier Tracking",

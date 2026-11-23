@@ -16,7 +16,8 @@ from ..base import Address, BookingResult, Commodity, Label, Rate, Scan, Shipmen
 PRINTED_MATTER = ("PRINTED TRADE ADVERTISING MATERIAL, CATALOGUES", "49111010")
 NOT_FOUND_CODES = ("TRACKING.TRACKINGNUMBER.NOTFOUND", "TRACKING.TRACKINGNUMBER.INVALID")
 NO_TIN = ("", "NA")
-WITH_ORIGINALS = "ELECTRONIC_DOCUMENTS_WITH_ORIGINALS"
+# Document types in documentRequirements.generationDetails that are invoices (#240)
+INVOICE_TYPES = ("COMMERCIAL_INVOICE", "PRO_FORMA_INVOICE", "COMMERCIAL_OR_PRO_FORMA_INVOICE")
 
 
 def rate_body(req: ShipmentRequest, account_number: str) -> dict:
@@ -33,9 +34,8 @@ def rate_body(req: ShipmentRequest, account_number: str) -> dict:
     }
 
 
-def ship_body(req: ShipmentRequest, account_number: str, images: Optional[Dict[str, str]] = None) -> dict:
-    """`images` is {"LETTER_HEAD": "IMAGE_1", "SIGNATURE": "IMAGE_2"}: the ids of the images uploaded
-    to FedEx once, printed on the FedEx-made commercial invoice."""
+def ship_body(req: ShipmentRequest, account_number: str, doc_ids: Optional[List[str]] = None) -> dict:
+    """`doc_ids` are the FedEx ids of `req.documents`, from the upload before the booking (#240)."""
     shipment = shipment_base(req, account_number)
     shipment.update({
         "shipper": party(req.origin),
@@ -51,16 +51,13 @@ def ship_body(req: ShipmentRequest, account_number: str, images: Optional[Dict[s
     })
     for line in shipment["requestedPackageLineItems"]:
         line["customerReferences"] = customer_references(req)
-    if needs_commercial_invoice(req):
+    if req.is_export and req.invoice_number:
         shipment["customsClearanceDetail"]["commercialInvoice"]["customerReferences"] = [
             {"customerReferenceType": "INVOICE_NUMBER", "value": req.invoice_number}]
-        shipment["shippingDocumentSpecification"] = {
-            "shippingDocumentTypes": ["COMMERCIAL_INVOICE"],
-            "commercialInvoiceDetail": invoice_detail(images),
-        }
-        # ETD (#240): FedEx sends its invoice to customs electronically. The PDF still comes back.
+    if doc_ids:
+        # ETD: customs gets our uploaded invoice electronically. FedEx makes no invoice of its own.
         shipment["shipmentSpecialServices"] = {"specialServiceTypes": ["ELECTRONIC_TRADE_DOCUMENTS"],
-                                               "etdDetail": {"requestedDocumentTypes": ["COMMERCIAL_INVOICE"]}}
+                                               "etdDetail": {"attachedDocuments": attached_documents(req, doc_ids)}}
     return {"labelResponseOptions": "LABEL", "accountNumber": {"value": account_number}, "requestedShipment": shipment}
 
 
@@ -105,15 +102,36 @@ def parse_ship(reply: dict, reference: str) -> BookingResult:
 
 
 def etd_result(shipment: dict) -> Tuple[str, int]:
-    """(ETD type, paper invoice copies) of a booked shipment. FedEx has not given us a sample
-    reply yet, so this finds WITH_ORIGINALS and minimumCopiesRequired anywhere in the shipment."""
-    etd_type = str(((shipment.get("completedShipmentDetail") or {}).get("completedEtdDetail") or {}).get("type") or "")
-    copies = cint_or_zero(first_value(shipment, "minimumCopiesRequired"))
-    if not etd_type and WITH_ORIGINALS in str(shipment):
-        etd_type = WITH_ORIGINALS
-    if etd_type == WITH_ORIGINALS:
-        copies = copies or 1
+    """(document types FedEx took electronically, paper invoice copies) of a booked shipment.
+    A destination that needs the originals (EWO) asks for copies in documentRequirements."""
+    detail = shipment.get("completedShipmentDetail") or {}
+    etd = detail.get("completedEtdDetail") or {}
+    types = [d.get("documentType") for d in etd.get("uploadDocumentReferenceDetails") or [] if d.get("documentType")]
+    etd_type = ", ".join(dict.fromkeys(types)) or str(etd.get("type") or "")
+    copies = max((cint_or_zero(g.get("minimumCopiesRequired"))
+                  for g in (detail.get("documentRequirements") or {}).get("generationDetails") or []
+                  if g.get("type") in INVOICE_TYPES), default=0)
     return etd_type, copies
+
+
+def upload_body(req: ShipmentRequest) -> dict:
+    """One encodedmultiupload call for all the documents, before the booking (ETDPreshipment)."""
+    return {
+        "workflowName": "ETDPreshipment",
+        "carrierCode": "FDXE",
+        "originCountryCode": req.origin.country_code,
+        "destinationCountryCode": req.destination.country_code,
+        "metaData": [{"fileReferenceId": f"{req.reference}-{n}", "contentType": d.content_type,
+                      "shipDocumentType": d.doc_type, "fileContentBase64": base64.b64encode(d.content).decode()}
+                     for n, d in enumerate(req.documents, start=1)],
+    }
+
+
+def parse_upload(reply: dict, req: ShipmentRequest) -> List[str]:
+    """The docId of each document of `req`, in order. None for a document FedEx did not take."""
+    ids = {r.get("fileReferenceId"): (r.get("metaData") or {}).get("docId")
+           for r in (reply.get("output") or {}).get("documentResponses") or []}
+    return [ids.get(f"{req.reference}-{n}") for n in range(1, len(req.documents) + 1)]
 
 
 def parse_tracking(awb: str, item: dict, resolve, tz: str) -> TrackingResult:
@@ -326,18 +344,10 @@ def customer_references(req: ShipmentRequest) -> List[dict]:
     return refs
 
 
-def invoice_detail(images: Optional[Dict[str, str]]) -> dict:
-    detail = {"documentFormat": {"docType": "PDF", "stockType": "PAPER_LETTER"}}
-    usages = [{"id": image_id, "type": kind, "providedImageType": kind}
-              for kind, image_id in (images or {}).items() if image_id]
-    if usages:
-        detail["customerImageUsages"] = usages
-    return detail
-
-
-def needs_commercial_invoice(req: ShipmentRequest) -> bool:
-    international = req.origin.country_code != req.destination.country_code
-    return international and (req.purpose or "SOLD") == "SOLD" and bool(req.invoice_number)
+def attached_documents(req: ShipmentRequest, doc_ids: List[str]) -> List[dict]:
+    reference = (req.invoice_number or req.reference)[:40]
+    return [{"documentType": d.doc_type, "documentReference": reference, "description": d.filename[:60],
+             "documentId": doc_id} for d, doc_id in zip(req.documents, doc_ids)]
 
 
 def payment(payment_type: str, account_number: str) -> dict:
@@ -365,20 +375,6 @@ def delivery_date(detail: dict) -> Optional[date]:
         return datetime.fromisoformat(value).date() if value else None
     except ValueError:
         return None
-
-
-def first_value(data, key: str):
-    """The value of the first `key` in nested dicts and lists, or None."""
-    if isinstance(data, dict):
-        if data.get(key) is not None:
-            return data[key]
-        data = list(data.values())
-    if isinstance(data, list):
-        for value in data:
-            found = first_value(value, key)
-            if found is not None:
-                return found
-    return None
 
 
 def cint_or_zero(value) -> int:

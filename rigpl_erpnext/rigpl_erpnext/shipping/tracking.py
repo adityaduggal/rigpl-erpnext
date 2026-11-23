@@ -28,6 +28,7 @@ from . import status as st
 from .base import ProviderError, TrackingResult
 from .pod import needs_pod, queue_pods, retry_missing_pods
 from .registry import Carrier, get_carriers
+from .request import delete_delivered_documents
 from .settings import ShippingSettings, get_shipping_settings
 from .status_map import record_unknown
 
@@ -43,8 +44,11 @@ RESULT_FIELDS = ("status", "status_code", "pickup_date", "expected_delivery_date
 # ----------------------------------------------------------------------------------------- jobs
 
 def daily_shipping_jobs():
-    """Unpublishes, then retries the missing PODs. Closing stale trackings is done by hand (#169)."""
+    """Unpublishes, deletes the trade documents of delivered trackings (#240), then retries the
+    missing PODs. Closing stale trackings is done by hand (#169)."""
     unpublish_ctracks()
+    frappe.db.commit()
+    delete_delivered_documents()
     frappe.db.commit()
     retry_missing_pods()
 

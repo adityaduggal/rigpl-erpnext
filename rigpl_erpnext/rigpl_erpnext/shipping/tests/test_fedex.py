@@ -8,13 +8,15 @@ from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.rigpl_erpnext.shipping import status as st
 from rigpl_erpnext.rigpl_erpnext.shipping.base import (Account, Address, BookingResult, Commodity, Package, ProviderError,
-                                                       ShipmentRequest)
+                                                       ShipmentRequest, TradeDocument)
 from rigpl_erpnext.rigpl_erpnext.shipping.http import clear_token
 from rigpl_erpnext.rigpl_erpnext.shipping.providers import fedex
 from rigpl_erpnext.rigpl_erpnext.shipping.providers import fedex_payloads as fp
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures", "fedex")
 TZ = "Asia/Kolkata"
+DOCUMENTS = [TradeDocument("COMMERCIAL_INVOICE", "SI-0001.pdf", b"%PDF-1.4"),
+             TradeDocument("OTHER", "packing.png", b"PNG", "image/png")]
 MODULE = "rigpl_erpnext.rigpl_erpnext.shipping.providers.fedex"
 
 
@@ -76,7 +78,8 @@ class TestFedExBodies(FrappeTestCase):
                                 "INVOICE_NUMBER": "SI-0001"})
         self.assertEqual(req["shippingChargesPayment"]["paymentType"], "SENDER")
         self.assertEqual(req["customsClearanceDetail"]["dutiesPayment"], {"paymentType": "RECIPIENT"})
-        self.assertEqual(req["shippingDocumentSpecification"]["shippingDocumentTypes"], ["COMMERCIAL_INVOICE"])
+        self.assertNotIn("shippingDocumentSpecification", req)  # FedEx makes no invoice: we upload ours
+        self.assertNotIn("shipmentSpecialServices", req)  # no uploaded documents, no ETD
 
     def test_party_skips_na_tin_and_cuts_to_fedex_limits(self):
         result = fp.party(address(line1="x" * 50, phone="+1 (413) 555-0100"))
@@ -97,32 +100,36 @@ class TestFedExBodies(FrappeTestCase):
         self.assertEqual((len(sample), sample[0]["customsValue"]["amount"]), (1, 1.0))
         printed = fp.customs_lines(shipment(commodities=[]))
         self.assertEqual(printed[0]["harmonizedCode"], "49111010")
-        self.assertNotIn("shippingDocumentSpecification",
-                         fp.ship_body(shipment(purpose="SAMPLE"), "1")["requestedShipment"])
 
-    def test_domestic_shipment_has_no_commercial_invoice_document(self):
+    def test_domestic_shipment_sends_no_invoice_reference(self):
         body = fp.ship_body(shipment(destination=address(country_code="IN")), "1")
-        self.assertNotIn("shippingDocumentSpecification", body["requestedShipment"])
+        self.assertNotIn("customerReferences", body["requestedShipment"]["customsClearanceDetail"]["commercialInvoice"])
 
-    def test_export_sale_asks_for_electronic_trade_documents(self):
-        req = fp.ship_body(shipment(), "1")["requestedShipment"]
+    def test_upload_sends_each_document_in_one_call(self):
+        body = fp.upload_body(shipment(documents=DOCUMENTS))
+        self.assertEqual((body["workflowName"], body["carrierCode"], body["originCountryCode"],
+                          body["destinationCountryCode"]), ("ETDPreshipment", "FDXE", "IN", "US"))
+        self.assertEqual([(m["fileReferenceId"], m["shipDocumentType"], m["contentType"]) for m in body["metaData"]],
+                         [("CTRACK-T1-1", "COMMERCIAL_INVOICE", "application/pdf"),
+                          ("CTRACK-T1-2", "OTHER", "image/png")])
+        self.assertEqual(body["metaData"][0]["fileContentBase64"], "JVBERi0xLjQ=")
+
+    def test_upload_reply_gives_the_doc_ids_in_order(self):
+        reply = {"output": {"documentResponses": [
+            {"fileReferenceId": "CTRACK-T1-2", "metaData": {"documentType": "OTHER", "docId": "D2"}},
+            {"fileReferenceId": "CTRACK-T1-1", "metaData": {"documentType": "CI", "docId": "D1"}}]}}
+        self.assertEqual(fp.parse_upload(reply, shipment(documents=DOCUMENTS)), ["D1", "D2"])
+        self.assertEqual(fp.parse_upload({"output": {}}, shipment(documents=DOCUMENTS)), [None, None])
+
+    def test_export_with_uploaded_documents_asks_for_etd(self):
+        req = fp.ship_body(shipment(documents=DOCUMENTS), "1", ["D1", "D2"])["requestedShipment"]
         self.assertEqual(req["shipmentSpecialServices"], {
             "specialServiceTypes": ["ELECTRONIC_TRADE_DOCUMENTS"],
-            "etdDetail": {"requestedDocumentTypes": ["COMMERCIAL_INVOICE"]}})
-        self.assertNotIn("customerImageUsages", req["shippingDocumentSpecification"]["commercialInvoiceDetail"])
-        for other in (shipment(purpose="SAMPLE"), shipment(destination=address(country_code="IN")),
-                      shipment(invoice_number="")):
-            self.assertNotIn("shipmentSpecialServices", fp.ship_body(other, "1")["requestedShipment"])
-
-    def test_invoice_prints_the_uploaded_letterhead_and_signature(self):
-        images = {"LETTER_HEAD": "IMAGE_1", "SIGNATURE": "IMAGE_2"}
-        detail = fp.ship_body(shipment(), "1", images)["requestedShipment"]["shippingDocumentSpecification"]
-        self.assertEqual(detail["commercialInvoiceDetail"]["customerImageUsages"], [
-            {"id": "IMAGE_1", "type": "LETTER_HEAD", "providedImageType": "LETTER_HEAD"},
-            {"id": "IMAGE_2", "type": "SIGNATURE", "providedImageType": "SIGNATURE"}])
-        detail = fp.ship_body(shipment(), "1", {"LETTER_HEAD": "", "SIGNATURE": "IMAGE_2"})[
-            "requestedShipment"]["shippingDocumentSpecification"]["commercialInvoiceDetail"]
-        self.assertEqual([u["type"] for u in detail["customerImageUsages"]], ["SIGNATURE"])
+            "etdDetail": {"attachedDocuments": [
+                {"documentType": "COMMERCIAL_INVOICE", "documentReference": "SI-0001", "description": "SI-0001.pdf",
+                 "documentId": "D1"},
+                {"documentType": "OTHER", "documentReference": "SI-0001", "description": "packing.png",
+                 "documentId": "D2"}]}})
 
 
 class TestFedExReplies(FrappeTestCase):
@@ -145,25 +152,25 @@ class TestFedExReplies(FrappeTestCase):
         self.assertEqual((result.etd_type, result.invoice_copies), ("", 0))
 
     def test_ship_reply_with_originals_gives_the_invoice_copies(self):
+        """The paths are from the FedEx Ship API OpenAPI file (#240)."""
         reply = fixture("ship")
-        shipment_reply = reply["output"]["transactionShipments"][0]
-        shipment_reply["completedShipmentDetail"]["completedEtdDetail"] = {"type": fp.WITH_ORIGINALS}
-        shipment_reply["shipmentDocuments"][0]["minimumCopiesRequired"] = 2
+        detail = reply["output"]["transactionShipments"][0]["completedShipmentDetail"]
+        detail["completedEtdDetail"] = {"folderId": "F1", "type": "COMMERCIAL_INVOICE", "uploadDocumentReferenceDetails": [
+            {"documentType": "COMMERCIAL_INVOICE", "documentId": "D1"}, {"documentType": "OTHER", "documentId": "D2"}]}
+        detail["documentRequirements"] = {"requiredDocuments": ["COMMERCIAL_OR_PRO_FORMA_INVOICE", "AIR_WAYBILL"],
+                                          "generationDetails": [{"type": "COMMERCIAL_INVOICE", "minimumCopiesRequired": 3},
+                                                                {"type": "AIR_WAYBILL", "minimumCopiesRequired": 5}]}
         result = fp.parse_ship(reply, "CTRACK-T1")
-        self.assertEqual((result.etd_type, result.invoice_copies), (fp.WITH_ORIGINALS, 2))
+        self.assertEqual((result.etd_type, result.invoice_copies), ("COMMERCIAL_INVOICE, OTHER", 3))
 
-        del shipment_reply["shipmentDocuments"][0]["minimumCopiesRequired"]
-        self.assertEqual(fp.parse_ship(reply, "CTRACK-T1").invoice_copies, 1)  # with originals: at least one
-
-        shipment_reply["completedShipmentDetail"]["completedEtdDetail"] = {"type": "ELECTRONIC_DOCUMENTS_ONLY"}
-        result = fp.parse_ship(reply, "CTRACK-T1")
-        self.assertEqual((result.etd_type, result.invoice_copies), ("ELECTRONIC_DOCUMENTS_ONLY", 0))
+        detail["documentRequirements"]["generationDetails"][0]["minimumCopiesRequired"] = 0
+        self.assertEqual(fp.parse_ship(reply, "CTRACK-T1").invoice_copies, 0)  # electronic only
 
     def test_booking_message_says_what_to_print(self):
         from rigpl_erpnext.rigpl_erpnext.shipping.actions import invoice_note
 
-        self.assertIn("Print 2 copies", invoice_note(BookingResult("1", [], etd_type=fp.WITH_ORIGINALS, invoice_copies=2)))
-        self.assertIn("No paper copy", invoice_note(BookingResult("1", [], etd_type="ELECTRONIC_DOCUMENTS_ONLY")))
+        self.assertIn("Print 2 copies", invoice_note(BookingResult("1", [], etd_type="COMMERCIAL_INVOICE", invoice_copies=2)))
+        self.assertIn("No paper copy", invoice_note(BookingResult("1", [], etd_type="COMMERCIAL_INVOICE")))
         self.assertEqual(invoice_note(BookingResult("1", [])), "")
 
     def test_tracking_delivered_in_transit_and_not_found(self):
@@ -245,6 +252,28 @@ class TestFedExHTTP(FrappeTestCase):
     def test_sandbox_url(self):
         self.assertEqual(adapter(is_sandbox=True).base_url, fedex.SANDBOX_URL)
         self.assertEqual(adapter().base_url, fedex.PRODUCTION_URL)
+        self.assertEqual(adapter(is_sandbox=True).document_url, fedex.DOCUMENT_SANDBOX_URL)
+
+    def test_export_booking_uploads_the_documents_first(self):
+        upload = {"output": {"documentResponses": [{"fileReferenceId": "CTRACK-T1-1", "metaData": {"docId": "D1"}},
+                                                   {"fileReferenceId": "CTRACK-T1-2", "metaData": {"docId": "D2"}}]}}
+        replies = [Reply({"access_token": "T", "expires_in": 3600}), Reply(upload, 201), Reply(fixture("ship"))]
+        with patch(f"{MODULE}.request", side_effect=replies) as request:
+            result = adapter().book(shipment(documents=DOCUMENTS))
+        self.assertEqual(result.awb, "100000000010")
+        upload_call, ship_call = request.call_args_list[1:]
+        self.assertEqual(upload_call.args[1], fedex.DOCUMENT_URL + "/documents/v1/etds/encodedmultiupload")
+        self.assertEqual(ship_call.args[1], fedex.PRODUCTION_URL + "/ship/v1/shipments")
+        attached = ship_call.kwargs["json"]["requestedShipment"]["shipmentSpecialServices"]["etdDetail"]["attachedDocuments"]
+        self.assertEqual([a["documentId"] for a in attached], ["D1", "D2"])
+
+    def test_a_refused_document_stops_the_booking(self):
+        upload = {"output": {"documentResponses": [{"fileReferenceId": "CTRACK-T1-1", "metaData": {"docId": "D1"}}]}}
+        replies = [Reply({"access_token": "T", "expires_in": 3600}), Reply(upload, 201)]
+        with patch(f"{MODULE}.request", side_effect=replies) as request, self.assertRaises(ProviderError) as ctx:
+            adapter().book(shipment(documents=DOCUMENTS))
+        self.assertIn("packing.png", str(ctx.exception))
+        self.assertEqual(len(request.call_args_list), 2)  # no booking call
 
 
 class TestShipmentRequestAddresses(FrappeTestCase):
@@ -262,3 +291,45 @@ class TestShipmentRequestAddresses(FrappeTestCase):
             result = request.load_addresses(["FROM", "TO"], "CONTACT-1", "TO")
         self.assertEqual((result["FROM"].contact, result["FROM"].phone, result["FROM"].state_code), ("FROM", "", "HR"))
         self.assertEqual((result["TO"].contact, result["TO"].phone, result["TO"].country_code), ("A Buyer", "99", "US"))
+
+
+class TestTradeDocuments(FrappeTestCase):
+    """The checks on the attached files before an export booking (#240). File reads are mocked."""
+
+    def documents(self, files, **fields):
+        import frappe
+        from rigpl_erpnext.rigpl_erpnext.shipping import request
+
+        doc = frappe.new_doc("Carrier Tracking")
+        doc.update(dict(name="CTRACK-T1", purpose="SOLD", customs_invoice="/private/files/SI-0001.pdf"))
+        doc.update(fields)
+        by_url = {url: frappe._dict(file_name=url.rsplit("/", 1)[-1], get_content=lambda c=content: c)
+                  for url, content in files.items()}
+        with patch.object(frappe.db, "get_value", side_effect=lambda dt, filters, field: filters["file_url"]
+                          if filters["file_url"] in by_url else None), \
+                patch.object(frappe, "get_doc", side_effect=lambda dt, name: by_url[name]):
+            return request.trade_documents(doc)
+
+    def test_sale_sends_a_commercial_invoice_and_others_a_pro_forma(self):
+        pdf = {"/private/files/SI-0001.pdf": b"%PDF-1.4 x"}
+        self.assertEqual([d.doc_type for d in self.documents(pdf)], ["COMMERCIAL_INVOICE"])
+        self.assertEqual([d.doc_type for d in self.documents(pdf, purpose="SAMPLE")], ["PRO_FORMA_INVOICE"])
+        both = dict(pdf, **{"/private/files/packing.xlsx": b"PK"})
+        docs = self.documents(both, other_trade_document="/private/files/packing.xlsx")
+        self.assertEqual([(d.doc_type, d.filename) for d in docs],
+                         [("COMMERCIAL_INVOICE", "SI-0001.pdf"), ("OTHER", "packing.xlsx")])
+        self.assertTrue(docs[1].content_type.endswith("spreadsheetml.sheet"))
+
+    def test_missing_wrong_or_large_files_stop_the_booking(self):
+        import frappe
+
+        cases = [({}, {"customs_invoice": ""}, "Attach the invoice PDF"),
+                 ({}, {}, "attach the file again"),
+                 ({"/private/files/SI-0001.pdf": b"not a pdf"}, {}, "must be a PDF"),
+                 ({"/private/files/SI-0001.pdf": b"%PDF" + b"x" * (5 * 1024 * 1024)}, {}, "at most 5 MB"),
+                 ({"/private/files/SI-0001.pdf": b"%PDF", "/private/files/a.exe": b"MZ"},
+                  {"other_trade_document": "/private/files/a.exe"}, "does not take .exe")]
+        for files, fields, message in cases:
+            with self.subTest(message), self.assertRaises(frappe.ValidationError) as ctx:
+                self.documents(files, **fields)
+            self.assertIn(message, str(ctx.exception))

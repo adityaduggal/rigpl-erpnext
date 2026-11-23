@@ -11,7 +11,7 @@ from frappe.utils.file_manager import remove_all, save_file
 
 from .base import Label, NotSupported, ProviderError
 from .registry import require_carrier
-from .request import build_shipment_request
+from .request import build_shipment_request, trade_documents
 from . import status as st
 
 NO_AWB = ("", "NA")
@@ -72,13 +72,16 @@ def book(doc, test_marking: bool = False) -> None:
         frappe.throw(f"Package Details are needed to book {doc.name}.")
     if doc.awb_number and doc.awb_number not in NO_AWB:
         frappe.throw(f"{doc.name} is already booked with AWB {doc.awb_number}.")
+    req = build_shipment_request(doc, carrier.service_code, test_marking=test_marking)
+    if carrier.provider.supports("etd") and req.is_export:
+        req.documents = trade_documents(doc)  # checked before the rate call, so a bad file fails fast
     if carrier.provider.supports("serviceability") and carrier.provider.check_service_before_booking:
         check_serviceability(doc)
     if carrier.provider.supports("rate") or cint(
             frappe.db.get_value("Transporters", doc.carrier_name, "calculate_cost_from_quote")):
         get_rates(doc)
     try:
-        result = carrier.provider.book(build_shipment_request(doc, carrier.service_code, test_marking=test_marking))
+        result = carrier.provider.book(req)
     except (ProviderError, NotSupported) as e:
         provider_error(e, "Booking")
     doc.awb_number = result.awb
@@ -101,10 +104,10 @@ def invoice_note(result) -> str:
     """What to print for customs (#240). See docs/user/carrier-tracking.md."""
     if result.invoice_copies:
         copies = "1 copy" if result.invoice_copies == 1 else f"{result.invoice_copies} copies"
-        return (f". Print {copies} of the commercial invoice and send them with the "
-                "shipment (EWO: FedEx needs the paper originals).")
+        return (f". Print {copies} of the Customs Invoice PDF and send them with the "
+                "shipment (EWO: customs also needs the paper originals).")
     if result.etd_type:
-        return ". FedEx sent the commercial invoice to customs electronically. No paper copy is needed."
+        return ". FedEx sent the customs documents electronically. No paper copy is needed."
     return ""
 
 
