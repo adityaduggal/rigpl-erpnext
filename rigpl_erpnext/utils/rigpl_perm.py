@@ -158,7 +158,9 @@ def get_department_allowed_ids(dept_doc):
     if dept_doc.expense_approvers:
         for expa in dept_doc.expense_approvers:
             allowed_ids.append(expa.approver)
-    return allowed_ids
+    for sra in dept_doc.get("shift_request_approver") or []:
+        allowed_ids.append(sra.approver)
+    return list(dict.fromkeys(allowed_ids))
 
 
 def get_customer_allowed_ids(customer):

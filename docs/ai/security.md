@@ -27,6 +27,8 @@ The `roles` table of a Report controls only who can open the report. It does not
 - A User Permission on a tree DocType (Department) also permits its descendants.
 - "Apply Strict User Permissions" is on (System Settings). A document with an empty link field (for example an empty `department`) is hidden from a user with a User Permission on that DocType. With the setting off, it is visible. Test fixtures must set the link fields that ERPNext fetches from the Employee.
 - `get_list` also returns documents that are shared with the user.
+- `Document.insert()` checks the create permission before `fetch_from` fills the link fields. Strict mode then denies a Data Import that has no `department` column (#238). `ShiftRequestRIGPL` (`validations/shift_assignment.py`) sets `department` and `approver` from the Employee and the Department before the check. Use the same pattern for other HR DocTypes that users import.
+- ERPNext shares a Shift Request, Leave Application or Expense Claim with its approver. Department User Permissions come from all 3 approver tables of the Department (`get_department_allowed_ids`). RIGPL Settings > Department Approvers sets which tables get a copy of the Leave Approvers.
 
 ## Test
 

@@ -57,7 +57,8 @@
   "ctrack_webhook_poll_hours",
   "shipway_push_max_days",
   "sb_hr",
-  "loan_deduction_component"
+  "loan_deduction_component",
+  "department_approver_mode"
  ],
  "fields": [
   {
@@ -389,10 +390,18 @@
    "fieldtype": "Link",
    "label": "Loan Deduction Component",
    "options": "Salary Component"
+  },
+  {
+   "default": "Leave, Expense and Shift Same",
+   "description": "On save of a Department, the Leave Approvers are copied to the other approver tables of this option.",
+   "fieldname": "department_approver_mode",
+   "fieldtype": "Select",
+   "label": "Department Approvers",
+   "options": "Leave, Expense and Shift Same\nLeave and Shift Same, Expense Different\nAll Different"
   }
  ],
  "issingle": 1,
- "modified": "2026-11-20 12:00:00.000000",
+ "modified": "2026-11-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

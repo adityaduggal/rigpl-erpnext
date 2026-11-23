@@ -5,10 +5,40 @@ HR enters one row for each employee and day. On submit, a row is joined with the
 employee and Shift Type that end the day before it or start the day after it, while the range stays
 in one month. The joined rows are cancelled.
 """
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import frappe
+from erpnext.hr.doctype.shift_request.shift_request import ShiftRequest
 from frappe.utils import add_days, getdate
+
+
+class ShiftRequestRIGPL(ShiftRequest):
+    """insert() checks the create permission before department is fetched from the Employee. With strict
+    User Permissions an empty department is denied, so Data Import fails (#238). Fill it first."""
+
+    def insert(self, *args, **kwargs):
+        if self.employee:
+            fill_from_employee(self)
+        return super().insert(*args, **kwargs)
+
+
+def fill_from_employee(doc):
+    emp = frappe.db.get_value("Employee", doc.employee, ["department", "shift_request_approver"], as_dict=True)
+    if not emp:
+        return
+    # Always the Employee's value, as fetch_from sets it later: a typed department must not pass the check
+    doc.department = emp.department
+    if not doc.approver:
+        doc.approver = emp.shift_request_approver or get_department_approver(emp.department)
+
+
+def get_department_approver(department) -> Optional[str]:
+    """The session user if a shift approver of the Department, else the first one"""
+    approvers = frappe.get_all("Department Approver", filters={"parenttype": "Department", "parent": department,
+        "parentfield": "shift_request_approver"}, order_by="idx", pluck="approver") if department else []
+    if frappe.session.user in approvers:
+        return frappe.session.user
+    return approvers[0] if approvers else None
 
 
 def on_submit(doc, method):

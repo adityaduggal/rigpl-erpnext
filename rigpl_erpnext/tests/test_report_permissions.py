@@ -198,6 +198,53 @@ class TestReportPermissions(ReportTestCase):
         self.assert_queries(5, summary)
         self.assert_queries(5, details)
 
+    def make_shift_request(self, employee):
+        """A Shift Request with only the columns of the import sheet, inserted as the restricted user"""
+        doc = frappe.get_doc(dict(doctype="Shift Request", shift_type="_Test RIGPL Perm Shift", employee=employee,
+            company=frappe.db.get_value("Company", {}, "name"), from_date="2026-09-01", to_date="2026-09-05"))
+        frappe.set_user(USER)
+        try:
+            return doc.insert()
+        finally:
+            frappe.set_user("Administrator")
+
+    def test_shift_request_import_fills_department_and_approver(self):
+        """Data Import checks the create permission before department is fetched (#238)"""
+        raw("Shift Type", name="_Test RIGPL Perm Shift", start_time="09:00:00", end_time="17:00:00")
+        for approver in ("_test_rigpl_other_approver@example.com", USER):
+            raw("Department Approver", parent=DEPT, parenttype="Department", parentfield="shift_request_approver",
+                approver=approver, idx=2 if approver == USER else 1)
+        doc = self.make_shift_request(EMP)
+        self.assertEqual((doc.department, doc.approver), (DEPT, USER))
+        with self.assertRaises(frappe.PermissionError):
+            self.make_shift_request(HIDDEN)
+
+    def test_department_copies_approvers(self):
+        from rigpl_erpnext.rigpl_erpnext.validations.department import APPROVER_MODES, copy_approvers
+        from rigpl_erpnext.utils.rigpl_perm import get_department_allowed_ids
+
+        for mode, expense, shift in ((APPROVER_MODES[0], [USER], [USER]), (APPROVER_MODES[1], ["x"], [USER]),
+                (APPROVER_MODES[2], ["x"], ["y"])):
+            dept = frappe.get_doc(dict(doctype="Department", department_name=DEPT, leave_approvers=[{"approver": USER}],
+                expense_approvers=[{"approver": "x"}], shift_request_approver=[{"approver": "y"}]))
+            copy_approvers(dept, mode)
+            self.assertEqual([row.approver for row in dept.expense_approvers], expense, mode)
+            self.assertEqual([row.approver for row in dept.shift_request_approver], shift, mode)
+        dept = frappe.get_doc(dict(doctype="Department", department_name=DEPT, shift_request_approver=[{"approver": "y"}]))
+        self.assertEqual(get_department_allowed_ids(dept), ["y"])
+
+    def test_sync_all_department_approvers(self):
+        from rigpl_erpnext.rigpl_erpnext.validations.department import sync_all_department_approvers
+
+        raw("Department Approver", parent=DEPT, parenttype="Department", parentfield="leave_approvers", approver=USER,
+            idx=1)
+        raw("Department Approver", parent=DEPT, parenttype="Department", parentfield="expense_approvers", approver="x",
+            idx=1)
+        sync_all_department_approvers()
+        rows = frappe.get_all("Department Approver", filters={"parent": DEPT}, fields=["parentfield", "approver"])
+        self.assertEqual(sorted((row.parentfield, row.approver) for row in rows), [("expense_approvers", USER),
+            ("leave_approvers", USER), ("shift_request_approver", USER)])
+
     def test_salary_structure(self):
         for emp, dept in ((EMP, DEPT), (HIDDEN, OTHER_DEPT)):
             raw("Salary Structure Assignment", employee=emp, department=dept, docstatus=1, from_date="2026-04-01",

@@ -78,6 +78,11 @@ override_whitelisted_methods = {
     "webshop.webshop.api.get_product_filter_data": "rigpl_erpnext.website_rigpl.product_listing.get_product_filter_data",
 }
 
+override_doctype_class = {
+    # Data Import of Shift Requests by users with Department User Permissions (#238)
+    "Shift Request": "rigpl_erpnext.rigpl_erpnext.validations.shift_assignment.ShiftRequestRIGPL",
+}
+
 jenv = {"methods": ["rigpl_variant_table:rigpl_erpnext.website_rigpl.catalog.get_variant_table"]}
 
 # You can use the update_website_context hook for more complex scenarios as it allows you to manipulate the
