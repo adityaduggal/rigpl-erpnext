@@ -12,8 +12,31 @@ const STATUS_COLORS = {
 	"Cancelled": "grey", "Closed - No Update": "grey", "Not Booked": "grey",
 };
 
+// The fields each provider uses: the same lists as PROVIDER_FIELDS in shipping_provider_account.py
+const PROVIDER_FIELDS = {
+	"FedEx": ["is_sandbox", "account_number", "client_id", "client_secret", "webhook_enabled", "webhook_secret"],
+	"DTDC": ["customer_code", "api_key", "username", "password", "tracking_base_url", "serviceability_url",
+		"webhook_enabled", "webhook_secret"],
+	"Shipway": ["username", "password"],
+};
+const LOGIN_LABELS = {
+	"DTDC": { sb_login: "DTDC Tracking Login", username: "Tracking Username", password: "Tracking Password" },
+	"Shipway": { sb_login: "Shipway Login", username: "Shipway Username", password: "License Key" },
+};
+
 frappe.ui.form.on("Shipping Provider Account", {
+	provider(frm) {
+		// The server clears them on save too: this shows the user at once what goes
+		const keep = PROVIDER_FIELDS[frm.doc.provider] || [];
+		new Set(Object.values(PROVIDER_FIELDS).flat()).forEach((fieldname) => {
+			if (!keep.includes(fieldname) && frm.doc[fieldname]) {
+				frm.set_value(fieldname, frm.fields_dict[fieldname].df.fieldtype === "Check" ? 0 : "");
+			}
+		});
+		rigpl_login_labels(frm);
+	},
 	refresh(frm) {
+		rigpl_login_labels(frm);
 		frm.add_custom_button(__("Help"), () => window.open(SETUP_DOCS, "_blank", "noopener"));
 		if (frm.is_new()) return;
 		rigpl_shipping_dashboard(frm);
@@ -21,6 +44,11 @@ frappe.ui.form.on("Shipping Provider Account", {
 		frm.add_custom_button(__("Re-apply Status Map"), () => rigpl_reapply_status_map(frm), __("Actions"));
 	},
 });
+
+function rigpl_login_labels(frm) {
+	const labels = LOGIN_LABELS[frm.doc.provider] || {};
+	Object.entries(labels).forEach(([fieldname, label]) => frm.set_df_property(fieldname, "label", __(label)));
+}
 
 function rigpl_shipping_dashboard(frm) {
 	if (!frm.__summary_period) {

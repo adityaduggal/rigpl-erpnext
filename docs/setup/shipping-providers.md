@@ -75,21 +75,24 @@ status back by hand.
 
 Make one account for each set of credentials. Transporters link to the account.
 
+Select the **Provider** first. The form then shows only the fields of that provider, in one section for
+each provider. When you change the provider, the form clears the fields that the new provider does not use.
+The save also deletes their stored secrets. For FedEx, Account Number, Client ID and Client Secret are
+mandatory.
+
 | Field | FedEx | DTDC | Shipway |
 |---|---|---|---|
 | Account Name | For example "FedEx" | For example "DTDC" | For example "Shipway" |
 | Provider | FedEx | DTDC | Shipway |
 | Enabled | Set | Set | Set |
-| Sandbox | Set for the FedEx test server | Not used | Not used |
-| Account Number | The 9-digit FedEx account number | Not used | Not used |
-| Customer Code | Not used | The DTDC customer code | Not used |
-| Client ID | The REST API Key | Not used | Not used |
-| Username | Not used | The DTDC tracking user | The Shipway username |
-| Client Secret | The REST Secret Key | Not used | Not used |
-| API Key | Not used | The Shipsy API key | Not used |
-| Password | Not used | The DTDC tracking password | The Shipway license key |
-| Base URL, Tracking Base URL, Serviceability URL | Leave empty | Leave empty | Leave empty |
-| Webhook Secret, Webhook Enabled | Leave empty (section 7) | Leave empty | Leave empty |
+| Sandbox | Set for the FedEx test server | Hidden | Hidden |
+| FedEx API: Account Number | The 9-digit FedEx account number | Hidden | Hidden |
+| FedEx API: Client ID, Client Secret | The REST API Key and the Secret Key | Hidden | Hidden |
+| DTDC API: Customer Code, API Key | Hidden | The DTDC customer code and the Shipsy API key | Hidden |
+| Login: Username, Password | Hidden | The DTDC tracking user and password | The Shipway username and license key |
+| Base URL | Leave empty | Leave empty | Leave empty |
+| Tracking Base URL, Serviceability URL | Hidden | Leave empty | Hidden |
+| Webhook Secret, Webhook Enabled | Leave empty (section 7) | Leave empty | Hidden |
 
 Leave a URL field empty to use the default URL of the provider. Fill it only when the provider gives you a new URL.
 

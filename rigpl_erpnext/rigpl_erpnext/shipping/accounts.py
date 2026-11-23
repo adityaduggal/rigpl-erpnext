@@ -139,9 +139,9 @@ def migrate_transporters() -> Dict[str, int]:
     accounts, links = plan_accounts(rows, shipway, taken)
 
     for name, values in accounts.items():
-        frappe.get_doc(dict(values, doctype="Shipping Provider Account", account_name=name, enabled=1)).insert(
-            ignore_permissions=True
-        )
+        account = frappe.get_doc(dict(values, doctype="Shipping Provider Account", account_name=name, enabled=1))
+        account.flags.ignore_mandatory = True  # FedEx REST keys are entered by hand after the migration
+        account.insert(ignore_permissions=True)
     old = {row["name"]: {field: row.get(field) for field in links.get(row["name"], {})} for row in rows}
     bulk_set_fields("Transporters", links, old)
     return {"accounts": len(accounts), "transporters": len(links)}
