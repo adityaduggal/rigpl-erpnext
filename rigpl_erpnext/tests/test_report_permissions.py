@@ -233,6 +233,17 @@ class TestReportPermissions(ReportTestCase):
         dept = frappe.get_doc(dict(doctype="Department", department_name=DEPT, shift_request_approver=[{"approver": "y"}]))
         self.assertEqual(get_department_allowed_ids(dept), ["y"])
 
+    def test_department_onload_lists_synced_tables(self):
+        from rigpl_erpnext.rigpl_erpnext.validations import department
+
+        for mode, tables in ((department.APPROVER_MODES[0], ["leave_approvers", "expense_approvers",
+                "shift_request_approver"]), (department.APPROVER_MODES[1], ["leave_approvers",
+                "shift_request_approver"]), (department.APPROVER_MODES[2], [])):
+            frappe.db.set_single_value("RIGPL Settings", "department_approver_mode", mode)
+            dept = frappe.get_doc(dict(doctype="Department", department_name=DEPT))
+            department.onload(dept, "onload")
+            self.assertEqual(dept.get_onload().approver_tables, tables, mode)
+
     def test_sync_all_department_approvers(self):
         from rigpl_erpnext.rigpl_erpnext.validations.department import sync_all_department_approvers
 

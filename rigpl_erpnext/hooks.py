@@ -78,11 +78,6 @@ override_whitelisted_methods = {
     "webshop.webshop.api.get_product_filter_data": "rigpl_erpnext.website_rigpl.product_listing.get_product_filter_data",
 }
 
-override_doctype_class = {
-    # Data Import of Shift Requests by users with Department User Permissions (#238)
-    "Shift Request": "rigpl_erpnext.rigpl_erpnext.validations.shift_assignment.ShiftRequestRIGPL",
-}
-
 jenv = {"methods": ["rigpl_variant_table:rigpl_erpnext.website_rigpl.catalog.get_variant_table"]}
 
 # You can use the update_website_context hook for more complex scenarios as it allows you to manipulate the
@@ -130,6 +125,7 @@ after_migrate = [
 doctype_js = {
     "Bank Account": "public/js/bank_account.js",
     "Communication": "public/js/communication.js",
+    "Department": "public/js/department.js",
     "Item": "public/js/stock/item.js",
     "ToDo": "public/js/todo.js",
 }
@@ -137,6 +133,8 @@ doctype_js = {
 override_doctype_class = {
     "Lead": "rigpl_erpnext.rigpl_erpnext.validations.lead.RigplLead",
     "Payroll Entry": "rigpl_erpnext.hr_rigpl.utils.hr_utils.RigplPayrollEntry",
+    # Data Import of Shift Requests by users with Department User Permissions (#238)
+    "Shift Request": "rigpl_erpnext.rigpl_erpnext.validations.shift_assignment.ShiftRequestRIGPL",
 }
 
 # Document Events
@@ -181,7 +179,8 @@ doc_events = {
         "on_cancel": "rigpl_erpnext.rigpl_erpnext.validations.delivery_note.on_cancel",
     },
     "Department": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.department.validate"
+        "onload": "rigpl_erpnext.rigpl_erpnext.validations.department.onload",
+        "validate": "rigpl_erpnext.rigpl_erpnext.validations.department.validate",
     },
     "Employee": {
         "onload": "rigpl_erpnext.rigpl_erpnext.validations.employee.onload",

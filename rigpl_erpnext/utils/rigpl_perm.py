@@ -152,14 +152,9 @@ def get_employees_allowed_ids(employee):
 
 def get_department_allowed_ids(dept_doc):
     allowed_ids = []
-    if dept_doc.leave_approvers:
-        for la in dept_doc.leave_approvers:
-            allowed_ids.append(la.approver)
-    if dept_doc.expense_approvers:
-        for expa in dept_doc.expense_approvers:
-            allowed_ids.append(expa.approver)
-    for sra in dept_doc.get("shift_request_approver") or []:
-        allowed_ids.append(sra.approver)
+    for table in ("leave_approvers", "expense_approvers", "shift_request_approver"):
+        for row in dept_doc.get(table) or []:
+            allowed_ids.append(row.approver)
     return list(dict.fromkeys(allowed_ids))
 
 

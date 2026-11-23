@@ -29,13 +29,19 @@ def validate(doc, method):
             delete_permission(perm[0])
 
 
+def onload(doc, method):
+    """The tables that public/js/department.js keeps the same. An HR User may not read RIGPL Settings."""
+    tables = COPY_TABLES.get(get_approver_mode(), ())
+    doc.set_onload("approver_tables", ["leave_approvers", *tables] if tables else [])
+
+
 def get_approver_mode():
     return frappe.db.get_single_value("RIGPL Settings", "department_approver_mode") or APPROVER_MODES[0]
 
 
 def copy_approvers(doc, mode):
     for table in COPY_TABLES.get(mode, ()):
-        doc.set(table, [{"approver": row.approver} for row in doc.leave_approvers])
+        doc.set(table, [{"approver": row.approver} for row in doc.get("leave_approvers") or []])
 
 
 def sync_all_department_approvers(mode=APPROVER_MODES[0]):
