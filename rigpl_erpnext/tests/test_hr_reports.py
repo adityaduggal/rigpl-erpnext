@@ -4,6 +4,7 @@ old reports put it into the SQL text and failed.
 """
 import frappe
 from frappe.utils import getdate
+from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.hr_rigpl.utils.attendance_report_utils import get_holidays_by_day, get_leaves_by_day, get_month
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_base_list_holiday_counts
@@ -214,3 +215,112 @@ class TestBankCmsUpload(ReportTestCase):
             from_date="2026-10-02", to_date="2026-10-02", status="Submitted"))[1]
 
         self.assertIn([pe, bank, "O'Brien", "12", 100], [[row[1], row[2], row[6], row[7], row[9]] for row in data])
+
+    # Employee Advance: the loans are Journal Entries with Employee Advance debit rows (#232)
+    LOAN_EMP, CMS_USER = "_Test RIGPL Cms Loan Employee", "_test_rigpl_cms@example.com"
+    ADVANCE_ACCOUNT, PAY_ACCOUNT = "Advances to Employees - RIGPL", "_Test Cms Bank - RIGPL"
+    LOANS = dict(entry_type="Employee Advance", from_date="2026-10-01", to_date="2026-10-05", status="Submitted")
+
+    def loan_employee(self, name=None):
+        name = name or self.LOAN_EMP
+        insert_employee(name, date_of_joining="2021-03-04")
+        return name
+
+    def advance_gl(self, voucher, employee, debit=0, credit=0, date="2026-09-01", voucher_type="Journal Entry",
+            account=None):
+        raw("GL Entry", voucher_type=voucher_type, voucher_no=voucher, account=account or self.ADVANCE_ACCOUNT,
+            party_type="Employee", party=employee, debit=debit, credit=credit, docstatus=1, is_cancelled=0,
+            posting_date=date, company="RIGPL")
+
+    def loan_entry(self, employee, amount, date="2026-10-02", docstatus=1, reference_type="Employee Advance",
+            with_gl=True):
+        je = raw("Journal Entry", posting_date=date, voucher_type="Bank Entry", docstatus=docstatus)
+        raw("Journal Entry Account", parent=je, parenttype="Journal Entry", parentfield="accounts", idx=1,
+            account=self.ADVANCE_ACCOUNT, party_type="Employee", party=employee, debit=amount,
+            reference_type=reference_type, reference_name="_Test Cms Advance")
+        raw("Journal Entry Account", parent=je, parenttype="Journal Entry", parentfield="accounts", idx=2,
+            account=self.PAY_ACCOUNT, credit=amount)
+        if with_gl and docstatus == 1:
+            self.advance_gl(je, employee, debit=amount, date=date)
+        return je
+
+    def loans(self, **filters):
+        return bank_cms_upload.execute(frappe._dict(self.LOANS, **filters))[1]
+
+    def test_loan_rows_show_bank_details_pending_and_joining_date(self):
+        employee = self.loan_employee()
+        bank = raw("Bank Account", account_name="Cms Loan Account", name_in_bank_records="Cms Name", bank_account_no="34",
+            branch_code="IFSC1", party_type="Employee", party=employee, verified=1)
+        je = self.loan_entry(employee, 3000)
+
+        row, = self.loans()
+
+        self.assertEqual([row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9]],
+            [je, bank, "Employee", employee, self.PAY_ACCOUNT, "Cms Name", "34", "IFSC1", 3000])
+        self.assertEqual((row[10], str(row[11])), (None, "2021-03-04"))
+        columns = bank_cms_upload.execute(frappe._dict(self.LOANS))[0]
+        self.assertEqual(columns[1], "Entry#: Link/Journal Entry:120")
+        self.assertEqual(columns[-2:], ["Existing Loans Pending:Currency:130", "Date of Joining:Date:100"])
+
+    def test_pending_is_the_balance_on_to_date_without_this_loan(self):
+        employee = self.loan_employee()
+        self.advance_gl("_T-OLD-LOAN", employee, debit=5000)
+        self.advance_gl("_T-SLIP", employee, credit=1000, date="2026-09-30", voucher_type="Salary Slip")
+        self.advance_gl("_T-LATER", employee, debit=700, date="2026-10-20")
+        self.advance_gl("_T-OTHER", employee, debit=900, account="_Test Cms Other Account - RIGPL")
+        self.loan_entry(employee, 3000)
+
+        row, = self.loans()
+
+        self.assertEqual(row[10], 4000)
+
+    def test_draft_entry_has_no_gl_and_pending_is_the_earlier_balance(self):
+        employee = self.loan_employee()
+        self.advance_gl("_T-OLD-LOAN", employee, debit=5000)
+        je = self.loan_entry(employee, 3000, docstatus=0)
+
+        row, = self.loans(status="Draft")
+
+        self.assertEqual((row[1], row[10]), (je, 5000))
+        self.assertEqual(self.loans(status="Submitted"), [])
+
+    def test_status_and_reference_type_filters(self):
+        employee = self.loan_employee()
+        submitted = self.loan_entry(employee, 1000)
+        self.loan_entry(employee, 2000, docstatus=2)
+        self.loan_entry(employee, 4000, reference_type=None)
+        self.assertEqual([row[1] for row in self.loans()], [submitted])
+        self.assertEqual([row[9] for row in self.loans(status="Cancelled")], [2000])
+
+    def test_old_entry_type_throws(self):
+        self.assertRaises(frappe.ValidationError, bank_cms_upload.execute,
+            frappe._dict(self.LOANS, entry_type="Employee Advance RIGPL"))
+
+    def test_user_sees_only_the_permitted_journal_entries(self):
+        employee = self.loan_employee()
+        allowed, hidden = self.loan_entry(employee, 1000), self.loan_entry(employee, 2000)
+        raw("User", name=self.CMS_USER, email=self.CMS_USER, first_name="_Test RIGPL Cms", user_type="System User",
+            enabled=1)
+        raw("Has Role", parent=self.CMS_USER, parenttype="User", parentfield="roles", role="Accounts User")
+        frappe.clear_cache(user=self.CMS_USER)
+        frappe.get_doc(dict(doctype="User Permission", user=self.CMS_USER, allow="Journal Entry", for_value=allowed,
+            apply_to_all_doctypes=1)).insert(ignore_permissions=True)
+        frappe.set_user(self.CMS_USER)
+        try:
+            names = {row[1] for row in self.loans()}
+        finally:
+            frappe.set_user("Administrator")
+        self.assertEqual(names, {allowed})
+        self.assertIn(hidden, {row[1] for row in self.loans()})
+
+    def test_query_count_does_not_depend_on_entries(self):
+        employee = self.loan_employee()
+        self.loan_entry(employee, 1000)
+        self.loans()
+        with assert_max_queries(1000) as one:
+            self.loans()
+        for amount in (2000, 3000, 4000):
+            self.loan_entry(self.loan_employee(f"{self.LOAN_EMP} {amount}"), amount)
+        with assert_max_queries(1000) as several:
+            self.assertEqual(len(self.loans()), 4)
+        self.assertEqual(one.count, several.count)
