@@ -2,6 +2,8 @@
 HR reports after the move from '%s' SQL to frappe.qb (#187). Each filter value has a quote: the
 old reports put it into the SQL text and failed.
 """
+from unittest.mock import patch
+
 import frappe
 from frappe.utils import getdate
 from rohit_common.utils.query_guard import assert_max_queries
@@ -309,19 +311,16 @@ class TestBankCmsUpload(ReportTestCase):
         self.assertRaises(frappe.ValidationError, bank_cms_upload.execute,
             frappe._dict(self.LOANS, entry_type="Employee Advance RIGPL"))
 
-    def test_user_sees_only_the_permitted_journal_entries(self):
+    def test_report_shows_only_the_journal_entries_the_user_can_read(self):
+        """The rows are limited to permitted_names (real User Permissions are tested in test_report_permissions.py)"""
         employee = self.loan_employee()
         allowed, hidden = self.loan_entry(employee, 1000), self.loan_entry(employee, 2000)
-        self.make_cms_user()
-        frappe.get_doc(dict(doctype="User Permission", user=self.CMS_USER, allow="Journal Entry", for_value=allowed,
-            apply_to_all_doctypes=1)).insert(ignore_permissions=True)
-        frappe.set_user(self.CMS_USER)
-        try:
-            names = {row[1] for row in self.loans()}
-        finally:
-            frappe.set_user("Administrator")
-        self.assertEqual(names, {allowed})
-        self.assertIn(hidden, {row[1] for row in self.loans()})
+        with patch.object(bank_cms_upload, "permitted_names", return_value={allowed}) as permitted:
+            self.assertEqual([row[1] for row in self.loans()], [allowed])
+        self.assertEqual(permitted.call_args[0][0], "Journal Entry")
+        with patch.object(bank_cms_upload, "permitted_names", return_value=set()):
+            self.assertEqual(self.loans(), [])
+        self.assertEqual({row[1] for row in self.loans()}, {allowed, hidden})
 
     def test_query_count_does_not_depend_on_entries(self):
         employee = self.loan_employee()
