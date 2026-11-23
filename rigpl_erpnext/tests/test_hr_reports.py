@@ -244,6 +244,19 @@ class TestBankCmsUpload(ReportTestCase):
             self.advance_gl(je, employee, debit=amount, date=date)
         return je
 
+    def make_cms_user(self):
+        raw("User", name=self.CMS_USER, email=self.CMS_USER, first_name="_Test RIGPL Cms", user_type="System User",
+            enabled=1)
+        raw("Has Role", parent=self.CMS_USER, parenttype="User", parentfield="roles", role="Accounts User")
+        frappe.clear_cache(user=self.CMS_USER)
+
+    def run_as(self, user, filters):
+        frappe.set_user(user)
+        try:
+            return bank_cms_upload.execute(frappe._dict(filters))
+        finally:
+            frappe.set_user("Administrator")
+
     def loans(self, **filters):
         return bank_cms_upload.execute(frappe._dict(self.LOANS, **filters))[1]
 
@@ -299,10 +312,7 @@ class TestBankCmsUpload(ReportTestCase):
     def test_user_sees_only_the_permitted_journal_entries(self):
         employee = self.loan_employee()
         allowed, hidden = self.loan_entry(employee, 1000), self.loan_entry(employee, 2000)
-        raw("User", name=self.CMS_USER, email=self.CMS_USER, first_name="_Test RIGPL Cms", user_type="System User",
-            enabled=1)
-        raw("Has Role", parent=self.CMS_USER, parenttype="User", parentfield="roles", role="Accounts User")
-        frappe.clear_cache(user=self.CMS_USER)
+        self.make_cms_user()
         frappe.get_doc(dict(doctype="User Permission", user=self.CMS_USER, allow="Journal Entry", for_value=allowed,
             apply_to_all_doctypes=1)).insert(ignore_permissions=True)
         frappe.set_user(self.CMS_USER)
@@ -324,3 +334,23 @@ class TestBankCmsUpload(ReportTestCase):
         with assert_max_queries(1000) as several:
             self.assertEqual(len(self.loans()), 4)
         self.assertEqual(one.count, several.count)
+
+    def test_max_days_filter_sets_the_period_limit(self):
+        period = dict(entry_type="Payment Entry", from_date="2026-10-01", to_date="2026-10-25", status="Submitted")
+        self.assertRaises(frappe.ValidationError, bank_cms_upload.execute, frappe._dict(period))
+        self.assertRaises(frappe.ValidationError, bank_cms_upload.execute, frappe._dict(period, max_days=23))
+        bank_cms_upload.execute(frappe._dict(period, max_days=24))
+        bank_cms_upload.execute(frappe._dict(period, max_days=30))
+        self.assertRaises(frappe.ValidationError, bank_cms_upload.execute, frappe._dict(period, max_days=-5))
+        # empty or 0 is the default of 10 days
+        self.assertRaises(frappe.ValidationError, bank_cms_upload.execute, frappe._dict(period, max_days=0))
+
+    def test_only_a_system_manager_can_set_max_days_above_30(self):
+        self.make_cms_user()
+        long_period = dict(entry_type="Payment Entry", from_date="2026-08-01", to_date="2026-09-19", status="Submitted")
+        self.assertRaisesRegex(frappe.ValidationError, "Only a System Manager",
+            self.run_as, self.CMS_USER, dict(long_period, max_days=31))
+        self.assertRaisesRegex(frappe.ValidationError, "Max Difference Between Days allowed is 30",
+            self.run_as, self.CMS_USER, dict(long_period, max_days=30))
+        self.run_as(self.CMS_USER, dict(long_period, to_date="2026-08-31", max_days=30))
+        self.run_as("Administrator", dict(long_period, max_days=60))

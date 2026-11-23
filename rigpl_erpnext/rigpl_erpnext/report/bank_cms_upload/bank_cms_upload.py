@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe.query_builder.functions import Sum
-from frappe.utils import flt, getdate
+from frappe.utils import cint, flt, getdate
 from pypika.terms import ValueWrapper
 
 from rigpl_erpnext.utils.report_utils import permitted_names
@@ -12,6 +12,9 @@ from rigpl_erpnext.utils.report_utils import permitted_names
 
 ENTRY_TYPES = ("Payment Entry", "Employee Advance")
 DOCSTATUS = {"Draft": 0, "Submitted": 1, "Cancelled": 2}
+DEFAULT_MAX_DAYS = 10
+# Only a System Manager can ask for a longer period
+USER_MAX_DAYS = 30
 
 
 def execute(filters=None):
@@ -138,10 +141,21 @@ def get_own_amounts(vouchers, employees, accounts):
 	return {(voucher, party): flt(amount) for voucher, party, amount in rows}
 
 
+def get_max_days(filters):
+	"""Days a bank upload can cover: the Max Days filter, 10 if empty. Above 30 only for a System Manager."""
+	max_days = cint(filters.get("max_days")) or DEFAULT_MAX_DAYS
+	if max_days < 1:
+		frappe.throw("Max Days should be at least 1", title="Wrong Max Days")
+	if max_days > USER_MAX_DAYS and "System Manager" not in frappe.get_roles():
+		frappe.throw("Only a System Manager can set Max Days above {0}".format(USER_MAX_DAYS), title="Max Days Too Long")
+	return max_days
+
+
 def check_dates(filters):
-	"""A bank upload is for at most 10 days."""
+	"""A bank upload is for at most Max Days."""
+	max_days = get_max_days(filters)
 	diff = getdate(filters.get("to_date")) - getdate(filters.get("from_date"))
-	if diff.days > 10:
-		frappe.throw("Max Difference Between Days allowed is 10", title="Period Too Long")
+	if diff.days > max_days:
+		frappe.throw("Max Difference Between Days allowed is {0}".format(max_days), title="Period Too Long")
 	elif diff.days < 0:
 		frappe.throw("From Date should be before To Date", title="Wrong Period")
