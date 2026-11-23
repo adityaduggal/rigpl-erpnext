@@ -20,6 +20,7 @@ The `roles` table of a Report controls only who can open the report. It does not
 3. When a filter names 1 document (for example `employee` in a details view), check that the document is in the permitted list. If it is not, raise `frappe.PermissionError`.
 4. Use `frappe.get_all` only for config and master data that is not sensitive, or after `frappe.has_permission`.
 5. Whitelisted methods follow the same rules. Never pass `ignore_permissions=True` for data that comes back to the user.
+6. One exception, decided by the user: a restricted user also sees an employee who left on or before To Date and has a non-zero Closing balance (Employee Balances RIGPL, Employee Loan Analysis). Use `employees_with_left` in `utils/report_utils.py`. It filters `relieving_date` with "is set" and "<=": Frappe reads an empty date as 0001-01-01 in "<=", so without "is set" every working employee would match. Show a left employee only when the balance is not zero.
 
 ## How User Permissions behave (v13)
 
