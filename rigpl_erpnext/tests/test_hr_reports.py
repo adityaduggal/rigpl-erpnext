@@ -177,9 +177,50 @@ class TestEmployeeBalances(ReportTestCase):
 
         data = self.assert_queries(3, lambda: employee_balances_rigpl.execute(frappe._dict(filters, non_zero=1))[1])
 
-        self.assertEqual([[row[0]] + row[8:] for row in data], [[EMP, 1000, 500, 300, 1200]])
+        self.assertEqual([[row[0]] + row[8:] for row in data], [[EMP, 1000, 500, 300, 1200, None, 1200]])
         all_rows = employee_balances_rigpl.execute(frappe._dict(filters))[1]
         self.assertEqual([row[0] for row in all_rows], [EMP, EMP_2])
+
+    def test_loans_cancelled_and_company(self):
+        """Loans/Advances are the rows against an Employee Advance. Cancelled rows are skipped. The company
+        filter reads the GL company."""
+        insert_employee(EMP)
+        rows = (("2026-08-15", 1000, 0, None, 0, "_Test RIGPL Company 1"),
+            ("2026-08-20", 0, 400, "Employee Advance", 0, "_Test RIGPL Company 1"),
+            ("2026-09-05", 0, 200, "Employee Advance", 0, "_Test RIGPL Company 2"),
+            ("2026-09-06", 0, 900, "Employee Advance", 1, "_Test RIGPL Company 1"))
+        for date, credit, debit, against, cancelled, company in rows:
+            raw("GL Entry", party_type="Employee", party=EMP, posting_date=date, credit=credit, debit=debit,
+                against_voucher_type=against, is_cancelled=cancelled, company=company)
+        filters = dict(from_date="2026-09-01", to_date="2026-09-30", branch=BRANCH, non_zero=1)
+
+        data = self.assert_queries(3, lambda: employee_balances_rigpl.execute(frappe._dict(filters))[1])
+        self.assertEqual([row[8:] for row in data], [[600, None, 200, 400, -600, 1000]])
+        data = employee_balances_rigpl.execute(frappe._dict(filters, company="_Test RIGPL Company 1"))[1]
+        self.assertEqual([row[8:] for row in data], [[600, None, None, 600, -400, 1000]])
+
+
+    def test_zero_rows_by_period_and_left_with_balance_first(self):
+        """Non-zero rows always show. With Non Zero off, zero rows show only for employees active in the
+        period. An employee who left on or before To Date with a Closing balance is listed first."""
+        names = {key: "_Test RIGPL O'Brien Bal {0}".format(key) for key in
+            ("active", "active_zero", "left_before_zero", "left_before_bal", "left_in_bal", "joins_later_zero")}
+        insert_employee(names["active"])
+        insert_employee(names["active_zero"])
+        insert_employee(names["left_before_zero"], relieving_date="2026-07-31")
+        insert_employee(names["left_before_bal"], relieving_date="2026-07-31")
+        insert_employee(names["left_in_bal"], relieving_date="2026-09-15")
+        insert_employee(names["joins_later_zero"], date_of_joining="2026-10-05")
+        for key in ("active", "left_before_bal", "left_in_bal"):
+            raw("GL Entry", party_type="Employee", party=names[key], posting_date="2026-06-10", credit=100, debit=0)
+        filters = dict(from_date="2026-09-01", to_date="2026-09-30", branch=BRANCH)
+
+        data = self.assert_queries(3, lambda: employee_balances_rigpl.execute(frappe._dict(filters))[1])
+        self.assertEqual([row[0] for row in data], [names["left_before_bal"], names["left_in_bal"],
+            names["active"], names["active_zero"]])
+        non_zero = employee_balances_rigpl.execute(frappe._dict(filters, non_zero=1))[1]
+        self.assertEqual([row[0] for row in non_zero], [names["left_before_bal"], names["left_in_bal"],
+            names["active"]])
 
 
 class TestRoster(ReportTestCase):
