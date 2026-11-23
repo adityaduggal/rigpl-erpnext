@@ -135,6 +135,8 @@ override_doctype_class = {
     "Payroll Entry": "rigpl_erpnext.hr_rigpl.utils.hr_utils.RigplPayrollEntry",
     # Data Import of Shift Requests by users with Department User Permissions (#238)
     "Shift Request": "rigpl_erpnext.rigpl_erpnext.validations.shift_assignment.ShiftRequestRIGPL",
+    # Same for Attendance (#238)
+    "Attendance": "rigpl_erpnext.rigpl_erpnext.validations.attendance.AttendanceRIGPL",
 }
 
 # Document Events

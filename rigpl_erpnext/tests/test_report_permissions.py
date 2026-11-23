@@ -219,6 +219,25 @@ class TestReportPermissions(ReportTestCase):
         with self.assertRaises(frappe.PermissionError):
             self.make_shift_request(HIDDEN)
 
+    def test_attendance_import_fills_department(self):
+        """Data Import of Attendance checks the create permission before department is fetched (#238)"""
+        raw("Shift Type", name="_Test RIGPL Perm Att Shift", start_time="09:00:00", end_time="17:00:00")
+        raw("Shift Assignment", employee=EMP, shift_type="_Test RIGPL Perm Att Shift", start_date="2026-01-01",
+            docstatus=1, status="Active")
+
+        def make(employee):
+            doc = frappe.get_doc(dict(doctype="Attendance", employee=employee, attendance_date="2026-09-01",
+                status="Present", company=frappe.db.get_value("Company", {}, "name")))
+            frappe.set_user(USER)
+            try:
+                return doc.insert()
+            finally:
+                frappe.set_user("Administrator")
+
+        self.assertEqual(make(EMP).department, DEPT)
+        with self.assertRaises(frappe.PermissionError):
+            make(HIDDEN)
+
     def test_department_copies_approvers(self):
         from rigpl_erpnext.rigpl_erpnext.validations.department import APPROVER_MODES, copy_approvers
         from rigpl_erpnext.utils.rigpl_perm import get_department_allowed_ids

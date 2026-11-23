@@ -2,11 +2,23 @@
 from __future__ import unicode_literals
 from __future__ import division
 import frappe
+from erpnext.hr.doctype.attendance.attendance import Attendance
 from frappe.query_builder import Order
 from frappe.utils import getdate, add_days, get_datetime, time_diff_in_seconds
 from datetime import datetime, timedelta
 
 from rigpl_erpnext.hr_rigpl.utils.hr_utils import get_half_day_fraction
+
+
+class AttendanceRIGPL(Attendance):
+    """insert() checks the create permission before department is fetched from the Employee. With strict
+    User Permissions an empty department is denied, so Data Import fails (#238). Fill it first."""
+
+    def insert(self, *args, **kwargs):
+        if self.employee:
+            # Always the Employee's value, as fetch_from sets it later: a typed department must not pass the check
+            self.department = frappe.db.get_value("Employee", self.employee, "department")
+        return super().insert(*args, **kwargs)
 
 
 def on_update(doc, method):
