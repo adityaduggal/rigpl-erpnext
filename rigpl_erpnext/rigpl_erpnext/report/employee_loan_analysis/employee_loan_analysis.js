@@ -50,7 +50,11 @@ frappe.query_reports["Employee Loan Analysis"] = {
 	// A summary row of an employee who left on or before To Date and still has a Closing balance is red.
 	// The same rule orders these rows first in the .py file.
 	"formatter": function (value, row, column, data, default_formatter) {
-		const html = rigpl_erpnext.report.blank_zero_formatter(value, row, column, data, default_formatter);
+		let html = rigpl_erpnext.report.blank_zero_formatter(value, row, column, data, default_formatter);
+		if (column && column.fieldname === "pending_advances" && value) {
+			// 1 link for each pending Employee Advance; the value is the names joined by ", "
+			html = value.split(", ").map(name => frappe.utils.get_form_link("Employee Advance", name, true)).join(", ");
+		}
 		const to_date = frappe.query_report.get_filter_value("to_date");
 		if (data && data.relieving_date && data.relieving_date <= to_date && flt(data.closing)) {
 			return `<span style="color: red">${html}</span>`;

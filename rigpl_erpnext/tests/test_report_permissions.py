@@ -137,19 +137,39 @@ class TestReportPermissions(ReportTestCase):
     def test_employee_loan_analysis_balances(self):
         """Opening, given, deducted and closing come from the GL of loans only; cancelled rows and advances
         that are not loans are ignored."""
-        make_loan(EMP, [("2026-08-10", 1000, 0, "Journal Entry"), ("2026-09-05", 0, 100, "Salary Slip"),
+        loan = make_loan(EMP, [("2026-08-10", 1000, 0, "Journal Entry"), ("2026-09-05", 0, 100, "Salary Slip"),
             ("2026-09-10", 500, 0, "Journal Entry"), ("2026-09-20", 0, 200, "Salary Slip"),
             ("2026-10-05", 0, 50, "Salary Slip")])
         make_loan(EMP, [("2026-09-06", 0, 300, "Salary Slip")], cancelled=True)
         make_loan(EMP, [("2026-09-07", 700, 0, "Journal Entry")], loan=0)
         data = employee_loan_analysis.execute(frappe._dict(PERIOD))[1]
-        self.assertEqual(data[0], [EMP, EMP, "Active", "2099-12-31", 1000, 500, 300, 1200])
-        self.assertEqual(data[-1], ["Total", "", "", "", 1000, 500, 300, 1200])
+        self.assertEqual(data[0], [EMP, EMP, "Active", "2099-12-31", 1000, 500, 300, 1200, loan])
+        self.assertEqual(data[-1], ["Total", "", "", "", 1000, 500, 300, 1200, ""])
 
         data = employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=EMP))[1]
         self.assertEqual([(row[3], row[4], row[5], row[6]) for row in data], [
             ("", "", 1000, ""), (None, 100, 900, "Salary Slip"), (500, None, 1400, "Journal Entry"),
             (None, 200, 1200, "Salary Slip"), (500, 300, 1200, "")])
+
+    def test_employee_loan_analysis_pending_advances(self):
+        """Deductions repay the oldest loan first, so the Closing balance is allocated to the newest advances.
+        A repaid advance, a cancelled one and an advance that is not a loan are not listed."""
+        make_loan(EMP, [("2026-06-10", 500, 0, "Journal Entry")])
+        old = make_loan(EMP, [("2026-07-10", 1000, 0, "Journal Entry")])
+        new = make_loan(EMP, [("2026-08-10", 300, 0, "Journal Entry")])
+        make_loan(EMP, [("2026-09-02", 0, 1500, "Salary Slip")])
+        make_loan(EMP, [("2026-09-06", 200, 0, "Journal Entry")], cancelled=True)
+        make_loan(EMP, [("2026-09-07", 700, 0, "Journal Entry")], loan=0)
+        data = employee_loan_analysis.execute(frappe._dict(PERIOD))[1]
+        self.assertEqual(data[0][7], 300)
+        self.assertEqual(data[0][8], new)
+        self.assertEqual(data[-1][8], "")
+        make_loan(EMP, [("2026-09-10", 100, 0, "Journal Entry")])
+        data = employee_loan_analysis.execute(frappe._dict(PERIOD))[1]
+        self.assertEqual(data[0][7], 400)
+        self.assertEqual(len(data[0][8].split(", ")), 2)
+        self.assertIn(new, data[0][8])
+        self.assertNotIn(old, data[0][8])
 
     def test_employee_loan_analysis_query_count(self):
         """The queries do not grow with the number of employees or GL rows"""

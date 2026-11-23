@@ -8,7 +8,7 @@ employee with a running balance. Each view runs a fixed number of queries.
 """
 
 import frappe
-from frappe.query_builder.functions import Sum
+from frappe.query_builder.functions import Min, Sum
 from frappe.utils import cint, flt, getdate
 from pypika.terms import Case
 
@@ -41,7 +41,8 @@ def get_columns(filters):
 	columns = [("employee", "Employee", "Link", "Employee", 100), ("employee_name", "Employee Name", "Data", None, 180),
 		("status", "Status", "Data", None, 100), ("relieving_date", "Relieving Date", "Date", None, 100),
 		("opening", "Opening Balance", "Currency", None, 100), ("given", "Loan Given", "Currency", None, 100),
-		("deducted", "Loan Deducted", "Currency", None, 100), ("closing", "Closing Balance", "Currency", None, 100)]
+		("deducted", "Loan Deducted", "Currency", None, 100), ("closing", "Closing Balance", "Currency", None, 100),
+		("pending_advances", "Pending Advances", "Data", None, 220)]
 	return [{"fieldname": name, "label": label, "fieldtype": fieldtype, "options": options, "width": width}
 		for name, label, fieldtype, options, width in columns]
 
@@ -72,14 +73,39 @@ def loan_gl(*fields, employee=None):
 
 
 def get_balances(filters, employee=None):
-	"""{employee: (opening, given, deducted)} in 1 query. A GL row before the From Date is opening."""
-	query, gl = loan_gl("party", employee=employee)
+	"""
+	{employee: (opening, given, deducted, pending advances)} in 1 query. A GL row before the From Date is opening.
+	Deductions repay the oldest loan first, so the Closing balance is allocated to the newest advances: an advance
+	is pending while the amount given in the newer ones is less than the Closing balance. The names are sorted.
+	"""
+	query, gl = loan_gl("party", "against_voucher", employee=employee)
 	before, period = gl.posting_date < filters.from_date, gl.posting_date >= filters.from_date
 	query = (query.select(Sum(Case().when(before, gl.debit - gl.credit).else_(0)),
-			Sum(Case().when(period, gl.debit).else_(0)), Sum(Case().when(period, gl.credit).else_(0)))
-		.where(gl.posting_date <= filters.to_date).groupby(gl.party))
-	return {party: (flt(opening), flt(given), flt(deducted)) for party, opening, given, deducted in
-		query.run()}
+			Sum(Case().when(period, gl.debit).else_(0)), Sum(Case().when(period, gl.credit).else_(0)),
+			Sum(gl.debit), Min(gl.posting_date))
+		.where(gl.posting_date <= filters.to_date).groupby(gl.party, gl.against_voucher))
+	balances, advances = {}, {}
+	for party, advance, opening, given, deducted, debit, given_on in query.run():
+		totals = balances.setdefault(party, [0, 0, 0])
+		totals[0] += flt(opening)
+		totals[1] += flt(given)
+		totals[2] += flt(deducted)
+		advances.setdefault(party, []).append((given_on, advance, flt(debit)))
+	return {party: (opening, given, deducted, get_pending(opening + given - deducted, advances[party]))
+		for party, (opening, given, deducted) in balances.items()}
+
+
+def get_pending(closing, advances):
+	"""Names of the newest advances, (given on, name, amount given), that the Closing balance still covers"""
+	pending = []
+	for given_on, name, amount in sorted(advances, reverse=True):
+		if flt(closing, 2) <= 0:
+			break
+		if amount <= 0:
+			continue
+		pending.append(name)
+		closing -= amount
+	return sorted(pending)
 
 
 def get_summary(filters, employees, only_left):
@@ -88,24 +114,24 @@ def get_summary(filters, employees, only_left):
 	to_date = getdate(filters.to_date)
 	left, data = [], []
 	for emp in sorted(employees):
-		opening, given, deducted = balances.get(emp, (0, 0, 0))
+		opening, given, deducted, pending = balances.get(emp, (0, 0, 0, []))
 		closing = opening + given - deducted
 		if emp in only_left and not closing:
 			continue
 		if opening > 0 or given > 0 or deducted > 0 or closing > 0 or emp in only_left:
 			det = employees[emp]
 			row = [emp, det.employee_name, det.status, det.relieving_date or "2099-12-31", opening, given,
-				deducted, closing]
+				deducted, closing, ", ".join(pending)]
 			(left if closing and det.relieving_date and getdate(det.relieving_date) <= to_date else data).append(row)
 	data = left + data
 	if data:
-		data.append(["Total", "", "", "", *[sum(row[col] for row in data) for col in range(4, 8)]])
+		data.append(["Total", "", "", "", *[sum(row[col] for row in data) for col in range(4, 8)], ""])
 	return data
 
 
 def get_details(filters, employee):
 	"""Opening balance, the GL rows of the period with a running balance, and the closing balance"""
-	opening, given, deducted = get_balances(filters, employee.name).get(employee.name, (0, 0, 0))
+	opening, given, deducted, _pending = get_balances(filters, employee.name).get(employee.name, (0, 0, 0, []))
 	query, gl = loan_gl("posting_date", "debit", "credit", "voucher_type", "voucher_no", employee=employee.name)
 	rows = (query.where(gl.posting_date.between(filters.from_date, filters.to_date))
 		.orderby(gl.posting_date).orderby(gl.creation).run())
