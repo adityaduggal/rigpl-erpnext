@@ -42,9 +42,16 @@ frappe.query_reports["Employee Loan Analysis"] = {
 			"reqd": 1
 		},
 		{
-			"fieldname":"details",
-			"label": "Details",
-			"fieldtype": "Check"
+			"fieldname":"view",
+			"label": __("Show"),
+			"fieldtype": "Select",
+			"options": [
+				"Employees with Existing Loans (Active Balances)",
+				"Employees with Transactions in Period",
+				"Details of 1 Employee",
+			].join("\n"),
+			"default": "Employees with Existing Loans (Active Balances)",
+			"reqd": 1
 		},
 	],
 	// A summary row of an employee who left on or before To Date and still has a Closing balance is red.

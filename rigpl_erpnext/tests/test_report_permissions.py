@@ -112,7 +112,7 @@ class TestReportPermissions(ReportTestCase):
 
         frappe.set_user(USER)
         with self.assertRaises(frappe.PermissionError):
-            employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=HIDDEN))
+            employee_loan_analysis.execute(frappe._dict(PERIOD, view=employee_loan_analysis.DETAILS, employee=HIDDEN))
 
     def test_employee_loan_analysis_left_employee_first(self):
         """A restricted user sees the loan of an employee who left, in any Department, and the left employee
@@ -128,7 +128,7 @@ class TestReportPermissions(ReportTestCase):
         frappe.set_user(USER)
         try:
             rows = run()[1]
-            details = employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=left))[1]
+            details = employee_loan_analysis.execute(frappe._dict(PERIOD, view=employee_loan_analysis.DETAILS, employee=left))[1]
         finally:
             frappe.set_user("Administrator")
         self.assertEqual([row[0] for row in rows], [left, EMP, "Total"])
@@ -146,10 +146,21 @@ class TestReportPermissions(ReportTestCase):
         self.assertEqual(data[0], [EMP, EMP, "Active", "2099-12-31", 1000, 500, 300, 1200, loan])
         self.assertEqual(data[-1], ["Total", "", "", "", 1000, 500, 300, 1200, ""])
 
-        data = employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=EMP))[1]
+        data = employee_loan_analysis.execute(frappe._dict(PERIOD, view=employee_loan_analysis.DETAILS, employee=EMP))[1]
         self.assertEqual([(row[3], row[4], row[5], row[6]) for row in data], [
             ("", "", 1000, ""), (None, 100, 900, "Salary Slip"), (500, None, 1400, "Journal Entry"),
             (None, 200, 1200, "Salary Slip"), (500, 300, 1200, "")])
+
+    def test_employee_loan_analysis_show_options(self):
+        """Existing Loans lists the employees with a Closing balance. Transactions in Period lists the employees with
+        a loan given or deducted in the period, also when the loan is repaid (Closing 0). The default is Existing Loans."""
+        make_loan(EMP, [("2026-08-10", 1000, 0, "Journal Entry")])
+        make_loan(HIDDEN, [("2026-09-05", 500, 0, "Journal Entry"), ("2026-09-20", 0, 500, "Salary Slip")])
+        names = lambda **f: [row[0] for row in employee_loan_analysis.execute(frappe._dict(PERIOD, **f))[1]
+            if row[0] != "Total"]
+        self.assertEqual(names(), [EMP])
+        self.assertEqual(names(view=employee_loan_analysis.EXISTING), [EMP])
+        self.assertEqual(names(view=employee_loan_analysis.TRANSACTIONS), [HIDDEN])
 
     def test_employee_loan_analysis_pending_advances(self):
         """Deductions repay the oldest loan first, so the Closing balance is allocated to the newest advances.
@@ -175,7 +186,7 @@ class TestReportPermissions(ReportTestCase):
         """The queries do not grow with the number of employees or GL rows"""
         make_loan(EMP, [("2026-09-05", 1000, 0, "Journal Entry")])
         summary = lambda: employee_loan_analysis.execute(frappe._dict(PERIOD))
-        details = lambda: employee_loan_analysis.execute(frappe._dict(PERIOD, details=1, employee=EMP))
+        details = lambda: employee_loan_analysis.execute(frappe._dict(PERIOD, view=employee_loan_analysis.DETAILS, employee=EMP))
         self.assert_queries(5, summary)
         self.assert_queries(5, details)
         for idx in range(20):

@@ -9,18 +9,23 @@ employee with a running balance. Each view runs a fixed number of queries.
 
 import frappe
 from frappe.query_builder.functions import Min, Sum
-from frappe.utils import cint, flt, getdate
+from frappe.utils import flt, getdate
 from pypika.terms import Case
 
 from rigpl_erpnext.utils.report_utils import blank_zeros, employees_with_left
 
+# Values of the "Show" filter (also in the .js file)
+EXISTING = "Employees with Existing Loans (Active Balances)"
+TRANSACTIONS = "Employees with Transactions in Period"
+DETAILS = "Details of 1 Employee"
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
-	if cint(filters.details) and not filters.employee:
+	if filters.view == DETAILS and not filters.employee:
 		frappe.throw("Please select an Employee for getting Loan Details")
 	employees, only_left = get_employees(filters)
-	if cint(filters.details):
+	if filters.view == DETAILS:
 		if filters.employee not in employees:
 			frappe.throw("Not permitted to read Employee {0}".format(filters.employee), frappe.PermissionError)
 		data = get_details(filters, employees[filters.employee])
@@ -30,7 +35,7 @@ def execute(filters=None):
 
 
 def get_columns(filters):
-	if cint(filters.details):
+	if filters.view == DETAILS:
 		return [
 			"Posting Date:Date:80", "Employee:Link/Employee:100", "Employee Name::180",
 			"Loan Given:Currency:100", "Loan Deducted:Currency:100", "Balance:Currency:100",
@@ -109,7 +114,11 @@ def get_pending(closing, advances):
 
 
 def get_summary(filters, employees, only_left):
-	"""Employees who left on or before To Date with a Closing balance come first (red in the .js file)"""
+	"""
+	One row per employee. Existing Loans lists the employees with a Closing balance, Transactions in Period the
+	employees with a loan given or deducted in the period. Employees who left on or before To Date with a Closing
+	balance come first (red in the .js file). The employees that only the left rule adds show only with a Closing balance.
+	"""
 	balances = get_balances(filters)
 	to_date = getdate(filters.to_date)
 	left, data = [], []
@@ -118,7 +127,7 @@ def get_summary(filters, employees, only_left):
 		closing = opening + given - deducted
 		if emp in only_left and not closing:
 			continue
-		if opening > 0 or given > 0 or deducted > 0 or closing > 0 or emp in only_left:
+		if (given or deducted) if filters.view == TRANSACTIONS else closing:
 			det = employees[emp]
 			row = [emp, det.employee_name, det.status, det.relieving_date or "2099-12-31", opening, given,
 				deducted, closing, ", ".join(pending)]
