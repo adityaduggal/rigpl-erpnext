@@ -219,9 +219,9 @@ def clearance_line(clearance: str, template, gstin: str, purpose: str) -> str:
     else:
         parts = [CSB_V]
     if template.get("iec_code"):
-        parts.append(f"IEC {template.iec_code}")
+        parts.append(f"IEC {template.get('iec_code')}")
     if template.get("bank_ad_code"):
-        parts.append(f"AD Code {template.bank_ad_code}")
+        parts.append(f"AD Code {template.get('bank_ad_code')}")
     if tin(gstin):
         parts.append(f"GSTIN {gstin.strip()}")
     if template.get("export_type") == "Without Payment of Tax":
