@@ -71,7 +71,7 @@ class EmployeeAdvanceTool(Document):
             advance_account=self.advance_account, currency=erpnext.get_company_currency(self.company),
             exchange_rate=1, repay_unclaimed_amount_from_salary=1, emi=row.emi,
             deduction_type=self.deduction_type or get_loan_component()))
-        advance.insert()
+        advance.insert(ignore_permissions=True)  # HR User has no create on Employee Advance; validate_rows checked the Employee
         return advance
 
     def make_journal_entry(self, advances):
@@ -90,11 +90,18 @@ class EmployeeAdvanceTool(Document):
                 cost_center=cost_center))
         journal.append("accounts", dict(account=self.payment_account, cost_center=cost_center,
             credit_in_account_currency=sum(flt(advance.advance_amount) for advance in advances)))
-        journal.insert()
+        journal.insert(ignore_permissions=True)  # HR User has no create on Journal Entry
         return journal
 
 
 def get_employees(names):
-    rows = frappe.get_all("Employee", filters={"name": ("in", list(set(names)) or [""])},
+    """Only the Employees the user may read (User Permissions). Any other Employee raises PermissionError,
+    because the advances are inserted with ignore_permissions."""
+    names = set(names)
+    rows = frappe.get_list("Employee", filters={"name": ("in", list(names) or [""])},
         fields=["name", "employee_name", "status", "relieving_date"])
-    return {row.name: row for row in rows}
+    employees = {row.name: row for row in rows}
+    if names - set(employees):
+        frappe.throw(_("You are not permitted to give advance to Employee {0}").format(
+            ", ".join(sorted(names - set(employees)))), frappe.PermissionError)
+    return employees
