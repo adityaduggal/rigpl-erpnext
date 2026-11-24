@@ -87,6 +87,7 @@ class ShipmentRequest:
     ship_date: Optional[date] = None
     test_marking: bool = False
     documents: List[TradeDocument] = field(default_factory=list)
+    special_instructions: str = ""  # the export clearance line for customs (#241)
 
     @property
     def is_export(self) -> bool:

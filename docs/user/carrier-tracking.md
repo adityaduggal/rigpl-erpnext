@@ -44,6 +44,29 @@ The booking message tells you what to print:
 
 The system deletes the two files from the tracking a day after delivery.
 
+### Export clearance (CSB-IV, CSB-V, Shipping Bill)
+
+When you save an export from India, **Export Clearance** shows how customs clears it:
+
+| Export Clearance | When |
+|---|---|
+| CSB-V | Purpose SOLD and the Sales Invoice is Rs 10 lakh or less (Grand Total in INR). |
+| Shipping Bill | Purpose SOLD and the Sales Invoice is more than Rs 10 lakh. The FedEx agent files a formal shipping bill. |
+| CSB-IV | All other purposes: sample, gift, catalogs, repair and return. |
+
+The field changes only while the tracking is a draft.
+
+A FedEx booking sends one line to FedEx with the clearance, the IEC, the AD code, the GSTIN and the LUT. For
+example: "CSB-V. IEC 0500000001. AD Code 01234560000001. GSTIN 06... Export under LUT ... without IGST."
+
+For purpose SOLD, the booking stops when one of these is missing:
+
+- **IEC Code**, **Bank AD Code** or **Export Type** in the Sales Taxes and Charges Template of the Sales Invoice.
+- The GSTIN of the From Address.
+
+FedEx has not yet confirmed which API fields it wants for CSB shipments (#241). The line goes in the
+special instructions of the commercial invoice.
+
 For a transporter with no booking API, type the AWB number from the carrier receipt, then submit.
 
 ## The Shipment menu

@@ -2,7 +2,7 @@
 Builds a ShipmentRequest from a Carrier Tracking (#168), so the adapters never read docs.
 About 6 queries for any number of packages and items.
 """
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import frappe
 from frappe.query_builder.functions import Coalesce
@@ -161,6 +161,81 @@ def trade_document(doc, fieldname: str, doc_type: str, pdf_only: bool) -> TradeD
     if len(content) > MAX_DOCUMENT_BYTES:
         frappe.throw(f"{label} is {len(content) / 1024 / 1024:.1f} MB. FedEx takes at most 5 MB.")
     return TradeDocument(doc_type, file_doc.file_name, content, CONTENT_TYPES[extension])
+
+
+# ----------------------------------------------------------------------------- courier export clearance (#241)
+
+CSB_IV, CSB_V, SHIPPING_BILL = "CSB-IV", "CSB-V", "Shipping Bill"
+CSB_V_LIMIT = 1000000  # Rs 10 lakh: the most one CSB-V consignment may be worth (Courier Regulations 2010)
+TEMPLATE_FIELDS = ["iec_code", "bank_ad_code", "export_type", "lut_no_and_date"]
+
+
+def export_clearance(purpose: str, base_value: Optional[float]) -> str:
+    """CSB-V for a sale up to Rs 10 lakh, a Shipping Bill (formal clearance) above it, CSB-IV
+    for samples, gifts and other goods that are not sold. Empty for a sale with no value."""
+    if (purpose or "SOLD") != "SOLD":
+        return CSB_IV
+    if base_value is None:
+        return ""
+    return CSB_V if flt(base_value) <= CSB_V_LIMIT else SHIPPING_BILL
+
+
+def invoice_base_value(doc) -> Optional[float]:
+    """The invoice value in INR, the value that customs uses for the CSB-V limit."""
+    if doc.document != "Sales Invoice" or not doc.document_name:
+        return None
+    return flt(frappe.db.get_value("Sales Invoice", doc.document_name, "base_grand_total"))
+
+
+def export_instructions(doc, req: ShipmentRequest) -> str:
+    """The clearance line for the carrier. A sale needs the IEC, AD code and export type of the
+    Sales Invoice tax template, and the GSTIN of the From Address."""
+    clearance = doc.export_clearance or export_clearance(doc.purpose, invoice_base_value(doc))
+    if clearance == CSB_IV:
+        return clearance_line(clearance, frappe._dict(), req.origin.tax_id, doc.purpose)
+    template_name = frappe.db.get_value("Sales Invoice", doc.document_name, "taxes_and_charges") \
+        if doc.document == "Sales Invoice" and doc.document_name else ""
+    template = frappe.db.get_value("Sales Taxes and Charges Template", template_name, TEMPLATE_FIELDS,
+                                   as_dict=True) if template_name else None
+    template = template or frappe._dict()
+    missing = [label for label, value in (("IEC Code", template.iec_code), ("Bank AD Code", template.bank_ad_code),
+                                          ("Export Type", template.export_type)) if not value]
+    if not tin(req.origin.tax_id):
+        missing.append(f"GSTIN of From Address {doc.from_address}")
+    if missing:
+        where = frappe.get_desk_link("Sales Taxes and Charges Template", template_name) if template_name \
+            else f"the Sales Invoice {doc.document_name or ''}".strip()
+        frappe.throw(f"Export {doc.name} ({clearance or CSB_V}) needs {', '.join(missing)}. Set them in {where}.",
+                     title="Export Details Needed")
+    return clearance_line(clearance, template, req.origin.tax_id, doc.purpose)
+
+
+def clearance_line(clearance: str, template, gstin: str, purpose: str) -> str:
+    """For example: 'CSB-V. IEC 0500000001. AD Code 0123456. GSTIN 06AAA. Export under LUT ... without IGST.'"""
+    if clearance == CSB_IV:
+        parts = [f"CSB-IV. {(purpose or '').replace('_', ' ').title()}, not for sale"]
+    elif clearance == SHIPPING_BILL:
+        parts = ["Shipping Bill. Value above Rs 10 lakh, formal clearance"]
+    else:
+        parts = [CSB_V]
+    if template.get("iec_code"):
+        parts.append(f"IEC {template.iec_code}")
+    if template.get("bank_ad_code"):
+        parts.append(f"AD Code {template.bank_ad_code}")
+    if tin(gstin):
+        parts.append(f"GSTIN {gstin.strip()}")
+    if template.get("export_type") == "Without Payment of Tax":
+        lut = tin(template.get("lut_no_and_date") or "")
+        parts.append(f"Export under LUT {lut} without IGST" if lut else "Export under LUT without IGST")
+    elif template.get("export_type") == "With Payment of Tax":
+        parts.append("Export with payment of IGST")
+    return ". ".join(parts) + "."
+
+
+def tin(value: str) -> str:
+    """The value, or empty for the NA that marks an empty GSTIN or LUT."""
+    value = (value or "").strip()
+    return "" if value.upper() in ("", "NA") else value
 
 
 def delete_delivered_documents(limit: int = 500) -> int:

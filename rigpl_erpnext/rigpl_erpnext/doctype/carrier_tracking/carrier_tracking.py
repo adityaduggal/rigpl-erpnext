@@ -14,6 +14,7 @@ from ...shipping import access, actions
 from ...shipping.accounts import BOOKING
 from ...shipping.form_actions import check_action, onload_actions
 from ...shipping.registry import get_carrier, transporter_api
+from ...shipping.request import export_clearance, invoice_base_value
 from ...shipping.tracking import track_now
 from ...shipping.validations import courier_charges_validation
 from ....utils.sales_utils import validate_address_google_update
@@ -114,6 +115,7 @@ class CarrierTracking(WebsiteGenerator):
         from_address = frappe.get_doc("Address", self.from_address)
         to_address = frappe.get_doc("Address", self.to_address)
         self.check_invoice_integrity(from_address)
+        self.set_export_clearance(from_address, to_address)
         self.set_recipient_email(to_address)
         # The old code ran these checks only for FedEx booking (fedex_credentials), keep that
         if api_mode == BOOKING and provider == "FedEx":
@@ -243,6 +245,14 @@ class CarrierTracking(WebsiteGenerator):
             si = frappe.db.get_value("Sales Invoice", self.document_name, ["transporters", "lr_no"], as_dict=True)
             self.invoice_integrity = int(bool(si) and self.carrier_name == si.transporters
                                          and self.awb_number == si.lr_no)
+
+    def set_export_clearance(self, from_address, to_address):
+        """CSB-IV, CSB-V or Shipping Bill for an export from India (#241), empty otherwise.
+        Draft only: the field cannot change after submit."""
+        if self.docstatus != 0:
+            return
+        export = not self.is_inward and from_address.country == "India" and to_address.country != "India"
+        self.export_clearance = export_clearance(self.purpose, invoice_base_value(self)) if export else ""
 
     def carrier_validations(self, tpt, from_address, to_address):
         name = self.carrier_name

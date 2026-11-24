@@ -31,6 +31,7 @@
   "delivery_date_time",
   "recipient",
   "purpose",
+  "export_clearance",
   "shipment_notes",
   "courier_charged",
   "fedex_account_number",
@@ -243,6 +244,16 @@
    "fieldtype": "Select",
    "label": "Purpose",
    "options": "\nGIFT\nNOT_SOLD\nPERSONAL_EFFECTS\nREPAIR_AND_RETURN\nSAMPLE\nSOLD"
+  },
+  {
+   "depends_on": "export_clearance",
+   "description": "How customs clears an export (#241): CSB-V for a sale up to Rs 10 lakh, a Shipping Bill above it, CSB-IV for samples, gifts and other purposes. Set on save.",
+   "fieldname": "export_clearance",
+   "fieldtype": "Select",
+   "label": "Export Clearance",
+   "no_copy": 1,
+   "options": "\nCSB-IV\nCSB-V\nShipping Bill",
+   "read_only": 1
   },
   {
    "depends_on": "eval: in_list([\"Customer\", \"Supplier\"], doc.document)",
@@ -519,7 +530,7 @@
  "has_web_view": 1,
  "is_published_field": "published",
  "is_submittable": 1,
- "modified": "2026-11-23 13:00:00.000000",
+ "modified": "2026-11-24 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "Carrier Tracking",

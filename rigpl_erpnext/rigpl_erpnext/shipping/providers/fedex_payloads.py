@@ -54,6 +54,9 @@ def ship_body(req: ShipmentRequest, account_number: str, doc_ids: Optional[List[
     if req.is_export and req.invoice_number:
         shipment["customsClearanceDetail"]["commercialInvoice"]["customerReferences"] = [
             {"customerReferenceType": "INVOICE_NUMBER", "value": req.invoice_number}]
+    if req.is_export and req.special_instructions:
+        # CSB type, IEC, AD code and GSTIN for the customs agent of FedEx (#241)
+        shipment["customsClearanceDetail"]["commercialInvoice"]["specialInstructions"] = req.special_instructions
     if doc_ids:
         # ETD: customs gets our uploaded invoice electronically. FedEx makes no invoice of its own.
         shipment["shipmentSpecialServices"] = {"specialServiceTypes": ["ELECTRONIC_TRADE_DOCUMENTS"],

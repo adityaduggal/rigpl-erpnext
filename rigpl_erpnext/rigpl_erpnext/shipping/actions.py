@@ -11,7 +11,7 @@ from frappe.utils.file_manager import remove_all, save_file
 
 from .base import Label, NotSupported, ProviderError
 from .registry import require_carrier
-from .request import build_shipment_request, trade_documents
+from .request import build_shipment_request, export_instructions, trade_documents
 from . import status as st
 
 NO_AWB = ("", "NA")
@@ -75,6 +75,8 @@ def book(doc, test_marking: bool = False) -> None:
     req = build_shipment_request(doc, carrier.service_code, test_marking=test_marking)
     if carrier.provider.supports("etd") and req.is_export:
         req.documents = trade_documents(doc)  # checked before the rate call, so a bad file fails fast
+        if not req.is_inward and req.origin.country_code == "IN":
+            req.special_instructions = export_instructions(doc, req)
     if carrier.provider.supports("serviceability") and carrier.provider.check_service_before_booking:
         check_serviceability(doc)
     if carrier.provider.supports("rate") or cint(

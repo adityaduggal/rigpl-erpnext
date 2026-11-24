@@ -132,6 +132,17 @@ class TestFedExBodies(FrappeTestCase):
                  "documentId": "D2"}]}})
 
 
+    def test_export_clearance_line_goes_in_the_commercial_invoice_of_an_export_only(self):
+        line = "CSB-V. IEC 0500000001."
+        invoice = fp.ship_body(shipment(special_instructions=line), "1")["requestedShipment"][
+            "customsClearanceDetail"]["commercialInvoice"]
+        self.assertEqual(invoice["specialInstructions"], line)
+        domestic = fp.ship_body(shipment(special_instructions=line, destination=address(country_code="IN")), "1")
+        self.assertNotIn("specialInstructions", domestic["requestedShipment"]["customsClearanceDetail"]["commercialInvoice"])
+        self.assertNotIn("specialInstructions", fp.rate_body(shipment(special_instructions=line), "1")[
+            "requestedShipment"]["customsClearanceDetail"]["commercialInvoice"])
+
+
 class TestFedExReplies(FrappeTestCase):
     def test_rates_flag_oda_and_read_transit_days(self):
         rates = fp.parse_rates(fixture("rate"))
@@ -333,3 +344,62 @@ class TestTradeDocuments(FrappeTestCase):
             with self.subTest(message), self.assertRaises(frappe.ValidationError) as ctx:
                 self.documents(files, **fields)
             self.assertIn(message, str(ctx.exception))
+
+
+class TestExportClearance(FrappeTestCase):
+    """CSB-IV, CSB-V or Shipping Bill of an export, and the line for the carrier (#241). No database."""
+    TEMPLATE = dict(iec_code="0500000001", bank_ad_code="01234560000001", export_type="Without Payment of Tax",
+                    lut_no_and_date="AD0603240012345 01-04-2026")
+
+    def test_sale_up_to_10_lakh_is_csb_v_above_is_a_shipping_bill_and_samples_are_csb_iv(self):
+        from rigpl_erpnext.rigpl_erpnext.shipping import request
+
+        self.assertEqual(request.export_clearance("SOLD", 1000000), "CSB-V")
+        self.assertEqual(request.export_clearance("SOLD", 1000000.01), "Shipping Bill")
+        self.assertEqual(request.export_clearance("", 500), "CSB-V")
+        self.assertEqual(request.export_clearance("SOLD", None), "")
+        for purpose in ("SAMPLE", "GIFT", "NOT_SOLD", "REPAIR_AND_RETURN"):
+            self.assertEqual(request.export_clearance(purpose, 2000000), "CSB-IV")
+
+    def test_clearance_line_names_iec_ad_code_gstin_and_lut(self):
+        from rigpl_erpnext.rigpl_erpnext.shipping import request
+
+        self.assertEqual(request.clearance_line("CSB-V", self.TEMPLATE, "06AAAAA0000A1Z5", "SOLD"),
+                         "CSB-V. IEC 0500000001. AD Code 01234560000001. GSTIN 06AAAAA0000A1Z5. "
+                         "Export under LUT AD0603240012345 01-04-2026 without IGST.")
+        paid = dict(self.TEMPLATE, export_type="With Payment of Tax")
+        self.assertTrue(request.clearance_line("Shipping Bill", paid, "NA", "SOLD").startswith(
+            "Shipping Bill. Value above Rs 10 lakh, formal clearance. IEC"))
+        self.assertTrue(request.clearance_line("Shipping Bill", paid, "NA", "SOLD").endswith(
+            "AD Code 01234560000001. Export with payment of IGST."))
+        self.assertEqual(request.clearance_line("CSB-IV", {}, "06AAAAA0000A1Z5", "REPAIR_AND_RETURN"),
+                         "CSB-IV. Repair And Return, not for sale. GSTIN 06AAAAA0000A1Z5.")
+        self.assertEqual(request.clearance_line("CSB-V", dict(self.TEMPLATE, lut_no_and_date="NA"), "", "SOLD"),
+                         "CSB-V. IEC 0500000001. AD Code 01234560000001. Export under LUT without IGST.")
+
+    def instructions(self, template, gstin="06AAAAA0000A1Z5", **fields):
+        import frappe
+        from rigpl_erpnext.rigpl_erpnext.shipping import request
+
+        doc = frappe._dict(name="CTRACK-T1", purpose="SOLD", document="Sales Invoice", document_name="SI-0001",
+                           from_address="RIGPL-Billing", export_clearance="CSB-V")
+        doc.update(fields)
+        values = {"Sales Invoice": "RIGB Export Under Bond",
+                  "Sales Taxes and Charges Template": frappe._dict(template) if template is not None else None}
+        req = shipment(origin=address(country_code="IN", tax_id=gstin))
+        with patch.object(frappe.db, "get_value", side_effect=lambda dt, name, field, **kw: values[dt]), \
+                patch.object(frappe, "get_desk_link", side_effect=lambda dt, name: name):
+            return request.export_instructions(doc, req)
+
+    def test_sale_needs_iec_ad_code_export_type_and_gstin(self):
+        import frappe
+
+        self.assertTrue(self.instructions(self.TEMPLATE).startswith("CSB-V. IEC 0500000001."))
+        with self.assertRaisesRegex(frappe.ValidationError, "needs Bank AD Code, Export Type, GSTIN of From Address"):
+            self.instructions(dict(self.TEMPLATE, bank_ad_code="", export_type=None), gstin="NA")
+        with self.assertRaisesRegex(frappe.ValidationError, "needs IEC Code, Bank AD Code, Export Type"):
+            self.instructions(None)
+
+    def test_sample_needs_no_template(self):
+        self.assertEqual(self.instructions(None, purpose="SAMPLE", export_clearance="CSB-IV", document="Customer"),
+                         "CSB-IV. Sample, not for sale. GSTIN 06AAAAA0000A1Z5.")
