@@ -193,7 +193,13 @@ class DTDC(ShippingProvider):
             raise ProviderError(f"DTDC: booking of {req.reference} failed: {data.get('message') or reply}")
         awb = data.get("reference_number")
         pieces = [p.get("reference_number") for p in data.get("pieces") or []]
-        return BookingResult(awb=awb, package_ids=pieces, labels=self.get_labels(awb), raw=reply)
+        result = BookingResult(awb=awb, package_ids=pieces, raw=reply)
+        # DTDC has booked: a failed label must not lose the AWB (#245)
+        try:
+            result.labels = self.get_labels(awb)
+        except Exception as e:
+            result.warning = f"DTDC gave no label: {e}. Use Shipment > Get Label."
+        return result
 
     def get_labels(self, awb: str) -> List[Label]:
         reply = json_or_error(request("POST", self.base_url + "label/multipiece/", self.name,

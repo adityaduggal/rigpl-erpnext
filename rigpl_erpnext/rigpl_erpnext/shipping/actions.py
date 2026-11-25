@@ -106,10 +106,23 @@ def book(doc, test_marking: bool = False) -> None:
     if carrier.provider.supports("rate") or cint(
             frappe.db.get_value("Transporters", doc.carrier_name, "calculate_cost_from_quote")):
         get_rates(doc)
+    # All checks run while nothing is booked. The save also locks the row until the request
+    # ends, so a second request cannot book it again (#245)
+    doc.save()
     try:
         result = carrier.provider.book(req)
     except (ProviderError, NotSupported) as e:
         provider_error(e, "Booking")
+    try:
+        record_booking(doc, result)
+    except Exception as e:
+        cancel_unsaved_booking(doc, carrier, result.awb, e)
+    frappe.msgprint(f"Booked {doc.name} with {carrier.provider.name} AWB {result.awb}"
+                    + (" (TEST booking: cancel it)" if test_marking else "") + invoice_note(result)
+                    + (f". {result.warning}" if result.warning else ""))
+
+
+def record_booking(doc, result) -> None:
     doc.awb_number = result.awb
     doc.status = st.BOOKED
     doc.tracking_source = "Manual"
@@ -121,9 +134,23 @@ def book(doc, test_marking: bool = False) -> None:
     doc.invoice_copies_required = result.invoice_copies
     save_labels(doc, result.labels)
     doc.flags.ignore_permissions = True
+    doc.flags.carrier_booked = True
     doc.submit() if doc.docstatus == 0 else doc.save()
-    frappe.msgprint(f"Booked {doc.name} with {carrier.provider.name} AWB {result.awb}"
-                    + (" (TEST booking: cancel it)" if test_marking else "") + invoice_note(result))
+
+
+def cancel_unsaved_booking(doc, carrier, awb: str, error: Exception) -> None:
+    """The carrier booked but the tracking was not saved: cancels the AWB and always throws."""
+    traceback, provider = frappe.get_traceback(), carrier.provider
+    try:
+        provider.cancel(awb)
+        outcome = f"AWB {awb} is cancelled with {provider.name}."
+    except Exception as e:
+        outcome = f"AWB {awb} is NOT cancelled ({e}). Cancel it on the {provider.name} portal."
+    message = f"{provider.name} booked {doc.name}, but the booking was not saved: {error}. {outcome}"
+    frappe.db.rollback()
+    frappe.log_error(title=f"Booking not saved: {doc.name} AWB {awb}", message=f"{message}\n{traceback}")
+    frappe.db.commit()  # the Error Log must stay when the request fails
+    frappe.throw(message, title="Shipping: Booking failed")
 
 
 def invoice_note(result) -> str:

@@ -1,12 +1,14 @@
 """Shipment buttons of Carrier Tracking (#173)."""
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from rigpl_erpnext.rigpl_erpnext.shipping import actions as shipping_actions
 from rigpl_erpnext.rigpl_erpnext.shipping import form_actions as fa
 from rigpl_erpnext.rigpl_erpnext.shipping import status as st
 from rigpl_erpnext.rigpl_erpnext.shipping.accounts import BOOKING, NONE, TRACKING_ONLY
+from rigpl_erpnext.rigpl_erpnext.shipping.base import BookingResult, ProviderError
 from rigpl_erpnext.rigpl_erpnext.shipping.providers.dtdc import DTDC
 from rigpl_erpnext.rigpl_erpnext.shipping.providers.fedex import FedEx
 from rigpl_erpnext.rigpl_erpnext.shipping.providers.shipway import Shipway
@@ -102,6 +104,54 @@ class TestCanPreview(FrappeTestCase):
             self.assertFalse(fa.can_preview(doc))
             with self.assertRaises(frappe.PermissionError):
                 fa.check_action(doc, "preview_request")
+
+
+@patch.object(frappe, "log_error")
+@patch.object(frappe.db, "commit")
+@patch.object(frappe.db, "rollback")
+@patch.object(frappe.db, "get_value", return_value=0)
+class TestBookingFailure(FrappeTestCase):
+    """A failure must not lose a booked AWB (#245). No carrier and no database."""
+    def setUp(self):
+        self.carrier = MagicMock()
+        self.carrier.provider.name = "FedEx"
+        self.carrier.provider.supports.return_value = False
+        self.carrier.provider.book.return_value = BookingResult(awb="AWB1", package_ids=[])
+        self.doc = MagicMock(docstatus=0, shipment_package_details=[], flags=frappe._dict())
+        self.doc.name = "_Test CT"
+
+    def book(self):
+        with patch.object(shipping_actions, "prepare_booking", return_value=(self.carrier, MagicMock())):
+            shipping_actions.book(self.doc)
+
+    def test_a_failed_draft_save_gives_no_booking(self, *_):
+        self.doc.save.side_effect = frappe.ValidationError("Courier Charges Too Low")
+        with self.assertRaises(frappe.ValidationError):
+            self.book()
+        self.carrier.provider.book.assert_not_called()
+
+    def test_the_draft_save_checks_permissions_and_the_submit_skips_the_courier_check(self, *_):
+        flags = []
+        self.doc.save.side_effect = lambda: flags.append(dict(self.doc.flags))
+        self.doc.submit.side_effect = lambda: flags.append(dict(self.doc.flags))
+        self.book()
+        self.assertEqual(flags, [{}, {"ignore_permissions": True, "carrier_booked": True}])
+        self.carrier.provider.cancel.assert_not_called()
+
+    def test_a_failed_submit_cancels_the_awb_and_logs_it(self, _get, rollback, commit, log_error):
+        self.doc.submit.side_effect = frappe.ValidationError("Late failure")
+        with self.assertRaisesRegex(frappe.ValidationError, "Late failure.*AWB AWB1 is cancelled"):
+            self.book()
+        self.carrier.provider.cancel.assert_called_once_with("AWB1")
+        rollback.assert_called_once()
+        self.assertIn("AWB1", log_error.call_args.kwargs["title"])
+        commit.assert_called_once()
+
+    def test_a_failed_cancel_tells_the_user_to_cancel_on_the_portal(self, *_):
+        self.doc.submit.side_effect = frappe.ValidationError("Late failure")
+        self.carrier.provider.cancel.side_effect = ProviderError("no reply")
+        with self.assertRaisesRegex(frappe.ValidationError, "AWB1 is NOT cancelled.*no reply.*portal"):
+            self.book()
 
 
 class TestCheckAction(FrappeTestCase):

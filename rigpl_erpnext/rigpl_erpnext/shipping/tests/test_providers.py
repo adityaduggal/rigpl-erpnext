@@ -7,7 +7,7 @@ from rigpl_erpnext.rigpl_erpnext.shipping import status as st
 from unittest.mock import patch
 
 from rigpl_erpnext.rigpl_erpnext.shipping.base import (Account, Address, NotSupported, Package, PreviewContext,
-                                                       ShipmentRequest)
+                                                       ProviderError, ShipmentRequest)
 from rigpl_erpnext.rigpl_erpnext.shipping.providers import dtdc, shipway
 from rigpl_erpnext.rigpl_erpnext.shipping.seed_rules import SEED_RULES
 from rigpl_erpnext.rigpl_erpnext.shipping.status_map import CODE, STARTS_WITH, TEXT, StatusResolver, match, seed_rules
@@ -81,6 +81,16 @@ class TestDTDC(FrappeTestCase):
     def test_not_found(self):
         result = dtdc.parse_tracking("D5", {"statusCode": 400, "errorDetails": "x"}, dtdc_resolver())
         self.assertFalse(result.found)
+
+    def test_a_failed_label_keeps_the_booked_awb(self):
+        adapter = dtdc.DTDC(Account(name="_Test DTDC", provider="DTDC", api_key="K", customer_code="C1"))
+        booked = {"status": "OK", "data": [{"success": True, "reference_number": "D100",
+                                            "pieces": [{"reference_number": "D100001"}]}]}
+        with patch.object(dtdc, "request"), patch.object(dtdc, "json_or_error", return_value=booked), \
+                patch.object(adapter, "get_labels", side_effect=ProviderError("no reply")):
+            result = adapter.book(dtdc_context().request)
+        self.assertEqual((result.awb, result.package_ids, result.labels), ("D100", ["D100001"], []))
+        self.assertIn("no reply. Use Shipment > Get Label", result.warning)
 
     def test_test_booking_is_marked(self):
         address = Address(name="A", line1="L1", pincode="110001")

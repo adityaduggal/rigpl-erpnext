@@ -19,6 +19,15 @@ Admins: see [Shipping Providers setup](../setup/shipping-providers.md).
 The booking sets the AWB number, attaches the labels and submits the tracking. The AWB also goes to the
 Sales Invoice.
 
+The system saves the tracking before it sends the booking. Thus you must have permission to write the
+tracking, and a validation error stops the booking before the carrier gets it. If the system cannot save
+the tracking after the carrier booked it, the system cancels the AWB. The message shows the AWB. If the
+message says that the AWB is not cancelled, cancel it on the carrier portal. The **Error Log** also
+keeps the AWB.
+
+When DTDC books the shipment but gives no label, the booking stays. The message tells you. Click
+**Shipment > Get Label**.
+
 ### The invoice lines that the carrier gets
 
 For a Sales Invoice, FedEx gets one customs line for each row of one table of the invoice. The customs value

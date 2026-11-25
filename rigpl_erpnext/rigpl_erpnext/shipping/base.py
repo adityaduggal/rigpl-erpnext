@@ -116,6 +116,7 @@ class BookingResult:
     currency: str = ""
     etd_type: str = ""  # the document types the carrier took electronically, for example COMMERCIAL_INVOICE
     invoice_copies: int = 0  # paper invoices to send with the shipment (FedEx EWO)
+    warning: str = ""  # what failed after the booking, for the user
     raw: dict = field(default_factory=dict)
 
 
