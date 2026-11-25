@@ -69,21 +69,34 @@ def codes_by_name(doctype: str, field: str, names) -> Dict[str, str]:
 
 
 def load_commodities(doc) -> List[Commodity]:
-    """The Sales Invoice items, for export paperwork (FedEx). 4 queries."""
+    """The rows of one Sales Invoice item table, for export paperwork (FedEx). 4 queries."""
     if doc.document != "Sales Invoice" or not doc.document_name:
         return []
-    items = frappe.get_all("Sales Invoice Item", filters={"parent": doc.document_name, "parenttype": "Sales Invoice"},
-                           fields=["item_code", "item_name", "qty", "uom", "rate", "gst_hsn_code", "total_weight"],
-                           order_by="idx")
+    items = invoice_rows(doc.document_name)
     origin = codes_by_name("Item", "country_of_origin", {i.item_code for i in items})
     codes = codes_by_name("Country", "code", set(origin.values()))
     # Customs text is the HSN description, as the SOAP code did: item names are internal codes
     hsn = codes_by_name("GST HSN Code", "description", {i.gst_hsn_code for i in items})
-    return [Commodity(description=(hsn.get(i.gst_hsn_code) or i.item_name or i.item_code)[:100], quantity=flt(i.qty),
-                      quantity_uom=i.uom or "EA",
-                      unit_price=flt(i.rate), weight=flt(i.total_weight), hs_code=i.gst_hsn_code or "",
+    return [Commodity(description=(hsn.get(i.gst_hsn_code) or i.item_name or i.item_code or "Cutting Tools")[:100],
+                      quantity=flt(i.qty), quantity_uom=i.uom or "EA",
+                      # the rounded rate does not add up to the invoice total, the amount does
+                      unit_price=flt(i.amount) / flt(i.qty) if flt(i.qty) else 0.0, weight=flt(i.total_weight), hs_code=i.gst_hsn_code or "",
                       country_of_manufacture=(codes.get(origin.get(i.item_code)) or "IN").upper(), item_code=i.item_code or "")
             for i in items]
+
+
+def invoice_rows(invoice: str) -> list:
+    """The item table that RIGPL Settings selects. The synopsis is the default: it hides item details."""
+    table = frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "carrier_invoice_table") or "Item Synopsis"
+    rows = frappe.get_all("Sales Invoice Item",
+                          filters={"parent": invoice, "parenttype": "Sales Invoice",
+                                   "parentfield": "items" if table == "Items" else "items_synopsis"},
+                          fields=["item_code", "item_name", "qty", "uom", "amount", "gst_hsn_code", "total_weight"],
+                          order_by="idx")
+    if not rows:
+        frappe.throw(f"{frappe.get_desk_link('Sales Invoice', invoice)} has no rows in {table}. Add the rows, or change "
+                     "Sales Invoice Table for Carriers in RIGPL Settings.", title="No Invoice Rows for Carrier")
+    return rows
 
 
 def build_shipment_request(doc, service_code: str, test_marking: bool = False) -> ShipmentRequest:

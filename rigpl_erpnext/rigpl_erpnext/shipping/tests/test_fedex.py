@@ -405,6 +405,47 @@ class TestTradeDocuments(FrappeTestCase):
             self.assertIn(message, str(ctx.exception))
 
 
+class TestInvoiceCommodities(FrappeTestCase):
+    """The invoice table that goes to the carrier (#243). No database."""
+    ROW = dict(item_code=None, item_name=None, qty=2460, uom="Nos", amount=22756.4, gst_hsn_code="82090090",
+               total_weight=0)
+
+    def commodities(self, setting, rows):
+        import frappe
+        from rigpl_erpnext.rigpl_erpnext.shipping import request
+
+        def get_all(doctype, **kw):
+            if doctype != "Sales Invoice Item":
+                return []
+            self.filters = kw["filters"]
+            return [frappe._dict(r) for r in rows]
+
+        doc = frappe._dict(document="Sales Invoice", document_name="SI-0001")
+        with patch.object(frappe, "get_all", side_effect=get_all), \
+                patch.object(frappe, "get_cached_value", return_value=setting), \
+                patch.object(frappe, "get_desk_link", side_effect=lambda dt, name: name):
+            return request.load_commodities(doc)
+
+    def test_setting_selects_one_table_and_empty_means_synopsis(self):
+        for setting, table in ((None, "items_synopsis"), ("", "items_synopsis"),
+                               ("Item Synopsis", "items_synopsis"), ("Items", "items")):
+            with self.subTest(setting=setting):
+                self.commodities(setting, [self.ROW])
+                self.assertEqual(self.filters["parentfield"], table)
+
+    def test_value_of_a_line_is_the_row_amount(self):
+        line = self.commodities(None, [self.ROW])[0]
+        self.assertEqual(round(line.unit_price * line.quantity, 2), 22756.4)
+        self.assertEqual(line.description, "Cutting Tools")  # no HSN text, name or code
+
+    def test_empty_table_stops_with_the_invoice_and_the_setting(self):
+        import frappe
+
+        with self.assertRaisesRegex(frappe.ValidationError,
+                                    "SI-0001 has no rows in Item Synopsis.*Sales Invoice Table for Carriers"):
+            self.commodities(None, [])
+
+
 class TestExportClearance(FrappeTestCase):
     """CSB-IV, CSB-V or Shipping Bill of an export, and the line for the carrier (#241). No database."""
     TEMPLATE = dict(iec_code="0500000001", bank_ad_code="01234560000001", export_type="Without Payment of Tax",

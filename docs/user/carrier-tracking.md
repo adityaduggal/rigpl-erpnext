@@ -19,6 +19,20 @@ Admins: see [Shipping Providers setup](../setup/shipping-providers.md).
 The booking sets the AWB number, attaches the labels and submits the tracking. The AWB also goes to the
 Sales Invoice.
 
+### The invoice lines that the carrier gets
+
+For a Sales Invoice, FedEx gets one customs line for each row of one table of the invoice. The customs value
+of a line is the **Amount** of the row.
+
+Select the table in **RIGPL Settings > Shipping > Sales Invoice Table for Carriers**:
+
+| Value | Rows that go to the carrier |
+|---|---|
+| Item Synopsis (default, also when empty) | The summary for the customer. |
+| Items | The item rows of the invoice. |
+
+When the selected table has no rows, the system stops with a message. Add the rows, or change the setting.
+
 ### FedEx export: the customs documents
 
 FedEx sends the customs documents to customs electronically (ETD). You attach them on the tracking before

@@ -56,6 +56,7 @@
   "ctrack_poll_hours",
   "ctrack_webhook_poll_hours",
   "shipway_push_max_days",
+  "carrier_invoice_table",
   "sb_hr",
   "loan_deduction_component",
   "department_approver_mode"
@@ -379,6 +380,14 @@
    "label": "Shipway Push Max Days"
   },
   {
+   "default": "Item Synopsis",
+   "description": "The Sales Invoice table that carriers get as the customs lines. Empty: Item Synopsis.",
+   "fieldname": "carrier_invoice_table",
+   "fieldtype": "Select",
+   "label": "Sales Invoice Table for Carriers",
+   "options": "Item Synopsis\nItems"
+  },
+  {
    "collapsible": 1,
    "fieldname": "sb_hr",
    "fieldtype": "Section Break",
@@ -401,7 +410,7 @@
   }
  ],
  "issingle": 1,
- "modified": "2026-11-23 12:00:00.000000",
+ "modified": "2026-11-26 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",
