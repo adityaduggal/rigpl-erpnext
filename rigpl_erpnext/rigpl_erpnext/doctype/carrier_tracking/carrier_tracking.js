@@ -110,12 +110,48 @@ rigpl_erpnext.carrier_tracking.run_action = function(frm, method, label) {
 			frm.reload_doc();
 		});
 	};
+	if (method === "preview_request") {
+		rigpl_erpnext.carrier_tracking.preview_dialog(frm);
+		return;
+	}
 	if (method === "delete_shipment") {
 		frappe.confirm(__("Cancel AWB {0} with the carrier and make {1} a draft again?",
 			[frm.doc.awb_number, frm.doc.name]), run);
 	} else {
 		run();
 	}
+};
+
+// Preview Request: shows the calls that an action would make. Nothing is sent to the carrier.
+rigpl_erpnext.carrier_tracking.preview_dialog = function(frm) {
+	const actions = (frm.doc.__onload || {}).shipping_actions || {};
+	const options = Object.keys(actions).filter(function(a) { return a !== "preview_request"; })
+		.map(function(a) { return {value: a, label: __(actions[a])}; });
+	if (!options.length) {
+		frappe.msgprint(__("No action to preview in this state."));
+		return;
+	}
+	const render = function(calls) {
+		return (calls || []).map(function(c) {
+			return "<h6>" + frappe.utils.escape_html(c.step + ": " + c.method + " " + c.url) + "</h6><pre style='max-height:40vh;overflow:auto'>"
+				+ frappe.utils.escape_html(JSON.stringify(c.body, null, 2)) + "</pre>";
+		}).join("");
+	};
+	const d = new frappe.ui.Dialog({
+		title: __("Preview Request (nothing is sent)"),
+		fields: [
+			{fieldname: "action", fieldtype: "Select", label: __("Action"), options: options, reqd: 1, default: options[0].value},
+			{fieldname: "result", fieldtype: "HTML"},
+		],
+		primary_action_label: __("Preview"),
+		primary_action: function(values) {
+			frm.call({doc: frm.doc, method: "preview_request", args: {action: values.action}, freeze: true,
+				freeze_message: __("Preparing the preview") + "..."}).then(function(r) {
+				d.fields_dict.result.$wrapper.html(render(r.message));
+			});
+		},
+	});
+	d.show();
 };
 
 frappe.ui.form.on("Shipment Package Details", {

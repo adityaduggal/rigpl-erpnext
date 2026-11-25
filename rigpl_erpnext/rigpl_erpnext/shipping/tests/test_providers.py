@@ -4,7 +4,10 @@ from datetime import datetime
 from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.rigpl_erpnext.shipping import status as st
-from rigpl_erpnext.rigpl_erpnext.shipping.base import Account, Address, Package, ShipmentRequest
+from unittest.mock import patch
+
+from rigpl_erpnext.rigpl_erpnext.shipping.base import (Account, Address, NotSupported, Package, PreviewContext,
+                                                       ShipmentRequest)
 from rigpl_erpnext.rigpl_erpnext.shipping.providers import dtdc, shipway
 from rigpl_erpnext.rigpl_erpnext.shipping.seed_rules import SEED_RULES
 from rigpl_erpnext.rigpl_erpnext.shipping.status_map import CODE, STARTS_WITH, TEXT, StatusResolver, match, seed_rules
@@ -91,7 +94,70 @@ class TestDTDC(FrappeTestCase):
         self.assertEqual(dtdc.booking_json(request, "C1")["consignments"][0]["customer_reference_number"], "CTRACK1")
 
 
+def dtdc_context(awb="D100"):
+    origin = Address(name="Shipper", line1="L1", pincode="124507", city="Bahadurgarh", state="Haryana")
+    destination = Address(name="Buyer", line1="L2", pincode="560001", city="Bengaluru", state="Karnataka")
+    request = ShipmentRequest(reference="CTRACK1", service_code="PRIORITY", origin=origin, destination=destination,
+                              packages=[Package(weight=1.5)], declared_value=100)
+    return PreviewContext(request=request, awb=awb, reference="CTRACK1", service_code="PRIORITY")
+
+
+class TestDTDCPreview(FrappeTestCase):
+    def provider(self, **kw):
+        values = dict(name="_Test DTDC", provider="DTDC", customer_code="C1", api_key="key-secret-1",
+                      username="trackuser", password="pass-secret-2")
+        values.update(kw)
+        return dtdc.DTDC(Account(**values))
+
+    def test_each_action_shows_its_calls_and_sends_nothing(self):
+        ctx = dtdc_context()
+        with patch("requests.Session.request", side_effect=AssertionError("sent")):
+            calls = {a: self.provider().preview(a, ctx) for a in
+                     ("book_shipment", "available_services", "get_labels", "get_status", "delete_shipment")}
+        self.assertEqual([c["step"] for c in calls["book_shipment"]], ["Serviceability", "Book", "Label"])
+        book = calls["book_shipment"][1]
+        self.assertEqual((book["method"], book["url"]), ("POST", dtdc.BASE_URL + "softdata"))
+        self.assertEqual(book["body"]["consignments"][0]["service_type_id"], "PRIORITY")
+        self.assertEqual(calls["available_services"][0]["url"], dtdc.SERVICEABILITY_URL)
+        self.assertEqual(calls["available_services"][0]["body"], {"orgPincode": "124507", "desPincode": "560001"})
+        self.assertEqual(calls["get_labels"][0]["body"], {"reference_number": "D100"})
+        self.assertEqual(calls["get_status"][-1]["body"]["strcnno"], "D100")
+        self.assertEqual(calls["delete_shipment"][0]["body"], {"AWBNo": ["D100"], "customerCode": "C1"})
+
+    def test_urls_come_from_the_account_and_no_secret_is_shown(self):
+        provider = self.provider(base_url="https://shipsy.example/api", tracking_base_url="https://track.example/x",
+                                 serviceability_url="https://pin.example/check")
+        ctx = dtdc_context()
+        shown = [c for a in ("book_shipment", "get_status") for c in provider.preview(a, ctx)]
+        urls = [c["url"] for c in shown]
+        self.assertIn("https://shipsy.example/api/softdata", urls)
+        self.assertIn("https://pin.example/check", urls)
+        self.assertIn("https://track.example/x/rest/JSONCnTrk/getTrackDetails", urls)
+        for secret in ("key-secret-1", "pass-secret-2"):
+            self.assertNotIn(secret, str(shown))
+        self.assertIn("trackuser", str(shown))
+
+    def test_unknown_action_is_not_supported(self):
+        with self.assertRaises(NotSupported):
+            self.provider().preview("get_rates", dtdc_context())
+
+
 class TestShipway(FrappeTestCase):
+    def test_preview_hides_the_login_and_sends_nothing(self):
+        provider = shipway.Shipway(Account(name="Shipway", provider="Shipway", username="shipuser", password="license-secret"))
+        ctx = PreviewContext(awb="A1", reference="CTRACK1", service_code="77")
+        with patch("requests.Session.request", side_effect=AssertionError("sent")):
+            status = provider.preview("get_status", ctx)
+            push = provider.preview("pushdata", ctx)
+        self.assertEqual(status[0]["body"], {"order_id": "CTRACK1"})
+        self.assertEqual([c["step"] for c in push], ["Tracking", "Push"])
+        self.assertEqual((push[1]["url"], push[1]["body"]["carrier_id"], push[1]["body"]["awb"]),
+                         (shipway.BASE_URL + "pushOrderData", "77", "A1"))
+        self.assertNotIn("license-secret", str(push))
+        self.assertNotIn("shipuser", str(push))
+        with self.assertRaises(NotSupported):
+            provider.preview("get_labels", ctx)
+
     def test_parse(self):
         provider = shipway.Shipway(Account(name="Shipway", provider="Shipway"))
         reply = {"status": "Success", "response": {"current_status_code": "DEL", "pickupdate": "2026-10-01 10:00:00",

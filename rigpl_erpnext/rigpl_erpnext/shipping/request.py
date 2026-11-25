@@ -82,7 +82,7 @@ def load_commodities(doc) -> List[Commodity]:
     return [Commodity(description=(hsn.get(i.gst_hsn_code) or i.item_name or i.item_code)[:100], quantity=flt(i.qty),
                       quantity_uom=i.uom or "EA",
                       unit_price=flt(i.rate), weight=flt(i.total_weight), hs_code=i.gst_hsn_code or "",
-                      country_of_manufacture=(codes.get(origin.get(i.item_code)) or "IN").upper())
+                      country_of_manufacture=(codes.get(origin.get(i.item_code)) or "IN").upper(), item_code=i.item_code or "")
             for i in items]
 
 

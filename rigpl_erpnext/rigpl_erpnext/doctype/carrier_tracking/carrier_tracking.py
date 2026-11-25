@@ -12,7 +12,7 @@ from rohit_common.utils.rohit_common_utils import get_email_id
 
 from ...shipping import access, actions
 from ...shipping.accounts import BOOKING
-from ...shipping.form_actions import check_action, onload_actions
+from ...shipping.form_actions import LABELS, check_action, onload_actions
 from ...shipping.registry import get_carrier, transporter_api
 from ...shipping.request import export_clearance, invoice_base_value
 from ...shipping.tracking import track_now
@@ -67,6 +67,16 @@ class CarrierTracking(WebsiteGenerator):
         check_action(self, "book_shipment")
         self.validate()
         actions.book(self, test_marking=bool(int(test_marking or 0)))
+
+    @frappe.whitelist()
+    def preview_request(self, action):
+        """The calls that `action` would make. Nothing is sent. For System Managers and the users who
+        can delete this DocType or set its user permissions."""
+        if action not in LABELS or action == "preview_request":
+            frappe.throw(f"{action} cannot be previewed.")
+        check_action(self, "preview_request")
+        check_action(self, action)
+        return actions.preview(self, action)
 
     @frappe.whitelist()
     def get_labels(self):

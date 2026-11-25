@@ -4,11 +4,12 @@ import os
 from datetime import date, datetime
 from unittest.mock import patch
 
+import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.rigpl_erpnext.shipping import status as st
-from rigpl_erpnext.rigpl_erpnext.shipping.base import (Account, Address, BookingResult, Commodity, Package, ProviderError,
-                                                       ShipmentRequest, TradeDocument)
+from rigpl_erpnext.rigpl_erpnext.shipping.base import (Account, Address, BookingResult, Commodity, NotSupported, Package,
+                                                       PreviewContext, ProviderError, ShipmentRequest, TradeDocument)
 from rigpl_erpnext.rigpl_erpnext.shipping.http import clear_token
 from rigpl_erpnext.rigpl_erpnext.shipping.providers import fedex
 from rigpl_erpnext.rigpl_erpnext.shipping.providers import fedex_payloads as fp
@@ -100,6 +101,64 @@ class TestFedExBodies(FrappeTestCase):
         self.assertEqual((len(sample), sample[0]["customsValue"]["amount"]), (1, 1.0))
         printed = fp.customs_lines(shipment(commodities=[]))
         self.assertEqual(printed[0]["harmonizedCode"], "49111010")
+
+    def test_eu_destination_gets_the_product_id_on_each_line(self):
+        items = [Commodity("End Mill", 10, "Nos", 60, 1.0, "820770", "IN", "EM-" + "X" * 80),
+                 Commodity("Drill", 4, "Nos", 100, 1.0, "820750", "IN")]
+        lines = fp.customs_lines(shipment(destination=address(country_code="DE"), commodities=items))
+        sku = ("EM-" + "X" * 80)[:70]
+        self.assertEqual(lines[0]["regulatoryDetails"], [{"regulationCode": "EU_DE_MINIMIS", "productId": sku,
+                                                          "productIdType": "SKU", "details": {"merchantProductId": sku}}])
+        self.assertNotIn("regulatoryDetails", lines[1])  # no item code, nothing to send
+
+    def test_non_eu_destination_and_non_sale_lines_have_no_product_id(self):
+        items = [Commodity("End Mill", 10, "Nos", 60, 1.0, "820770", "IN", "EM-1")]
+        self.assertNotIn("regulatoryDetails", fp.customs_lines(shipment(commodities=items))[0])
+        eu = address(country_code="FR")
+        self.assertNotIn("regulatoryDetails", fp.customs_lines(shipment(destination=eu, commodities=items,
+                                                                        purpose="SAMPLE"))[0])
+        self.assertNotIn("regulatoryDetails", fp.customs_lines(shipment(destination=eu, commodities=[]))[0])
+
+    def test_preview_of_each_action_has_the_url_and_body_and_sends_nothing(self):
+        awb = "794600000001"
+        docs = [TradeDocument("COMMERCIAL_INVOICE", "SI-0001.pdf", b"%PDF" + b"x" * 500)]
+        ctx = PreviewContext(request=shipment(documents=docs), awb=awb, reference="CTRACK1")
+        actions = ("get_rates", "book_shipment", "available_services", "address_validation", "get_status", "get_pod",
+                   "delete_shipment")
+        with patch("requests.Session.request", side_effect=AssertionError("sent")):
+            calls = {action: adapter().preview(action, ctx) for action in actions}
+        for steps in calls.values():
+            self.assertEqual(steps[0]["step"], "Login (only when the token has expired)")
+            self.assertTrue(all(c["url"].startswith(fedex.PRODUCTION_URL) or c["url"].startswith(fedex.DOCUMENT_URL)
+                                for c in steps))
+        book = calls["book_shipment"]
+        self.assertEqual([c["step"] for c in book[1:]], ["Rate", "Upload documents", "Ship"])
+        self.assertEqual(book[-1]["url"], fedex.PRODUCTION_URL + fedex.SHIP_PATH)
+        self.assertEqual(book[-1]["body"]["requestedShipment"]["serviceType"], "INTERNATIONAL_PRIORITY")
+        self.assertEqual(book[2]["url"], fedex.DOCUMENT_URL + fedex.UPLOAD_PATH)
+        self.assertRegex(book[2]["body"]["metaData"][0]["fileContentBase64"], r"^<\d+ characters>$")
+        self.assertEqual((calls["delete_shipment"][-1]["method"], calls["delete_shipment"][-1]["url"]),
+                         ("PUT", fedex.PRODUCTION_URL + fedex.CANCEL_PATH))
+        self.assertIn(awb, str(calls["get_status"][-1]["body"]))
+        self.assertNotIn("'secret'", str(calls))  # the Client Secret of the account
+
+    def test_preview_of_an_unknown_action_is_not_supported(self):
+        with self.assertRaises(NotSupported):
+            adapter().preview("get_labels", PreviewContext(request=shipment()))
+
+    def test_block_switch_stops_every_call_and_shows_the_body(self):
+        from rigpl_erpnext.rigpl_erpnext.shipping.base import ProviderError
+
+        old = frappe.conf.get("shipping_block_calls")
+        frappe.conf.shipping_block_calls = 1
+        try:
+            with patch("requests.Session.request", side_effect=AssertionError("sent")):
+                with self.assertRaises(ProviderError) as ctx:
+                    adapter().get_rates(shipment())
+        finally:
+            frappe.conf.shipping_block_calls = old
+        self.assertIn("calls are blocked", str(ctx.exception))
+        self.assertNotIn("secret", str(ctx.exception))
 
     def test_domestic_shipment_sends_no_invoice_reference(self):
         body = fp.ship_body(shipment(destination=address(country_code="IN")), "1")

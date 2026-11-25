@@ -13,8 +13,9 @@ from typing import Dict, List, Tuple
 
 from frappe.utils import get_time_zone
 
-from ..base import Address, BookingResult, Label, ProviderError, Rate, ShipmentRequest, ShippingProvider, TrackingResult
-from ..http import cached_token, clear_token, json_or_error, request
+from ..base import (Address, BookingResult, Label, NotSupported, PreviewContext, ProviderError, Rate, ShipmentRequest,
+                    ShippingProvider, TrackingResult)
+from ..http import cached_token, clear_token, json_or_error, request, step
 from ..seed_rules import SEED_RULES
 from . import fedex_payloads as fp
 
@@ -23,17 +24,25 @@ SANDBOX_URL = "https://apis-sandbox.fedex.com"
 # The Trade Documents Upload API has its own hosts (servers of the FedEx OpenAPI file)
 DOCUMENT_URL = "https://documentapi.prod.fedex.com"
 DOCUMENT_SANDBOX_URL = "https://documentapitest.prod.fedex.com/sandbox"
+RATE_PATH = "/rate/v1/rates/quotes"
+SHIP_PATH = "/ship/v1/shipments"
+CANCEL_PATH = "/ship/v1/shipments/cancel"
+UPLOAD_PATH = "/documents/v1/etds/encodedmultiupload"
+TRACK_PATH = "/track/v1/trackingnumbers"
+POD_PATH = "/track/v1/trackingdocuments"
+ADDRESS_PATH = "/address/v1/addresses/resolve"
+TRANSIT_PATH = "/availability/v1/transittimes"
 
 
 class FedEx(ShippingProvider):
     name = "FedEx"
-    capabilities = frozenset(("rate", "book", "cancel", "track", "pod", "address", "serviceability", "etd"))
+    capabilities = frozenset(("rate", "book", "cancel", "track", "pod", "address", "serviceability", "etd", "preview"))
     track_batch_size = 30  # the most FedEx takes in one trackingnumbers call
     check_service_before_booking = False  # the rate quote before booking already checks it
     SEED_RULES = SEED_RULES["FedEx"]
 
     def get_rates(self, req: ShipmentRequest) -> List[Rate]:
-        reply = self.call("POST", "/rate/v1/rates/quotes", fp.rate_body(req, self.account_number))
+        reply = self.call("POST", RATE_PATH, fp.rate_body(req, self.account_number))
         rates = fp.parse_rates(reply)
         if not rates:
             raise ProviderError(f"FedEx gave no rate for {req.reference}")
@@ -41,14 +50,40 @@ class FedEx(ShippingProvider):
 
     def book(self, req: ShipmentRequest) -> BookingResult:
         doc_ids = self.upload_documents(req) if req.documents else []
-        result = fp.parse_ship(self.call("POST", "/ship/v1/shipments", fp.ship_body(req, self.account_number, doc_ids)),
+        result = fp.parse_ship(self.call("POST", SHIP_PATH, fp.ship_body(req, self.account_number, doc_ids)),
                                req.reference)
         if not result.awb:
             raise ProviderError(f"FedEx: booking of {req.reference} gave no tracking number")
         return result
 
+    def preview(self, action: str, ctx: PreviewContext) -> List[dict]:
+        """The calls of a form action, with the bodies that the real call sends. Nothing is sent."""
+        req, awb, base = ctx.request, ctx.awb, self.base_url
+        login = step("Login (only when the token has expired)", "POST", base + "/oauth/token",
+                     {"grant_type": "client_credentials", "client_id": "<API Key>", "client_secret": "<hidden>"})
+        if action in ("get_rates", "book_shipment"):
+            steps = [login, step("Rate", "POST", base + RATE_PATH, fp.rate_body(req, self.account_number))]
+            if action == "get_rates":
+                return steps
+            doc_ids = [f"<docId of {d.filename}>" for d in req.documents]
+            if req.documents:
+                steps.append(step("Upload documents", "POST", self.document_url + UPLOAD_PATH, fp.upload_body(req)))
+            return steps + [step("Ship", "POST", base + SHIP_PATH, fp.ship_body(req, self.account_number, doc_ids))]
+        calls = {
+            "available_services": lambda: ("Transit times", "POST", TRANSIT_PATH,
+                                           fp.transit_body(req.origin, req.destination, date.today())),
+            "address_validation": lambda: ("Address check", "POST", ADDRESS_PATH, fp.address_body(req.destination)),
+            "get_status": lambda: ("Tracking", "POST", TRACK_PATH, fp.track_body([awb])),
+            "get_pod": lambda: ("Proof of delivery", "POST", POD_PATH, fp.pod_body(awb)),
+            "delete_shipment": lambda: ("Cancel", "PUT", CANCEL_PATH, fp.cancel_body(awb, self.account_number)),
+        }
+        if action not in calls:
+            raise NotSupported(f"FedEx: no preview for {action}")
+        name, method, path, body = calls[action]()
+        return [login, step(name, method, base + path, body)]
+
     def upload_documents(self, req: ShipmentRequest) -> List[str]:
-        reply = self.call("POST", "/documents/v1/etds/encodedmultiupload", fp.upload_body(req), base=self.document_url)
+        reply = self.call("POST", UPLOAD_PATH, fp.upload_body(req), base=self.document_url)
         doc_ids = fp.parse_upload(reply, req)
         missing = [d.filename for d, doc_id in zip(req.documents, doc_ids) if not doc_id]
         if missing:
@@ -56,7 +91,7 @@ class FedEx(ShippingProvider):
         return doc_ids
 
     def cancel(self, awb: str) -> None:
-        reply = self.call("PUT", "/ship/v1/shipments/cancel", fp.cancel_body(awb, self.account_number))
+        reply = self.call("PUT", CANCEL_PATH, fp.cancel_body(awb, self.account_number))
         if not (reply.get("output") or {}).get("cancelledShipment"):
             raise ProviderError(f"FedEx: cancel of {awb} failed: {(reply.get('output') or {}).get('message') or reply}")
 
@@ -65,23 +100,23 @@ class FedEx(ShippingProvider):
         awbs, tz, results = list(shipments), get_time_zone(), {}
         for start in range(0, len(awbs), self.track_batch_size):
             batch = awbs[start:start + self.track_batch_size]
-            items = fp.track_items(self.call("POST", "/track/v1/trackingnumbers", fp.track_body(batch)))
+            items = fp.track_items(self.call("POST", TRACK_PATH, fp.track_body(batch)))
             for awb in batch:
                 results[awb] = fp.parse_tracking(awb, items.get(awb), self.resolve, tz)
         return results
 
     def get_pod(self, awb: str) -> Label:
-        label = fp.parse_pod(awb, self.call("POST", "/track/v1/trackingdocuments", fp.pod_body(awb)))
+        label = fp.parse_pod(awb, self.call("POST", POD_PATH, fp.pod_body(awb)))
         if not label:
             raise ProviderError(f"FedEx has no proof of delivery for {awb} yet")
         return label
 
     def validate_address(self, address: Address) -> str:
-        return fp.parse_address(self.call("POST", "/address/v1/addresses/resolve", fp.address_body(address)))
+        return fp.parse_address(self.call("POST", ADDRESS_PATH, fp.address_body(address)))
 
     def check_serviceability(self, origin: Address, destination: Address, cod: bool = False) -> Tuple[bool, str]:
         """The FedEx services and transit days between two addresses."""
-        lines = fp.parse_transit(self.call("POST", "/availability/v1/transittimes",
+        lines = fp.parse_transit(self.call("POST", TRANSIT_PATH,
                                            fp.transit_body(origin, destination, date.today())))
         if not lines:
             return False, f"FedEx has no service from {origin.pincode} to {destination.pincode}"

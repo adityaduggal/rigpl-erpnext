@@ -15,8 +15,8 @@ from .test_dashboard import insert
 
 
 def actions(docstatus=0, status="", has_awb=False, has_pod=False, posted=False, api_mode=BOOKING,
-            caps=FedEx.capabilities, quote=False):
-    return fa.allowed_actions(docstatus, status, has_awb, has_pod, posted, api_mode, caps, quote)
+            caps=FedEx.capabilities, quote=False, preview=False):
+    return fa.allowed_actions(docstatus, status, has_awb, has_pod, posted, api_mode, caps, quote, preview)
 
 
 class TestAllowedActions(FrappeTestCase):
@@ -59,7 +59,49 @@ class TestAllowedActions(FrappeTestCase):
                                              api_mode=TRACKING_ONLY, caps=Shipway.capabilities))
 
     def test_cancelled_document_has_no_actions(self):
-        self.assertEqual(actions(docstatus=2, status=st.BOOKED, has_awb=True), [])
+        self.assertEqual(actions(docstatus=2, status=st.BOOKED, has_awb=True, preview=True), [])
+
+    def test_preview_request_is_last_and_only_for_the_allowed_user_and_a_provider_that_has_it(self):
+        self.assertNotIn("preview_request", actions())
+        self.assertEqual(actions(preview=True)[-1], "preview_request")
+        self.assertEqual(actions(docstatus=1, status=st.BOOKED, has_awb=True, preview=True),
+                         ["get_status", "delete_shipment", "preview_request"])  # any status
+        self.assertIn("preview_request", actions(docstatus=1, status=st.DELIVERED, has_awb=True, preview=True))
+        self.assertIn("preview_request", actions(api_mode=TRACKING_ONLY, caps=DTDC.capabilities, preview=True))
+        self.assertNotIn("preview_request", actions(api_mode=NONE, preview=True))
+        self.assertNotIn("preview_request", actions(caps=frozenset(("rate",)), preview=True))
+
+
+class TestCanPreview(FrappeTestCase):
+    def tearDown(self):
+        frappe.set_user("Administrator")
+        frappe.db.rollback()
+
+    def test_administrator_and_system_manager(self):
+        doc = frappe.new_doc("Carrier Tracking")
+        self.assertTrue(fa.can_preview(doc))
+        frappe.set_user("Guest")
+        with patch.object(frappe, "get_roles", return_value=["System Manager"]):
+            self.assertTrue(fa.can_preview(doc))
+
+    def test_delete_or_set_user_permissions_right_only(self):
+        doc = frappe.new_doc("Carrier Tracking")
+        asked = []
+
+        def has_permission(doctype, ptype, doc=None):
+            asked.append(ptype)
+            return ptype == "set_user_permissions"
+
+        frappe.set_user("Guest")
+        with patch.object(frappe, "get_roles", return_value=["Sales User"]), \
+                patch.object(frappe, "has_permission", side_effect=has_permission):
+            self.assertTrue(fa.can_preview(doc))
+            self.assertEqual(asked, ["delete", "set_user_permissions"])
+        with patch.object(frappe, "get_roles", return_value=["Sales User"]), \
+                patch.object(frappe, "has_permission", return_value=False):
+            self.assertFalse(fa.can_preview(doc))
+            with self.assertRaises(frappe.PermissionError):
+                fa.check_action(doc, "preview_request")
 
 
 class TestCheckAction(FrappeTestCase):

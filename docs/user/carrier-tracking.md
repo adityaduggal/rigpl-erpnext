@@ -44,6 +44,9 @@ The booking message tells you what to print:
 
 The system deletes the two files from the tracking a day after delivery.
 
+FedEx also gets the Item Code of each invoice line as the product id (`EU_DE_MINIMIS`, #242) when the
+shipment goes to an EU country.
+
 ### Export clearance (CSB-IV, CSB-V, Shipping Bill)
 
 When you save an export from India, **Export Clearance** shows how customs clears it:
@@ -78,6 +81,7 @@ now. The server checks the action again when you click it.
 |---|---|
 | Get Rates | The tracking is a draft and is not booked. The carrier has a rate API, or the transporter calculates the cost from its quote. |
 | Book Shipment | The tracking is a draft and is not booked. The transporter has API Mode "Booking and Tracking". |
+| Preview Request | Shows the calls that another action of this menu would send. System Managers and the users who can delete Carrier Tracking or set its user permissions only. Any status. The carrier must support it (FedEx, DTDC, Shipway). |
 | Validate Address | The tracking is not booked. The carrier can check addresses (FedEx). |
 | Available Services | The tracking is not booked. The carrier can check the pincode or route. |
 | Get Label | The tracking has an AWB and is not picked up yet (status Booked or empty). The carrier gives labels (DTDC). |
@@ -93,7 +97,18 @@ Delivery, Delivered or RTO.
 draft again with AWB "NA". You can then book it again. A carrier with no cancel API shows a message.
 Cancel the AWB on the carrier portal in that case.
 
-If the form has changes that are not saved, an action saves the form first.
+If the form has changes that are not saved, an action saves the form first. Preview Request does not save.
+
+### Test without sending data to the carrier
+
+Click **Preview Request**, pick an action (only the actions that apply to the tracking now are listed) and
+click Preview. The window shows each call as `METHOD url` (the service that gets it) and the body. Nothing
+goes to the carrier, and nothing is saved. Passwords, keys and tokens are not shown. A long file (the
+invoice PDF) shows as a number of characters.
+
+To stop every carrier call on a site (for example a dev copy), set `"shipping_block_calls": 1` in its
+`site_config.json`. Get Rates, Book Shipment and the other actions then stop before the call and show the
+body they would send. The secret keys are not shown. Remove the key on the production site.
 
 Click **Help** at the top of the form to open this page.
 

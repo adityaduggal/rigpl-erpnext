@@ -56,6 +56,7 @@ class Commodity:
     weight: float
     hs_code: str = ""
     country_of_manufacture: str = "IN"
+    item_code: str = ""  # the SKU for the EU product id (#242)
 
 
 @dataclass
@@ -171,6 +172,16 @@ class Account:
     webhook_enabled: bool = False
 
 
+@dataclass
+class PreviewContext:
+    """What a provider needs to show the calls of an action: the request for rates, booking,
+    services and address checks, and the AWB, reference and service code for the others."""
+    request: Optional[ShipmentRequest] = None
+    awb: str = ""
+    reference: str = ""
+    service_code: str = ""
+
+
 class ShippingProvider:
     """Base adapter. Each method raises NotSupported unless the adapter has it.
     `resolve(code, text)` gives the Carrier Tracking status of a carrier code, or None.
@@ -198,6 +209,10 @@ class ShippingProvider:
 
     def book(self, request: ShipmentRequest) -> BookingResult:
         raise NotSupported(f"{self.name}: booking")
+
+    def preview(self, action: str, ctx: "PreviewContext") -> List[dict]:
+        """The calls that the form action `action` would make, from `http.step`. Nothing is sent."""
+        raise NotSupported(f"{self.name}: request preview")
 
     def cancel(self, awb: str) -> None:
         raise NotSupported(f"{self.name}: cancel")

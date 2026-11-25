@@ -2,6 +2,7 @@
 One HTTP session for the carrier APIs (#168, #152): a timeout on each call, the TLS check
 on, and retries on 429 and 5xx. Tokens are cached in Redis until they expire.
 """
+import json
 from typing import Callable, Optional, Tuple
 
 import frappe
@@ -26,9 +27,34 @@ def get_session() -> requests.Session:
     return _session
 
 
+def redact(value, limit: int = 120):
+    """The same data with each long text cut, so a PDF in base64 does not fill the screen."""
+    if isinstance(value, dict):
+        return {k: redact(v, limit) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact(v, limit) for v in value]
+    if isinstance(value, str) and len(value) > limit:
+        return f"<{len(value)} characters>"
+    return value
+
+
+def step(name: str, method: str, url: str, body=None) -> dict:
+    """One call of a preview (nothing is sent). No query string and no header, long text cut."""
+    return {"step": name, "method": method, "url": url.split("?")[0], "body": redact(body)}
+
+
+def blocked_message(method: str, url: str, provider: str, body) -> str:
+    """The text for a call that site_config `shipping_block_calls` stopped. No query string,
+    and no form data (the login holds the secret key)."""
+    text = f"{provider}: calls are blocked on this site (shipping_block_calls). Not sent: {method} {url.split('?')[0]}"
+    return text + ("\n" + json.dumps(redact(body), indent=1, default=str) if body else "")
+
+
 def request(method: str, url: str, provider: str, **kwargs) -> requests.Response:
     """A request with the default timeout. A network error becomes ProviderError, with the
     URL path only, never the query string (it can hold a password)."""
+    if frappe.conf.get("shipping_block_calls"):
+        raise ProviderError(blocked_message(method, url, provider, kwargs.get("json")))
     kwargs.setdefault("timeout", TIMEOUT)
     kwargs.setdefault("verify", True)
     try:

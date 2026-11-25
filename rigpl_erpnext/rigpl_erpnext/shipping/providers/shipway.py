@@ -6,14 +6,14 @@ Transporter.
 """
 import json
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from frappe.utils import get_datetime
 
 from .. import status as st
 from ..seed_rules import SEED_RULES
-from ..base import ProviderError, Scan, ShippingProvider, TrackingResult
-from ..http import json_or_error, request
+from ..base import NotSupported, PreviewContext, ProviderError, Scan, ShippingProvider, TrackingResult
+from ..http import json_or_error, request, step
 
 BASE_URL = "https://shipway.in/api/"
 
@@ -51,9 +51,14 @@ def parse_tracking(awb: str, reply: dict, resolve) -> TrackingResult:
     )
 
 
+def push_body(reference: str, awb: str, service_code: str) -> dict:
+    return {"carrier_id": service_code, "awb": awb, "order_id": reference, "first_name": "Rohit",
+            "last_name": "Cutting Tools", "email": "gmail@gmail.com", "phone": "9999999999", "products": "N/A"}
+
+
 class Shipway(ShippingProvider):
     name = "Shipway"
-    capabilities = frozenset(("track", "push"))
+    capabilities = frozenset(("track", "push", "preview"))
     SEED_RULES = SEED_RULES["Shipway"]
 
     @property
@@ -75,8 +80,16 @@ class Shipway(ShippingProvider):
             return True
         if not service_code:
             raise ProviderError(f"Shipway: no carrier id (Provider Service Code) for {reference}")
-        reply = self.call("pushOrderData", {
-            "carrier_id": service_code, "awb": awb, "order_id": reference, "first_name": "Rohit",
-            "last_name": "Cutting Tools", "email": "gmail@gmail.com", "phone": "9999999999", "products": "N/A",
-        })
+        reply = self.call("pushOrderData", push_body(reference, awb, service_code))
         return reply.get("status") == "Success"
+
+    def preview(self, action: str, ctx: PreviewContext) -> List[dict]:
+        """The calls of a form action. Shipway reads the user name and the license key in each
+        body: they are not shown. Nothing is sent."""
+        check = step("Tracking", "GET", self.base_url + "getOrderShipmentDetails", {"order_id": ctx.reference})
+        if action == "get_status":
+            return [check]
+        if action == "pushdata":
+            return [check, step("Push", "GET", self.base_url + "pushOrderData",
+                                push_body(ctx.reference, ctx.awb, ctx.service_code))]
+        raise NotSupported(f"Shipway: no preview for {action}")

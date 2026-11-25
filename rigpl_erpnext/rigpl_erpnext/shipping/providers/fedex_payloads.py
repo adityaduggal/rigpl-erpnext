@@ -16,6 +16,9 @@ from ..base import Address, BookingResult, Commodity, Label, Rate, Scan, Shipmen
 PRINTED_MATTER = ("PRINTED TRADE ADVERTISING MATERIAL, CATALOGUES", "49111010")
 NOT_FOUND_CODES = ("TRACKING.TRACKINGNUMBER.NOTFOUND", "TRACKING.TRACKINGNUMBER.INVALID")
 NO_TIN = ("", "NA")
+# EU member states: FedEx wants a product id on each line for EU de minimis removal (#242)
+EU_COUNTRIES = frozenset(("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV",
+                          "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"))
 # Document types in documentRequirements.generationDetails that are invoices (#240)
 INVOICE_TYPES = ("COMMERCIAL_INVOICE", "PRO_FORMA_INVOICE", "COMMERCIAL_OR_PRO_FORMA_INVOICE")
 
@@ -306,10 +309,11 @@ def customs_lines(req: ShipmentRequest) -> List[dict]:
         first = items[0]
         return [commodity(Commodity(first.description, qty, "PCS", 1 / qty, weight, first.hs_code,
                                     first.country_of_manufacture), req.currency)]
-    return [commodity(item, req.currency) for item in spread_weight(items, weight)]
+    eu = req.destination.country_code in EU_COUNTRIES
+    return [commodity(item, req.currency, eu) for item in spread_weight(items, weight)]
 
 
-def commodity(item: Commodity, currency: str) -> dict:
+def commodity(item: Commodity, currency: str, eu: bool = False) -> dict:
     value = round(item.unit_price * item.quantity, 2)
     line = {
         "description": item.description[:450],
@@ -323,6 +327,10 @@ def commodity(item: Commodity, currency: str) -> dict:
     }
     if item.hs_code:
         line["harmonizedCode"] = re.sub(r"\D", "", item.hs_code)[:8]
+    if eu and item.item_code:
+        sku = item.item_code[:70]
+        line["regulatoryDetails"] = [{"regulationCode": "EU_DE_MINIMIS", "productId": sku, "productIdType": "SKU",
+                                      "details": {"merchantProductId": sku}}]
     return line
 
 
@@ -333,7 +341,7 @@ def spread_weight(items: List[Commodity], total: float) -> List[Commodity]:
     qty = sum(i.quantity for i in empty) or 1
     rest = max(total - known, 0)
     return [i if i.weight > 0 else Commodity(i.description, i.quantity, i.quantity_uom, i.unit_price,
-                                             round(rest * i.quantity / qty, 3), i.hs_code, i.country_of_manufacture)
+                                             round(rest * i.quantity / qty, 3), i.hs_code, i.country_of_manufacture, i.item_code)
             for i in items]
 
 

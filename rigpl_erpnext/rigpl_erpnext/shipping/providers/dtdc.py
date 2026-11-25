@@ -12,8 +12,9 @@ from typing import Dict, List, Optional, Tuple
 
 from .. import status as st
 from ..seed_rules import SEED_RULES
-from ..base import Address, BookingResult, Label, NotSupported, ProviderError, Scan, ShipmentRequest, ShippingProvider, TrackingResult
-from ..http import cached_token, clear_token, json_or_error, request
+from ..base import (Address, BookingResult, Label, NotSupported, PreviewContext, ProviderError, Scan, ShipmentRequest,
+                    ShippingProvider, TrackingResult)
+from ..http import cached_token, clear_token, json_or_error, request, step
 
 BASE_URL = "https://app.shipsy.in/api/customer/integration/consignment/"
 TRACKING_URL = "https://blktracksvc.dtdc.com/dtdc-api/"
@@ -111,6 +112,22 @@ def booking_json(req: ShipmentRequest, customer_code: str) -> dict:
     return {"consignments": [consignment]}
 
 
+def serviceability_body(origin: Address, destination: Address) -> dict:
+    return {"orgPincode": origin.pincode, "desPincode": destination.pincode}
+
+
+def label_body(awb: str) -> dict:
+    return {"reference_number": awb}
+
+
+def cancel_body(awb: str, customer_code: str) -> dict:
+    return {"AWBNo": [awb], "customerCode": customer_code}
+
+
+def track_body(awb: str) -> dict:
+    return {"trkType": "cnno", "strcnno": awb, "addtnlDtl": "Y"}
+
+
 def dtdc_address(address) -> dict:
     return {
         "name": address.name,
@@ -125,7 +142,7 @@ def dtdc_address(address) -> dict:
 
 class DTDC(ShippingProvider):
     name = "DTDC"
-    capabilities = frozenset(("book", "label", "cancel", "track", "serviceability"))
+    capabilities = frozenset(("book", "label", "cancel", "track", "serviceability", "preview"))
     track_batch_size = 50
     SEED_RULES = SEED_RULES["DTDC"]
 
@@ -136,6 +153,32 @@ class DTDC(ShippingProvider):
     @property
     def tracking_url(self) -> str:
         return (self.account.tracking_base_url or TRACKING_URL).rstrip("/") + "/"
+
+    @property
+    def serviceability_url(self) -> str:
+        return self.account.serviceability_url or SERVICEABILITY_URL
+
+    def preview(self, action: str, ctx: PreviewContext) -> List[dict]:
+        """The calls of a form action, with the bodies that the real call sends. Nothing is sent."""
+        req, awb, base = ctx.request, ctx.awb, self.base_url
+        if action == "book_shipment":
+            steps = [self.serviceability_step(req)] if self.check_service_before_booking else []
+            return steps + [step("Book", "POST", base + "softdata", booking_json(req, self.account.customer_code)),
+                            step("Label", "POST", base + "label/multipiece/", label_body("<AWB of the booking>"))]
+        if action == "available_services":
+            return [self.serviceability_step(req)]
+        if action == "get_labels":
+            return [step("Label", "POST", base + "label/multipiece/", label_body(awb))]
+        if action == "get_status":
+            return [step("Tracking login", "GET", self.tracking_url + "api/dtdc/authenticate",
+                         {"username": self.account.username, "password": "<hidden>"}),
+                    step("Tracking", "POST", self.tracking_url + "rest/JSONCnTrk/getTrackDetails", track_body(awb))]
+        if action == "delete_shipment":
+            return [step("Cancel", "POST", base + "cancel", cancel_body(awb, self.account.customer_code))]
+        raise NotSupported(f"DTDC: no preview for {action}")
+
+    def serviceability_step(self, req: ShipmentRequest) -> dict:
+        return step("Serviceability", "POST", self.serviceability_url, serviceability_body(req.origin, req.destination))
 
     def shipsy_headers(self) -> dict:
         if not self.account.api_key:
@@ -154,7 +197,7 @@ class DTDC(ShippingProvider):
 
     def get_labels(self, awb: str) -> List[Label]:
         reply = json_or_error(request("POST", self.base_url + "label/multipiece/", self.name,
-                                      headers=self.shipsy_headers(), json={"reference_number": awb}), self.name)
+                                      headers=self.shipsy_headers(), json=label_body(awb)), self.name)
         if reply.get("status") != "OK":
             raise ProviderError(f"DTDC: no label for {awb}: {reply.get('message') or reply.get('status')}")
         return [Label(f"DTDC-{row.get('reference_number')}.pdf", base64.b64decode(row.get("label")))
@@ -162,15 +205,14 @@ class DTDC(ShippingProvider):
 
     def cancel(self, awb: str) -> None:
         reply = json_or_error(request("POST", self.base_url + "cancel", self.name, headers=self.shipsy_headers(),
-                                      json={"AWBNo": [awb], "customerCode": self.account.customer_code}), self.name)
+                                      json=cancel_body(awb, self.account.customer_code)), self.name)
         if reply.get("status") not in ("OK", "Success", True) and not reply.get("success"):
             raise ProviderError(f"DTDC: cancel of {awb} failed: {reply}")
 
     def check_serviceability(self, origin: Address, destination: Address, cod: bool = False) -> Tuple[bool, str]:
         origin_pincode, destination_pincode = origin.pincode, destination.pincode
-        url = self.account.serviceability_url or SERVICEABILITY_URL
-        reply = json_or_error(request("POST", url, self.name,
-                                      json={"orgPincode": origin_pincode, "desPincode": destination_pincode}), self.name)
+        reply = json_or_error(request("POST", self.serviceability_url, self.name,
+                                      json=serviceability_body(origin, destination)), self.name)
         zip_resp = (reply.get("ZIPCODE_RESP") or [{}])[0]
         pins = reply.get("PIN_CITY")
         if zip_resp.get("SERVFLAG") == "N" or not isinstance(pins, list):
@@ -194,7 +236,7 @@ class DTDC(ShippingProvider):
 
     def track_one(self, awb: str, token: str) -> Optional[dict]:
         reply = request("POST", self.tracking_url + "rest/JSONCnTrk/getTrackDetails", self.name,
-                        headers={"X-Access-Token": token}, json={"trkType": "cnno", "strcnno": awb, "addtnlDtl": "Y"})
+                        headers={"X-Access-Token": token}, json=track_body(awb))
         if reply.status_code in (401, 403):
             return None
         return json_or_error(reply, self.name)

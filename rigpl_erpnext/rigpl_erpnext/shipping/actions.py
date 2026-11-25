@@ -9,12 +9,14 @@ import frappe
 from frappe.utils import cint, flt
 from frappe.utils.file_manager import remove_all, save_file
 
-from .base import Label, NotSupported, ProviderError
+from .base import Label, NotSupported, PreviewContext, ProviderError
 from .registry import require_carrier
 from .request import build_shipment_request, export_instructions, trade_documents
 from . import status as st
 
 NO_AWB = ("", "NA")
+# The actions that need the addresses, packages and items of the tracking
+REQUEST_ACTIONS = ("get_rates", "address_validation", "available_services")
 
 
 def provider_error(e: Exception, action: str):
@@ -63,9 +65,9 @@ def check_serviceability(doc, cod: bool = False) -> str:
     return message
 
 
-def book(doc, test_marking: bool = False) -> None:
-    """Books the shipment, saves the labels and submits the tracking."""
-    carrier = require_carrier(doc.carrier_name, "book", booking=True)
+def prepare_booking(doc, test_marking: bool = False, capability: str = "book"):
+    """The Carrier and the ShipmentRequest that booking sends, after the checks. No call to the carrier."""
+    carrier = require_carrier(doc.carrier_name, capability, booking=True)
     if doc.get("__islocal"):
         frappe.throw("Save the Carrier Tracking before you book the shipment.")
     if not doc.shipment_package_details:
@@ -77,6 +79,28 @@ def book(doc, test_marking: bool = False) -> None:
         req.documents = trade_documents(doc)  # checked before the rate call, so a bad file fails fast
         if not req.is_inward and req.origin.country_code == "IN":
             req.special_instructions = export_instructions(doc, req)
+    return carrier, req
+
+
+def preview(doc, action: str) -> List[dict]:
+    """The calls that the form action `action` would make. Nothing is sent and nothing is saved.
+    The checks of the real action run first, so a missing invoice or address shows here too."""
+    if action == "book_shipment":
+        carrier, req = prepare_booking(doc, capability="preview")
+    else:
+        carrier = require_carrier(doc.carrier_name, "preview")
+        req = build_shipment_request(doc, carrier.service_code) if action in REQUEST_ACTIONS else None
+    awb = doc.awb_number if doc.awb_number not in NO_AWB else ""
+    try:
+        return carrier.provider.preview(action, PreviewContext(request=req, awb=awb, reference=doc.name,
+                                                               service_code=carrier.service_code or ""))
+    except (ProviderError, NotSupported) as e:
+        provider_error(e, "Preview")
+
+
+def book(doc, test_marking: bool = False) -> None:
+    """Books the shipment, saves the labels and submits the tracking."""
+    carrier, req = prepare_booking(doc, test_marking)
     if carrier.provider.supports("serviceability") and carrier.provider.check_service_before_booking:
         check_serviceability(doc)
     if carrier.provider.supports("rate") or cint(
