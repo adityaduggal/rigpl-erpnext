@@ -130,6 +130,7 @@ def record_booking(doc, result) -> None:
     doc.tracking_source = "Manual"
     if result.cost is not None:
         doc.shipment_cost = result.cost
+        doc.shipment_cost_currency = result.currency or doc.shipment_cost_currency
     for row, package_id in zip(doc.shipment_package_details, result.package_ids):
         row.tracking_id = package_id
     doc.etd_type = result.etd_type

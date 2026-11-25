@@ -179,6 +179,8 @@ Other fields that the shipping code reads:
 - **Max Percent of Invoice Value**: the highest shipment cost as a percent of the invoice value. On a FedEx
   booking for a SOLD Sales Invoice, a higher cost stops the save unless the courier is charged on the invoice.
   The Cost vs Charged report reads 0 as "no limit".
+  The system compares both values in the company currency. For a Sales Invoice, it converts the invoice value
+  at the rate of the invoice.
 - **Calculate Cost from Quote**: the cost comes from the Transporter quote table, not from the carrier.
 
 ## 4. RIGPL Settings, Shipping section

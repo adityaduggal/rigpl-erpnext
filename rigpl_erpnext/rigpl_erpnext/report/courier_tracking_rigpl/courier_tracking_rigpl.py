@@ -14,7 +14,7 @@ from pypika import Case, Order
 
 from ...shipping import status as st
 from ...shipping.dashboard import DATEDIFF
-from ...shipping.validations import cost_over_limit
+from ...shipping.validations import company_currency_values, cost_over_limit
 from ....utils.report_utils import blank_zeros
 
 PENDING = "Pending Exceptions"
@@ -266,18 +266,22 @@ def pod_coverage(filters):
 def cost_vs_charged(filters):
 	ct = frappe.qb.DocType("Carrier Tracking")
 	tpt = frappe.qb.DocType("Transporters")
+	si = frappe.qb.DocType("Sales Invoice")
 	query = (
 		frappe.qb.from_(ct)
 		.left_join(tpt).on(tpt.name == ct.carrier_name)
-		.select(ct.name, ct.carrier_name, ct.awb_number, ct.document, ct.document_name, ct.amount,
-			ct.shipment_cost, ct.courier_charged, tpt.max_percent_of_invoice_value.as_("max_percent"))
+		.left_join(si).on((si.name == ct.document_name) & (ct.document == "Sales Invoice"))
+		.select(ct.name, ct.carrier_name, ct.awb_number, ct.document, ct.document_name, ct.amount, ct.currency,
+			ct.shipment_cost, ct.shipment_cost_currency, ct.courier_charged, si.conversion_rate,
+			tpt.max_percent_of_invoice_value.as_("max_percent"))
 		.where(ct.docstatus < 2)
 		.where((ct.shipment_cost > 0) | (ct.courier_charged > 0))
 		.orderby(ct.creation, order=Order.asc)
 	)
 	rows = filtered(query, filters).run(as_dict=True)
+	rates = {}
 	for row in rows:
-		annotate_cost(row)
+		annotate_cost(row, rates)
 	columns = [
 		column("Tracking No", "name", "Link", 100, "Carrier Tracking"),
 		column("Transporter", "carrier_name", "Link", 150, "Transporters"),
@@ -305,8 +309,10 @@ def cost_vs_charged(filters):
 	return columns, rows, chart, summary
 
 
-def annotate_cost(row):
-	"""Adds difference, cost percent and the over limit flag. A Max % of 0 means no limit is set."""
+def annotate_cost(row, rates: Optional[Dict] = None):
+	"""Puts amount and cost in the company currency, and adds difference, cost percent and the
+	over limit flag. A Max % of 0 means no limit is set."""
+	row.amount, row.shipment_cost = company_currency_values(row, row.get("conversion_rate"), rates)
 	row.difference = flt(row.courier_charged) - flt(row.shipment_cost)
 	row.cost_percent = flt(row.shipment_cost) / flt(row.amount) * 100 if flt(row.amount) > 0 else 0
 	row.over_limit = 1 if cost_over_limit(row.shipment_cost, row.amount, flt(row.max_percent) or None) else 0

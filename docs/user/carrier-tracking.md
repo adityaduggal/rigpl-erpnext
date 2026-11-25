@@ -209,6 +209,6 @@ above the table.
 | Old Exceptions | Submitted trackings in the period that are not delivered. |
 | Carrier Performance | For each carrier and month: shipped, delivered, RTO, closed, P90 days and percent on time. |
 | POD Coverage | Delivered trackings with and without a proof of delivery. |
-| Cost vs Charged | Shipment cost against the courier amount on the invoice, and the trackings over the cost limit. |
+| Cost vs Charged | Shipment cost against the courier amount on the invoice, and the trackings over the cost limit. All amounts are in the company currency. |
 
 All filters work on all types, except the dates on Pending Exceptions.

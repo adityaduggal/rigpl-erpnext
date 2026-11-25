@@ -1,5 +1,6 @@
 """Courier Tracking RIGPL report (#173)."""
 from datetime import datetime
+from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -7,6 +8,7 @@ from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.rigpl_erpnext.report.courier_tracking_rigpl import courier_tracking_rigpl as report
 from rigpl_erpnext.rigpl_erpnext.shipping import status as st
+from rigpl_erpnext.rigpl_erpnext.shipping import validations
 from rigpl_erpnext.rigpl_erpnext.shipping.validations import cost_over_limit
 
 from .test_dashboard import insert
@@ -53,6 +55,45 @@ class TestReportHelpers(FrappeTestCase):
         report.annotate_cost(row)
         self.assertEqual(row.over_limit, 1)
 
+    @patch.object(validations, "get_default_currency", return_value="INR")
+    def test_export_is_compared_in_the_company_currency(self, _):
+        row = frappe._dict(amount=1000, currency="USD", conversion_rate=80, shipment_cost=1500,
+                           shipment_cost_currency="INR", courier_charged=0, max_percent=2)
+        report.annotate_cost(row)
+        self.assertEqual((row.amount, row.shipment_cost, row.over_limit), (80000, 1500, 0))
+        self.assertEqual(row.cost_percent, 1.875)
+
+    @patch.object(validations, "get_exchange_rate", return_value=90)
+    @patch.object(validations, "get_default_currency", return_value="INR")
+    def test_a_foreign_shipment_cost_uses_the_invoice_rate_else_one_exchange_rate(self, _, exchange_rate):
+        ct = frappe._dict(amount=1000, currency="USD", shipment_cost=10, shipment_cost_currency="USD")
+        self.assertEqual(validations.company_currency_values(ct, 80), (80000, 800))
+        exchange_rate.assert_not_called()
+        rates = {}
+        ct.shipment_cost_currency = "EUR"
+        for _row in range(2):
+            self.assertEqual(validations.company_currency_values(ct, 80, rates), (80000, 900))
+        exchange_rate.assert_called_once_with("EUR", "INR")
+
+    @patch.object(validations, "get_default_currency", return_value="INR")
+    def test_the_save_check_converts_the_invoice_amount(self, _):
+        ct = frappe._dict(name="_Test CT", document="Sales Invoice", document_name="SI-1", purpose="SOLD",
+                          amount=1000, currency="USD", shipment_cost=1500, shipment_cost_currency="INR",
+                          courier_charged=0)
+        with patch.object(validations, "invoice_rate", return_value=80):
+            self.assertEqual(validations.courier_charges_validation(ct, 2, backend=True), 0)
+            ct.shipment_cost = 1700
+            self.assertEqual(validations.courier_charges_validation(ct, 2, backend=True), 1)
+
+    @patch.object(validations, "get_default_currency", return_value="INR")
+    def test_the_low_charge_message_names_the_account_and_the_needed_charge(self, _):
+        ct = frappe._dict(name="_Test CT", document_name="SI-1", carrier_name=TPT, currency="USD", courier_charged=0)
+        with patch.object(frappe, "get_cached_value", return_value="_Test Courier Account"):
+            message = validations.low_charge_message(ct, 169854.6, 94.2)
+        for text in ("/app/Form/Sales Invoice/SI-1", "/app/Form/Account/_Test Courier Account", f"/app/Form/Transporters/{TPT}",
+                     "1,803.13", "at rate 94.2"):
+            self.assertIn(text, message)
+
     def test_aggregate_performance(self):
         def t(created, status, pickup=None, delivered=None, expected=None, carrier=TPT):
             return {"carrier_name": carrier, "creation": created, "status": status, "pickup_date": pickup,
@@ -94,6 +135,7 @@ class TestCourierTrackingReport(FrappeTestCase):
         frappe.db.rollback()
 
     def test_each_view_runs_one_query_with_chart_and_cards(self):
+        validations.get_default_currency()  # cached for the process, not a query of a view
         for report_type in report.REPORT_TYPES:
             with self.subTest(report_type=report_type):
                 with assert_max_queries(1, test_case=self):
