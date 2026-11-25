@@ -176,11 +176,14 @@ Open each Transporter and fill the **Shipping API** section:
 
 Other fields that the shipping code reads:
 
-- **Max Percent of Invoice Value**: the highest shipment cost as a percent of the invoice value. On a FedEx
-  booking for a SOLD Sales Invoice, a higher cost stops the save unless the courier is charged on the invoice.
-  The Cost vs Charged report reads 0 as "no limit".
-  The system compares both values in the company currency. For a Sales Invoice, it converts the invoice value
-  at the rate of the invoice.
+- **Max Percent of Invoice Value**: the part of the shipment cost that you do not have to charge, as a percent
+  of the invoice value. On a SOLD Sales Invoice, the courier charge must be at least the shipment cost less this
+  part. A lower charge stops the save, unless **Bypass Courier Charged Check** is checked. A value of 0 means
+  that you must charge the full cost. The check applies only when the system gets the cost: from a rate API
+  (FedEx), or from the quote table (**Calculate Cost from Quote**, for example DTDC). Other transporters, for
+  example the ones that Shipway tracks, are not checked. The system compares the values in the company
+  currency, and converts a Sales Invoice at the rate of the invoice.
+- **Invoice Courier Charges Account**: the account of the courier charge rows on the Sales Invoice.
 - **Calculate Cost from Quote**: the cost comes from the Transporter quote table, not from the carrier.
 
 ## 4. RIGPL Settings, Shipping section

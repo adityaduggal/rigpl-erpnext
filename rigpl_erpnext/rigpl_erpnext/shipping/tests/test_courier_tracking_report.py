@@ -80,18 +80,37 @@ class TestReportHelpers(FrappeTestCase):
         ct = frappe._dict(name="_Test CT", document="Sales Invoice", document_name="SI-1", purpose="SOLD",
                           amount=1000, currency="USD", shipment_cost=1500, shipment_cost_currency="INR",
                           courier_charged=0)
-        with patch.object(validations, "invoice_rate", return_value=80):
+        with patch.object(validations, "invoice_rate", return_value=80), \
+                patch.object(validations, "cost_is_known", return_value=True):
             self.assertEqual(validations.courier_charges_validation(ct, 2, backend=True), 0)
-            ct.shipment_cost = 1700
+            ct.shipment_cost = 1700  # 2% of 80000 allows 1600, so 100 must be charged
             self.assertEqual(validations.courier_charges_validation(ct, 2, backend=True), 1)
+            ct.courier_charged = 100
+            self.assertEqual(validations.courier_charges_validation(ct, 2, backend=True), 0)
+            self.assertEqual(validations.courier_charges_validation(ct, 0, backend=True), 1)  # no allowance
+
+    def test_the_cost_is_known_from_a_quote_or_a_rate_api_only(self):
+        for quote, provider, api_mode, known in ((1, "", "None", True), (0, "FedEx", "Booking and Tracking", True),
+                                                 (0, "DTDC", "Booking and Tracking", False),
+                                                 (0, "Shipway", "Tracking Only", False), (0, "", "None", False)):
+            with self.subTest(provider=provider, quote=quote), \
+                    patch.object(frappe, "get_cached_value", return_value=quote), \
+                    patch.object(validations, "transporter_api", return_value=(provider, api_mode)):
+                self.assertEqual(validations.cost_is_known(TPT), known)
+
+    def test_the_needed_charge_rounds_up_by_at_most_one_percent(self):
+        for value, rounded in ((0.4, 1), (57.2, 58), (999.5, 1000), (1347.999, 1350), (1803.13, 1810),
+                               (12001, 12100), (169854.6, 170000), (12345678, 12400000)):
+            with self.subTest(value=value):
+                self.assertEqual(validations.round_up_charge(value), rounded)
 
     @patch.object(validations, "get_default_currency", return_value="INR")
     def test_the_low_charge_message_names_the_account_and_the_needed_charge(self, _):
         ct = frappe._dict(name="_Test CT", document_name="SI-1", carrier_name=TPT, currency="USD", courier_charged=0)
         with patch.object(frappe, "get_cached_value", return_value="_Test Courier Account"):
-            message = validations.low_charge_message(ct, 169854.6, 94.2)
+            message = validations.low_charge_message(ct, 169854.6, 126981.54, 2, 94.2)
         for text in ("/app/Form/Sales Invoice/SI-1", "/app/Form/Account/_Test Courier Account", f"/app/Form/Transporters/{TPT}",
-                     "1,803.13", "at rate 94.2"):
+                     "1,350.00", "at rate 94.2"):
             self.assertIn(text, message)
 
     def test_aggregate_performance(self):

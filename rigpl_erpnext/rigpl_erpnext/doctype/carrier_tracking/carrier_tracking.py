@@ -133,13 +133,13 @@ class CarrierTracking(WebsiteGenerator):
                 "Shipping Provider Account", tpt.shipping_provider_account, "account_number")
             self.sales_invoice_validations()
             self.ctrack_validations()
-            # After the booking the cost can differ from the quote that passed this check (#245)
-            if not self.flags.carrier_booked:
-                courier_charges_validation(self, tpt.max_percent_of_invoice_value)
             self.carrier_validations(tpt, from_address, to_address)
         elif tpt.is_domestic_only and from_address.country != to_address.country:
             frappe.throw(f"For {frappe.get_desk_link(self.doctype, self.name)} "
                          f"{frappe.get_desk_link('Transporters', self.carrier_name)} is Only for Domestic Booking")
+        # After the booking the cost can differ from the quote that passed this check (#245)
+        if not self.flags.carrier_booked:
+            courier_charges_validation(self, tpt.max_percent_of_invoice_value)
 
     def on_submit(self):
         route = access.new_route() if access.needs_new_route(self.name, self.route) else self.route
