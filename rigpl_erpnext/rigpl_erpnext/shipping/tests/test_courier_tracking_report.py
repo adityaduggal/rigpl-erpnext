@@ -15,12 +15,25 @@ from .test_dashboard import insert
 
 TPT, TPT_OTHER = "_Test RIGPL Report Air", "_Test RIGPL Report Ground"
 PERIOD = {"from_date": "2026-09-01", "to_date": "2026-10-20"}
+ACCOUNT, OTHER_ACCOUNT = "_Test RIGPL Courier Account", "_Test RIGPL Sales Account"
+SI, SI_TAX = "_Test RIGPL SI1", "_Test RIGPL SI2"
 
 
 def ctrack(name, created, status, carrier=TPT, docstatus=1, manual_exception_removed=0, **fields):
     insert("Carrier Tracking", name, carrier_name=carrier, awb_number=f"AWB{name}", status=status,
            docstatus=docstatus, creation=created, modified=created,
            manual_exception_removed=manual_exception_removed, **fields)
+
+
+def item_row(invoice, account, amount):
+    insert("Sales Invoice Item", f"{invoice} I {account} {amount}", parent=invoice, parenttype="Sales Invoice",
+           parentfield="items", income_account=account, base_amount=amount)
+
+
+def tax_row(invoice, account, amount):
+    insert("Sales Taxes and Charges", f"{invoice} T {account} {amount}", parent=invoice,
+           parenttype="Sales Invoice", parentfield="taxes", account_head=account,
+           base_tax_amount_after_discount_amount=amount)
 
 
 def run(report_type, **filters):
@@ -133,16 +146,38 @@ class TestReportHelpers(FrappeTestCase):
         self.assertEqual((rows[1].shipped, rows[1].delivered, rows[1].on_time), (1, 0, 0))
 
 
+class TestCourierCharges(FrappeTestCase):
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_item_rows_and_tax_rows_of_the_account_are_added(self):
+        item_row(SI, ACCOUNT, 10)
+        item_row(SI, OTHER_ACCOUNT, 1000)
+        tax_row(SI, ACCOUNT, 20)
+        tax_row(SI, ACCOUNT, 5)
+        tax_row(SI, OTHER_ACCOUNT, 500)
+        tax_row(SI_TAX, ACCOUNT, 7)
+        with assert_max_queries(2, test_case=self):
+            charges = validations.courier_charges([(SI, ACCOUNT), (SI_TAX, ACCOUNT), ("_Test RIGPL SI3", ACCOUNT)])
+        self.assertEqual(charges, {(SI, ACCOUNT): 35, (SI_TAX, ACCOUNT): 7})
+
+    def test_an_empty_account_or_invoice_runs_no_query(self):
+        with assert_max_queries(0, test_case=self):
+            self.assertEqual(validations.courier_charges([(SI, None), (None, ACCOUNT)]), {})
+
+
 class TestCourierTrackingReport(FrappeTestCase):
     def setUp(self):
-        insert("Transporters", TPT, max_percent_of_invoice_value=2)
+        insert("Transporters", TPT, max_percent_of_invoice_value=2, invoice_courier_charges_account=ACCOUNT)
         insert("Transporters", TPT_OTHER)
         sep, octo = datetime(2026, 9, 10, 10), datetime(2026, 10, 5, 10)
         ctrack("_Test RIGPL R1", created=sep, status=st.DELIVERED, pickup_date="2026-09-10",
                delivery_date_time="2026-09-13 10:00:00", expected_delivery_date="2026-09-14",
-               pod_file="/files/pod.pdf", shipment_cost=30, courier_charged=0, amount=1000)
+               pod_file="/files/pod.pdf", shipment_cost=30, courier_charged=0, amount=1000,
+               document="Sales Invoice", document_name=SI, purpose="SOLD")
         ctrack("_Test RIGPL R2", created=octo, status=st.DELIVERED, pickup_date="2026-10-05",
-               delivery_date_time="2026-10-06 10:00:00", shipment_cost=10, amount=1000)
+               delivery_date_time="2026-10-06 10:00:00", shipment_cost=10, amount=1000,
+               document="Sales Invoice", document_name=SI, purpose="SOLD")
         ctrack("_Test RIGPL R3", created=octo, status=st.IN_TRANSIT)
         ctrack("_Test RIGPL R4", created=datetime(2026, 10, 20, 23, 59), status=st.RTO)  # last day counts
         ctrack("_Test RIGPL R5", created=datetime(2025, 1, 5), status=st.IN_TRANSIT)  # before the period
@@ -153,11 +188,12 @@ class TestCourierTrackingReport(FrappeTestCase):
     def tearDown(self):
         frappe.db.rollback()
 
-    def test_each_view_runs_one_query_with_chart_and_cards(self):
+    def test_each_view_runs_a_fixed_number_of_queries_with_chart_and_cards(self):
         validations.get_default_currency()  # cached for the process, not a query of a view
         for report_type in report.REPORT_TYPES:
             with self.subTest(report_type=report_type):
-                with assert_max_queries(1, test_case=self):
+                # Cost vs Charged also reads the item rows and the tax rows of the invoices
+                with assert_max_queries(3 if report_type == report.COST else 1, test_case=self):
                     rows, chart, summary = run(report_type)
                 self.assertTrue(rows)
                 self.assertTrue(chart["data"]["labels"])
@@ -197,6 +233,31 @@ class TestCourierTrackingReport(FrappeTestCase):
         self.assertEqual(by_name["_Test RIGPL R1"]["over_limit"], 1)
         self.assertIsNone(by_name["_Test RIGPL R2"]["over_limit"])  # 0 shows as an empty cell
         self.assertEqual(card(summary, "Over Limit"), 1)
+
+    def test_cost_vs_charged_shows_sold_sales_invoices_only(self):
+        octo = datetime(2026, 10, 6, 10)
+        for name, document, purpose in (("_Test RIGPL C1", "Sales Invoice", "SAMPLE"),
+                                        ("_Test RIGPL C2", "Purchase Order", "NOT_SOLD"),
+                                        ("_Test RIGPL C3", "Customer", "SOLD")):
+            ctrack(name, created=octo, status=st.IN_TRANSIT, shipment_cost=10, amount=1000, document=document,
+                   document_name=f"{name} Ref", purpose=purpose)
+        rows, _, _ = run(report.COST)
+        self.assertEqual({r["name"] for r in rows}, {"_Test RIGPL R1", "_Test RIGPL R2"})
+
+    def test_cost_vs_charged_reads_the_invoice_and_counts_it_once(self):
+        item_row(SI, ACCOUNT, 10)
+        tax_row(SI, ACCOUNT, 15)
+        tax_row(SI_TAX, ACCOUNT, 40)
+        # no cost and a stale stored charge: the row shows because of the tax row
+        ctrack("_Test RIGPL C4", created=datetime(2026, 10, 7), status=st.IN_TRANSIT, courier_charged=0,
+               document="Sales Invoice", document_name=SI_TAX, purpose="SOLD")
+        rows, chart, summary = run(report.COST)
+        by_name = {r["name"]: r for r in rows}
+        self.assertEqual(by_name["_Test RIGPL R1"]["courier_charged"], 25)
+        self.assertIsNone(by_name["_Test RIGPL R2"]["courier_charged"])  # the same invoice as R1
+        self.assertEqual(by_name["_Test RIGPL R2"]["difference"], -10)
+        self.assertEqual(by_name["_Test RIGPL C4"]["courier_charged"], 40)
+        self.assertEqual(card(summary, "Courier Charged"), 65)
 
     def test_carrier_performance_by_month(self):
         rows, chart, _ = run(report.PERFORMANCE)

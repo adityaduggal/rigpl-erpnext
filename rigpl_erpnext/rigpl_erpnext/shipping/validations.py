@@ -1,14 +1,16 @@
 """Carrier Tracking checks that do not call a carrier (moved from the old jobs module, #168)."""
 import math
-from typing import Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 import frappe
 from erpnext import get_default_currency
 from erpnext.setup.utils import get_exchange_rate
+from frappe.query_builder.functions import Sum
 from frappe.utils import cint, flt, fmt_money
 
 from .accounts import NONE
 from .registry import provider_classes, transporter_api
+from ...utils.item_attribute_utils import chunks
 
 
 def cost_over_limit(shipment_cost, amount, max_percent_of_invoice_value) -> bool:
@@ -47,6 +49,31 @@ def courier_charges_validation(ct_doc, max_percent_of_invoice_value, backend: bo
                          title="Courier Charges Too Low")
         return 1
     return 0
+
+
+def courier_charges(invoice_accounts: Iterable[Tuple[str, str]]) -> Dict[Tuple[str, str], float]:
+    """{(Sales Invoice, account): courier charged in the company currency}, from the item rows and the
+    tax rows with that account (#249). A pair with no row is not in the result."""
+    pairs = {(invoice, account) for invoice, account in invoice_accounts if invoice and account}
+    accounts = list({account for _, account in pairs})
+    sources = (("Sales Invoice Item", "income_account", "base_amount"),
+               ("Sales Taxes and Charges", "account_head", "base_tax_amount_after_discount_amount"))
+    charges = {}
+    for invoices in chunks(invoice for invoice, _ in pairs):
+        for doctype, account_field, amount_field in sources:
+            table = frappe.qb.DocType(doctype)
+            rows = (
+                frappe.qb.from_(table)
+                .select(table.parent, table[account_field], Sum(table[amount_field]))
+                .where(table.parenttype == "Sales Invoice")
+                .where(table.parent.isin(invoices))
+                .where(table[account_field].isin(accounts))
+                .groupby(table.parent, table[account_field])
+            ).run()
+            for invoice, account, amount in rows:
+                if (invoice, account) in pairs:
+                    charges[(invoice, account)] = charges.get((invoice, account), 0) + flt(amount)
+    return charges
 
 
 def cost_is_known(transporter: str) -> bool:

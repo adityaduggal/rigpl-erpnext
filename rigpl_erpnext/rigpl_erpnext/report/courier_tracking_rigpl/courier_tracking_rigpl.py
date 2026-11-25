@@ -14,7 +14,7 @@ from pypika import Case, Order
 
 from ...shipping import status as st
 from ...shipping.dashboard import DATEDIFF
-from ...shipping.validations import company_currency_values, cost_over_limit
+from ...shipping.validations import company_currency_values, cost_over_limit, courier_charges
 from ....utils.report_utils import blank_zeros
 
 PENDING = "Pending Exceptions"
@@ -273,12 +273,15 @@ def cost_vs_charged(filters):
 		.left_join(si).on((si.name == ct.document_name) & (ct.document == "Sales Invoice"))
 		.select(ct.name, ct.carrier_name, ct.awb_number, ct.document, ct.document_name, ct.amount, ct.currency,
 			ct.shipment_cost, ct.shipment_cost_currency, ct.courier_charged, si.conversion_rate,
-			tpt.max_percent_of_invoice_value.as_("max_percent"))
+			tpt.max_percent_of_invoice_value.as_("max_percent"), tpt.invoice_courier_charges_account)
 		.where(ct.docstatus < 2)
-		.where((ct.shipment_cost > 0) | (ct.courier_charged > 0))
+		.where(ct.purpose == "SOLD")
+		.where(ct.document == "Sales Invoice")
 		.orderby(ct.creation, order=Order.asc)
 	)
 	rows = filtered(query, filters).run(as_dict=True)
+	set_courier_charged(rows)
+	rows = [r for r in rows if flt(r.shipment_cost) > 0 or r.courier_charged > 0]
 	rates = {}
 	for row in rows:
 		annotate_cost(row, rates)
@@ -307,6 +310,15 @@ def cost_vs_charged(filters):
 		card("Over Limit", over, "Int", "Red" if over else "Green"),
 	]
 	return columns, rows, chart, summary
+
+
+def set_courier_charged(rows: Sequence[Dict]):
+	"""Reads the charge from the invoice, because the stored value can be old. An invoice with more
+	than one tracking gives its charge to the first row only, so the totals count it once."""
+	keys = [(r.document_name, r.invoice_courier_charges_account) for r in rows]
+	charges = courier_charges(keys)
+	for row, key in zip(rows, keys):
+		row.courier_charged = charges.pop(key, 0)
 
 
 def annotate_cost(row, rates: Optional[Dict] = None):

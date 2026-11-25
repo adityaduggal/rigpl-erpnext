@@ -16,7 +16,7 @@ from ...shipping.form_actions import LABELS, check_action, onload_actions
 from ...shipping.registry import get_carrier, transporter_api
 from ...shipping.request import export_clearance, invoice_base_value
 from ...shipping.tracking import track_now
-from ...shipping.validations import courier_charges_validation
+from ...shipping.validations import courier_charges, courier_charges_validation
 from ....utils.sales_utils import validate_address_google_update
 
 
@@ -191,8 +191,8 @@ class CarrierTracking(WebsiteGenerator):
                 self.purpose = "SOLD"
                 self.amount = si_doc.grand_total
             self.currency = si_doc.currency
-            self.courier_charged = sum(flt(d.base_amount) for d in si_doc.items
-                                       if d.income_account == tpt.invoice_courier_charges_account)
+            charged = courier_charges([(si_doc.name, tpt.invoice_courier_charges_account)])
+            self.courier_charged = sum(charged.values())
         elif self.document == "Purchase Order":
             po_doc = frappe.get_doc("Purchase Order", self.document_name)
             self.receiver_document = "Supplier"

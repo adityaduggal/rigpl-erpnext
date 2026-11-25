@@ -183,7 +183,8 @@ Other fields that the shipping code reads:
   (FedEx), or from the quote table (**Calculate Cost from Quote**, for example DTDC). Other transporters, for
   example the ones that Shipway tracks, are not checked. The system compares the values in the company
   currency, and converts a Sales Invoice at the rate of the invoice.
-- **Invoice Courier Charges Account**: the account of the courier charge rows on the Sales Invoice.
+- **Invoice Courier Charges Account**: the account of the courier charge on the Sales Invoice. The system adds
+  the item rows with this income account and the rows of the taxes table with this account.
 - **Calculate Cost from Quote**: the cost comes from the Transporter quote table, not from the carrier.
 
 ## 4. RIGPL Settings, Shipping section
