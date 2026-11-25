@@ -135,9 +135,20 @@ def upload_body(req: ShipmentRequest) -> dict:
 
 def parse_upload(reply: dict, req: ShipmentRequest) -> List[str]:
     """The docId of each document of `req`, in order. None for a document FedEx did not take."""
+    rows = (reply.get("output") or {}).get("documentResponses")
+    # a rejection sends {"alerts": [...]} in place of the list (#244)
     ids = {r.get("fileReferenceId"): (r.get("metaData") or {}).get("docId")
-           for r in (reply.get("output") or {}).get("documentResponses") or []}
+           for r in (rows if isinstance(rows, list) else [])}
     return [ids.get(f"{req.reference}-{n}") for n in range(1, len(req.documents) + 1)]
+
+
+def error_text(reply: dict) -> str:
+    """'code: message' of each FedEx error, then of each upload alert: for a rejected upload
+    the error only says to read the alerts. Empty when the reply has neither."""
+    documents = (reply.get("output") or {}).get("documentResponses")
+    alerts = documents.get("alerts") if isinstance(documents, dict) else None
+    rows = (reply.get("errors") or []) + (alerts or [])
+    return "; ".join(f"{r.get('code')}: {r.get('message')}" for r in rows)[:500]
 
 
 def parse_tracking(awb: str, item: dict, resolve, tz: str) -> TrackingResult:

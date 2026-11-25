@@ -87,7 +87,9 @@ class FedEx(ShippingProvider):
         doc_ids = fp.parse_upload(reply, req)
         missing = [d.filename for d, doc_id in zip(req.documents, doc_ids) if not doc_id]
         if missing:
-            raise ProviderError(f"FedEx did not take the trade documents {', '.join(missing)} of {req.reference}")
+            reason = fp.error_text(reply)
+            raise ProviderError(f"FedEx did not take the trade documents {', '.join(missing)} of {req.reference}"
+                                + (f". {reason}" if reason else ""))
         return doc_ids
 
     def cancel(self, awb: str) -> None:
@@ -150,9 +152,9 @@ class FedEx(ShippingProvider):
             clear_token(self.token_key)
             reply = self.send(method, path, body, base)
         data = json_or_error(reply, self.name)
-        errors = data.get("errors") or []
-        if errors and not (data.get("output")):
-            raise ProviderError("FedEx: " + "; ".join(f"{e.get('code')}: {e.get('message')}" for e in errors)[:500])
+        # a rejected upload has an output block too (#244)
+        if data.get("errors") and (reply.status_code >= 400 or not data.get("output")):
+            raise ProviderError("FedEx: " + fp.error_text(data))
         if reply.status_code >= 400 and not data.get("output"):
             raise ProviderError(f"FedEx: {method} {path} gave HTTP {reply.status_code}")
         return data

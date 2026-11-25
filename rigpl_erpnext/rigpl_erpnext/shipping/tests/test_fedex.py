@@ -19,6 +19,11 @@ TZ = "Asia/Kolkata"
 DOCUMENTS = [TradeDocument("COMMERCIAL_INVOICE", "SI-0001.pdf", b"%PDF-1.4"),
              TradeDocument("OTHER", "packing.png", b"PNG", "image/png")]
 MODULE = "rigpl_erpnext.rigpl_erpnext.shipping.providers.fedex"
+# The 400 example of the FedEx Upload Documents spec: errors and an output block (#244)
+REJECTED_UPLOAD = {
+    "output": {"documentResponses": {"alerts": [
+        {"code": "1024", "message": "ETD shipment validation failure : Invalid destination country code"}]}},
+    "errors": [{"code": "1001", "message": "Invalid request: invalid input : Could not upload files."}]}
 
 
 def fixture(name):
@@ -179,6 +184,7 @@ class TestFedExBodies(FrappeTestCase):
             {"fileReferenceId": "CTRACK-T1-1", "metaData": {"documentType": "CI", "docId": "D1"}}]}}
         self.assertEqual(fp.parse_upload(reply, shipment(documents=DOCUMENTS)), ["D1", "D2"])
         self.assertEqual(fp.parse_upload({"output": {}}, shipment(documents=DOCUMENTS)), [None, None])
+        self.assertEqual(fp.parse_upload(REJECTED_UPLOAD, shipment(documents=DOCUMENTS)), [None, None])
 
     def test_export_with_uploaded_documents_asks_for_etd(self):
         req = fp.ship_body(shipment(documents=DOCUMENTS), "1", ["D1", "D2"])["requestedShipment"]
@@ -336,6 +342,16 @@ class TestFedExHTTP(FrappeTestCase):
         self.assertEqual(ship_call.args[1], fedex.PRODUCTION_URL + "/ship/v1/shipments")
         attached = ship_call.kwargs["json"]["requestedShipment"]["shipmentSpecialServices"]["etdDetail"]["attachedDocuments"]
         self.assertEqual([a["documentId"] for a in attached], ["D1", "D2"])
+
+    def test_a_rejected_upload_shows_the_fedex_error_and_alert(self):
+        for status_code in (400, 200):
+            clear_token("fedex:_Test FedEx")
+            replies = [Reply({"access_token": "T", "expires_in": 3600}), Reply(REJECTED_UPLOAD, status_code)]
+            with self.subTest(status_code), patch(f"{MODULE}.request", side_effect=replies) as request:
+                with self.assertRaisesRegex(ProviderError, "1001: Invalid request.*1024: ETD shipment validation"):
+                    adapter().book(shipment(documents=DOCUMENTS))
+                # 200 with an output block is not a failure for call(), the upload check stops it
+                self.assertEqual(len(request.call_args_list), 2)
 
     def test_a_refused_document_stops_the_booking(self):
         upload = {"output": {"documentResponses": [{"fileReferenceId": "CTRACK-T1-1", "metaData": {"docId": "D1"}}]}}
