@@ -1,4 +1,8 @@
+import json
+import os
+
 import frappe
+from frappe.modules.utils import sync_customizations_for_doctype
 from frappe.utils import escape_html, flt, now
 
 from rigpl_erpnext.utils.batch_write_utils import bulk_insert_rows
@@ -48,6 +52,8 @@ def execute():
         return
     names = frappe.db.sql_list(f"""SELECT name FROM `tab{OLD}` p WHERE docstatus IN (1, 2)
         AND NOT EXISTS (SELECT 1 FROM `tabJournal Entry` j WHERE j.name = p.name) ORDER BY name""")
+    if names:
+        sync_employee_advance_fields()
     try:
         if names:
             convert(names)
@@ -56,6 +62,17 @@ def execute():
     except Exception:
         frappe.db.rollback()
         raise
+
+
+def sync_employee_advance_fields():
+    """
+    v13 migrate runs the patches before it syncs the custom fields, so the loan columns do not exist yet.
+    The DocType is reloaded first: the custom sync skips a DocType that has no row. The DDL commits.
+    """
+    frappe.reload_doc("hr", "doctype", "employee_advance")
+    folder = frappe.get_app_path("rigpl_erpnext", "rigpl_erpnext", "custom")
+    with open(os.path.join(folder, "employee_advance.json")) as f:
+        sync_customizations_for_doctype(json.load(f), folder, "employee_advance.json")
 
 
 def convert(names):

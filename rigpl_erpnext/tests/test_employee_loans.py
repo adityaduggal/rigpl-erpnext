@@ -314,6 +314,16 @@ class TestConvertPatch(LoanCase):
         gl += frappe.db.count("GL Entry", {"voucher_type": "Salary Slip", "against": name})
         return gl + frappe.db.count("Salary Detail", {"employee_loan": name})
 
+    def test_execute_syncs_the_loan_fields_before_the_conversion(self):
+        # Migrate runs the patches before it syncs the custom fields.
+        submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2)])
+        module, calls = convert_employee_advance_rigpl, []
+        with patch.object(module, "sync_employee_advance_fields", side_effect=lambda: calls.append("sync")), \
+                patch.object(module, "convert", side_effect=lambda names: calls.append("convert")), \
+                patch.object(module, "link_attachments"), patch.object(frappe.db, "commit"):
+            module.execute()
+        self.assertEqual(calls, ["sync", "convert"])
+
     def test_loan_slip_and_detail_point_to_the_new_advances(self):
         insert_second_employee()
         doc = submitted_loan([dict(employee=EMP, loan_amount=1000, emi=500, repayment_period=2),
