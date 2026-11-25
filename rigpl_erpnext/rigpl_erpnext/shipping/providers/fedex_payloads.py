@@ -136,9 +136,11 @@ def upload_body(req: ShipmentRequest) -> dict:
 def parse_upload(reply: dict, req: ShipmentRequest) -> List[str]:
     """The docId of each document of `req`, in order. None for a document FedEx did not take."""
     rows = (reply.get("output") or {}).get("documentResponses")
-    # a rejection sends {"alerts": [...]} in place of the list (#244)
-    ids = {r.get("fileReferenceId"): (r.get("metaData") or {}).get("docId")
-           for r in (rows if isinstance(rows, list) else [])}
+    # FedEx sends one document as an object, not a list. A rejection is an object too,
+    # {"alerts": [...]}, with no fileReferenceId (#244)
+    if isinstance(rows, dict):
+        rows = [rows]
+    ids = {r.get("fileReferenceId"): (r.get("metaData") or {}).get("docId") for r in rows or []}
     return [ids.get(f"{req.reference}-{n}") for n in range(1, len(req.documents) + 1)]
 
 

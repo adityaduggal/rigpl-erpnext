@@ -185,6 +185,10 @@ class TestFedExBodies(FrappeTestCase):
         self.assertEqual(fp.parse_upload(reply, shipment(documents=DOCUMENTS)), ["D1", "D2"])
         self.assertEqual(fp.parse_upload({"output": {}}, shipment(documents=DOCUMENTS)), [None, None])
         self.assertEqual(fp.parse_upload(REJECTED_UPLOAD, shipment(documents=DOCUMENTS)), [None, None])
+        # the production reply for one document is an object, not a list (#244)
+        one = {"output": {"documentResponses": {"fileReferenceId": "CTRACK-T1-1",
+                                                "metaData": {"documentType": "CI", "docId": "D1"}}}}
+        self.assertEqual(fp.parse_upload(one, shipment(documents=DOCUMENTS[:1])), ["D1"])
 
     def test_export_with_uploaded_documents_asks_for_etd(self):
         req = fp.ship_body(shipment(documents=DOCUMENTS), "1", ["D1", "D2"])["requestedShipment"]
@@ -359,6 +363,8 @@ class TestFedExHTTP(FrappeTestCase):
         with patch(f"{MODULE}.request", side_effect=replies) as request, self.assertRaises(ProviderError) as ctx:
             adapter().book(shipment(documents=DOCUMENTS))
         self.assertIn("packing.png", str(ctx.exception))
+        self.assertIn("FedEx reply:", str(ctx.exception))  # no error or alert to show
+        self.assertIn("D1", str(ctx.exception))
         self.assertEqual(len(request.call_args_list), 2)  # no booking call
 
 

@@ -8,14 +8,15 @@ FedEx REST API (#170). It replaces the retired SOAP `fedex` library.
 - Exports send our invoice electronically (ETD, #240): it is uploaded to the document API
   just before the booking, and the booking names its docId.
 """
+import json
 from datetime import date
 from typing import Dict, List, Tuple
 
-from frappe.utils import get_time_zone
+from frappe.utils import escape_html, get_time_zone
 
 from ..base import (Address, BookingResult, Label, NotSupported, PreviewContext, ProviderError, Rate, ShipmentRequest,
                     ShippingProvider, TrackingResult)
-from ..http import cached_token, clear_token, json_or_error, request, step
+from ..http import cached_token, clear_token, json_or_error, redact, request, step
 from ..seed_rules import SEED_RULES
 from . import fedex_payloads as fp
 
@@ -87,9 +88,10 @@ class FedEx(ShippingProvider):
         doc_ids = fp.parse_upload(reply, req)
         missing = [d.filename for d, doc_id in zip(req.documents, doc_ids) if not doc_id]
         if missing:
-            reason = fp.error_text(reply)
-            raise ProviderError(f"FedEx did not take the trade documents {', '.join(missing)} of {req.reference}"
-                                + (f". {reason}" if reason else ""))
+            # a reply of a shape that we do not know is shown as it is (#244)
+            reason = fp.error_text(reply) or "FedEx reply: " + escape_html(json.dumps(redact(reply, 500))[:1000])
+            raise ProviderError(f"FedEx did not take the trade documents {', '.join(missing)} of {req.reference}. "
+                                + reason)
         return doc_ids
 
     def cancel(self, awb: str) -> None:
