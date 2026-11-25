@@ -154,6 +154,19 @@ class TestBookingFailure(FrappeTestCase):
             self.book()
 
 
+class TestCancelFiles(FrappeTestCase):
+    """Delete Shipment keeps the files of the user (#247). No database."""
+    def test_only_the_carrier_files_are_removed(self):
+        files = [frappe._dict(name=name, file_name=file_name, attached_to_field=field) for name, file_name, field in (
+            ("F1", "FEDEX-794600000001.pdf", None), ("F2", "DTDC-D100001.pdf", ""),
+            ("F3", "COMMER-INV-CT-794600000001.pdf", None), ("F4", "RE2700048.pdf", "customs_invoice"),
+            ("F5", "COMMER-INV-copy.pdf", "other_trade_document"), ("F6", "packing list.pdf", None))]
+        with patch.object(frappe, "get_all", return_value=files), \
+                patch.object(shipping_actions, "remove_file") as remove_file:
+            shipping_actions.remove_carrier_files(frappe._dict(doctype="Carrier Tracking", name="_Test CT"))
+        self.assertEqual([c.args[0] for c in remove_file.call_args_list], ["F1", "F2", "F3"])
+
+
 class TestCheckAction(FrappeTestCase):
     def tearDown(self):
         frappe.db.rollback()

@@ -7,7 +7,7 @@ from typing import List
 
 import frappe
 from frappe.utils import cint, flt
-from frappe.utils.file_manager import remove_all, save_file
+from frappe.utils.file_manager import remove_file, save_file
 
 from .base import Label, NotSupported, PreviewContext, ProviderError
 from .registry import require_carrier
@@ -15,6 +15,8 @@ from .request import build_shipment_request, export_instructions, trade_document
 from . import status as st
 
 NO_AWB = ("", "NA")
+# How the adapters name the files of a booking: labels and the FedEx commercial invoice
+CARRIER_FILE_PREFIXES = ("FEDEX-", "DTDC-", "COMMER-INV-")
 # The actions that need the addresses, packages and items of the tracking
 REQUEST_ACTIONS = ("get_rates", "address_validation", "available_services")
 
@@ -207,6 +209,16 @@ def cancel(doc) -> None:
     pkg = frappe.qb.DocType("Shipment Package Details")
     (frappe.qb.update(pkg).set(pkg.docstatus, 0).set(pkg.tracking_id, "")
      .where(pkg.parent == doc.name).where(pkg.parenttype == doc.doctype)).run()
-    remove_all(doc.doctype, doc.name)
+    remove_carrier_files(doc)
     if doc.document == "Sales Invoice":
         frappe.db.set_value("Sales Invoice", doc.document_name, {"transporters": doc.carrier_name, "lr_no": "NA"})
+
+
+def remove_carrier_files(doc) -> None:
+    """Removes the files that the booking got from the carrier. The files of a user stay (#247)."""
+    files = frappe.get_all("File", filters={"attached_to_doctype": doc.doctype, "attached_to_name": doc.name},
+                           fields=["name", "file_name", "attached_to_field"])
+    for file in files:
+        # A file in a field was attached by a user, whatever its name is
+        if not file.attached_to_field and (file.file_name or "").startswith(CARRIER_FILE_PREFIXES):
+            remove_file(file.name, doc.doctype, doc.name)

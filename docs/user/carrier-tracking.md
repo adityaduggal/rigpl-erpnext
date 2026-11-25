@@ -120,6 +120,10 @@ Delivery, Delivered or RTO.
 draft again with AWB "NA". You can then book it again. A carrier with no cancel API shows a message.
 Cancel the AWB on the carrier portal in that case.
 
+**Delete Shipment** removes the files that came from the carrier: the labels and the FedEx commercial
+invoice (names that start with `FEDEX-`, `DTDC-` or `COMMER-INV-`). The **Customs Invoice PDF**, the
+**Other Trade Document** and the other files that you attached stay.
+
 If the form has changes that are not saved, an action saves the form first. Preview Request does not save.
 
 ### Test without sending data to the carrier
