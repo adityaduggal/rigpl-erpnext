@@ -80,6 +80,6 @@ frappe.ui.form.on('Important Documents', {
 
 function clear_values(frm, fields) {
 	for (const field of fields) {
-		frm.set_value(field, '');
+		frm.set_value(field, field === 'template' ? 0 : '');
 	}
 }

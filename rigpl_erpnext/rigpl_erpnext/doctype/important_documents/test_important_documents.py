@@ -149,6 +149,15 @@ class TestImportantDocumentValues(NoSiteRulesTestCase):
 		self.assertEqual(doc.description, "Order Drill")
 		self.assertEqual(doc.title, "DWG: Sales Order: {}: {}: _Test IDoc A".format(CUSTOMER, doc.sales_order))
 
+	def test_empty_template_means_not_a_template(self):
+		# The form cleared the check box with ""
+		doc = self.sales_order_drawing()
+		doc.template = ""
+
+		doc.validate()
+
+		self.assertEqual(doc.item, "_Test IDoc A")
+
 	def test_title_leaves_out_empty_parts(self):
 		doc = frappe.get_doc(dict(doctype="Important Documents", type="Standard", standard_number="338"))
 

@@ -59,7 +59,7 @@ class ImportantDocuments(Document):
     def validate_fields(self):
         if self.item:
             has_variants = frappe.db.get_value("Item", self.item, "has_variants")
-            if self.template != has_variants:
+            if cint(self.template) != cint(has_variants):
                 frappe.throw("Item: {} has_variants = {} but here template = {}".format(self.item,
                                                                                 has_variants, self.template))
 
