@@ -63,6 +63,14 @@ class TestAttributeQuery(FrappeTestCase):
 
         self.assertEqual(list(rows), [])
 
+    def test_extra_columns_start_with_the_row_name(self):
+        rows = aq.search_attribute_values((ATT_1,), "_Test AQ Alpha", 0, 20, extra_columns=("abbr",))
+
+        row = frappe.db.get_value(
+            DOCTYPE, {"parent": ATT_1, "attribute_value": "_Test AQ Alpha"}, ["name", "attribute_value", "abbr"]
+        )
+        self.assertEqual([tuple(r) for r in rows], [row])
+
     def test_crafted_searchfield_raises(self):
         with self.assertRaises(frappe.DataError):
             aq.attribute_rm_query(DOCTYPE, "", "name) OR 1=1 -- ", 0, 20, {})

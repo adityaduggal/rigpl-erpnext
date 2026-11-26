@@ -128,17 +128,20 @@ def get_uom_factor_map(uoms):
     return factors
 
 
-def search_attribute_values(attributes, txt, start, page_len):
+def search_attribute_values(attributes, txt, start, page_len, extra_columns=()):
     """
     Link search over the values of the given Item Attributes. The client searchfield is not
-    used, because Item Attribute Value names are hashes.
+    used, because Item Attribute Value names are hashes. With extra_columns (fixed column names
+    only) each row starts with the hash, for fields that link to the row.
     """
     txt = cstr(txt)
-    return frappe.db.sql("""SELECT attribute_value, parent FROM `tabItem Attribute Value`
+    columns = ("name", "attribute_value", *extra_columns) if extra_columns else ("attribute_value", "parent")
+    return frappe.db.sql("""SELECT {columns} FROM `tabItem Attribute Value`
     WHERE parent IN %(attributes)s AND attribute_value LIKE %(txt)s {mcond}
     ORDER BY IF(LOCATE(%(_txt)s, attribute_value), LOCATE(%(_txt)s, attribute_value), 99999),
     attribute_value
-    LIMIT %(start)s, %(page_len)s""".format(mcond=get_match_cond("Item Attribute Value")),
+    LIMIT %(start)s, %(page_len)s""".format(columns=", ".join(columns),
+                                           mcond=get_match_cond("Item Attribute Value")),
                          {'attributes': tuple(attributes), 'txt': "%%%s%%" % txt,
                           '_txt': txt.replace("%", ""), 'start': cint(start),
                           'page_len': cint(page_len)})

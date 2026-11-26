@@ -1,7 +1,36 @@
 // Copyright (c) 2020, Rohit Industries Ltd. and contributors
 // For license information, please see license.txt
 
+const SEARCHES = 'rigpl_erpnext.rigpl_erpnext.doctype.important_documents.important_documents.';
+
+// The link dropdown shows the row id in bold. For hash ids, show the first search column there.
+function hide_row_id(awesomplete) {
+	const render = awesomplete.item;
+	awesomplete.item = function(item) {
+		const $li = $(render.apply(this, arguments));
+		const row = this.get_item(item.value);
+		if (row.description && !row.action) {
+			const [title, ...details] = row.description.split(', ');
+			$li.find('strong').html(title);
+			$li.find('.small').html(details.join(', '));
+			$li.find('p').attr('title', title);
+		}
+		return $li.get(0);
+	};
+}
+
 frappe.ui.form.on('Important Documents', {
+	setup: function(frm) {
+		frm.set_query('sales_order', () => ({ query: SEARCHES + 'sales_order_query' }));
+		frm.set_query('sales_order_item', () => ({
+			query: SEARCHES + 'sales_order_item_query',
+			filters: { sales_order: frm.doc.sales_order }
+		}));
+		frm.set_query('category', () => ({ query: SEARCHES + 'category_query' }));
+		for (const field of ['sales_order_item', 'category']) {
+			frm.fields_dict[field].custom_awesomplete_filter = hide_row_id;
+		}
+	},
 	refresh: function(frm) {
 
 	},
@@ -31,25 +60,11 @@ frappe.ui.form.on('Important Documents', {
 	        frm.set_df_property("customer", "reqd", 1);
 	        frm.set_df_property("description", "reqd", 1);
 	    }
-		frm.set_query("sales_order", function(doc) {
-			return {
-				"filters": {
-					"docstatus": 1
-				}
-			};
-		});
 		frm.set_query("drawing_based_on", function(doc) {
 			return {
 				"filters": [
 				    ['name', 'in', ['Customer', 'Sales Order', 'Item']]
 				]
-			};
-		});
-		frm.set_query("sales_order_item", function(doc) {
-			return {
-				"filters": {
-					"parent": frm.doc.sales_order
-				}
 			};
 		});
         frm.set_query("item", function(doc){
@@ -59,14 +74,6 @@ frappe.ui.form.on('Important Documents', {
                 }
             };
         });
-		frm.set_query("category", function(doc) {
-			return {
-				"filters": {
-					"parent": 'Tool Type'
-				}
-			    //query: "rigpl_erpnext.utils.attribute_query.attribute_tt_query"
-			};
-		});
 	},
 });
 
@@ -148,14 +155,6 @@ frappe.ui.form.on('Important Documents', 'sales_order', function(frm){
     frm.set_df_property("customer", "read_only", 1);
     frm.set_df_property("customer", "hidden", 0);
     frm.add_fetch("sales_order", "customer", "customer");
-
-    frm.set_query("sales_order_item", function(doc){
-        return {
-            "filters": {
-                "parent": frm.doc.sales_order
-            }
-        };
-    });
 });
 
 frappe.ui.form.on('Important Documents', 'sales_order_item', function(frm){

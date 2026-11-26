@@ -8,6 +8,9 @@ from datetime import datetime
 from frappe.model.naming import getseries, get_default_naming_series
 from rohit_common.utils.rohit_common_utils import fn_check_digit
 from frappe.model.document import Document
+from frappe.utils import cstr, formatdate, strip_html
+
+from rigpl_erpnext.utils.attribute_query import QUERY_ATTRIBUTES, search_attribute_values
 
 
 class ImportantDocuments(Document):
@@ -119,3 +122,36 @@ class ImportantDocuments(Document):
             if self.item:
                 title += ": " + self.item
             self.title = title[:140]
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def sales_order_query(doctype, txt, searchfield, start, page_len, filters):
+    like = "%{}%".format(cstr(txt))
+    orders = frappe.get_list("Sales Order", filters={"docstatus": 1},
+        or_filters={field: ("like", like) for field in ("name", "customer", "customer_name")},
+        fields=["name", "transaction_date", "customer_name"], order_by="transaction_date desc, name desc",
+        limit_start=start, limit_page_length=page_len)
+    return [(d.name, formatdate(d.transaction_date), d.customer_name) for d in orders]
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def sales_order_item_query(doctype, txt, searchfield, start, page_len, filters):
+    order = (filters or {}).get("sales_order")
+    # Sales Order Item has no permissions of its own
+    if not isinstance(order, str) or not frappe.get_list("Sales Order", filters={"name": order}):
+        return []
+    like = "%{}%".format(cstr(txt))
+    items = frappe.get_all("Sales Order Item", filters={"parent": order, "parenttype": "Sales Order"},
+        or_filters={field: ("like", like) for field in ("item_code", "description")},
+        fields=["name", "idx", "item_code", "description"], order_by="idx",
+        limit_start=start, limit_page_length=page_len)
+    return [(d.name, "#{} {}".format(d.idx, d.item_code), strip_html(cstr(d.description))) for d in items]
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def category_query(doctype, txt, searchfield, start, page_len, filters):
+    return search_attribute_values(QUERY_ATTRIBUTES["tt"], txt, start, page_len,
+        extra_columns=("abbr", "long_description"))
