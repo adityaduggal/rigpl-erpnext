@@ -10,7 +10,7 @@ from rohit_common.utils.file_checks import check_attachments
 from rohit_common.utils.file_rules import get_matching_rule
 from rohit_common.utils.rohit_common_utils import fn_check_digit
 from frappe.model.document import Document
-from frappe.utils import cstr, formatdate, strip_html
+from frappe.utils import cint, cstr, formatdate, strip_html
 
 from rigpl_erpnext.utils.attribute_query import QUERY_ATTRIBUTES, search_attribute_values
 
@@ -58,45 +58,43 @@ class ImportantDocuments(Document):
 
     def validate_fields(self):
         if self.item:
-            it_doc = frappe.get_doc('Item', self.item)
-            if self.template != it_doc.has_variants:
+            has_variants = frappe.db.get_value("Item", self.item, "has_variants")
+            if self.template != has_variants:
                 frappe.throw("Item: {} has_variants = {} but here template = {}".format(self.item,
-                                                                                it_doc.has_variants, self.template))
+                                                                                has_variants, self.template))
 
     def update_fields(self):
         if self.category:
             self.category_name = frappe.db.get_value("Item Attribute Value", self.category, "attribute_value")
         if self.sales_order:
             self.customer = frappe.db.get_value("Sales Order", self.sales_order, "customer")
+        self.set_item_values()
+        self.check_standard_year()
+        self.set_title()
+
+    def set_item_values(self):
+        """A Sales Order Item has its own description. It wins over the Item description."""
         if self.sales_order_item:
-            self.item = frappe.db.get_value("Sales Order Item", self.sales_order_item, "item_code")
-            self.description = frappe.db.get_value("Sales Order Item", self.sales_order_item, "description")
+            self.item, description = frappe.db.get_value("Sales Order Item", self.sales_order_item,
+                ["item_code", "description"])
+        elif self.item:
+            description = frappe.db.get_value("Item", self.item, "description")
+        else:
+            return
+        # description is a Data field: plain text, 140 characters
+        self.description = strip_html(cstr(description))[:140]
 
-        if self.item:
-            self.description = frappe.db.get_value("Item", self.item, "description")
+    def check_standard_year(self):
+        this_year = datetime.now().year
+        if cint(self.standard_year) and not 1900 <= cint(self.standard_year) <= this_year:
+            frappe.throw("Standard Year must be from 1900 to {}, not {}".format(this_year, self.standard_year))
 
-        if self.standard_year:
-            if self.standard_year > 0:
-                if self.standard_year < 1900:
-                    frappe.throw("{} is Not Allowed in Standard Year for {}".format(self.standard_year, self.name))
-                elif self.standard_year > int(datetime.now().year):
-                    frappe.throw("{} is Not Allowed in Standard Year for {}".format(self.standard_year, self.name))
-
+    def set_title(self):
         if self.type == 'Standard':
-            title = 'STD: ' + self.standard_authority + ": " + str(self.standard_number)
-            if self.standard_year:
-                title += ": " + str(self.standard_year)
-            title += ": " + self.description
-            self.title = title[:140]
-        elif self.type == 'Drawing':
-            title = 'DWG: ' + self.drawing_based_on
-            if self.customer:
-                title += ": " + self.customer
-            if self.sales_order:
-                title += ": " + self.sales_order
-            if self.item:
-                title += ": " + self.item
-            self.title = title[:140]
+            parts = ['STD', self.standard_authority, self.standard_number, self.standard_year, self.description]
+        else:
+            parts = ['DWG', self.drawing_based_on, self.customer, self.sales_order, self.item]
+        self.title = ": ".join(cstr(part) for part in parts if part)[:140]
 
 
 def get_no_rule_message(doc):

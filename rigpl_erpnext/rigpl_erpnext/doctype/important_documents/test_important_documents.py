@@ -3,7 +3,7 @@
 # See license.txt
 from __future__ import unicode_literals
 
-from frappe.utils import formatdate
+from frappe.utils import formatdate, nowdate
 import frappe
 from rohit_common.utils.file_rules import clear_rule_cache
 
@@ -122,16 +122,51 @@ class TestImportantDocumentSearch(ReportTestCase):
 		self.assertEqual([list(row) for row in rows], [[value, "_Test IDoc Tool", "_TIT", "_Test IDoc Long"]])
 
 
-class TestImportantDocumentAttachments(ReportTestCase):
+class NoSiteRulesTestCase(ReportTestCase):
 	def setUp(self):
 		# The rules of the site must not apply here. The rollback restores them.
 		frappe.db.sql("update `tabFile Attachment Rule` set enabled = 0")
 		clear_rule_cache()
-		raw("Customer", name=CUSTOMER, customer_name=CUSTOMER)
 
 	def tearDown(self):
 		super().tearDown()
 		clear_rule_cache()
+
+
+class TestImportantDocumentValues(NoSiteRulesTestCase):
+	def sales_order_drawing(self):
+		order = insert_order(CUSTOMER, "2026-01-05")
+		row = insert_order_item(order, 1, "_Test IDoc A", "<div><p>Order Drill</p></div>")
+		raw("Item", name="_Test IDoc A", item_code="_Test IDoc A", description="Item Drill", has_variants=0)
+		return frappe.get_doc(dict(doctype="Important Documents", type="Drawing", drawing_based_on="Sales Order",
+			sales_order=order, sales_order_item=row, item="_Test IDoc A", template=0))
+
+	def test_description_of_the_sales_order_item_stays(self):
+		doc = self.sales_order_drawing()
+
+		self.assert_queries(3, doc.validate)
+
+		self.assertEqual(doc.description, "Order Drill")
+		self.assertEqual(doc.title, "DWG: Sales Order: {}: {}: _Test IDoc A".format(CUSTOMER, doc.sales_order))
+
+	def test_title_leaves_out_empty_parts(self):
+		doc = frappe.get_doc(dict(doctype="Important Documents", type="Standard", standard_number="338"))
+
+		doc.validate()
+
+		self.assertEqual(doc.title, "STD: 338")
+
+	def test_standard_year_range(self):
+		doc = frappe.get_doc(dict(doctype="Important Documents", type="Standard", standard_year=1899))
+
+		message = "from 1900 to {}, not 1899".format(nowdate()[:4])
+		self.assertRaisesRegex(frappe.ValidationError, message, doc.validate)
+
+
+class TestImportantDocumentAttachments(NoSiteRulesTestCase):
+	def setUp(self):
+		super().setUp()
+		raw("Customer", name=CUSTOMER, customer_name=CUSTOMER)
 
 	def add_rule(self):
 		specs = [dict(label=label, name_pattern=pattern, allowed_extensions=extensions, min_count=1,
