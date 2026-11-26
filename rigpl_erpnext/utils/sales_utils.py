@@ -50,7 +50,8 @@ def validate_item_pack_size(so_doc, enforce=1):
         if it_doc.made_to_order != 1 and it_doc.variant_of:
             if itm.qty % pk_sz != 0:
                 sug_qty = round_up(itm.qty, pk_sz)
-                pack_message = f"For Row# {itm.idx} and Item Code: {itm.item_code} Pack Size = \
+                item_link = frappe.get_desk_link("Item", itm.item_code)
+                pack_message = f"For Row# {itm.idx} and {item_link} Pack Size = \
                 {pk_sz} but you are trying for Qty= {itm.qty} which is not as per Pack Size <br> \
                 Suggested Qty for Pack Size = {sug_qty}"
                 if enforce == 1:
@@ -86,7 +87,8 @@ def validate_item_mov(so_doc, enforce=1):
                 if itm.base_net_amount < it_doc.selling_mov:
                     rate = itm.base_net_rate if itm.base_net_rate > 0 else 1
                     sug_qty = get_mov_qty(it_doc.selling_mov, rate, pk_sz)
-                    mov_message = f"For Row# {itm.idx} and Item: {itm.item_code} Suggested Qty \
+                    item_link = frappe.get_desk_link("Item", itm.item_code)
+                    mov_message = f"For Row# {itm.idx} and {item_link} Suggested Qty \
                         for SO = {sug_qty} but SO Qty = {itm.qty} But Qty Available for Sales = \
                         {qty_avail}.<br>Since the Item has MoV= {it_doc.selling_mov} and \
                         Pack Size = {it_doc.pack_size}"

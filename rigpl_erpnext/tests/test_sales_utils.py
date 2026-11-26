@@ -230,6 +230,7 @@ class TestSalesValidations(FrappeTestCase):
         rows = json.loads(frappe.local.message_log[-1])["message"]
         self.assertEqual(len(rows), len(doc.items))
         self.assertTrue(all(isinstance(table_row, list) for table_row in rows))
+        self.assertIn(frappe.get_desk_link("Item", ITEM), rows[0][0])
         # Guest is not a System Manager or Credit Controller, so the check blocks
         frappe.set_user("Guest")
         try:
