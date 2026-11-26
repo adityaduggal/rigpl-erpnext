@@ -43,7 +43,8 @@ class TestStandardsAndDrawings(ReportTestCase):
         raw("Important Documents", type="Drawing", drawing_based_on="Customer", customer=CUSTOMER, docstatus=1)
 
         # based_on raised NameError, sales_order compared the customer
-        data = self.assert_queries(1, lambda: standards_and_drawings_rigpl.execute(frappe._dict(type="Drawing",
+        # get_list reads the shared documents and then the rows
+        data = self.assert_queries(2, lambda: standards_and_drawings_rigpl.execute(frappe._dict(type="Drawing",
             based_on="Customer", customer=CUSTOMER, sales_order="_Test RIGPL O'SO"))[1])
 
         self.assertEqual([row[0] for row in data], [mine])
