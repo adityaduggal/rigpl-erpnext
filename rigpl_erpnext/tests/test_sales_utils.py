@@ -217,9 +217,10 @@ class TestSalesValidations(FrappeTestCase):
         with self.assertRaises(frappe.ValidationError):
             validate_made_to_order_items(doc)
 
-        message = frappe.local.message_log[-1]
-        self.assertRegex(str(message), "Row# 1 .*No Processing Done|No Processing Done.*Row# 1")
-        self.assertRegex(str(message), "Row# 2")
+        message = json.loads(frappe.local.message_log[-1])["message"]
+        self.assertIn("has 2 row(s) to fix or remove", message)
+        for idx in (1, 2):
+            self.assertRegex(message, f"<tr><td>{idx}</td><td>.*?</td><td>No Processing Done")
 
     def assert_table_message(self, validate, doc):
         """The client needs a list for each row of a table message. A string stops the form (#256)."""
