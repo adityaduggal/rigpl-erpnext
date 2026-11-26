@@ -89,6 +89,27 @@ class TestImportantDocumentSearch(ReportTestCase):
 		self.assertEqual([row[0] for row in order_items(mine)], [my_item])
 		self.assertEqual(order_items(hidden), [])
 
+	def test_values_of_a_sales_order_item(self):
+		order = insert_order(CUSTOMER, "2026-01-05")
+		row = insert_order_item(order, 1, "_Test IDoc A", "Drill")
+
+		self.assertEqual(idoc.get_sales_order_item_values(row), {"item": "_Test IDoc A", "description": "Drill"})
+
+	def test_no_values_of_an_order_the_user_cannot_read(self):
+		row = insert_order_item(insert_order(HIDDEN, "2026-01-05"), 1, "_Test IDoc B", "Reamer")
+		self.restrict_user_to(CUSTOMER)
+
+		self.assertRaises(frappe.PermissionError, idoc.get_sales_order_item_values, row)
+
+	def test_category_name_of_tool_types_only(self):
+		add_item_attribute("_Test RIGPL IDoc Attribute", 0, ["_Test IDoc Not A Tool Type"])
+		other = frappe.db.get_value("Item Attribute Value", {"parent": "_Test RIGPL IDoc Attribute"})
+		value = raw("Item Attribute Value", parent="Tool Type", parenttype="Item Attribute",
+			parentfield="item_attribute_values", attribute_value="_Test IDoc Tool", abbr="_TIT")
+
+		self.assertEqual(idoc.get_category_name(value), "_Test IDoc Tool")
+		self.assertIsNone(idoc.get_category_name(other))
+
 	def test_categories_are_tool_types_with_abbr_and_long_description(self):
 		add_item_attribute("_Test RIGPL IDoc Attribute", 0, ["_Test IDoc Not A Tool Type"])
 		value = raw("Item Attribute Value", parent="Tool Type", parenttype="Item Attribute",

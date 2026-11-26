@@ -124,6 +124,22 @@ class ImportantDocuments(Document):
             self.title = title[:140]
 
 
+# The form cannot use add_fetch for links to child tables: v13 refuses the read, also for Administrator
+@frappe.whitelist()
+def get_sales_order_item_values(sales_order_item):
+    row = frappe.db.get_value("Sales Order Item", cstr(sales_order_item),
+        ["parent", "item_code", "description"], as_dict=True)
+    if not row or not frappe.get_list("Sales Order", filters={"name": row.parent}):
+        raise frappe.PermissionError
+    return {"item": row.item_code, "description": row.description}
+
+
+@frappe.whitelist()
+def get_category_name(category):
+    return frappe.db.get_value("Item Attribute Value",
+        {"name": cstr(category), "parent": ("in", QUERY_ATTRIBUTES["tt"])}, "attribute_value")
+
+
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def sales_order_query(doctype, txt, searchfield, start, page_len, filters):

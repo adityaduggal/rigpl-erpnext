@@ -164,8 +164,12 @@ frappe.ui.form.on('Important Documents', 'sales_order_item', function(frm){
     }
     frm.set_df_property("item", "read_only", 1)
     frm.set_df_property("item", "hidden", 0)
-    frm.add_fetch("sales_order_item", "item_code", "item");
-    frm.add_fetch("sales_order_item", "description", "description");
+    if (frm.doc.sales_order_item) {
+        frappe.call({
+            method: SEARCHES + 'get_sales_order_item_values',
+            args: { sales_order_item: frm.doc.sales_order_item }
+        }).then(r => frm.set_value(r.message));
+    }
 });
 
 frappe.ui.form.on('Important Documents', 'item', function(frm){
@@ -181,5 +185,11 @@ frappe.ui.form.on('Important Documents', 'customer', function(frm){
 });
 
 frappe.ui.form.on('Important Documents', 'category', function(frm){
-    frm.add_fetch("category", "attribute_value", "category_name");
+    if (!frm.doc.category) {
+        return frm.set_value('category_name', '');
+    }
+    frappe.call({
+        method: SEARCHES + 'get_category_name',
+        args: { category: frm.doc.category }
+    }).then(r => frm.set_value('category_name', r.message));
 });
