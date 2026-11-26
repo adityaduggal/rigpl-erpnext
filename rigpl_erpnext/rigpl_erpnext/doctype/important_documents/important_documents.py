@@ -6,11 +6,15 @@ from __future__ import unicode_literals
 import frappe
 from datetime import datetime
 from frappe.model.naming import getseries, get_default_naming_series
+from rohit_common.utils.file_checks import check_attachments
+from rohit_common.utils.file_rules import get_matching_rule
 from rohit_common.utils.rohit_common_utils import fn_check_digit
 from frappe.model.document import Document
 from frappe.utils import cstr, formatdate, strip_html
 
 from rigpl_erpnext.utils.attribute_query import QUERY_ATTRIBUTES, search_attribute_values
+
+NEW_RULE_LINK = '<a href="/app/file-attachment-rule/new-file-attachment-rule-1">New File Attachment Rule</a>'
 
 
 class ImportantDocuments(Document):
@@ -30,15 +34,27 @@ class ImportantDocuments(Document):
     def validate(self):
         self.validate_fields()
         self.update_fields()
-        if self.get("__is_local") == 1:
-            pass
-        else:
-            self.validate_files()
+        if self.docstatus == 0:
+            self.warn_attachments()
 
-    def on_submit(self):
-        file_dict = self.get_files()
-        if not file_dict:
-            frappe.throw("Cannot Submit {} without Attachments".format(self.name))
+    def before_submit(self):
+        # rohit_common checks the files in its own before_submit hook
+        if not get_matching_rule(self):
+            frappe.throw(get_no_rule_message(self), title="No Attachment Rule")
+
+    def warn_attachments(self):
+        """A draft always saves. The same problems stop the submit."""
+        message_count = len(frappe.local.message_log)
+        try:
+            if get_matching_rule(self):
+                check_attachments(self)
+                return
+            warning, title = get_no_rule_message(self), "No Attachment Rule"
+        except frappe.ValidationError as error:
+            # Remove the red message of the throw
+            del frappe.local.message_log[message_count:]
+            warning, title = str(error), "Attachments Not Ready"
+        frappe.msgprint(warning, title=title, indicator="orange")
 
     def validate_fields(self):
         if self.item:
@@ -46,47 +62,6 @@ class ImportantDocuments(Document):
             if self.template != it_doc.has_variants:
                 frappe.throw("Item: {} has_variants = {} but here template = {}".format(self.item,
                                                                                 it_doc.has_variants, self.template))
-
-    def validate_files(self):
-        file_dict = self.get_files()
-        if file_dict:
-            self.check_total_files(file_dict)
-            self.allow_only_private_files(file_dict)
-            self.check_file_name(file_dict)
-
-    def check_file_name(self, file_dict):
-        if self.type == 'Standard':
-            for d in file_dict:
-                if d.file_name != (self.name + ".pdf"):
-                    frappe.throw("Attached File Name {} is Wrong. Attach file with Name "
-                                 "= {}.pdf".format(d.file_name, self.name))
-        else:
-            for d in file_dict:
-                threed_file_name = (self.name + '-3D.FCStd')
-                twod_file_name = (self.name + '-2D.pdf')
-                if d.file_name not in [threed_file_name, twod_file_name]:
-                    frappe.throw("Attached File Name is Wrong for {}. Attach 2 Files for Drawing 1 with Name = "
-                                 "{}-2D.pdf and another with {}-3D.FCStd".format(d.file_name, self.name, self.name))
-
-    def allow_only_private_files(self, file_dict):
-        for d in file_dict:
-            if d.is_private != 1:
-                frappe.throw("File Name: {} - attached to {} is Public File, Please Delete and Re-Upload as "
-                             "Private File".format(d.file_name, self.name))
-
-    def check_total_files(self, file_dict):
-        no_of_files = len(file_dict)
-        if self.type == 'Drawing':
-            if no_of_files != 2:
-                frappe.throw("Attach 2 Files for Drawing 1 with Name = {}-2D.pdf and another "
-                             "with {}-3D.FCStd".format(self.name, self.name))
-        elif self.type == 'Standard':
-            if no_of_files != 1:
-                frappe.throw("Attach Only 1 File for Standard with Name = {}.pdf".format(self.name))
-
-    def get_files(self):
-        return frappe.get_all("File", filters={"attached_to_doctype": self.doctype, "attached_to_name": self.name},
-            fields=["name", "attached_to_doctype", "attached_to_name", "is_private", "file_name"])
 
     def update_fields(self):
         if self.category:
@@ -122,6 +97,11 @@ class ImportantDocuments(Document):
             if self.item:
                 title += ": " + self.item
             self.title = title[:140]
+
+
+def get_no_rule_message(doc):
+    return ("No File Attachment Rule applies to this {0}. You cannot submit it until a rule exists. "
+            "Make one, or ask a System Manager: {1}").format(doc.type, NEW_RULE_LINK)
 
 
 # The form cannot use add_fetch for links to child tables: v13 refuses the read, also for Administrator

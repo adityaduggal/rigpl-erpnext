@@ -1,5 +1,5 @@
 """
-Payment Entry, Bank Account, Holiday List, Important Documents and Purchase Invoice checks after the
+Payment Entry, Bank Account, Holiday List and Purchase Invoice checks after the
 move from '%s' SQL to parameters (#187). Each name or value has a quote: the old code put it into the
 SQL text and failed.
 """
@@ -97,17 +97,6 @@ class TestHolidayList(ReportTestCase):
 
         with self.assertRaisesRegex(frappe.ValidationError, "No Holiday List Linked"):
             holiday_list.pull_holidays(BASE_LIST, FROM, "2027-03-30")
-
-
-class TestImportantDocumentFiles(ReportTestCase):
-    def test_get_files(self):
-        name = "_Test RIGPL O'DWG"
-        raw("File", file_name=name + "-2D.pdf", attached_to_doctype="Important Documents",
-            attached_to_name=name, is_private=1)
-        doc = frappe.new_doc("Important Documents")
-        doc.name = name
-        files = doc.get_files()
-        self.assertEqual([(f.file_name, f.is_private) for f in files], [(name + "-2D.pdf", 1)])
 
 
 class TestPurchaseInvoiceValuation(ReportTestCase):

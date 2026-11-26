@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 from frappe.utils import formatdate
 import frappe
+from rohit_common.utils.file_rules import clear_rule_cache
 
 from rigpl_erpnext.rigpl_erpnext.doctype.important_documents import important_documents as idoc
 from rigpl_erpnext.tests.test_item_attribute_utils import add_item_attribute
@@ -119,3 +120,67 @@ class TestImportantDocumentSearch(ReportTestCase):
 		rows = idoc.category_query("Item Attribute Value", "_Test IDoc", "name", 0, 20, {})
 
 		self.assertEqual([list(row) for row in rows], [[value, "_Test IDoc Tool", "_TIT", "_Test IDoc Long"]])
+
+
+class TestImportantDocumentAttachments(ReportTestCase):
+	def setUp(self):
+		# The rules of the site must not apply here. The rollback restores them.
+		frappe.db.sql("update `tabFile Attachment Rule` set enabled = 0")
+		clear_rule_cache()
+		raw("Customer", name=CUSTOMER, customer_name=CUSTOMER)
+
+	def tearDown(self):
+		super().tearDown()
+		clear_rule_cache()
+
+	def add_rule(self):
+		specs = [dict(label=label, name_pattern=pattern, allowed_extensions=extensions, min_count=1,
+			max_count=1, private_only=1) for label, pattern, extensions in
+			(("2D Drawing", "{name}-2D", "pdf"), ("3D Model", "{name}-3D", "sldprt"))]
+		frappe.get_doc(dict(doctype="File Attachment Rule", title="_Test IDoc Drawing", apply_to="DocType",
+			document_type="Important Documents", enabled=1, condition='doc.type == "Drawing"',
+			specs=specs)).insert()
+
+	def new_drawing(self):
+		frappe.clear_messages()
+		return frappe.get_doc(dict(doctype="Important Documents", type="Drawing", drawing_based_on="Customer",
+			customer=CUSTOMER, description="_Test IDoc Drawing")).insert()
+
+	def attach(self, doc, *suffixes):
+		for suffix in suffixes:
+			file_name = doc.name + suffix
+			raw("File", file_name=file_name, file_url="/private/files/" + file_name, file_size=10, is_private=1,
+				attached_to_doctype=doc.doctype, attached_to_name=doc.name)
+
+	def assert_warnings(self, *titles):
+		messages = [frappe.parse_json(message) for message in frappe.local.message_log]
+		self.assertEqual([(m.get("title"), m.get("indicator")) for m in messages],
+			[(title, "orange") for title in titles])
+
+	def test_without_a_rule_save_warns_and_submit_fails(self):
+		doc = self.new_drawing()
+
+		self.assert_warnings("No Attachment Rule")
+		self.assertRaisesRegex(frappe.ValidationError, "No File Attachment Rule", doc.submit)
+
+	def test_wrong_files_warn_on_save_and_stop_the_submit(self):
+		self.add_rule()
+		doc = self.new_drawing()
+		self.attach(doc, "-old.pdf")
+		frappe.clear_messages()
+
+		doc.save()
+
+		self.assert_warnings("Attachments Not Ready")
+		self.assertRaisesRegex(frappe.ValidationError, "does not match", doc.submit)
+
+	def test_correct_files_submit_without_a_warning(self):
+		self.add_rule()
+		doc = self.new_drawing()
+		self.attach(doc, "-2D.pdf", "-3D.sldprt")
+		frappe.clear_messages()
+
+		doc.submit()
+
+		self.assertEqual(doc.docstatus, 1)
+		self.assert_warnings()
