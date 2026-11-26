@@ -139,12 +139,12 @@ class TestImportantDocumentValues(NoSiteRulesTestCase):
 		row = insert_order_item(order, 1, "_Test IDoc A", "<div><p>Order Drill</p></div>")
 		raw("Item", name="_Test IDoc A", item_code="_Test IDoc A", description="Item Drill", has_variants=0)
 		return frappe.get_doc(dict(doctype="Important Documents", type="Drawing", drawing_based_on="Sales Order",
-			sales_order=order, sales_order_item=row, item="_Test IDoc A", template=0))
+			sales_order=order, sales_order_item=row, customer=CUSTOMER, item="_Test IDoc A", template=0))
 
 	def test_description_of_the_sales_order_item_stays(self):
 		doc = self.sales_order_drawing()
 
-		self.assert_queries(3, doc.validate)
+		self.assert_queries(2, doc.validate)
 
 		self.assertEqual(doc.description, "Order Drill")
 		self.assertEqual(doc.title, "DWG: Sales Order: {}: {}: _Test IDoc A".format(CUSTOMER, doc.sales_order))

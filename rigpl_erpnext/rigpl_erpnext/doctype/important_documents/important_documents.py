@@ -66,8 +66,6 @@ class ImportantDocuments(Document):
     def update_fields(self):
         if self.category:
             self.category_name = frappe.db.get_value("Item Attribute Value", self.category, "attribute_value")
-        if self.sales_order:
-            self.customer = frappe.db.get_value("Sales Order", self.sales_order, "customer")
         self.set_item_values()
         self.check_standard_year()
         self.set_title()
