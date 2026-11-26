@@ -207,6 +207,18 @@ class TestImportantDocumentAttachments(NoSiteRulesTestCase):
 		self.assert_warnings("No Attachment Rule")
 		self.assertRaisesRegex(frappe.ValidationError, "No File Attachment Rule", doc.submit)
 
+	def test_upload_warning_only_without_a_rule(self):
+		doc = self.new_drawing()
+		frappe.clear_messages()
+
+		idoc.warn_missing_rule(doc.name)
+
+		self.assert_warnings("No Attachment Rule")
+		self.add_rule()
+		frappe.clear_messages()
+		idoc.warn_missing_rule(doc.name)
+		self.assert_warnings()
+
 	def test_wrong_files_warn_on_save_and_stop_the_submit(self):
 		self.add_rule()
 		doc = self.new_drawing()

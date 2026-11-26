@@ -100,6 +100,15 @@ def get_no_rule_message(doc):
             "Make one, or ask a System Manager: {1}").format(doc.type, NEW_RULE_LINK)
 
 
+@frappe.whitelist()
+def warn_missing_rule(name):
+    """The form calls this after an upload: rohit_common checks nothing when no rule matches."""
+    doc = frappe.get_doc("Important Documents", cstr(name))
+    doc.check_permission("read")
+    if doc.docstatus == 0 and not get_matching_rule(doc):
+        frappe.msgprint(get_no_rule_message(doc), title="No Attachment Rule", indicator="orange")
+
+
 # The form cannot use add_fetch for links to child tables: v13 refuses the read, also for Administrator
 @frappe.whitelist()
 def get_sales_order_item_values(sales_order_item):

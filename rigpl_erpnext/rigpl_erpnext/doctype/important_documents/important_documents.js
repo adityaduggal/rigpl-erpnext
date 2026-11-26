@@ -35,6 +35,9 @@ frappe.ui.form.on('Important Documents', {
 			frm.fields_dict[field].custom_awesomplete_filter = hide_row_id;
 		}
 	},
+	refresh: function(frm) {
+		warn_after_upload(frm);
+	},
 	type: function(frm) {
 		clear_values(frm, ['drawing_based_on', 'sales_order', 'sales_order_item', 'item', 'standard_authority',
 			'standard_number', 'standard_year', 'committee', 'description', 'template', 'category',
@@ -77,6 +80,19 @@ frappe.ui.form.on('Important Documents', {
 		}).then(r => frm.set_value('category_name', r.message));
 	}
 });
+
+function warn_after_upload(frm) {
+	const attachments = frm.attachments;
+	if (!attachments || attachments.warns_after_upload) {
+		return;
+	}
+	const uploaded = attachments.attachment_uploaded.bind(attachments);
+	attachments.attachment_uploaded = file => {
+		uploaded(file);
+		frappe.call({ method: SEARCHES + 'warn_missing_rule', args: { name: frm.doc.name } });
+	};
+	attachments.warns_after_upload = true;
+}
 
 function clear_values(frm, fields) {
 	for (const field of fields) {
