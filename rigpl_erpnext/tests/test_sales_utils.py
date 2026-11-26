@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import frappe
@@ -15,6 +16,7 @@ from rigpl_erpnext.utils.sales_utils import (
     get_email_from_contact,
     get_item_price,
     get_linked_so_data,
+    get_mov_qty,
     get_pending_so_qty_from_soitem,
     get_phone_from_contact,
     get_sales_comm_for_cust,
@@ -22,6 +24,8 @@ from rigpl_erpnext.utils.sales_utils import (
     get_sales_comms_for_customers,
     get_total_invoices_and_amount,
     get_total_sales_orders,
+    validate_item_mov,
+    validate_item_pack_size,
     validate_made_to_order_items,
 )
 
@@ -216,6 +220,47 @@ class TestSalesValidations(FrappeTestCase):
         message = frappe.local.message_log[-1]
         self.assertRegex(str(message), "Row# 1 .*No Processing Done|No Processing Done.*Row# 1")
         self.assertRegex(str(message), "Row# 2")
+
+    def assert_table_message(self, validate, doc):
+        """The client needs a list for each row of a table message. A string stops the form (#256)."""
+        frappe.db.set_value("Item", ITEM, {"variant_of": "_Test RIGPL Template", "pack_size": 10,
+            "selling_mov": 1000}, update_modified=False)
+        validate(doc, enforce=0)
+        rows = json.loads(frappe.local.message_log[-1])["message"]
+        self.assertEqual(len(rows), len(doc.items))
+        self.assertTrue(all(isinstance(table_row, list) for table_row in rows))
+        # Guest is not a System Manager or Credit Controller, so the check blocks
+        frappe.set_user("Guest")
+        try:
+            self.assertRaises(frappe.ValidationError, validate, doc)
+        finally:
+            frappe.set_user("Administrator")
+
+    def test_pack_size_message_rows_are_lists(self):
+        doc = SimpleNamespace(items=[row(idx=idx, item_code=ITEM, qty=15) for idx in (1, 2)])
+        self.assert_table_message(validate_item_pack_size, doc)
+
+    def test_mov_message_rows_are_lists(self):
+        doc = SimpleNamespace(items=[
+            row(idx=idx, item_code=ITEM, qty=10, base_net_amount=100, base_net_rate=10) for idx in (1, 2)])
+        self.assert_table_message(validate_item_mov, doc)
+
+    def test_credit_controller_gets_only_a_warning(self):
+        frappe.db.set_value("Item", ITEM, {"variant_of": "_Test RIGPL Template", "pack_size": 10},
+            update_modified=False)
+        frappe.db.set_value("Accounts Settings", "Accounts Settings", "credit_controller", "Guest")
+        doc = SimpleNamespace(items=[row(idx=1, item_code=ITEM, qty=15)])
+        frappe.set_user("Guest")
+        try:
+            validate_item_pack_size(doc)
+        finally:
+            frappe.set_user("Administrator")
+
+    def test_mov_qty_is_full_packs_that_reach_the_mov(self):
+        self.assertEqual(get_mov_qty(5000, 30, 20), 180)
+        self.assertEqual(get_mov_qty(4800, 30, 20), 160)
+        self.assertEqual(get_mov_qty(1000, 30, 10), 40)
+        self.assertEqual(get_mov_qty(0.3, 0.1, 1), 3)
 
     def test_item_price_and_quotation_rates(self):
         frappe.get_doc(doctype="Price List", name=PRICE_LIST, price_list_name=PRICE_LIST, currency="INR",

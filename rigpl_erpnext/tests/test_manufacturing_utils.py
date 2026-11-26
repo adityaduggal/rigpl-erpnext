@@ -376,9 +376,11 @@ class TestUserGuide(FrappeTestCase):
     def test_guides(self):
         self.assertIn("<h1", get_user_guide("bom_templates"))
         self.assertIn("<h1", get_user_guide("process_sheet"))
+        self.assertIn("<details><summary>", get_user_guide("sales_order_quantity"))
         self.assertRaises(frappe.ValidationError, get_user_guide, "../../hooks")
         frappe.set_user("Guest")
         self.assertRaises(frappe.PermissionError, get_user_guide, "process_sheet")
+        self.assertRaises(frappe.PermissionError, get_user_guide, "sales_order_quantity")
 
 
 class TestFgRulesCache(FrappeTestCase):

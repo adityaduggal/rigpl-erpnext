@@ -3,6 +3,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import re
+import math
 import frappe
 import datetime
 from frappe.query_builder.functions import Count, Min, Sum
@@ -14,6 +15,22 @@ from .stock_utils import get_qty_available_to_sell
 from rohit_common.utils.rohit_common_utils import replace_java_chars
 
 
+def can_bypass_qty_checks():
+    """
+    A System Manager or a Credit Controller only gets a warning for Pack Size and MoV
+    """
+    cr_cont = frappe.get_value("Accounts Settings", "Accounts Settings", "credit_controller")
+    return bool({"System Manager", cr_cont} & set(frappe.get_roles()))
+
+
+def get_mov_qty(mov, rate, pack_size):
+    """
+    Returns the smallest multiple of the Pack Size with a value of at least the MoV
+    """
+    # flt removes float noise, so an exact number of packs does not get one more pack
+    return math.ceil(flt(mov / (rate * pack_size), 6)) * pack_size
+
+
 def validate_item_pack_size(so_doc, enforce=1):
     """
     Validation for Pack Size of Items while booking orders basically it would suggest the
@@ -21,10 +38,8 @@ def validate_item_pack_size(so_doc, enforce=1):
     multiples of 20. Check pack size for only Items Not made to order and also should be variant
     of a template
     """
-    user_roles = frappe.get_roles(frappe.session.user)
     itm_pkg_lst = []
-    cr_cont = frappe.get_value("Accounts Settings", "Accounts Settings", "credit_controller")
-    if ("System Manager" or cr_cont) in user_roles:
+    if can_bypass_qty_checks():
         enforce = 0
     for itm in so_doc.items:
         it_doc = frappe.get_doc("Item", itm.item_code)
@@ -39,9 +54,9 @@ def validate_item_pack_size(so_doc, enforce=1):
                 {pk_sz} but you are trying for Qty= {itm.qty} which is not as per Pack Size <br> \
                 Suggested Qty for Pack Size = {sug_qty}"
                 if enforce == 1:
-                    pack_message += "<br>Validation Failed ask System Manager to \
-                        bypass or Change Qty to Suggested Qty"
-                itm_pkg_lst.append(pack_message)
+                    pack_message += "<br>Validation Failed ask System Manager or \
+                        Credit Controller to bypass or Change Qty to Suggested Qty"
+                itm_pkg_lst.append([pack_message])
     if itm_pkg_lst:
         frappe.msgprint(itm_pkg_lst, as_table=1, raise_exception=enforce)
 
@@ -55,10 +70,8 @@ def validate_item_mov(so_doc, enforce=1):
         4. If item is not in stock and needs production then MoV is to be enforced
         5. Only check MoV for Items which are Variant of Some Template
     """
-    user_roles = frappe.get_roles(frappe.session.user)
     itm_mov_lst = []
-    cr_cont = frappe.get_value("Accounts Settings", "Accounts Settings", "credit_controller")
-    if ("System Manager" or cr_cont) in user_roles:
+    if can_bypass_qty_checks():
         enforce = 0
     for itm in so_doc.items:
         it_doc = frappe.get_doc("Item", itm.item_code)
@@ -71,18 +84,16 @@ def validate_item_mov(so_doc, enforce=1):
             qty_avail = get_qty_available_to_sell(it_doc)
             if itm.qty > qty_avail:
                 if itm.base_net_amount < it_doc.selling_mov:
-                    if itm.base_net_rate > 0:
-                        sug_qty = round_up(it_doc.selling_mov / itm.base_net_rate, pk_sz) - pk_sz
-                    else:
-                        sug_qty = round_up(it_doc.selling_mov / 1, pk_sz) - pk_sz
+                    rate = itm.base_net_rate if itm.base_net_rate > 0 else 1
+                    sug_qty = get_mov_qty(it_doc.selling_mov, rate, pk_sz)
                     mov_message = f"For Row# {itm.idx} and Item: {itm.item_code} Suggested Qty \
                         for SO = {sug_qty} but SO Qty = {itm.qty} But Qty Available for Sales = \
                         {qty_avail}.<br>Since the Item has MoV= {it_doc.selling_mov} and \
                         Pack Size = {it_doc.pack_size}"
                     if enforce == 1:
-                        mov_message += "<br>Validation Failed ask System Manager to \
-                        bypass or Change Qty to Suggested Qty"
-                    itm_mov_lst.append(mov_message)
+                        mov_message += "<br>Validation Failed ask System Manager or \
+                        Credit Controller to bypass or Change Qty to Suggested Qty"
+                    itm_mov_lst.append([mov_message])
     if itm_mov_lst:
         frappe.msgprint(itm_mov_lst, as_table=1, raise_exception=enforce)
 

@@ -127,6 +127,8 @@ doctype_js = {
     "Communication": "public/js/communication.js",
     "Department": "public/js/department.js",
     "Item": "public/js/stock/item.js",
+    "Quotation": "public/js/sales_quantity_guide.js",
+    "Sales Order": "public/js/sales_quantity_guide.js",
     "ToDo": "public/js/todo.js",
 }
 
