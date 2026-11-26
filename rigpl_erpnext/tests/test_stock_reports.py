@@ -21,6 +21,8 @@ ITEM_2 = "_Test RIGPL O'Brien Stock Item 2"
 RM_ITEM = "_Test RIGPL O'Brien Stock RM"
 TEMPLATE = "_Test RIGPL O'Brien Stock Template"
 CUSTOMER = "_Test RIGPL O'Brien Customer"
+HIDDEN_CUSTOMER = "_Test RIGPL O'Brien Hidden Customer"
+USER = "_test_rigpl_drawing_report@example.com"
 
 
 def insert_stock_item(name, d1, extra=()):
@@ -54,6 +56,21 @@ class TestStandardsAndDrawings(ReportTestCase):
 
         self.assertEqual([row[0] for row in data], [std])
         self.assertRaises(frappe.ValidationError, standards_and_drawings_rigpl.execute, frappe._dict(type=""))
+    def test_user_permission_on_customer(self):
+        mine = raw("Important Documents", type="Drawing", drawing_based_on="Customer", customer=CUSTOMER)
+        raw("Important Documents", type="Drawing", drawing_based_on="Customer", customer=HIDDEN_CUSTOMER)
+        # db_insert, no hooks: the User hooks commit in tests
+        raw("User", name=USER, email=USER, first_name="_Test RIGPL Drawing", user_type="System User", enabled=1)
+        raw("Has Role", parent=USER, parenttype="User", parentfield="roles", role="System Manager")
+        raw("Customer", name=CUSTOMER, customer_name=CUSTOMER)
+        frappe.clear_cache(user=USER)
+        frappe.get_doc(dict(doctype="User Permission", user=USER, allow="Customer", for_value=CUSTOMER,
+            apply_to_all_doctypes=1)).insert(ignore_permissions=True)
+        frappe.set_user(USER)
+
+        data = standards_and_drawings_rigpl.execute(frappe._dict(type="Drawing"))[1]
+
+        self.assertEqual([(row[0], row[-1]) for row in data], [(mine, "Draft")])
 
 
 class TestStockStatus(ReportTestCase):

@@ -4,8 +4,20 @@
 from __future__ import unicode_literals
 import frappe
 
+from rigpl_erpnext.utils.report_utils import blank_zeros
+
 TYPES = ("Drawing", "Standard")
 DOCSTATUS = {"Draft": 0, "Submitted": 1, "Cancelled": 2}
+COLUMN_FIELDS = {
+	"Drawing": ["name", "drawing_based_on", "customer", "sales_order", "item", "description", "remarks",
+		"docstatus"],
+	"Standard": ["name", "standard_authority", "standard_number", "category_name", "standard_year", "committee",
+		"description", "remarks", "docstatus"],
+}
+ORDER_BY = {
+	"Drawing": "drawing_based_on, customer, item",
+	"Standard": "category_name, standard_authority, standard_number",
+}
 # filter: Important Documents field
 FIELD_FILTERS = {"std_auth": "standard_authority", "category": "category_name", "based_on": "drawing_based_on",
 	"item": "item", "customer": "customer", "sales_order": "sales_order"}
@@ -34,34 +46,23 @@ def get_columns(filters):
 		]
 
 def get_data(filters):
-	idoc = frappe.qb.DocType("Important Documents")
-	if filters["type"] == "Drawing":
-		query = (
-			frappe.qb.from_(idoc)
-			.select(idoc.name, idoc.drawing_based_on, idoc.customer, idoc.sales_order, idoc.item, idoc.description,
-				idoc.remarks, idoc.docstatus)
-			.orderby(idoc.drawing_based_on)
-			.orderby(idoc.customer)
-			.orderby(idoc.item)
-		)
-	else:
-		query = (
-			frappe.qb.from_(idoc)
-			.select(idoc.name, idoc.standard_authority, idoc.standard_number, idoc.category_name, idoc.standard_year,
-				idoc.committee, idoc.description, idoc.remarks, idoc.docstatus)
-			.orderby(idoc.category_name)
-			.orderby(idoc.standard_authority)
-			.orderby(idoc.standard_number)
-		)
-	query = query.where(idoc.type == filters["type"])
+	# get_list applies the User Permissions of the user
+	rows = frappe.get_list("Important Documents", filters=get_conditions(filters),
+		fields=COLUMN_FIELDS[filters["type"]], order_by=ORDER_BY[filters["type"]], limit_page_length=0,
+		as_list=True)
+	status_names = {docstatus: name for name, docstatus in DOCSTATUS.items()}
+	# The status is the last column
+	return [blank_zeros([*row[:-1], status_names[row[-1]]]) for row in rows]
+
+
+def get_conditions(filters):
+	conditions = [["type", "=", filters["type"]]]
 	if filters.get("docstatus") in DOCSTATUS:
-		query = query.where(idoc.docstatus == DOCSTATUS[filters["docstatus"]])
+		conditions.append(["docstatus", "=", DOCSTATUS[filters["docstatus"]]])
 	else:
-		query = query.where(idoc.docstatus != 2)
+		conditions.append(["docstatus", "!=", DOCSTATUS["Cancelled"]])
 	# The Standard No is a LIKE pattern: the user can type % as a wildcard
 	if filters.get("std_no"):
-		query = query.where(idoc.standard_number.like(filters["std_no"]))
-	for key, field in FIELD_FILTERS.items():
-		if filters.get(key):
-			query = query.where(idoc[field] == filters[key])
-	return query.run(as_list=1)
+		conditions.append(["standard_number", "like", filters["std_no"]])
+	conditions += [[field, "=", filters[key]] for key, field in FIELD_FILTERS.items() if filters.get(key)]
+	return conditions

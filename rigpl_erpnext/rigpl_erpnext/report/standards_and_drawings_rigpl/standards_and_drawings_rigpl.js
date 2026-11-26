@@ -3,6 +3,14 @@
 /* eslint-disable */
 
 frappe.query_reports["Standards and Drawings RIGPL"] = {
+	"formatter": rigpl_erpnext.report.blank_zero_formatter,
+	"onload": function(report) {
+		frappe.model.with_doctype("Important Documents", () => {
+			const filter = report.get_filter("std_auth");
+			filter.df.options = frappe.meta.get_docfield("Important Documents", "standard_authority").options;
+			filter.refresh();
+		});
+	},
 	"filters": [
 		{
 			"fieldname":"type",
@@ -20,19 +28,21 @@ frappe.query_reports["Standards and Drawings RIGPL"] = {
 		},
 		{
 			"fieldname":"std_auth",
+			"depends_on": "eval:doc.type === 'Standard'",
 			"label": "Standard Authority",
 			"fieldtype": "Select",
-			"reqd": 0,
-			"options": "\nBIS\nISO\nDIN"
+			"reqd": 0
 		},
 		{
 			"fieldname":"std_no",
+			"depends_on": "eval:doc.type === 'Standard'",
 			"label": "Standard Number",
 			"fieldtype": "Data",
 			"reqd": 0
 		},
 		{
 			"fieldname":"category",
+			"depends_on": "eval:doc.type === 'Standard'",
 			"label": "Category",
 			"fieldtype": "Link",
 			"options": "Item Attribute Value",
@@ -42,6 +52,7 @@ frappe.query_reports["Standards and Drawings RIGPL"] = {
 		},
 		{
 			"fieldname":"based_on",
+			"depends_on": "eval:doc.type === 'Drawing'",
 			"label": "Drawing Based On",
 			"fieldtype": "Select",
 			"reqd": 0,
@@ -49,6 +60,7 @@ frappe.query_reports["Standards and Drawings RIGPL"] = {
 		},
 		{
 			"fieldname":"item",
+			"depends_on": "eval:doc.type === 'Drawing'",
 			"label": "Item",
 			"fieldtype": "Link",
 			"reqd": 0,
@@ -56,6 +68,7 @@ frappe.query_reports["Standards and Drawings RIGPL"] = {
 		},
 		{
 			"fieldname":"sales_order",
+			"depends_on": "eval:doc.type === 'Drawing'",
 			"label": "Sales Order",
 			"fieldtype": "Link",
 			"reqd": 0,
@@ -63,6 +76,7 @@ frappe.query_reports["Standards and Drawings RIGPL"] = {
 		},
 		{
 			"fieldname":"customer",
+			"depends_on": "eval:doc.type === 'Drawing'",
 			"label": "Customer",
 			"fieldtype": "Link",
 			"reqd": 0,
