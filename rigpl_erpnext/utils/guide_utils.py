@@ -10,10 +10,11 @@ from frappe.utils import escape_html, md_to_html
 GUIDES = {
     "bom_templates": "BOM Template RIGPL",
     "process_sheet": "Process Sheet",
+    "rigpl_settings": "RIGPL Settings",
     "sales_order_quantity": "Sales Order",
 }
 # Guides that show each `##` section collapsed
-COLLAPSED_GUIDES = ("sales_order_quantity",)
+COLLAPSED_GUIDES = ("rigpl_settings", "sales_order_quantity")
 
 
 @frappe.whitelist()

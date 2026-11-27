@@ -11,6 +11,8 @@
   "rm_age_step_discount",
   "min_rm_excess_value",
   "rm_excess_percent",
+  "rm_max_qty_difference_percent",
+  "rm_max_difference_value",
   "rol_multiplier",
   "rol_value_percentages",
   "rol_qty_percentages",
@@ -95,18 +97,32 @@
    "label": "RM Rate Discount per Age Step"
   },
   {
-   "default": "5000",
-   "description": "A Job Card can use RM above its Calculated Qty up to this value, or up to RM Excess % of its RM value when that is higher. Above it, Bypass Qty Check is needed.",
+   "default": "3000",
+   "description": "A Job Card can use more or less RM than its Calculated Qty up to this value, or up to RM Excess % of the calculated RM value when that is higher. Above it, Bypass Qty Check is needed.",
    "fieldname": "min_rm_excess_value",
    "fieldtype": "Currency",
    "label": "Min RM Excess Value"
   },
   {
    "default": "5",
-   "description": "Allowed RM excess as a % of the value of the RM that the Job Card used.",
+   "description": "Allowed RM difference value as a % of the calculated RM value of the Job Card.",
    "fieldname": "rm_excess_percent",
    "fieldtype": "Percent",
    "label": "RM Excess %"
+  },
+  {
+   "default": "20",
+   "description": "An RM qty that differs from the Calculated Qty by more than this % always needs Bypass Qty Check.",
+   "fieldname": "rm_max_qty_difference_percent",
+   "fieldtype": "Percent",
+   "label": "RM Max Qty Difference %"
+  },
+  {
+   "default": "25000",
+   "description": "An RM difference value above this always needs Bypass Qty Check.",
+   "fieldname": "rm_max_difference_value",
+   "fieldtype": "Currency",
+   "label": "RM Max Difference Value"
   },
   {
    "collapsible": 1,
@@ -410,7 +426,7 @@
   }
  ],
  "issingle": 1,
- "modified": "2026-11-26 12:00:00.000000",
+ "modified": "2026-11-27 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "RIGPL ERPNext",
  "name": "RIGPL Settings",

@@ -1,11 +1,12 @@
 # Copyright (c) 2026, Rohit Industries Group Private Limited and contributors
 # For license information, please see license.txt
-"""The RM that the Job Cards used above their Calculated Qty, by value, from actual data (#164)."""
+"""The RM that the Job Cards used against their Calculated Qty, by value, from actual data (#164)."""
 
 import frappe
 from frappe.utils import cint, flt
 
-from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import get_rm_excess, get_rm_excess_settings
+from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
+    get_rm_check_settings, get_rm_row_failure, get_rm_value_limit)
 from rigpl_erpnext.manufacturing_rigpl.utils.rm_cost_utils import get_rm_costs, get_rm_job_cards, get_rm_rows
 from rigpl_erpnext.utils.report_utils import blank_zeros
 
@@ -34,9 +35,10 @@ def get_columns():
         {"fieldname": "rate", "label": "RM Rate", "fieldtype": "Currency", "width": 90},
         {"fieldname": "used_value", "label": "RM Value Used", "fieldtype": "Currency", "width": 110},
         {"fieldname": "excess_value", "label": "Excess Value", "fieldtype": "Currency", "width": 100},
-        {"fieldname": "allowed", "label": "Allowed Excess", "fieldtype": "Currency", "width": 100},
+        {"fieldname": "allowed", "label": "Allowed Difference Value", "fieldtype": "Currency", "width": 120},
         {"fieldname": "over_limit", "label": "Over Limit", "fieldtype": "Check", "width": 80},
         {"fieldname": "bypass", "label": "Bypass", "fieldtype": "Check", "width": 70},
+        {"fieldname": "reason", "label": "Reason", "fieldtype": "Data", "width": 300},
         {"fieldname": "user", "label": "User", "fieldtype": "Link", "options": "User", "width": 140},
     ]
 
@@ -44,32 +46,29 @@ def get_columns():
 def get_rows(filters):
     """
     Returns 1 row for each RM row of the submitted RM Job Cards in the dates. The rate is the real
-    cost of the RM in the Stock Entry of the Job Card (Stock Ledger), not today's rate. The allowed
-    excess is the rule of today (RIGPL Settings) for the RM value of the Job Card.
+    cost of the RM in the Stock Entry of the Job Card (Stock Ledger), not today's rate. Over Limit
+    and the allowed difference are the rule of today (RIGPL Settings, get_rm_row_failure).
     """
     job_cards = get_rm_job_cards(filters.from_date, filters.to_date, filters.bom_template)
     names = [d.name for d in job_cards]
-    rm_rows, costs, settings = get_rm_rows(names), get_rm_costs(names), get_rm_excess_settings()
+    rm_rows, costs, settings = get_rm_rows(names), get_rm_costs(names), get_rm_check_settings()
     data = []
     for jc in job_cards:
-        rows = rm_rows.get(jc.name, [])
-        rates = {}
-        for row in rows:
+        made_qty = flt(jc.total_completed_qty) + flt(jc.total_rejected_qty)
+        for row in rm_rows.get(jc.name, []):
             qty, value = costs.get((jc.name, row.item_code), (0, 0))
-            rates[row.item_code] = value / qty if qty else 0
-        excess = get_rm_excess(rows, rates, settings)
-        over = excess.excess_value > excess.allowed
-        for row in rows:
-            rate = rates[row.item_code]
+            rate = value / qty if qty else 0
             excess_qty = max(0, flt(row.qty) - flt(row.calculated_qty))
+            reason = get_rm_row_failure(row, rate, made_qty, settings)
             line = frappe._dict(
                 job_card=jc.name, posting_date=jc.posting_date, bom_template=jc.bom_template,
                 production_item=jc.production_item, item_code=row.item_code, calculated_qty=row.calculated_qty,
                 qty=row.qty, excess_qty=excess_qty, rate=rate, used_value=flt(row.qty) * rate,
-                excess_value=excess_qty * rate, allowed=excess.allowed, over_limit=cint(over),
-                bypass=row.bypass_qty_check, user=jc.modified_by,
+                excess_value=excess_qty * rate,
+                allowed=get_rm_value_limit(flt(row.calculated_qty) * rate, settings),
+                over_limit=cint(bool(reason)), bypass=row.bypass_qty_check, reason=reason, user=jc.modified_by,
             )
-            if filters.over_limit_only and not over:
+            if filters.over_limit_only and not reason:
                 continue
             if filters.bypassed_only and not row.bypass_qty_check:
                 continue

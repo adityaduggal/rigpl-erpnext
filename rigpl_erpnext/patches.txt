@@ -67,3 +67,4 @@ rigpl_erpnext.patches.v13.link_sales_call_communications_to_party
 rigpl_erpnext.patches.v13.add_v12_rules_to_website_theme
 rigpl_erpnext.patches.v13.convert_employee_advance_rigpl
 execute:from rigpl_erpnext.rigpl_erpnext.validations.department import sync_all_department_approvers; sync_all_department_approvers() #238
+rigpl_erpnext.patches.v13.set_rm_difference_limits #257

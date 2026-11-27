@@ -198,7 +198,7 @@ class ProcessJobCardRIGPL(Document):
     def validate_rm_qty_consumed(self):
         """
         Validates the Raw Material Consumed Quantity can never be more than the Quantity
-        Available when Submitting a JCR. Then checks the RM excess by value (check_rm_excess).
+        Available when Submitting a JCR. Then checks the RM consumed (check_rm_consumption).
         """
         for row in self.rm_consumed:
             if flt(row.qty) > flt(row.qty_available):
@@ -208,8 +208,8 @@ class ProcessJobCardRIGPL(Document):
                     f"{row.source_warehouse}",
                     title="Warehouse Shortage",
                 )
-        if self.rm_consumed:
-            check_rm_excess(self)
+        if self.allow_consumption_of_rm == 1:
+            check_rm_consumption(self)
 
     def update_next_jc_status(self, ps_doc=None):
         if ps_doc is None:

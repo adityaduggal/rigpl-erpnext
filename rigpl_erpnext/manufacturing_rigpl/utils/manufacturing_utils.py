@@ -296,33 +296,77 @@ def rank_rm_rows(rows, rates, settings=None, size_keys=None):
         row.idx = idx
 
 
-def get_rm_excess_settings():
-    """Returns (Min RM Excess Value, RM Excess %) from RIGPL Settings. Defaults 5000 and 5."""
-    min_value = frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "min_rm_excess_value")
-    percent = frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", "rm_excess_percent")
-    return 5000 if min_value is None else flt(min_value), 5 if percent is None else flt(percent)
+def get_rm_check_settings():
+    """
+    Returns the RM limits of RIGPL Settings: min_value, percent, qty_percent and max_value. Defaults
+    3000, 5, 20 and 25000. An unset single field reads as 0, so 0 is not a qty_percent or max_value.
+    """
+    def value(field):
+        return frappe.get_cached_value("RIGPL Settings", "RIGPL Settings", field)
+
+    min_value, percent = value("min_rm_excess_value"), value("rm_excess_percent")
+    return frappe._dict(
+        min_value=3000 if min_value is None else flt(min_value),
+        percent=5 if percent is None else flt(percent),
+        qty_percent=flt(value("rm_max_qty_difference_percent")) or 20,
+        max_value=flt(value("rm_max_difference_value")) or 25000,
+    )
+
+
+def get_rm_value_limit(calculated_value, settings):
+    """
+    Returns the allowed difference value of an RM: the higher of Min RM Excess Value and RM Excess %
+    of the calculated RM value, but never more than RM Max Difference Value.
+    """
+    return min(settings.max_value, max(settings.min_value, settings.percent / 100 * calculated_value))
+
+
+def get_rm_row_failure(row, rate, made_qty, settings):
+    """
+    Returns why an RM row of a Job Card needs Bypass Qty Check, else None. `made_qty` is the
+    completed and rejected qty. The qty difference and the value difference each have a limit, for
+    use below and above the Calculated Qty. Without a rate there is no value limit.
+    """
+    qty, calculated = flt(row.qty), flt(row.calculated_qty)
+    if flt(made_qty) <= 0:
+        return "RM is consumed but nothing is made" if qty > 0 else None
+    if qty <= 0:
+        return "No RM is consumed"
+    if calculated <= 0:
+        return "The Calculated Qty is 0"
+    difference = round(abs(qty - calculated), 6)
+    reasons = []
+    if difference > round(settings.qty_percent / 100 * calculated, 6):
+        reasons.append("The qty difference {0} is {1}% of the Calculated Qty (allowed {2}%)".format(
+            flt(difference, 3), flt(difference / calculated * 100, 1), flt(settings.qty_percent, 2)))
+    value = difference * flt(rate)
+    limit = get_rm_value_limit(calculated * flt(rate), settings)
+    if round(value, 2) > round(limit, 2):
+        reasons.append("The difference value {0} is above the limit {1}".format(flt(value, 2), flt(limit, 2)))
+    return ". ".join(reasons) or None
 
 
 def get_rm_excess(rows, rates, settings=None):
     """
     Returns {excess_qty, excess_value, used_value, allowed} of the RM rows of a Job Card. The excess
     of a row is the qty used above its Calculated Qty (the template formula for the completed and
-    rejected qty, which already counts the pieces of each RM). The allowed excess is the higher of
-    Min RM Excess Value and RM Excess % of the value of the RM used. `rates` is {item: rate}.
+    rejected qty, which already counts the pieces of each RM). `allowed` is get_rm_value_limit of
+    the calculated value of all rows. `rates` is {item: rate}.
     """
-    min_value, percent = settings or get_rm_excess_settings()
-    excess_qty = excess_value = used_value = 0
+    settings = settings or get_rm_check_settings()
+    excess_qty = excess_value = used_value = calculated_value = 0
     for row in rows:
         rate = flt(rates.get(row.item_code))
         excess = max(0, flt(row.qty) - flt(row.calculated_qty))
         excess_qty += excess
         excess_value += excess * rate
         used_value += flt(row.qty) * rate
+        calculated_value += flt(row.calculated_qty) * rate
     return frappe._dict(
         excess_qty=excess_qty,
         excess_value=excess_value,
         used_value=used_value,
-        allowed=max(min_value, percent / 100 * used_value),
+        allowed=get_rm_value_limit(calculated_value, settings),
     )
 
 

@@ -4,18 +4,8 @@
 ["Sales Order", "Quotation"].forEach((doctype) => {
     frappe.ui.form.on(doctype, {
         refresh: function(frm) {
-            frm.add_custom_button(__("Pack Size and MoV Guide"), show_sales_quantity_guide, __("Help"));
+            frm.add_custom_button(__("Pack Size and MoV Guide"), () => rigpl_erpnext.show_user_guide(
+                "sales_order_quantity", __("Pack Size and Minimum Order Value")), __("Help"));
         },
     });
 });
-
-function show_sales_quantity_guide() {
-    frappe.call({method: "rigpl_erpnext.utils.guide_utils.get_user_guide",
-        args: {guide: "sales_order_quantity"}}).then(r => {
-        const dialog = new frappe.ui.Dialog({title: __("Pack Size and Minimum Order Value"), size: "large"});
-        dialog.$body.html(r.message);
-        dialog.$body.find("table").addClass("table table-bordered");
-        dialog.$body.find("summary").css({cursor: "pointer", padding: "6px 0"});
-        dialog.show();
-    });
-}

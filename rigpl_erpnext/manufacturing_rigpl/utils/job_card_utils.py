@@ -37,7 +37,9 @@ from .manufacturing_utils import (
     get_items_from_process_sheet_for_job_card,
     get_min_max_ps_qty,
     get_priority_for_stock_prd,
+    get_rm_check_settings,
     get_rm_excess,
+    get_rm_row_failure,
 )
 
 
@@ -687,37 +689,47 @@ def get_item_rates(items):
     )) if items else {}
 
 
-def set_rm_excess(jc_doc):
+def set_rm_excess(jc_doc, rates=None):
     """
-    Sets RM Excess Qty, RM Excess Value and Allowed RM Excess of a Job Card from its RM rows
-    (get_rm_excess). The excess is the RM used above the Calculated Qty, so a cut-off that the
+    Sets RM Excess Qty, RM Excess Value and Allowed RM Difference Value of a Job Card from its RM
+    rows (get_rm_excess). The excess is the RM used above the Calculated Qty, so a cut-off that the
     template formula plans (120 mm pieces from a 150 mm rod) is not an excess.
     """
-    excess = get_rm_excess(jc_doc.rm_consumed, get_item_rates(d.item_code for d in jc_doc.rm_consumed))
+    if rates is None:
+        rates = get_item_rates(d.item_code for d in jc_doc.rm_consumed)
+    excess = get_rm_excess(jc_doc.rm_consumed, rates)
     jc_doc.rm_excess_qty = excess.excess_qty
     jc_doc.rm_excess_value = excess.excess_value
     jc_doc.rm_allowed_excess = excess.allowed
-    return excess
 
 
-def check_rm_excess(jc_doc):
+def check_rm_consumption(jc_doc):
     """
-    On submit: an RM Excess Value above the Allowed RM Excess stops the submit, unless an RM row
-    has Bypass Qty Check. Then it is a message only.
+    On submit of a Job Card that consumes RM: an RM row outside the limits (get_rm_row_failure)
+    stops the submit, unless that row has Bypass Qty Check. Then it is a message only.
     """
-    excess = set_rm_excess(jc_doc)
-    if excess.excess_value <= excess.allowed:
+    title = "Error for Raw Material Quantity Entered"
+    made_qty = flt(jc_doc.total_completed_qty) + flt(jc_doc.total_rejected_qty)
+    if not jc_doc.rm_consumed:
+        if made_qty > 0:
+            frappe.throw("There is no RM in the RM Consumed table. Add the RM to the Process Sheet.", title=title)
         return
-    message = (
-        f"RM used above the Calculated Qty: {flt(excess.excess_qty, 3)} worth {flt(excess.excess_value, 2)}. "
-        f"The RM used is worth {flt(excess.used_value, 2)}, so the allowed excess is {flt(excess.allowed, 2)} "
-        f"(Min RM Excess Value or RM Excess % in RIGPL Settings)."
-    )
-    if any(row.bypass_qty_check for row in jc_doc.rm_consumed):
-        frappe.msgprint(message, title="Warning for Raw Material Quantity Entered")
-    else:
-        frappe.throw(message + " Ask someone to tick Bypass Qty Check if this is authorized.",
-            title="Error for Raw Material Quantity Entered")
+    rates = get_item_rates(d.item_code for d in jc_doc.rm_consumed)
+    set_rm_excess(jc_doc, rates)
+    settings = get_rm_check_settings()
+    blocked, bypassed = [], []
+    for row in jc_doc.rm_consumed:
+        reason = get_rm_row_failure(row, rates.get(row.item_code), made_qty, settings)
+        if not reason:
+            continue
+        message = "Row# {0} {1}: Qty = {2}, Calculated Qty = {3}. {4}.".format(
+            row.idx, row.item_code, flt(row.qty, 3), flt(row.calculated_qty, 3), reason)
+        (bypassed if row.bypass_qty_check else blocked).append(message)
+    if blocked:
+        frappe.throw("<br>".join(blocked + ["Ask someone to tick Bypass Qty Check if this is authorized."]),
+            title=title)
+    if bypassed:
+        frappe.msgprint("<br>".join(bypassed), title="Warning for Raw Material Quantity Entered")
 
 
 def set_scrap_estimate(jc_doc, pro_doc):

@@ -9,11 +9,18 @@ from frappe.model.document import Document
 
 
 class RIGPLSettings(Document):
+    def validate_rm_limits(self):
+        if not 0 < flt(self.rm_max_qty_difference_percent) <= 100:
+            frappe.throw("RM Max Qty Difference % Should be Above 0 and Not More than 100")
+        if flt(self.rm_max_difference_value) < flt(self.min_rm_excess_value) or flt(self.rm_max_difference_value) <= 0:
+            frappe.throw("RM Max Difference Value Should be Above 0 and Not Less than Min RM Excess Value")
+
     def validate(self):
         """
         ROL Value percentages Checks. Percentage cannot be greater than 100 and lowest Value should be Equal to Min ROL
         ROL Qty percent Checks. Last 0 should have value and 1 should have value besides 100% check
         """
+        self.validate_rm_limits()
         qty_txt = self.rol_qty_percentages
         qty_txt = qty_txt.split(",")
         zero_qty = 0

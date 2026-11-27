@@ -40,7 +40,10 @@ fixtures = []
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/css/rigpl.css"
-app_include_js = ["/assets/rigpl_erpnext/js/report_formatter.js"]
+app_include_js = [
+    "/assets/rigpl_erpnext/js/report_formatter.js",
+    "/assets/rigpl_erpnext/js/user_guide.js",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/rigpl_erpnext/css/rigpl_erpnext.css"

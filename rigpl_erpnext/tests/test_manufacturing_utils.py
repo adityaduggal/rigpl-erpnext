@@ -1,8 +1,11 @@
 
+from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase, change_settings
+from frappe.utils import escape_html
 
-from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import match_existing_job_cards
+from rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils import check_rm_consumption, match_existing_job_cards
 from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     FG_RULES_CACHE_KEY,
     calculate_scrap_qty,
@@ -19,8 +22,9 @@ from rigpl_erpnext.manufacturing_rigpl.utils.manufacturing_utils import (
     get_qty_for_prod,
     get_qty_for_prod_map,
     get_rm_age_discount_settings,
+    get_rm_check_settings,
     get_rm_excess,
-    get_rm_excess_settings,
+    get_rm_row_failure,
     get_rm_rule_errors,
     get_rule_failures,
     get_template_usage,
@@ -334,22 +338,88 @@ class TestBestRmBypass(FrappeTestCase):
         self.assertIsNone(get_best_rm_bypass([frappe._dict(item_code="RM-X", valuation_rate=5)], ranked))
 
 
+RM_SETTINGS = frappe._dict(min_value=3000, percent=5, qty_percent=20, max_value=25000)
+
+
 class TestRmExcess(FrappeTestCase):
     def rows(self, *rows):
         return [frappe._dict(item_code=item, qty=qty, calculated_qty=calc) for item, qty, calc in rows]
 
     def test_only_use_above_the_calculated_qty_is_excess(self):
-        excess = get_rm_excess(self.rows(("RM-A", 12, 10), ("RM-B", 3, 5)), {"RM-A": 1000, "RM-B": 50}, (5000, 5))
+        excess = get_rm_excess(self.rows(("RM-A", 12, 10), ("RM-B", 3, 5)), {"RM-A": 1000, "RM-B": 50}, RM_SETTINGS)
         self.assertEqual((excess.excess_qty, excess.excess_value, excess.used_value), (2, 2000, 12150))
-        self.assertEqual(excess.allowed, 5000)
+        self.assertEqual(excess.allowed, 3000)
 
-    def test_allowed_grows_with_the_rm_value(self):
-        self.assertEqual(get_rm_excess(self.rows(("RM-A", 1000, 1000)), {"RM-A": 1000}, (5000, 5)).allowed, 50000)
-        self.assertEqual(get_rm_excess(self.rows(("RM-A", 100, 100)), {"RM-A": 1000}, (5000, 10)).allowed, 10000)
+    def test_allowed_is_between_the_min_value_and_the_ceiling(self):
+        for calc, allowed in ((10, 3000), (100, 5000), (1000, 25000)):
+            self.assertEqual(get_rm_excess(self.rows(("RM-A", 1, calc)), {"RM-A": 1000}, RM_SETTINGS).allowed, allowed)
 
-    @change_settings("RIGPL Settings", {"min_rm_excess_value": 2000, "rm_excess_percent": 3})
+    @change_settings("RIGPL Settings", {"min_rm_excess_value": 2000, "rm_excess_percent": 3,
+        "rm_max_qty_difference_percent": 15, "rm_max_difference_value": 9000})
     def test_settings(self):
-        self.assertEqual(get_rm_excess_settings(), (2000, 3))
+        self.assertEqual(get_rm_check_settings(),
+            {"min_value": 2000, "percent": 3, "qty_percent": 15, "max_value": 9000})
+
+
+class TestRmRowFailure(FrappeTestCase):
+    def check(self, cases):
+        """Each case is (qty, calculated qty, rate, made qty, a bypass is needed)."""
+        for qty, calc, rate, made, fails in cases:
+            with self.subTest(qty=qty, calc=calc, rate=rate, made=made):
+                row = frappe._dict(qty=qty, calculated_qty=calc)
+                self.assertEqual(bool(get_rm_row_failure(row, rate, made, RM_SETTINGS)), fails)
+
+    def test_nothing_made(self):
+        self.check([(0, 10, 100, 0, False), (10, 10, 100, 0, True), (1, 10, 0, 0, True)])
+
+    def test_no_consumption(self):
+        self.check([(0, 10, 100, 5, True), (0, 1, 0, 5, True), (0, 0, 100, 5, True)])
+
+    def test_no_calculated_qty(self):
+        self.check([(1, 0, 0, 5, True)])
+
+    def test_qty_difference(self):
+        self.check([
+            (8, 10, 100, 10, False), (12, 10, 100, 10, False), (10, 10, 100, 10, False),
+            (7.9, 10, 100, 10, True), (12.1, 10, 100, 10, True), (39, 10, 100, 10, True),
+            (2, 1, 100, 1, True), (3, 4, 100, 4, True), (1.2, 1, 100, 1, False),
+        ])
+
+    def test_value_difference(self):
+        self.check([
+            (7, 10, 1000, 10, True),  # 30% is above the qty limit
+            (95, 100, 1000, 10, False), (94, 100, 1000, 10, True),
+            (105, 100, 1000, 10, False), (106, 100, 1000, 10, True),
+            (975, 1000, 1000, 10, False), (974, 1000, 1000, 10, True),  # the ceiling
+        ])
+
+    def test_no_rate(self):
+        self.check([(800, 1000, 0, 10, False), (799, 1000, 0, 10, True)])
+
+
+class TestCheckRmConsumption(FrappeTestCase):
+    def job_card(self, *rows, made=10):
+        rm = [frappe._dict(idx=idx, item_code="RM-A", qty=qty, calculated_qty=10, bypass_qty_check=bypass)
+            for idx, (qty, bypass) in enumerate(rows, start=1)]
+        return frappe._dict(rm_consumed=rm, total_completed_qty=made, total_rejected_qty=0)
+
+    def check(self, jc_doc):
+        with patch("rigpl_erpnext.manufacturing_rigpl.utils.job_card_utils.get_item_rates",
+                return_value={"RM-A": 100}):
+            check_rm_consumption(jc_doc)
+
+    def test_no_consumption_stops_the_submit(self):
+        self.assertRaises(frappe.ValidationError, self.check, self.job_card((0, 0)))
+
+    def test_bypass_allows_that_row(self):
+        self.check(self.job_card((0, 1)))
+
+    def test_bypass_of_another_row_does_not_count(self):
+        self.assertRaises(frappe.ValidationError, self.check, self.job_card((10, 1), (0, 0)))
+
+    def test_no_rm_row(self):
+        self.assertRaises(frappe.ValidationError, self.check, self.job_card())
+        self.check(self.job_card(made=0))
 
 
 class TestScrapQty(FrappeTestCase):
@@ -377,10 +447,19 @@ class TestUserGuide(FrappeTestCase):
         self.assertIn("<h1", get_user_guide("bom_templates"))
         self.assertIn("<h1", get_user_guide("process_sheet"))
         self.assertIn("<details><summary>", get_user_guide("sales_order_quantity"))
+        self.assertIn("<details><summary>", get_user_guide("rigpl_settings"))
         self.assertRaises(frappe.ValidationError, get_user_guide, "../../hooks")
         frappe.set_user("Guest")
         self.assertRaises(frappe.PermissionError, get_user_guide, "process_sheet")
         self.assertRaises(frappe.PermissionError, get_user_guide, "sales_order_quantity")
+        self.assertRaises(frappe.PermissionError, get_user_guide, "rigpl_settings")
+
+    def test_settings_guide_has_each_field(self):
+        html = get_user_guide("rigpl_settings")
+        layout = ("Section Break", "Column Break")
+        missing = [d.label for d in frappe.get_meta("RIGPL Settings").fields
+            if d.fieldtype not in layout and ": {0}</b>".format(escape_html(d.label)) not in html]
+        self.assertEqual(missing, [])
 
 
 class TestFgRulesCache(FrappeTestCase):

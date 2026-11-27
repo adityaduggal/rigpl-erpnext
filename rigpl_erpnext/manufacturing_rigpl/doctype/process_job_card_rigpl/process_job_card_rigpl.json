@@ -146,10 +146,10 @@
   },
   {
    "depends_on": "eval:doc.allow_consumption_of_rm === 1",
-   "description": "The higher of Min RM Excess Value and RM Excess % of the RM value used (RIGPL Settings). A higher excess needs Bypass Qty Check.",
+   "description": "The higher of Min RM Excess Value and RM Excess % of the calculated RM value, up to RM Max Difference Value (RIGPL Settings). A higher difference, over or under, needs Bypass Qty Check.",
    "fieldname": "rm_allowed_excess",
    "fieldtype": "Currency",
-   "label": "Allowed RM Excess",
+   "label": "Allowed RM Difference Value",
    "no_copy": 1,
    "read_only": 1
   },
@@ -514,7 +514,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-11-01 16:00:00.000000",
+ "modified": "2026-11-27 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Manufacturing-RIGPL",
  "name": "Process Job Card RIGPL",

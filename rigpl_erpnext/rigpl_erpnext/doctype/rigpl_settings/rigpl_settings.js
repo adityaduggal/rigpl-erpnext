@@ -3,6 +3,7 @@
 
 frappe.ui.form.on('RIGPL Settings', {
 	refresh: function(frm) {
-
+		frm.add_custom_button(__('Help'), () => rigpl_erpnext.show_user_guide(
+			'rigpl_settings', __('RIGPL Settings Guide')));
 	}
 });
