@@ -11,4 +11,4 @@ The Frappe v13 website for rigpl.com. It extends ERPNext Website Item through th
 `website_rigpl/README.md` is large (33k). Open only the section you need:
 §1 v12 changes · §2 web templates · §3 v12 import · §4 theme · §5 v13 vs v12 · §6 template pages · §7 open items.
 
-Issues: epic #93 (label `website`). SEO meta and JSON-LD (#91) belong to the separate SEO-ECOMM project (WordPress). Do not write Frappe code for it.
+Issues: epic #93 (label `website`). SEO, GEO and JSON-LD are built in Frappe, from the database (decision of 2026-11-28, WordPress retired). Design: `docs/superpowers/specs/2026-11-28-website-seo-schema-design.md`. Do not override or copy a core template.
