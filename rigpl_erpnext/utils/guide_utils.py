@@ -12,6 +12,7 @@ GUIDES = {
     "process_sheet": "Process Sheet",
     "rigpl_settings": "RIGPL Settings",
     "sales_order_quantity": "Sales Order",
+    "website_seo_rules": "SEO Rule",
     "website_seo_schema": "Schema Template",
 }
 # Guides that show each `##` section collapsed

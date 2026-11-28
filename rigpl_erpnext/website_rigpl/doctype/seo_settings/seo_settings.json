@@ -1,0 +1,63 @@
+{
+ "actions": [],
+ "creation": "2026-11-28 14:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site_name",
+  "title_template",
+  "description_template",
+  "title_limit",
+  "description_limit"
+ ],
+ "fields": [
+  {
+   "fieldname": "site_name",
+   "fieldtype": "Data",
+   "label": "Site Name",
+   "description": "The og:site_name tag. Empty: no change"
+  },
+  {
+   "fieldname": "title_template",
+   "fieldtype": "Small Text",
+   "label": "Title Template",
+   "description": "Jinja text for pages that no SEO Rule gives a title. Empty: no change"
+  },
+  {
+   "fieldname": "description_template",
+   "fieldtype": "Small Text",
+   "label": "Description Template",
+   "description": "Jinja text for pages that no SEO Rule gives a description. Empty: no change"
+  },
+  {
+   "fieldname": "title_limit",
+   "fieldtype": "Int",
+   "label": "Title Limit",
+   "description": "The save of a rule warns above this length. Empty: 60"
+  },
+  {
+   "fieldname": "description_limit",
+   "fieldtype": "Int",
+   "label": "Description Limit",
+   "description": "A longer description is cut. Empty: 160"
+  }
+ ],
+ "links": [],
+ "modified": "2026-11-28 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Website-RIGPL",
+ "name": "SEO Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "Website Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "issingle": 1,
+ "track_changes": 1
+}

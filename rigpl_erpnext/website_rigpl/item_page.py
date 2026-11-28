@@ -15,17 +15,64 @@ def update_website_context(context) -> dict | None:
     doc = context.get("doc")
     handler = PAGE_HANDLERS.get(getattr(doc, "doctype", None))
     values = dict((handler(context) if handler else None) or {})
+    # the graph comes first, so that `page.h1` keeps the title of the document
     add_schema_graph(context, values)
+    add_meta_tags(context, values)
     return values or None
 
 
 def add_schema_graph(context, values: dict) -> None:
-    """Adds the JSON-LD of the Site Schema Templates to `values["head_include"]` (#260).
+    """Adds the JSON-LD of the page's Schema Templates to `values["head_include"]` (#260).
     A failure is logged and leaves the page as it was."""
     try:
         write_schema_graph(context, values)
     except Exception:
-        log_schema_failure(context)
+        log_seo_failure(context)
+
+
+def add_meta_tags(context, values: dict) -> None:
+    """Writes the title, canonical and meta tags of SEO Settings and SEO Rules (#261).
+    A failure is logged and leaves the page as it was."""
+    try:
+        write_meta_tags(context, values)
+    except Exception:
+        log_seo_failure(context)
+
+
+def write_meta_tags(context, values: dict) -> None:
+    from rigpl_erpnext.website_rigpl.seo.builder import log_errors
+    from rigpl_erpnext.website_rigpl.seo.context import PREVIEW_FLAG, get_route
+    from rigpl_erpnext.website_rigpl.seo.meta import build_meta
+
+    if frappe.flags.get(PREVIEW_FLAG):
+        return
+    web_context = frappe._dict(dict(context, **values))
+    errors = []
+    changes = build_meta(web_context, find_page_rule(web_context), errors)
+    log_errors(errors, get_route(web_context))
+    values.update(changes)
+
+
+def find_page_rule(context):
+    from rigpl_erpnext.website_rigpl.seo.context import get_route
+    from rigpl_erpnext.website_rigpl.seo.meta import find_rule
+
+    doc = context.get("doc")
+    return find_rule(getattr(doc, "doctype", None), get_route(context))
+
+
+def get_page_template_names(context) -> list:
+    """The enabled Page Type templates of the SEO Rule of the page. A failure is logged and
+    leaves the Site templates."""
+    try:
+        from rigpl_erpnext.website_rigpl.seo.builder import get_template_names
+
+        rule = find_page_rule(context)
+        wanted = {row.schema_template for row in rule.schema_templates} if rule else set()
+        return [name for name in get_template_names("Page Type") if name in wanted] if wanted else []
+    except Exception:
+        log_seo_failure(context)
+        return []
 
 
 def write_schema_graph(context, values: dict) -> None:
@@ -41,7 +88,7 @@ def write_schema_graph(context, values: dict) -> None:
 
     if frappe.flags.get(PREVIEW_FLAG):
         return
-    names = get_template_names("Site")
+    names = get_template_names("Site") + get_page_template_names(context)
     if not names:
         return
     templates = [frappe.get_cached_doc(DOCTYPE, name) for name in names]
@@ -53,7 +100,7 @@ def write_schema_graph(context, values: dict) -> None:
         values["head_include"] = head_include + to_script(graph)
 
 
-def log_schema_failure(context) -> None:
+def log_seo_failure(context) -> None:
     traceback = frappe.get_traceback()
     try:
         from rigpl_erpnext.website_rigpl.seo.builder import BuildError, log_errors

@@ -6,7 +6,7 @@ Only the role **Website Manager** can open Schema Templates.
 
 ## Which templates a page outputs
 
-Now each page outputs the enabled templates with **Applies To** = **Site**. A **Component** template appears only inside another template. The values **Page Type**, **Web Template**, **Navigation** and **Breadcrumb** have no effect yet.
+Each page outputs the enabled templates with **Applies To** = **Site**. A page also outputs the **Page Type** templates that its **SEO Rule** lists. A **Component** template appears only inside another template. The values **Web Template**, **Navigation** and **Breadcrumb** have no effect yet.
 
 ## Fields
 

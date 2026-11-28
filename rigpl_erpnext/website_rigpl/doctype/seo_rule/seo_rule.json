@@ -1,0 +1,151 @@
+{
+ "actions": [],
+ "creation": "2026-11-28 14:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "rule_name",
+  "enabled",
+  "priority",
+  "reference_doctype",
+  "route_pattern",
+  "sample_route",
+  "meta_section",
+  "title_template",
+  "description_template",
+  "canonical_template",
+  "robots_template",
+  "og_type_template",
+  "image_template",
+  "twitter_card",
+  "schema_section",
+  "schema_templates"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_name",
+   "fieldtype": "Data",
+   "label": "Rule Name",
+   "description": "The unique name of this rule",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Priority",
+   "description": "The highest matching priority wins",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "description": "Match the pages of this DocType, for example Web Page",
+   "options": "DocType",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "route_pattern",
+   "fieldtype": "Data",
+   "label": "Route Pattern",
+   "description": "Match routes, for example blog/*. * is any text",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sample_route",
+   "fieldtype": "Data",
+   "label": "Sample Route",
+   "description": "The page that the save check renders for the length warning"
+  },
+  {
+   "fieldname": "meta_section",
+   "fieldtype": "Section Break",
+   "label": "Meta Tags"
+  },
+  {
+   "fieldname": "title_template",
+   "fieldtype": "Small Text",
+   "label": "Title Template",
+   "description": "Jinja text, for example {{ page.h1 }} | Brand"
+  },
+  {
+   "fieldname": "description_template",
+   "fieldtype": "Small Text",
+   "label": "Description Template",
+   "description": "Jinja text. HTML is removed"
+  },
+  {
+   "fieldname": "canonical_template",
+   "fieldtype": "Small Text",
+   "label": "Canonical Template",
+   "description": "Jinja text that gives a URL or a route"
+  },
+  {
+   "fieldname": "robots_template",
+   "fieldtype": "Small Text",
+   "label": "Robots Template",
+   "description": "For example noindex,nofollow"
+  },
+  {
+   "fieldname": "og_type_template",
+   "fieldtype": "Small Text",
+   "label": "OG Type Template",
+   "description": "For example website, article or product"
+  },
+  {
+   "fieldname": "image_template",
+   "fieldtype": "Small Text",
+   "label": "Image Template",
+   "description": "Jinja text that gives an image URL or file path"
+  },
+  {
+   "fieldname": "twitter_card",
+   "fieldtype": "Select",
+   "label": "Twitter Card",
+   "options": "\nsummary\nsummary_large_image"
+  },
+  {
+   "fieldname": "schema_section",
+   "fieldtype": "Section Break",
+   "label": "JSON-LD"
+  },
+  {
+   "fieldname": "schema_templates",
+   "fieldtype": "Table",
+   "label": "Schema Templates",
+   "description": "Page Type Schema Templates that these pages output",
+   "options": "SEO Rule Schema Template"
+  }
+ ],
+ "links": [],
+ "modified": "2026-11-28 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Website-RIGPL",
+ "name": "SEO Rule",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "Website Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "autoname": "field:rule_name",
+ "allow_rename": 1,
+ "track_changes": 1
+}

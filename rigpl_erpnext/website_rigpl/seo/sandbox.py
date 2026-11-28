@@ -1,5 +1,5 @@
 """
-Evaluates one Jinja source of a Schema Template. The environment is not Frappe's: it has no
+Evaluates one Jinja source of a Schema Template, SEO Rule or SEO Settings. The environment is not Frappe's: it has no
 `frappe` object and no loader, and it cannot change the lists and dicts that it gets.
 """
 from __future__ import annotations
@@ -34,6 +34,23 @@ def check_syntax(source: str) -> None:
     source = (source or "").strip()
     if source:
         compile_source(source)
+
+
+def render_text(source: str, variables: dict) -> str:
+    """A source that is always text, such as a meta tag template. Plain text stays as it is."""
+    source = (source or "").strip()
+    return compile_text(source).render(variables).strip() if source else ""
+
+
+def check_template(source: str) -> None:
+    source = (source or "").strip()
+    if source:
+        compile_text(source)
+
+
+@lru_cache(maxsize=1024)
+def compile_text(source: str):
+    return ENVIRONMENT.from_string(source)
 
 
 @lru_cache(maxsize=1024)

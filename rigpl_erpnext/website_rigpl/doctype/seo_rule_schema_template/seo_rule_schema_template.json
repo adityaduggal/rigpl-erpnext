@@ -1,0 +1,30 @@
+{
+ "actions": [],
+ "creation": "2026-11-28 14:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "schema_template"
+ ],
+ "fields": [
+  {
+   "fieldname": "schema_template",
+   "fieldtype": "Link",
+   "label": "Schema Template",
+   "options": "Schema Template",
+   "reqd": 1,
+   "in_list_view": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-11-28 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Website-RIGPL",
+ "name": "SEO Rule Schema Template",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "istable": 1,
+ "editable_grid": 1
+}
