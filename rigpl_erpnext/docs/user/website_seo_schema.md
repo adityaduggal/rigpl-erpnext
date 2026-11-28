@@ -104,7 +104,7 @@ Make the templates in this order. A template that links to another template need
 
 Replace each text between `<` and `>` with the real company data.
 
-### 1. Company address
+## Example 1. Company address
 
 Template Name `Company Address`, Schema Type `PostalAddress`, Applies To `Component`.
 
@@ -116,7 +116,7 @@ Template Name `Company Address`, Schema Type `PostalAddress`, Applies To `Compon
 | `postalCode` | Constant | `<PIN code>` |
 | `addressCountry` | Constant | `IN` |
 
-### 2. Company, on every page
+## Example 2. Company, on every page
 
 Template Name `Company`, Schema Type `Organization`, Applies To `Site`, ID Expression `{{ site.url }}/#organization`.
 
@@ -127,7 +127,7 @@ Template Name `Company`, Schema Type `Organization`, Applies To `Site`, ID Expre
 | `logo` | Expression | `'/files/rohit_cutting_tools_logo_192x192.png' \| abs_url` | |
 | `address` | Template | Linked Template `Company Address` | |
 
-### 3. Web page, on every page
+## Example 3. Web page, on every page
 
 Template Name `WebPage`, Schema Type `WebPage`, Applies To `Site`, ID Expression `{{ page.url }}#webpage`.
 
@@ -136,7 +136,7 @@ Template Name `WebPage`, Schema Type `WebPage`, Applies To `Site`, ID Expression
 | `url` | Expression | `page.url` |
 | `name` | Expression | `page.h1` |
 
-### 4. Template product page
+## Example 4. Template product page
 
 For a page such as `/hss/square-tool-bits/t42-square-hss-tool-bits-bsw`.
 
@@ -153,7 +153,7 @@ Template Name `Product Group`, Schema Type `ProductGroup`, Applies To `Page Type
 
 The condition gives no node on a variant page. A variant `Product` needs a price (`offers`), and the expressions cannot read prices yet (#265).
 
-### 5. Item Group page
+## Example 5. Item Group page
 
 For a page such as `/carbide/ball-nose`.
 
@@ -166,7 +166,7 @@ Template Name `Collection Page`, Schema Type `CollectionPage`, Applies To `Page 
 | `image` | Expression | `doc.get('image') \| abs_url` |
 | `description` | Expression | `(doc.get('description') or '') \| replace('><', '> <') \| striptags \| truncate(300)` |
 
-### 6. Blog post
+## Example 6. Blog post
 
 First make the short publisher: Template Name `Company Ref`, Schema Type `Organization`, Applies To `Component`, ID Expression `{{ site.url }}/#organization`, with the properties `name` (Constant `Rohit Cutting Tools`) and `url` (Expression `site.url`).
 
@@ -182,11 +182,11 @@ Then: Template Name `Blog Posting`, Schema Type `BlogPosting`, Applies To `Page 
 | `image` | Expression | `doc.get('meta_image') \| abs_url` |
 | `publisher` | Template | Linked Template `Company Ref` |
 
-### Switch on the Page Type templates
+## Switch on the Page Type templates
 
 Examples 4 to 6 show on a page only when an **SEO Rule** lists them in **Schema Templates**. See the **Help** of SEO Rule.
 
-### Check the result
+## Check the result
 
 1. Open the template and click **Preview**. Type the Sample Route.
 2. Open the page on the website and view its source. Search for `application/ld+json`.

@@ -15,8 +15,6 @@ GUIDES = {
     "website_seo_rules": "SEO Rule",
     "website_seo_schema": "Schema Template",
 }
-# Guides that show each `##` section collapsed
-COLLAPSED_GUIDES = ("rigpl_settings", "sales_order_quantity")
 
 
 @frappe.whitelist()
@@ -29,12 +27,11 @@ def get_user_guide(guide):
         frappe.throw("Not permitted to read this guide", frappe.PermissionError)
     with open(frappe.get_app_path("rigpl_erpnext", "docs", "user", guide + ".md")) as guide_file:
         text = guide_file.read()
-    if guide in COLLAPSED_GUIDES:
-        return get_collapsed_html(text)
-    return md_to_html(text)
+    return get_collapsed_html(text)
 
 
 def get_collapsed_html(text):
+    """Each `##` section is shown collapsed."""
     intro, *sections = re.split(r"^## ", text, flags=re.MULTILINE)
     html = [md_to_html(intro)]
     for section in sections:

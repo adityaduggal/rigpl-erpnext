@@ -52,9 +52,7 @@ The title limit is 60 characters and the description limit is 160. You can chang
 - A longer title is not cut.
 - The save of a rule shows a warning for a longer text. Set **Sample Route** to check a template that has variables.
 
-## Examples for the pages of this website
-
-### SEO Settings
+## Example: SEO Settings
 
 | Field | Value |
 |---|---|
@@ -66,11 +64,11 @@ The title limit is 60 characters and the description limit is 160. You can chang
 
 A template here changes every page that no rule covers. Leave it empty until the rules are correct.
 
-### The rules
+## Example: the rules
 
 First make the Schema Templates from the **Help** of Schema Template. Then make these four rules, each with **Priority** `10`.
 
-#### Product pages
+## Example rule: Product pages
 
 Rule Name `Product pages`, Reference DocType `Website Item`, Sample Route `hss/square-tool-bits/t42-square-hss-tool-bits-bsw`.
 
@@ -83,7 +81,7 @@ Rule Name `Product pages`, Reference DocType `Website Item`, Sample Route `hss/s
 
 Many variant names are longer than 60 characters. The title stays complete.
 
-#### Item Group pages
+## Example rule: Item Group pages
 
 Rule Name `Item Group pages`, Reference DocType `Item Group`, Sample Route `carbide/ball-nose`.
 
@@ -95,7 +93,7 @@ Rule Name `Item Group pages`, Reference DocType `Item Group`, Sample Route `carb
 | OG Type Template | `website` |
 | Schema Templates | `Collection Page` |
 
-#### Web Pages
+## Example rule: Web Pages
 
 Rule Name `Web Pages`, Reference DocType `Web Page`, Sample Route `careers`.
 
@@ -107,7 +105,7 @@ Rule Name `Web Pages`, Reference DocType `Web Page`, Sample Route `careers`.
 
 The home page `rohit-cutting-tools` has its own **Meta Title** and **Meta Description**. They replace the rule values. For a better description of another page, fill its **Meta Description**.
 
-#### Blog posts
+## Example rule: Blog posts
 
 Rule Name `Blog posts`, Reference DocType `Blog Post`, Sample Route `blog/general/a-comprehensive-guide-to-cnc-machining-principles-applications-and-benefits`.
 
@@ -121,14 +119,14 @@ Rule Name `Blog posts`, Reference DocType `Blog Post`, Sample Route `blog/genera
 
 The save of this rule warns that the sample title is longer than 60 characters. The rule is saved.
 
-### A rule for a group of routes
+## A rule for a group of routes
 
 To give all HSS product pages another title, make a rule with Reference DocType `Website Item`, Route Pattern `hss/*`, Priority `20` and Title Template `{{ doc.web_item_name }} \| HSS Tools`.
 
-### One page only
+## One page only
 
 Use **Website Route Meta**. Its name is the route, for example `news`. Add rows with the keys `title` and `description`. These rows win over each rule.
 
-### Check the result
+## Check the result
 
 Open the page on the website and view its source. Check `<title>`, `<meta name="description">` and the canonical link. After a change, reload the page. If it does not change, run **Clear Website Cache**.
