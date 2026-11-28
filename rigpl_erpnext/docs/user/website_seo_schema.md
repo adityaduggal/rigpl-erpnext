@@ -97,3 +97,96 @@ Open a saved template and click **Preview**. Type a route. The dialog shows the 
 | url | Expression | `page.url` |
 | name | Expression | `page.h1` |
 | dateModified | Expression | `doc.get("modified")` |
+
+## Examples for the pages of this website
+
+Make the templates in this order. A template that links to another template needs that template first. Leave **Condition** and **Iterate Over** empty unless the example gives them.
+
+Replace each text between `<` and `>` with the real company data.
+
+### 1. Company address
+
+Template Name `Company Address`, Schema Type `PostalAddress`, Applies To `Component`.
+
+| Property | Value Type | Value |
+|---|---|---|
+| `streetAddress` | Constant | `<plot number, street, area>` |
+| `addressLocality` | Constant | `<city>` |
+| `addressRegion` | Constant | `<state>` |
+| `postalCode` | Constant | `<PIN code>` |
+| `addressCountry` | Constant | `IN` |
+
+### 2. Company, on every page
+
+Template Name `Company`, Schema Type `Organization`, Applies To `Site`, ID Expression `{{ site.url }}/#organization`.
+
+| Property | Value Type | Value | Required |
+|---|---|---|---|
+| `name` | Constant | `Rohit Cutting Tools` | yes |
+| `url` | Expression | `site.url` | yes |
+| `logo` | Expression | `'/files/rohit_cutting_tools_logo_192x192.png' \| abs_url` | |
+| `address` | Template | Linked Template `Company Address` | |
+
+### 3. Web page, on every page
+
+Template Name `WebPage`, Schema Type `WebPage`, Applies To `Site`, ID Expression `{{ page.url }}#webpage`.
+
+| Property | Value Type | Value |
+|---|---|---|
+| `url` | Expression | `page.url` |
+| `name` | Expression | `page.h1` |
+
+### 4. Template product page
+
+For a page such as `/hss/square-tool-bits/t42-square-hss-tool-bits-bsw`.
+
+Template Name `Product Group`, Schema Type `ProductGroup`, Applies To `Page Type`, ID Expression `{{ page.url }}#productgroup`, Condition `doc.get('has_variants')`, Sample Route `hss/square-tool-bits/t42-square-hss-tool-bits-bsw`.
+
+| Property | Value Type | Value |
+|---|---|---|
+| `name` | Expression | `doc.web_item_name` |
+| `productGroupID` | Expression | `doc.item_code` |
+| `url` | Expression | `page.url` |
+| `image` | Expression | `doc.get('website_image') \| abs_url` |
+| `category` | Expression | `doc.item_group` |
+| `description` | Expression | `(doc.get('web_long_description') or doc.get('description') or '') \| replace('><', '> <') \| striptags \| truncate(500)` |
+
+The condition gives no node on a variant page. A variant `Product` needs a price (`offers`), and the expressions cannot read prices yet (#265).
+
+### 5. Item Group page
+
+For a page such as `/carbide/ball-nose`.
+
+Template Name `Collection Page`, Schema Type `CollectionPage`, Applies To `Page Type`, ID Expression `{{ page.url }}#collection`, Sample Route `carbide/ball-nose`.
+
+| Property | Value Type | Value |
+|---|---|---|
+| `name` | Expression | `doc.name` |
+| `url` | Expression | `page.url` |
+| `image` | Expression | `doc.get('image') \| abs_url` |
+| `description` | Expression | `(doc.get('description') or '') \| replace('><', '> <') \| striptags \| truncate(300)` |
+
+### 6. Blog post
+
+First make the short publisher: Template Name `Company Ref`, Schema Type `Organization`, Applies To `Component`, ID Expression `{{ site.url }}/#organization`, with the properties `name` (Constant `Rohit Cutting Tools`) and `url` (Expression `site.url`).
+
+Then: Template Name `Blog Posting`, Schema Type `BlogPosting`, Applies To `Page Type`, ID Expression `{{ page.url }}#article`, Sample Route `blog/general/a-comprehensive-guide-to-cnc-machining-principles-applications-and-benefits`.
+
+| Property | Value Type | Value |
+|---|---|---|
+| `headline` | Expression | `doc.title` |
+| `url` | Expression | `page.url` |
+| `datePublished` | Expression | `doc.published_on` |
+| `dateModified` | Expression | `doc.modified` |
+| `description` | Expression | `(doc.get('blog_intro') or '') \| striptags` |
+| `image` | Expression | `doc.get('meta_image') \| abs_url` |
+| `publisher` | Template | Linked Template `Company Ref` |
+
+### Switch on the Page Type templates
+
+Examples 4 to 6 show on a page only when an **SEO Rule** lists them in **Schema Templates**. See the **Help** of SEO Rule.
+
+### Check the result
+
+1. Open the template and click **Preview**. Type the Sample Route.
+2. Open the page on the website and view its source. Search for `application/ld+json`.

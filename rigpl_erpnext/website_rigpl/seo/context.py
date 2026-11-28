@@ -37,7 +37,8 @@ def build_variables(web_context: dict) -> dict:
 
 
 def get_route(web_context: dict) -> str:
-    return (web_context.get("route") or web_context.get("path") or "").lstrip("/")
+    # Blog Post pages overwrite `route` with "blog", but `path` stays the address of the page
+    return (web_context.get("path") or web_context.get("route") or "").lstrip("/")
 
 
 def remove_prefix(title: str, prefix: str) -> str:

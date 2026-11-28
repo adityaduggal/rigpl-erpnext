@@ -283,6 +283,12 @@ class TestPageOutput(WebPageTestCase):
         item_page.add_schema_graph(frappe._dict(route=ROUTE, head_include=meta), values)
         self.assertTrue(values["head_include"].startswith(meta + SCRIPT_START))
 
+    def test_page_route_is_the_path(self):
+        web_context = {"route": "blog", "path": "blog/general/" + ROUTE}
+        page = context.build_variables(web_context)["page"]
+        self.assertEqual(page["route"], "blog/general/" + ROUTE)
+        self.assertTrue(page["url"].endswith("/blog/general/" + ROUTE))
+
     def test_h1_has_no_title_prefix(self):
         web_context = {"route": ROUTE, "title": "Brand - " + PAGE_TITLE, "title_prefix": "Brand"}
         page = context.build_variables(web_context)["page"]
