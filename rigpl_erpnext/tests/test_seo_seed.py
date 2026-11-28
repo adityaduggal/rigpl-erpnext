@@ -66,6 +66,8 @@ class TestOrganization(SeedTestCase):
                 "pincode": "110001",
             }
         )
+        # a set name skips the Address autoname rules of rohit_common
+        address.name = "_Test RIGPL SEO-Office"
         address.db_insert()
         frappe.db.set_value("SEO Settings", None, "address", address.name)
         frappe.clear_document_cache("SEO Settings", "SEO Settings")
