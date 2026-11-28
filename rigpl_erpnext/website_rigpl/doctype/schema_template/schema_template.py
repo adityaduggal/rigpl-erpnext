@@ -116,7 +116,9 @@ class SchemaTemplate(Document):
 @frappe.whitelist()
 def preview(name: str, route: str = None) -> dict:
     """The JSON-LD of a saved Schema Template for a route."""
-    frappe.has_permission("Schema Template", "write", throw=True)
+    # `throw=True` of v13 raises ValidationError, not PermissionError
+    if not frappe.has_permission("Schema Template", "write"):
+        frappe.throw("No permission to write Schema Template", frappe.PermissionError)
     graph, errors, _ = frappe.get_doc("Schema Template", name).render_route(route)
     return {
         "json": builder.to_json(graph, indent=2) if graph else "",
