@@ -120,7 +120,7 @@ class TestSeed(SeedTestCase):
 
     def test_no_constant_values(self):
         types = {row["value_type"] for record in SCHEMA_TEMPLATES for row in record["properties"]}
-        self.assertEqual(types, {"Expression", "Template"})
+        self.assertEqual(types, {"Expression", "Template", "Template List"})
 
     def test_site_templates_build_without_errors(self):
         importer.create_missing_records()
