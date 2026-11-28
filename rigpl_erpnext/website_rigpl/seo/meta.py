@@ -99,8 +99,9 @@ class PageMeta:
 
     def build(self) -> dict:
         self.set_rule_values()
-        if self.settings.site_name:
-            self.tags["og:site_name"] = self.settings.site_name
+        site_name = self.rendered(self.settings, "site_name", "site_name")
+        if site_name:
+            self.tags["og:site_name"] = site_name
         self.set_route_meta()
         if self.tags != self.original:
             self.changes["metatags"] = frappe._dict(self.tags)
@@ -138,8 +139,8 @@ class PageMeta:
         own = doc.get(DOCUMENT_FIELDS[field]) if doc and field in DOCUMENT_FIELDS else None
         return str(own or "").strip() or value
 
-    def rendered(self, source_doc, field: str) -> str:
-        source = source_doc.get(field + "_template") if source_doc else None
+    def rendered(self, source_doc, field: str, source_field: str = None) -> str:
+        source = source_doc.get(source_field or field + "_template") if source_doc else None
         if not source:
             return ""
         try:

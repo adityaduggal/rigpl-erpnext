@@ -8,14 +8,18 @@
   "title_template",
   "description_template",
   "title_limit",
-  "description_limit"
+  "description_limit",
+  "organization_section",
+  "company",
+  "address",
+  "social_group"
  ],
  "fields": [
   {
    "fieldname": "site_name",
    "fieldtype": "Data",
    "label": "Site Name",
-   "description": "The og:site_name tag. Empty: no change"
+   "description": "Jinja text for the og:site_name tag, for example {{ site.brand }}. Empty: no change"
   },
   {
    "fieldname": "title_template",
@@ -40,10 +44,35 @@
    "fieldtype": "Int",
    "label": "Description Limit",
    "description": "A longer description is cut. Empty: 160"
+  },
+  {
+   "fieldname": "organization_section",
+   "fieldtype": "Section Break",
+   "label": "Organization"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "description": "The source of site.organization. Empty: the default company"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Link",
+   "label": "Address",
+   "options": "Address",
+   "description": "Empty: the primary company address of the Company"
+  },
+  {
+   "fieldname": "social_group",
+   "fieldtype": "Data",
+   "label": "Social Footer Group",
+   "description": "The Website Settings footer links under this label are the social profiles. Empty: Social"
   }
  ],
  "links": [],
- "modified": "2026-11-28 14:00:00.000000",
+ "modified": "2026-11-28 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "SEO Settings",

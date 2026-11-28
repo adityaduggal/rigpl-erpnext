@@ -9,6 +9,8 @@ from frappe.model.document import Document
 from frappe.utils import get_url, set_request
 from frappe.website.context import get_context
 
+from .organization import get_organization
+
 PREVIEW_FLAG = "rigpl_seo_preview"
 MISSING = object()
 
@@ -18,8 +20,14 @@ def build_variables(web_context: dict) -> dict:
     title = web_context.get("title") or ""
     doc = web_context.get("doc")
     website = frappe.get_cached_doc("Website Settings", "Website Settings")
+    organization = get_organization()
     return {
-        "site": {"url": get_url(), "name": website.app_name or ""},
+        "site": {
+            "url": get_url(),
+            "name": website.app_name or "",
+            "brand": organization["brand"],
+            "organization": organization,
+        },
         "page": {
             "route": route,
             "url": get_url(route),

@@ -28,7 +28,7 @@ An empty field, or a template with an empty result, changes nothing.
 
 ## Templates
 
-Each template is text with Jinja, for example `{{ page.h1 }} | Rohit Cutting Tools`. Plain text is also correct. The variables are the same as in a Schema Template: `site`, `page` and `doc`. Use `page.h1` for the title of the page without the website title prefix.
+Each template is text with Jinja, for example `{{ page.h1 }} | {{ site.brand }}`. Plain text is also correct. The variables are the same as in a Schema Template: `site`, `page` and `doc`. **Site Name** in SEO Settings is also Jinja text. Use `page.h1` for the title of the page without the website title prefix.
 
 | Field | Tags |
 |---|---|
@@ -52,76 +52,24 @@ The title limit is 60 characters and the description limit is 160. You can chang
 - A longer title is not cut.
 - The save of a rule shows a warning for a longer text. Set **Sample Route** to check a template that has variables.
 
-## Example: SEO Settings
+## Default rules
 
-| Field | Value |
-|---|---|
-| Site Name | `Rohit Cutting Tools` |
-| Title Template | empty |
-| Description Template | empty |
-| Title Limit | empty (60) |
-| Description Limit | empty (160) |
+The system creates these rules one time after `migrate`. The button **Create Missing Records** in **SEO Settings** creates the ones that do not exist. A rule that exists is never changed.
 
-A template here changes every page that no rule covers. Leave it empty until the rules are correct.
+| Rule | Reference DocType | Title | Schema Template |
+|---|---|---|---|
+| `Product pages` | Website Item | the Website Item name | `Product Group` |
+| `Item Group pages` | Item Group | the Item Group and the brand | `Collection Page` |
+| `Web Pages` | Web Page | the H1 and the brand | none |
+| `Blog posts` | Blog Post | the H1 | `Blog Posting` |
 
-## Example: the rules
+All have Priority `10`. The **Site Name** of SEO Settings becomes `{{ site.brand }}` if it is empty. To change a text, open the rule. To stop a rule, clear **Enabled**.
 
-First make the Schema Templates from the **Help** of Schema Template. Then make these four rules, each with **Priority** `10`.
-
-## Example rule: Product pages
-
-Rule Name `Product pages`, Reference DocType `Website Item`, Sample Route `hss/square-tool-bits/t42-square-hss-tool-bits-bsw`.
-
-| Field | Value |
-|---|---|
-| Title Template | `{{ doc.web_item_name }}` |
-| Description Template | `Buy {{ doc.web_item_name }} from Rohit Cutting Tools. Category: {{ doc.item_group }}.` |
-| OG Type Template | `product` |
-| Schema Templates | `Product Group` |
-
-Many variant names are longer than 60 characters. The title stays complete.
-
-## Example rule: Item Group pages
-
-Rule Name `Item Group pages`, Reference DocType `Item Group`, Sample Route `carbide/ball-nose`.
-
-| Field | Value |
-|---|---|
-| Title Template | `{{ doc.name }} \| Rohit Cutting Tools` |
-| Description Template | `{{ ((doc.get('description') or '') \| replace('><', '> <') \| striptags) or (doc.name ~ ' from Rohit Cutting Tools.') }}` |
-| Image Template | `{{ doc.get('image') or '' }}` |
-| OG Type Template | `website` |
-| Schema Templates | `Collection Page` |
-
-## Example rule: Web Pages
-
-Rule Name `Web Pages`, Reference DocType `Web Page`, Sample Route `careers`.
-
-| Field | Value |
-|---|---|
-| Title Template | `{{ page.h1 }} \| Rohit Cutting Tools` |
-| Description Template | `{{ page.h1 }}: information from Rohit Cutting Tools.` |
-| OG Type Template | `website` |
-
-The home page `rohit-cutting-tools` has its own **Meta Title** and **Meta Description**. They replace the rule values. For a better description of another page, fill its **Meta Description**.
-
-## Example rule: Blog posts
-
-Rule Name `Blog posts`, Reference DocType `Blog Post`, Sample Route `blog/general/a-comprehensive-guide-to-cnc-machining-principles-applications-and-benefits`.
-
-| Field | Value |
-|---|---|
-| Title Template | `{{ page.h1 }}` |
-| Description Template | `{{ doc.get('blog_intro') or '' }}` |
-| OG Type Template | `article` |
-| Twitter Card | `summary_large_image` |
-| Schema Templates | `Blog Posting` |
-
-The save of this rule warns that the sample title is longer than 60 characters. The rule is saved.
+Many product names are longer than 60 characters. The title stays complete. For a better description of one page, fill its **Meta Description**.
 
 ## A rule for a group of routes
 
-To give all HSS product pages another title, make a rule with Reference DocType `Website Item`, Route Pattern `hss/*`, Priority `20` and Title Template `{{ doc.web_item_name }} \| HSS Tools`.
+To give all HSS product pages another title, make a rule with Reference DocType `Website Item`, Route Pattern `hss/*`, Priority `20` and Title Template `{{ doc.web_item_name }} \| {{ site.brand }}`.
 
 ## One page only
 

@@ -22,7 +22,8 @@ class SchemaTemplate(Document):
         self.check_expressions()
         if self.enabled:
             self.check_type_properties()
-            self.check_sample_route()
+            if not self.flags.skip_route_check:
+                self.check_sample_route()
 
     def on_update(self):
         self.clear_caches()
