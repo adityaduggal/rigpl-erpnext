@@ -68,6 +68,7 @@ website_generators = ["Carrier Tracking"]
 # }
 
 update_website_context = ["rigpl_erpnext.website_rigpl.item_page.update_website_context"]
+website_clear_cache = "rigpl_erpnext.website_rigpl.seo.builder.clear_template_cache"
 
 # The guest API and the place order message show the capped stock label, not the real quantity (#127)
 override_whitelisted_methods = {

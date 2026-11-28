@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "creation": "2026-11-28 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "property",
+  "value_type",
+  "value",
+  "linked_template",
+  "condition",
+  "required"
+ ],
+ "fields": [
+  {
+   "fieldname": "property",
+   "fieldtype": "Data",
+   "label": "Property",
+   "description": "The schema.org property, for example sku",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "value_type",
+   "fieldtype": "Select",
+   "label": "Value Type",
+   "description": "Expression: Jinja. Constant: the text as it is. Template: the node of another template",
+   "options": "Expression\nConstant\nTemplate\nTemplate List",
+   "default": "Expression",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Code",
+   "label": "Value",
+   "description": "The expression or the constant text",
+   "options": "Jinja",
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "linked_template",
+   "fieldtype": "Link",
+   "label": "Linked Template",
+   "description": "The nested Schema Template",
+   "options": "Schema Template",
+   "depends_on": "eval:in_list([\"Template\", \"Template List\"], doc.value_type)",
+   "mandatory_depends_on": "eval:in_list([\"Template\", \"Template List\"], doc.value_type)",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "condition",
+   "fieldtype": "Code",
+   "label": "Condition",
+   "description": "Jinja. A false result: no property",
+   "options": "Jinja"
+  },
+  {
+   "fieldname": "required",
+   "fieldtype": "Check",
+   "label": "Required",
+   "description": "A missing value stops the save",
+   "in_list_view": 1,
+   "columns": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Website-RIGPL",
+ "name": "Schema Template Property",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

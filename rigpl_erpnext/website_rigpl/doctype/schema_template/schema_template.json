@@ -1,0 +1,143 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:template_name",
+ "creation": "2026-11-28 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "template_name",
+  "schema_type",
+  "enabled",
+  "merchant_listing",
+  "applies_to",
+  "web_template",
+  "sample_route",
+  "id_expression",
+  "condition",
+  "iterate_over",
+  "properties_section",
+  "properties",
+  "help"
+ ],
+ "fields": [
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "label": "Template Name",
+   "description": "The unique name of this template",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "schema_type",
+   "fieldtype": "Data",
+   "label": "Schema Type",
+   "description": "The schema.org type, for example Product, Offer or BreadcrumbList",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "description": "Off: the pages do not output this node",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "merchant_listing",
+   "fieldtype": "Check",
+   "label": "Merchant Listing",
+   "description": "Also check the properties that a Google merchant listing needs",
+   "depends_on": "eval:in_list([\"Product\", \"ProductGroup\", \"Offer\"], doc.schema_type)"
+  },
+  {
+   "fieldname": "applies_to",
+   "fieldtype": "Select",
+   "label": "Applies To",
+   "description": "Site: every page. Component: only inside another template",
+   "options": "Site\nPage Type\nWeb Template\nNavigation\nBreadcrumb\nComponent",
+   "default": "Component",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "web_template",
+   "fieldtype": "Link",
+   "label": "Web Template",
+   "description": "The Web Template whose blocks use this schema",
+   "options": "Web Template",
+   "depends_on": "eval:doc.applies_to==\"Web Template\"",
+   "mandatory_depends_on": "eval:doc.applies_to==\"Web Template\""
+  },
+  {
+   "fieldname": "sample_route",
+   "fieldtype": "Data",
+   "label": "Sample Route",
+   "description": "The page that the save check renders. Empty: the home page"
+  },
+  {
+   "fieldname": "id_expression",
+   "fieldtype": "Code",
+   "label": "ID Expression",
+   "description": "Jinja for @id, for example {{ page.url }}#product",
+   "options": "Jinja"
+  },
+  {
+   "fieldname": "condition",
+   "fieldtype": "Code",
+   "label": "Condition",
+   "description": "Jinja. An empty or false result: no node",
+   "options": "Jinja"
+  },
+  {
+   "fieldname": "iterate_over",
+   "fieldtype": "Code",
+   "label": "Iterate Over",
+   "description": "Jinja that gives a list. One node for each element, which the expressions read as row",
+   "options": "Jinja"
+  },
+  {
+   "fieldname": "properties_section",
+   "fieldtype": "Section Break",
+   "label": "Properties"
+  },
+  {
+   "fieldname": "properties",
+   "fieldtype": "Table",
+   "label": "Properties",
+   "description": "The schema.org properties of the node",
+   "options": "Schema Template Property"
+  },
+  {
+   "fieldname": "help",
+   "fieldtype": "Small Text",
+   "label": "Help",
+   "description": "Notes for website managers"
+  }
+ ],
+ "links": [],
+ "modified": "2026-11-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Website-RIGPL",
+ "name": "Schema Template",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "Website Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

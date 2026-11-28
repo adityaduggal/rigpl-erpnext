@@ -14,7 +14,55 @@ ITEM_TEMPLATE_PAGE = "rigpl_erpnext/templates/generators/rigpl_item_template.htm
 def update_website_context(context) -> dict | None:
     doc = context.get("doc")
     handler = PAGE_HANDLERS.get(getattr(doc, "doctype", None))
-    return handler(context) if handler else None
+    values = dict((handler(context) if handler else None) or {})
+    add_schema_graph(context, values)
+    return values or None
+
+
+def add_schema_graph(context, values: dict) -> None:
+    """Adds the JSON-LD of the Site Schema Templates to `values["head_include"]` (#260).
+    A failure is logged and leaves the page as it was."""
+    try:
+        write_schema_graph(context, values)
+    except Exception:
+        log_schema_failure(context)
+
+
+def write_schema_graph(context, values: dict) -> None:
+    # imported here, so that an error in the engine cannot stop every website page
+    from rigpl_erpnext.website_rigpl.seo.builder import (
+        DOCTYPE,
+        build_graph,
+        get_template_names,
+        log_errors,
+        to_script,
+    )
+    from rigpl_erpnext.website_rigpl.seo.context import PREVIEW_FLAG, build_variables, get_route
+
+    if frappe.flags.get(PREVIEW_FLAG):
+        return
+    names = get_template_names("Site")
+    if not names:
+        return
+    templates = [frappe.get_cached_doc(DOCTYPE, name) for name in names]
+    errors = []
+    graph = build_graph(templates, build_variables(dict(context, **values)), errors)
+    log_errors(errors, get_route(context))
+    if graph:
+        head_include = values.get("head_include", context.get("head_include")) or ""
+        values["head_include"] = head_include + to_script(graph)
+
+
+def log_schema_failure(context) -> None:
+    traceback = frappe.get_traceback()
+    try:
+        from rigpl_erpnext.website_rigpl.seo.builder import BuildError, log_errors
+        from rigpl_erpnext.website_rigpl.seo.context import get_route
+
+        log_errors([BuildError("", "", traceback)], get_route(context))
+    except Exception:
+        # the page must show, also when the Error Log cannot be written
+        frappe.logger().error(traceback)
 
 
 def website_item_context(context) -> dict | None:
