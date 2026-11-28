@@ -143,6 +143,30 @@ SCHEMA_TEMPLATES = [
         ],
         id_expression="{{ page.url }}#article",
     ),
+    # navigation and breadcrumbs (#264)
+    schema(
+        "Breadcrumb Item",
+        "ListItem",
+        "Component",
+        [expression("position", "row.position"), expression("name", "row.name"), expression("item", "row.url")],
+        iterate_over="page.crumbs",
+    ),
+    schema(
+        "Breadcrumbs",
+        "BreadcrumbList",
+        "Breadcrumb",
+        [linked_list("itemListElement", "Breadcrumb Item")],
+        id_expression="{{ page.url }}#breadcrumb",
+        condition="page.crumbs",
+    ),
+    schema(
+        "Top Bar",
+        "SiteNavigationElement",
+        "Navigation",
+        [expression("name", "row.name"), expression("url", "row.url")],
+        id_expression="{{ site.url }}/#navigation-{{ row.position }}",
+        iterate_over="nav.top_bar",
+    ),
     # Web Page blocks (#269)
     schema(
         "Product List Item",

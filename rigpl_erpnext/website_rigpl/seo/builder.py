@@ -16,6 +16,8 @@ from .sandbox import evaluate
 
 DOCTYPE = "Schema Template"
 BLOCK_TEMPLATES = "Web Template"
+# like Site templates, every page outputs them
+PAGE_PARTS = ("Breadcrumb", "Navigation")
 NAMES_CACHE_KEY = "rigpl_schema_templates"
 ERROR_CACHE_KEY = "rigpl_schema_error"
 LOG_ONCE_SECONDS = 3600

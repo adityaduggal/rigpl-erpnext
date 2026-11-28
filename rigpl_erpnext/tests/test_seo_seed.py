@@ -1,7 +1,10 @@
 """Default SEO records and the company data that they read (#263)."""
+import json
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from rigpl_erpnext.website_rigpl import item_page
 from rigpl_erpnext.website_rigpl.doctype.seo_settings.seo_settings import create_records
 from rigpl_erpnext.website_rigpl.seo import builder, context, meta, organization
 from rigpl_erpnext.website_rigpl.website_data.seo import importer
@@ -219,3 +222,50 @@ class TestHomeBlocks(SeedTestCase):
         for name in builder.get_template_names("Web Template"):
             graph, errors, _ = frappe.get_doc("Schema Template", name).render_route("")
             self.assertEqual(errors, [], name)
+
+
+class TestNavigation(SeedTestCase):
+    """Navigation and breadcrumb markup (#264)."""
+
+    def test_crumbs_are_the_visible_breadcrumb(self):
+        parents = [{"name": name, "route": name.lower()} for name in ("A", "B", "C", "D")]
+        web_context = {"path": "x", "title": "Page", "parents": parents}
+        crumbs = context.get_crumbs(web_context, "Shown | Brand")
+        self.assertEqual([c["name"] for c in crumbs], ["B", "C", "D", "Shown | Brand"])
+        self.assertEqual([c["position"] for c in crumbs], [1, 2, 3, 4])
+        self.assertTrue(crumbs[-1]["url"].endswith("/x"))
+
+    def test_index_parent_is_the_site_root(self):
+        web_context = {"path": "x", "title": "P", "parents": [{"label": "Home", "route": "index"}]}
+        self.assertEqual(context.get_crumbs(web_context)[0]["url"], context.get_url("/"))
+
+    def test_no_crumbs_without_a_visible_breadcrumb(self):
+        parents = [{"name": "Home", "route": "/"}]
+        self.assertEqual(context.get_crumbs({"title": "P"}), [])
+        self.assertEqual(context.get_crumbs({"parents": parents, "no_breadcrumbs": 1}), [])
+
+    def test_top_bar_skips_rows_without_a_link(self):
+        rows = [
+            frappe._dict(label="Products", url=None),
+            frappe._dict(label="Drills", url=" hss drills"),
+            frappe._dict(label="Menu", url="#"),
+        ]
+        links = context.get_top_bar({"top_bar_items": rows})
+        self.assertEqual([(link["position"], link["name"]) for link in links], [(1, "Drills")])
+        self.assertTrue(links[0]["url"].endswith("/hss%20drills"))
+
+    def test_live_page_has_the_breadcrumb_and_navigation(self):
+        delete_seed_records()
+        builder.clear_template_cache()
+        meta.clear_caches()
+        importer.create_missing_records()
+        route = frappe.db.get_value("Item Group", {"show_in_website": 1, "lft": [">", 5]}, "route")
+        if not route:
+            self.skipTest("The site has no Item Group page")
+        web_context = context.get_route_context(route)
+        values = {"title": "Shown"}
+        item_page.write_schema_graph(web_context, values, dict(web_context))
+        graph = json.loads(values["head_include"].split('ld+json">')[-1].split("</script>")[0])["@graph"]
+        crumbs = [node for node in graph if node["@type"] == "BreadcrumbList"][0]["itemListElement"]
+        self.assertEqual(crumbs[-1]["name"], "Shown")
+        self.assertTrue([node for node in graph if node["@type"] == "SiteNavigationElement"])

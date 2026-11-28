@@ -15,17 +15,19 @@ def update_website_context(context) -> dict | None:
     doc = context.get("doc")
     handler = PAGE_HANDLERS.get(getattr(doc, "doctype", None))
     values = dict((handler(context) if handler else None) or {})
-    # the graph comes first, so that `page.h1` keeps the title of the document
-    add_schema_graph(context, values)
+    # the graph reads the page before the meta tags, so that `page.h1` keeps the document title
+    page = dict(context, **values)
     add_meta_tags(context, values)
+    # the visible breadcrumb ends with the title that the meta tags can change
+    add_schema_graph(context, values, page)
     return values or None
 
 
-def add_schema_graph(context, values: dict) -> None:
+def add_schema_graph(context, values: dict, page: dict = None) -> None:
     """Adds the JSON-LD of the page's Schema Templates to `values["head_include"]` (#260).
     A failure is logged and leaves the page as it was."""
     try:
-        write_schema_graph(context, values)
+        write_schema_graph(context, values, page)
     except Exception:
         log_seo_failure(context)
 
@@ -75,11 +77,13 @@ def get_page_template_names(context) -> list:
         return []
 
 
-def write_schema_graph(context, values: dict) -> None:
+def write_schema_graph(context, values: dict, page: dict = None) -> None:
+    """`page` is the page before the meta tags. `values` can hold the title that the page shows."""
     # imported here, so that an error in the engine cannot stop every website page
     from rigpl_erpnext.website_rigpl.seo.builder import (
         BLOCK_TEMPLATES,
         DOCTYPE,
+        PAGE_PARTS,
         build_graph,
         get_template_names,
         log_errors,
@@ -90,13 +94,15 @@ def write_schema_graph(context, values: dict) -> None:
     if frappe.flags.get(PREVIEW_FLAG):
         return
     block_names = get_template_names(BLOCK_TEMPLATES)
-    names = get_template_names("Site") + get_page_template_names(context) + block_names
+    part_names = [name for part in PAGE_PARTS for name in get_template_names(part)]
+    names = get_template_names("Site") + part_names + get_page_template_names(context) + block_names
     if not names:
         return
     templates = [frappe.get_cached_doc(DOCTYPE, name) for name in names]
     errors = []
     blocks = get_page_blocks(context) if block_names else []
-    graph = build_graph(templates, build_variables(dict(context, **values)), errors, blocks)
+    variables = build_variables(page or dict(context, **values), values.get("title"))
+    graph = build_graph(templates, variables, errors, blocks)
     log_errors(errors, get_route(context))
     if graph:
         head_include = values.get("head_include", context.get("head_include")) or ""

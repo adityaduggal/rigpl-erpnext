@@ -10,7 +10,8 @@ from frappe.utils import escape_html
 from frappe.website.render import clear_cache
 from jinja2 import TemplateSyntaxError
 
-from rigpl_erpnext.website_rigpl.seo import builder, context, required
+from rigpl_erpnext.website_rigpl.item_page import find_page_rule
+from rigpl_erpnext.website_rigpl.seo import builder, context, meta, required
 from rigpl_erpnext.website_rigpl.seo.sandbox import check_syntax
 
 LINK_TYPES = ("Template", "Template List")
@@ -38,10 +39,12 @@ class SchemaTemplate(Document):
         """The graph of this document, saved or not, for a route. The last value is False when
         `iterate_over` or `condition` gave no node to build."""
         web_context = context.get_route_context(route)
-        variables = context.build_variables(web_context)
+        errors = []
+        rule = find_page_rule(web_context)
+        shown_title = meta.build_meta(web_context, rule, errors).get("title")
+        variables = context.build_variables(web_context, shown_title)
         is_block = self.applies_to == builder.BLOCK_TEMPLATES
         blocks = context.get_blocks(web_context.get("doc")) if is_block else []
-        errors = []
         graph_builder = builder.GraphBuilder(errors)
         nodes = builder.merge_by_id(graph_builder.page_nodes(self, variables, blocks))
         return builder.make_graph(nodes), errors, self.name in graph_builder.reached

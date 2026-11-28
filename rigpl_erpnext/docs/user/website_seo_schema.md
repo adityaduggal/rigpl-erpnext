@@ -6,7 +6,7 @@ Only the role **Website Manager** can open Schema Templates.
 
 ## Which templates a page outputs
 
-Each page outputs the enabled templates with **Applies To** = **Site**. A page also outputs the **Page Type** templates that its **SEO Rule** lists. A **Web Template** template makes its nodes for each visible Web Page block of that Web Template. A **Component** template appears only inside another template. The values **Navigation** and **Breadcrumb** have no effect yet.
+Each page outputs the enabled templates with **Applies To** = **Site**. A page also outputs the **Page Type** templates that its **SEO Rule** lists. A **Web Template** template makes its nodes for each visible Web Page block of that Web Template. A **Component** template appears only inside another template. Each page also outputs the **Navigation** and **Breadcrumb** templates.
 
 ## Fields
 
@@ -53,10 +53,12 @@ There are two forms:
 | `site.brand` | The title prefix of Website Settings, else the company name. |
 | `site.organization` | `legal_name`, `email`, `telephone`, `founding_date`, `logo`, `same_as` and `address` (`street`, `city`, `state`, `pincode`, `country_code`). See **Where the company data comes from**. |
 | `page.route`, `page.url`, `page.title`, `page.h1`, `page.parents` | The page. `page.title` has the title prefix of Website Settings, `page.h1` does not. `page.parents` is the breadcrumb list. |
+| `page.crumbs` | The items of the visible breadcrumb: `position`, `name`, `url`. It is empty on a page that shows no breadcrumb. |
+| `nav.top_bar` | The rows of the top bar that have a link: `position`, `name`, `url`. |
 | `doc` | The fields of the page document. It is empty on a page that has no document. |
 | `row` | The element of Iterate Over. |
 
-`item`, `variants`, `common` and `nav` are empty now.
+`item`, `variants` and `common` are empty now.
 
 ### Block values
 
@@ -128,12 +130,16 @@ Each value reads the database. When you change the source record, the pages chan
 | `Product Group` | Page Type | `ProductGroup` on a template product page. |
 | `Collection Page` | Page Type | `CollectionPage` on an Item Group page. |
 | `Blog Posting` | Page Type | `BlogPosting` on a blog post. |
+| `Breadcrumbs` | Breadcrumb | `BreadcrumbList` of the visible breadcrumb. The last item has the text that the page shows. |
+| `Top Bar` | Navigation | `SiteNavigationElement` for each link of the top bar. |
 | `Slideshow Images` | Web Template | `ImageObject` for each slide. |
 | `Item Card Group List`, `Item Cards List` | Web Template | `ItemList` of the products of the block. |
 | `Latest Blogs List` | Web Template | `ItemList` of `BlogPosting`. |
 | `Social Video` | Web Template | `VideoObject`. It needs **Video Title** and **Video Upload Date** in the block. |
 | `Contact Strip` | Web Template | `contactPoint` of the website `Organization`. |
-| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point` | Component | Parts of the templates above. |
+| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item` | Component | Parts of the templates above. |
+
+On `/contact`, the Frappe page shows its own title in the breadcrumb. The last item of `BreadcrumbList` has the title of the browser tab.
 
 A block template is created only if the site has its Web Template. The block **RIGPL Homepage Section** has no template.
 

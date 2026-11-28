@@ -18,7 +18,8 @@ MISSING = object()
 POST_COUNT_FIELD = "blog_count"
 
 
-def build_variables(web_context: dict) -> dict:
+def build_variables(web_context: dict, shown_title: str = None) -> dict:
+    """`shown_title` is the title of the visible page, when it is not the one of `web_context`."""
     route = get_route(web_context)
     title = web_context.get("title") or ""
     doc = web_context.get("doc")
@@ -37,14 +38,51 @@ def build_variables(web_context: dict) -> dict:
             "title": title,
             "parents": to_plain(web_context.get("parents") or []),
             "h1": remove_prefix(title, web_context.get("title_prefix")),
+            "crumbs": get_crumbs(web_context, shown_title),
         },
         "doc": to_plain(doc) if doc else {},
         "item": {},
         "variants": [],
         "common": [],
         "block": {},
-        "nav": {},
+        "nav": {"top_bar": get_top_bar(web_context)},
     }
+
+
+def get_crumbs(web_context: dict, shown_title: str = None) -> list:
+    """The items of the visible breadcrumb, as `templates/includes/breadcrumbs.html` shows them:
+    the last three parents, then the page (#264)."""
+    parents = web_context.get("parents") or []
+    if web_context.get("no_breadcrumbs") or not parents:
+        return []
+    crumbs = [(get_label(row), get_crumb_url(row.get("route"))) for row in parents[-3:]]
+    title = shown_title or web_context.get("title")
+    crumbs.append((title, get_url(get_route(web_context))))
+    return make_links(crumbs)
+
+
+def get_label(row) -> str:
+    return row.get("title") or row.get("label") or row.get("name") or ""
+
+
+def get_crumb_url(route: str) -> str:
+    # "index" is the address of the home page
+    route = (route or "").strip()
+    return get_url("/") if route.strip("/") in ("", "index") else abs_url(route)
+
+
+def get_top_bar(web_context: dict) -> list:
+    """The links of the top bar. A row that only opens a menu has no link."""
+    rows = web_context.get("top_bar_items") or []
+    links = [(row.get("label"), (row.get("url") or "").strip()) for row in rows]
+    return make_links([(label, abs_url(url)) for label, url in links if url and url != "#"])
+
+
+def make_links(pairs: list) -> list:
+    return [
+        {"position": position, "name": plain_text(name), "url": url}
+        for position, (name, url) in enumerate(pairs, 1)
+    ]
 
 
 def get_blocks(doc) -> list:
