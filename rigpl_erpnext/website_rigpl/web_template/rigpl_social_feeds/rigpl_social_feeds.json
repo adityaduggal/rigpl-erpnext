@@ -58,10 +58,38 @@
    "label": "Heading Level",
    "options": "\n2\n3\n4",
    "reqd": 0
+  },
+  {
+   "description": "The largest height of the Twitter timeline in pixels. Empty: 500",
+   "fieldname": "timeline_height",
+   "fieldtype": "Int",
+   "label": "Timeline Height",
+   "reqd": 0
+  },
+  {
+   "description": "Empty: platform.twitter.com/widgets.js",
+   "fieldname": "twitter_script_url",
+   "fieldtype": "Data",
+   "label": "Twitter Script URL",
+   "reqd": 0
+  },
+  {
+   "description": "Empty: the en_GB Facebook SDK",
+   "fieldname": "facebook_script_url",
+   "fieldtype": "Data",
+   "label": "Facebook Script URL",
+   "reqd": 0
+  },
+  {
+   "description": "Empty: apis.google.com/js/platform.js",
+   "fieldname": "youtube_script_url",
+   "fieldtype": "Data",
+   "label": "YouTube Script URL",
+   "reqd": 0
   }
  ],
  "idx": 0,
- "modified": "2026-11-28 23:30:00.000000",
+ "modified": "2026-11-28 23:59:00.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "RIGPL Social Feeds",

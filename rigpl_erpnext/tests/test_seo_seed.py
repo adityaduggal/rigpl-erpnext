@@ -456,3 +456,23 @@ class TestHeadings(SeedTestCase):
     def test_title_tag_comes_from_seo_title(self):
         self.assertEqual(frappe.get_hooks("base_template")[-1], "templates/rigpl_base.html")
         self.assertTrue(frappe.get_jenv().get_template("templates/rigpl_base.html"))
+
+
+class TestSocialFeeds(SeedTestCase):
+    """The script addresses and the height are fields of the block (#269)."""
+
+    def render(self, **values):
+        template = frappe.get_doc("Web Template", "RIGPL Social Feeds")
+        values.update(twitter_handle="h", facebook_id="f", youtube_channel_id="c")
+        return template.render(values)
+
+    def test_empty_fields_keep_the_provider_addresses(self):
+        html = self.render()
+        for text in ("platform.twitter.com/widgets.js", "connect.facebook.net", "apis.google.com", "500px"):
+            self.assertIn(text, html)
+
+    def test_fields_replace_the_defaults(self):
+        html = self.render(twitter_script_url='https://example.com/"x.js', timeline_height="300")
+        self.assertIn("max-height: 300px", html)
+        self.assertIn("https://example.com/&#34;x.js", html)
+        self.assertNotIn("platform.twitter.com/widgets.js", html)
