@@ -6,9 +6,12 @@ from __future__ import annotations
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import cint, get_url, set_request
+from frappe.utils import add_days, cint, flt, get_url, nowdate, set_request
 from frappe.website.context import get_context
 
+from ..catalog import get_attribute_values, get_list_prices, get_stock_qty, get_variant_table
+from ..compat import get_ecommerce
+from ...utils.item_attribute_utils import get_template_attributes
 from .organization import get_organization, get_public_url
 from .sandbox import abs_url, plain_text
 
@@ -16,6 +19,9 @@ PREVIEW_FLAG = "rigpl_seo_preview"
 MISSING = object()
 # a Web Template with this field shows the latest blog posts
 POST_COUNT_FIELD = "blog_count"
+# above this number of variants, a variant has only its address and its code
+DEFAULT_VARIANT_LIMIT = 200
+SCHEMA = "https://schema.org/"
 
 
 def build_variables(web_context: dict, shown_title: str = None) -> dict:
@@ -44,9 +50,265 @@ def build_variables(web_context: dict, shown_title: str = None) -> dict:
         "item": {},
         "variants": [],
         "common": [],
+        "listing": [],
         "block": {},
         "nav": {"top_bar": get_top_bar(web_context)},
     }
+
+
+def get_catalog(doc) -> dict:
+    """`item`, `variants`, `common` and `listing` of a product or category page (#265).
+    The prices are the prices that a visitor who is not logged in sees (D9)."""
+    values = {"item": {}, "variants": [], "common": [], "listing": []}
+    doctype = doc.get("doctype") if doc else None
+    if doctype == "Website Item" and doc.get("item_code"):
+        reader = get_template_values if doc.get("has_variants") else get_product_values
+        values.update(reader(doc))
+    elif doctype == "Item Group":
+        values["listing"] = get_listing(doc.get("name"))
+    return values
+
+
+def get_template_values(doc) -> dict:
+    table = get_variant_table(doc.get("name"))
+    rows = table["rows"]
+    codes = [row["item_code"] for row in rows]
+    limit = cint(frappe.get_cached_doc("SEO Settings", "SEO Settings").get("variant_limit"))
+    full = len(rows) <= (limit or DEFAULT_VARIANT_LIMIT)
+    items = get_variant_items(codes) if full else {}
+    offers = Offers(codes, doc.get("item_code")) if full else None
+    variants = [
+        make_variant(row, table["columns"], items.get(row["item_code"]), offers) for row in rows
+    ]
+    common = [{"name": label, "value": value} for label, value in table["common"]]
+    item = make_item(doc, is_template=True, properties=common)
+    item["varies_by"] = [column["label"] for column in table["columns"]]
+    return {"item": item, "variants": variants, "common": common}
+
+
+def get_variant_items(codes: list) -> dict:
+    if not codes:
+        return {}
+    fields = ["item_code", "web_item_name", "website_image"]
+    rows = frappe.get_all("Website Item", filters={"item_code": ["in", codes]}, fields=fields)
+    return {row.item_code: row for row in rows}
+
+
+def make_variant(row: dict, columns: list, web_item, offers) -> dict:
+    """With no `offers`, the variant is above the variant limit: it has only its address and code."""
+    url = abs_url(row["route"])
+    variant = {"id": url + "#product", "sku": row["item_code"], "url": url, "full": bool(offers)}
+    properties = []
+    if offers:
+        properties = [
+            {"name": column["label"], "value": row["values"][column["attribute"]]}
+            for column in columns
+            if row["values"][column["attribute"]]
+        ]
+    variant.update(
+        name=(web_item and web_item.web_item_name) or "",
+        image=get_public_url(web_item and web_item.website_image),
+        size=", ".join("{name} {value}".format(**prop) for prop in properties),
+        properties=properties,
+        offer=offers.get(row["item_code"], url, row["shop"]["stock_value"]) if offers else None,
+    )
+    return variant
+
+
+def get_product_values(doc) -> dict:
+    """A variant, or a product that has no variants."""
+    code, template = doc.get("item_code"), doc.get("variant_of")
+    parent = None
+    if template:
+        filters = {"item_code": template, "published": 1}
+        fields = ["item_code", "web_item_name", "route", "website_warehouse"]
+        parent = frappe.db.get_value("Website Item", filters, fields, as_dict=True)
+    item = make_item(doc, is_template=False, properties=get_properties(code, template))
+    warehouse = doc.get("website_warehouse") or (parent and parent.website_warehouse)
+    qty = get_stock_qty({code: warehouse}).get(code, 0)
+    item["offer"] = Offers([code], template).get(code, item["url"], qty)
+    if parent:
+        url = abs_url(parent.route)
+        item["parent"] = {
+            "id": url + "#product",
+            "url": url,
+            "name": parent.web_item_name,
+            "code": parent.item_code,
+        }
+    return {"item": item}
+
+
+def make_item(doc, is_template: bool, properties: list) -> dict:
+    url = abs_url(doc.get("route"))
+    description = doc.get("web_long_description") or doc.get("description") or ""
+    return {
+        "is_template": is_template,
+        "id": url + "#product",
+        "url": url,
+        "name": doc.get("web_item_name") or "",
+        "code": doc.get("item_code"),
+        "image": get_public_url(doc.get("website_image")),
+        # a space keeps the words of two HTML blocks apart
+        "description": plain_text(description.replace("><", "> <")),
+        "category": doc.get("item_group") or "",
+        "properties": properties,
+        "varies_by": [],
+        "parent": None,
+        "offer": None,
+    }
+
+
+def get_properties(code: str, template: str) -> list:
+    if not template:
+        return []
+    attributes = get_template_attributes(template)
+    rows = get_attribute_values([code], [row["attribute"] for row in attributes])
+    values = {row["attribute"]: row["attribute_value"] for row in rows}
+    return [
+        {"name": row["label"], "value": values[row["attribute"]]}
+        for row in attributes
+        if values.get(row["attribute"])
+    ]
+
+
+class Offers:
+    """The offers of some items of one page. The prices, the shipping rules and the settings
+    are read one time."""
+
+    def __init__(self, codes: list, template: str = None):
+        cart = get_ecommerce("get_shopping_cart_settings")()
+        shows_price = cart.enabled and cart.show_price and not cart.hide_price_for_guest
+        self.template = template
+        self.prices = get_list_prices(codes, template or "", cart.price_list) if shows_price else {}
+        self.settings = frappe.get_cached_doc("SEO Settings", "SEO Settings")
+        self.rules = get_shipping_rules() if self.prices else []
+
+    def get(self, code: str, url: str, qty) -> dict | None:
+        """None when a visitor sees no price."""
+        price = self.prices.get(code) or self.prices.get(self.template)
+        if not price:
+            return None
+        rate = flt(price.price_list_rate)
+        return {
+            "price": rate,
+            "currency": price.currency,
+            "availability": SCHEMA + ("InStock" if flt(qty) > 0 else "BackOrder"),
+            "condition": SCHEMA + "NewCondition",
+            "url": url,
+            "valid_until": self.valid_until(price),
+            "shipping": self.shipping(rate),
+        }
+
+    def valid_until(self, price) -> str:
+        if price.get("valid_upto"):
+            return str(price.valid_upto)
+        days = cint(self.settings.get("price_valid_days"))
+        return str(add_days(nowdate(), days)) if days else ""
+
+    def shipping(self, amount: float) -> list:
+        """One row for each country of each Shipping Rule that has a charge for `amount`."""
+        handling, transit = self.days("handling"), self.days("transit")
+        found = []
+        for rule in self.rules:
+            charge = get_shipping_charge(rule, amount)
+            if charge is None:
+                continue
+            for country in rule["countries"]:
+                found.append(
+                    {
+                        "country": country,
+                        "rate": charge,
+                        "currency": rule["currency"],
+                        "handling": handling,
+                        "transit": transit,
+                    }
+                )
+        return found
+
+    def days(self, kind: str) -> dict:
+        maximum = cint(self.settings.get(kind + "_days_max"))
+        if not maximum:
+            return {}
+        minimum = cint(self.settings.get(kind + "_days_min"))
+        return {"min": minimum, "max": maximum, "unit": "DAY"}
+
+
+def get_shipping_rules() -> list:
+    """The enabled Selling Shipping Rules that have countries. A rule by weight is not used."""
+    filters = {
+        "disabled": 0,
+        "shipping_rule_type": "Selling",
+        "calculate_based_on": ["in", ["Fixed", "Net Total"]],
+    }
+    fields = ["name", "company", "shipping_amount", "calculate_based_on"]
+    rules = frappe.get_all("Shipping Rule", filters=filters, fields=fields, order_by="name")
+    if not rules:
+        return []
+    in_rules = {"parent": ["in", [rule.name for rule in rules]], "parenttype": "Shipping Rule"}
+    countries = frappe.get_all("Shipping Rule Country", filters=in_rules, fields=["parent", "country"])
+    conditions = frappe.get_all(
+        "Shipping Rule Condition",
+        filters=in_rules,
+        fields=["parent", "from_value", "to_value", "shipping_amount"],
+        order_by="from_value",
+    )
+    names = [row.country for row in countries]
+    codes = dict(
+        frappe.get_all("Country", filters={"name": ["in", names]}, fields=["name", "code"], as_list=True)
+    )
+    found = []
+    for rule in rules:
+        destinations = [
+            codes[row.country].upper()
+            for row in countries
+            if row.parent == rule.name and codes.get(row.country)
+        ]
+        if destinations:
+            found.append(
+                {
+                    "countries": destinations,
+                    "currency": frappe.get_cached_value("Company", rule.company, "default_currency"),
+                    "based_on": rule.calculate_based_on,
+                    "amount": flt(rule.shipping_amount),
+                    "conditions": [row for row in conditions if row.parent == rule.name],
+                }
+            )
+    return found
+
+
+def get_shipping_charge(rule: dict, amount: float):
+    """The charge of an order of `amount`, as ERPNext Shipping Rule finds it. None: no charge row."""
+    if rule["based_on"] == "Fixed":
+        return rule["amount"]
+    for row in rule["conditions"]:
+        if not row.to_value or flt(row.from_value) <= amount <= flt(row.to_value):
+            return flt(row.shipping_amount)
+    return None
+
+
+def get_listing(item_group: str) -> list:
+    """The first page of the product listing of a category. With no products, its sub-categories."""
+    query = get_ecommerce("ProductQuery")()
+    query.build_item_group_filters(item_group)
+    if query.settings.hide_variants:
+        query.filters.append(["variant_of", "is", "not set"])
+    rows = frappe.get_all(
+        "Website Item",
+        filters=query.filters,
+        or_filters=query.or_filters,
+        fields=["web_item_name as name", "route"],
+        order_by="ranking desc",
+        limit=query.page_length,
+    )
+    if not rows:
+        rows = frappe.get_all(
+            "Item Group",
+            filters={"parent_item_group": item_group, "show_in_website": 1},
+            fields=["name", "route"],
+            order_by="weightage desc, name asc",
+        )
+    links = {row.route: row.name for row in rows if row.route}
+    return make_links([(name, abs_url(route)) for route, name in links.items()])
 
 
 def get_crumbs(web_context: dict, shown_title: str = None) -> list:

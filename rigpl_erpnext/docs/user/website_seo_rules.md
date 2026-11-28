@@ -58,7 +58,7 @@ The system creates these rules one time after `migrate`. The button **Create Mis
 
 | Rule | Reference DocType | Title | Schema Template |
 |---|---|---|---|
-| `Product pages` | Website Item | the Website Item name | `Product Group` |
+| `Product pages` | Website Item | the Website Item name | `Product Group`, `Product` |
 | `Item Group pages` | Item Group | the Item Group and the brand | `Collection Page` |
 | `Web Pages` | Web Page | the H1 and the brand | none |
 | `Blog posts` | Blog Post | the H1 | `Blog Posting` |

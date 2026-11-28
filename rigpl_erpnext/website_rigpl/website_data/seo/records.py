@@ -36,6 +36,30 @@ def item_list(name, web_template, element_template, source):
     )
 
 
+def days_template(name, key):
+    """The `QuantitativeValue` of a number of days of a shipping row."""
+    properties = [
+        expression(prop, "row.{}.{}".format(key, source))
+        for prop, source in (("minValue", "min"), ("maxValue", "max"), ("unitCode", "unit"))
+    ]
+    return schema(name, "QuantitativeValue", "Component", properties, condition="row." + key)
+
+
+def product_properties(code, full=None):
+    """The properties of a `Product`. With `full`, some need a variant below the variant limit."""
+    extra = {"condition": full} if full else {}
+    return [
+        expression("sku", code),
+        expression("mpn", code, **extra),
+        expression("name", "row.name"),
+        expression("url", "row.url"),
+        expression("image", "row.image"),
+        dict(linked("brand", "Product Brand"), **extra),
+        linked_list("additionalProperty", "Property Value"),
+        linked_list("offers", "Product Offer"),
+    ]
+
+
 def rule(name, doctype, schema_templates=(), **templates):
     rows = [{"schema_template": template} for template in schema_templates]
     return dict(rule_name=name, reference_doctype=doctype, priority=10, schema_templates=rows, **templates)
@@ -57,6 +81,19 @@ SCHEMA_TEMPLATES = [
         condition="site.organization.address",
     ),
     schema(
+        "Return Policy",
+        "MerchantReturnPolicy",
+        "Component",
+        [
+            expression("returnPolicyCategory", "row.category"),
+            expression("applicableCountry", "row.country"),
+            expression("merchantReturnDays", "row.days"),
+            expression("returnFees", "row.fees"),
+            expression("returnMethod", "row.method"),
+        ],
+        iterate_over="[site.organization.return_policy] if site.organization.return_policy else []",
+    ),
+    schema(
         "Company",
         "Organization",
         "Site",
@@ -70,6 +107,7 @@ SCHEMA_TEMPLATES = [
             expression("foundingDate", "site.organization.founding_date"),
             expression("sameAs", "site.organization.same_as"),
             linked("address", "Company Address"),
+            linked("hasMerchantReturnPolicy", "Return Policy"),
         ],
         id_expression=ORGANIZATION_ID,
     ),
@@ -94,25 +132,134 @@ SCHEMA_TEMPLATES = [
         [expression("url", "page.url"), expression("name", "page.h1")],
         id_expression="{{ page.url }}#webpage",
     ),
+    # products and categories (#265, #266)
+    schema("Product Brand", "Brand", "Component", [expression("name", "site.brand")]),
+    schema(
+        "Property Value",
+        "PropertyValue",
+        "Component",
+        [expression("name", "row.name"), expression("value", "row.value")],
+        iterate_over="row.properties",
+    ),
+    schema(
+        "Shipping Region",
+        "DefinedRegion",
+        "Component",
+        [expression("addressCountry", "row.country")],
+    ),
+    schema(
+        "Shipping Charge",
+        "MonetaryAmount",
+        "Component",
+        [expression("value", "row.rate"), expression("currency", "row.currency")],
+    ),
+    days_template("Handling Time", "handling"),
+    days_template("Transit Time", "transit"),
+    schema(
+        "Delivery Time",
+        "ShippingDeliveryTime",
+        "Component",
+        [linked("handlingTime", "Handling Time"), linked("transitTime", "Transit Time")],
+        condition="row.handling or row.transit",
+    ),
+    schema(
+        "Shipping Details",
+        "OfferShippingDetails",
+        "Component",
+        [
+            linked("shippingDestination", "Shipping Region"),
+            linked("shippingRate", "Shipping Charge"),
+            linked("deliveryTime", "Delivery Time"),
+        ],
+        iterate_over="row.shipping",
+    ),
+    schema(
+        "Product Offer",
+        "Offer",
+        "Component",
+        [
+            expression("price", "row.price"),
+            expression("priceCurrency", "row.currency"),
+            expression("availability", "row.availability"),
+            expression("itemCondition", "row.condition"),
+            expression("url", "row.url"),
+            expression("priceValidUntil", "row.valid_until"),
+            linked_list("shippingDetails", "Shipping Details"),
+        ],
+        merchant_listing=1,
+        iterate_over="[row.offer] if row.offer else []",
+    ),
+    schema(
+        "Variant Product",
+        "Product",
+        "Component",
+        product_properties("row.sku", full="row.full") + [expression("size", "row.size")],
+        id_expression="{{ row.id }}",
+        merchant_listing=1,
+        iterate_over="variants",
+    ),
+    schema(
+        "Parent Product Group",
+        "ProductGroup",
+        "Component",
+        [
+            expression("name", "row.parent.name"),
+            expression("productGroupID", "row.parent.code"),
+            expression("url", "row.parent.url"),
+        ],
+        id_expression="{{ row.parent.id }}",
+        condition="row.parent",
+    ),
+    schema(
+        "Product",
+        "Product",
+        "Page Type",
+        product_properties("row.code")
+        + [
+            expression("description", "row.description | truncate(500)"),
+            expression("category", "row.category"),
+            linked("isVariantOf", "Parent Product Group"),
+        ],
+        id_expression="{{ row.id }}",
+        merchant_listing=1,
+        iterate_over="[item] if item and not item.is_template else []",
+    ),
     schema(
         "Product Group",
         "ProductGroup",
         "Page Type",
         [
-            expression("name", "doc.web_item_name"),
-            expression("productGroupID", "doc.item_code"),
-            expression("url", "page.url"),
-            expression("image", "doc.get('website_image') | abs_url"),
-            expression("category", "doc.item_group"),
-            expression(
-                "description",
-                "(doc.get('web_long_description') or doc.get('description') or '') | "
-                + HTML_TO_TEXT
-                + " | truncate(500)",
-            ),
+            expression("name", "row.name"),
+            expression("productGroupID", "row.code"),
+            expression("url", "row.url"),
+            expression("image", "row.image"),
+            expression("category", "row.category"),
+            expression("description", "row.description | truncate(500)"),
+            linked("brand", "Product Brand"),
+            expression("variesBy", "row.varies_by"),
+            linked_list("additionalProperty", "Property Value"),
+            linked_list("hasVariant", "Variant Product"),
         ],
-        id_expression="{{ page.url }}#productgroup",
-        condition="doc.get('has_variants')",
+        id_expression="{{ row.id }}",
+        iterate_over="[item] if item and item.is_template else []",
+    ),
+    schema(
+        "Listing Item",
+        "ListItem",
+        "Component",
+        [
+            expression("position", "row.position"),
+            expression("url", "row.url"),
+            expression("name", "row.name"),
+        ],
+        iterate_over="listing",
+    ),
+    schema(
+        "Category Listing",
+        "ItemList",
+        "Component",
+        [linked_list("itemListElement", "Listing Item")],
+        condition="listing",
     ),
     schema(
         "Collection Page",
@@ -125,6 +272,7 @@ SCHEMA_TEMPLATES = [
             expression(
                 "description", "(doc.get('description') or '') | " + HTML_TO_TEXT + " | truncate(300)"
             ),
+            linked("mainEntity", "Category Listing"),
         ],
         id_expression="{{ page.url }}#collection",
     ),
@@ -267,7 +415,7 @@ SEO_RULES = [
     rule(
         "Product pages",
         "Website Item",
-        ["Product Group"],
+        ["Product Group", "Product"],
         title_template="{{ doc.web_item_name }}",
         description_template="Buy {{ doc.web_item_name }} from {{ site.brand }}. Category: {{ doc.item_group }}.",
         og_type_template="product",

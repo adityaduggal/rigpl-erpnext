@@ -58,7 +58,27 @@ There are two forms:
 | `doc` | The fields of the page document. It is empty on a page that has no document. |
 | `row` | The element of Iterate Over. |
 
-`item`, `variants` and `common` are empty now.
+### Product values
+
+| Name | Content |
+|---|---|
+| `item` | The product of a product page: `is_template`, `id`, `url`, `name`, `code`, `image`, `description`, `category`, `properties`, `varies_by`, `parent`, `offer`. Empty on other pages. |
+| `variants` | On a template page, one element for each row of the variant table: `id`, `sku`, `url`, `full`, `name`, `size`, `image`, `properties`, `offer`. |
+| `common` | On a template page, the specifications that all variants share: `name`, `value`. |
+| `listing` | On a category page, the first page of products, else the sub-categories: `position`, `name`, `url`. |
+
+An `offer` has `price`, `currency`, `availability`, `condition`, `url`, `valid_until` and `shipping`. There is no offer when a visitor who is not logged in sees no price.
+
+## Prices, shipping and returns
+
+| Value | Change it here |
+|---|---|
+| Price and currency | **Item Price** of the price list of **E Commerce Settings** |
+| Show the price | **E Commerce Settings**: **Show Price** and **Hide Price for Guest** |
+| Availability | `InStock` when the website warehouse has stock, else `BackOrder` |
+| Destinations and charges | Enabled **Shipping Rules** of type Selling that have countries. A rule by weight is not used. |
+| Handling and transit days, price valid days, variant limit | **SEO Settings** > Products and Offers |
+| Return policy | **SEO Settings** > Return Policy |
 
 ### Block values
 
@@ -127,7 +147,8 @@ Each value reads the database. When you change the source record, the pages chan
 | `Company` | Site | `Organization` of the website, with `Company Address`. |
 | `WebSite` | Site | `WebSite`, with the publisher `Company Ref`. |
 | `WebPage` | Site | `WebPage` with the address and the H1 of the page. |
-| `Product Group` | Page Type | `ProductGroup` on a template product page. |
+| `Product Group` | Page Type | `ProductGroup` on a template product page, with one `Product` for each variant. |
+| `Product` | Page Type | `Product` on a variant page, with its `Offer`. |
 | `Collection Page` | Page Type | `CollectionPage` on an Item Group page. |
 | `Blog Posting` | Page Type | `BlogPosting` on a blog post. |
 | `Breadcrumbs` | Breadcrumb | `BreadcrumbList` of the visible breadcrumb. The last item has the text that the page shows. |
@@ -137,7 +158,7 @@ Each value reads the database. When you change the source record, the pages chan
 | `Latest Blogs List` | Web Template | `ItemList` of `BlogPosting`. |
 | `Social Video` | Web Template | `VideoObject`. It needs **Video Title** and **Video Upload Date** in the block. |
 | `Contact Strip` | Web Template | `contactPoint` of the website `Organization`. |
-| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item` | Component | Parts of the templates above. |
+| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
 
 On `/contact`, the Frappe page shows its own title in the breadcrumb. The last item of `BreadcrumbList` has the title of the browser tab.
 
@@ -146,8 +167,6 @@ A block template is created only if the site has its Web Template. The block **R
 The rule **Home page** is created for the home page of **Website Settings**. The **Meta Title** and **Meta Description** of the Web Page replace the values of the rule.
 
 To see the property rows of a template, open it. Click **Preview** and type the route of a page to see the result.
-
-A variant page has no `Product` node yet, because the expressions cannot read prices (#265).
 
 ## Where the company data comes from
 

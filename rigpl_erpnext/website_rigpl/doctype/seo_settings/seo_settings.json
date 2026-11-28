@@ -12,7 +12,19 @@
   "organization_section",
   "company",
   "address",
-  "social_group"
+  "social_group",
+  "catalog_section",
+  "variant_limit",
+  "price_valid_days",
+  "handling_days_min",
+  "handling_days_max",
+  "transit_days_min",
+  "transit_days_max",
+  "return_section",
+  "return_policy",
+  "return_days",
+  "return_fees",
+  "return_method"
  ],
  "fields": [
   {
@@ -69,10 +81,81 @@
    "fieldtype": "Data",
    "label": "Social Footer Group",
    "description": "The Website Settings footer links under this label are the social profiles. Empty: Social"
+  },
+  {
+   "fieldname": "catalog_section",
+   "fieldtype": "Section Break",
+   "label": "Products and Offers"
+  },
+  {
+   "fieldname": "variant_limit",
+   "fieldtype": "Int",
+   "label": "Variant Limit",
+   "description": "Above this number of variants, a variant has only its address and code. Empty: 200"
+  },
+  {
+   "fieldname": "price_valid_days",
+   "fieldtype": "Int",
+   "label": "Price Valid Days",
+   "description": "priceValidUntil is today plus these days, for an Item Price with no Valid Upto. Empty: not output"
+  },
+  {
+   "fieldname": "handling_days_min",
+   "fieldtype": "Int",
+   "label": "Handling Days (Min)",
+   "description": "Days to dispatch an order"
+  },
+  {
+   "fieldname": "handling_days_max",
+   "fieldtype": "Int",
+   "label": "Handling Days (Max)",
+   "description": "Empty: no handling time in the markup"
+  },
+  {
+   "fieldname": "transit_days_min",
+   "fieldtype": "Int",
+   "label": "Transit Days (Min)",
+   "description": "Days from dispatch to delivery"
+  },
+  {
+   "fieldname": "transit_days_max",
+   "fieldtype": "Int",
+   "label": "Transit Days (Max)",
+   "description": "Empty: no transit time in the markup. The destinations and charges come from the enabled Selling Shipping Rules that have countries"
+  },
+  {
+   "fieldname": "return_section",
+   "fieldtype": "Section Break",
+   "label": "Return Policy"
+  },
+  {
+   "fieldname": "return_policy",
+   "fieldtype": "Select",
+   "label": "Return Policy",
+   "description": "Empty: no return policy in the markup",
+   "options": "\nMerchantReturnFiniteReturnWindow\nMerchantReturnNotPermitted\nMerchantReturnUnlimitedWindow"
+  },
+  {
+   "fieldname": "return_days",
+   "fieldtype": "Int",
+   "label": "Return Days",
+   "description": "Necessary for a finite return window"
+  },
+  {
+   "fieldname": "return_fees",
+   "fieldtype": "Select",
+   "label": "Return Fees",
+   "options": "\nFreeReturn\nReturnFeesCustomerResponsibility"
+  },
+  {
+   "fieldname": "return_method",
+   "fieldtype": "Select",
+   "label": "Return Method",
+   "options": "\nReturnByMail\nReturnInStore\nReturnAtKiosk"
   }
  ],
  "links": [],
- "modified": "2026-11-28 18:00:00.000000",
+ "modified": "2026-11-28 22:00:00.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "SEO Settings",

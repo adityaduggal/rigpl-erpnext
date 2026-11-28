@@ -33,6 +33,10 @@ ECOMMERCE: Dict[str, List[Tuple[str, str]]] = {
         (f"{ERPNEXT}.api", "get_product_filter_data"),
         (f"{WEBSHOP}.api", "get_product_filter_data"),
     ],
+    "ProductQuery": [
+        (f"{ERPNEXT}.product_data_engine.query", "ProductQuery"),
+        (f"{WEBSHOP}.product_data_engine.query", "ProductQuery"),
+    ],
     "make_website_item": [
         (f"{ERPNEXT}.doctype.website_item.website_item", "make_website_item"),
         (f"{WEBSHOP}.doctype.website_item.website_item", "make_website_item"),

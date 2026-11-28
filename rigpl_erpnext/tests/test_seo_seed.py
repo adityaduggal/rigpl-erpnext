@@ -1,8 +1,10 @@
 """Default SEO records and the company data that they read (#263)."""
 import json
+from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.website_rigpl import item_page
 from rigpl_erpnext.website_rigpl.doctype.seo_settings.seo_settings import create_records
@@ -269,3 +271,72 @@ class TestNavigation(SeedTestCase):
         crumbs = [node for node in graph if node["@type"] == "BreadcrumbList"][0]["itemListElement"]
         self.assertEqual(crumbs[-1]["name"], "Shown")
         self.assertTrue([node for node in graph if node["@type"] == "SiteNavigationElement"])
+
+
+class TestCatalog(SeedTestCase):
+    """Product and category markup (#265, #266). Needs published products on the site."""
+
+    def setUp(self):
+        delete_seed_records()
+        builder.clear_template_cache()
+        meta.clear_caches()
+        importer.create_missing_records()
+
+    def route(self, doctype, filters):
+        route = frappe.db.get_value(doctype, filters, "route")
+        if not route:
+            self.skipTest("The site has no page: {}".format(doctype))
+        return route
+
+    def graph(self, template, route):
+        graph, errors, _ = frappe.get_doc("Schema Template", template).render_route(route)
+        self.assertEqual(errors, [])
+        return graph["@graph"]
+
+    def test_template_page_has_one_product_for_each_table_row(self):
+        route = self.route("Website Item", {"published": 1, "has_variants": 1})
+        name = frappe.db.get_value("Website Item", {"route": route})
+        group = self.graph("Product Group", route)[0]
+        self.assertEqual(len(group["hasVariant"]), len(context.get_variant_table(name)["rows"]))
+
+    def test_variants_above_the_limit_have_only_the_address_and_code(self):
+        route = self.route("Website Item", {"published": 1, "has_variants": 1})
+        frappe.db.set_value("SEO Settings", None, "variant_limit", 1)
+        frappe.clear_document_cache("SEO Settings", "SEO Settings")
+        variants = self.graph("Product Group", route)[0]["hasVariant"]
+        if len(variants) < 2:
+            self.skipTest("The template has one variant")
+        self.assertEqual(set(variants[0]), {"@type", "@id", "sku", "url"})
+
+    def test_guest_with_hidden_price_gets_no_offer(self):
+        cart = frappe._dict(enabled=1, show_price=1, hide_price_for_guest=1, price_list="x")
+        with patch.object(context, "get_ecommerce", return_value=lambda: cart):
+            self.assertIsNone(context.Offers(["x"]).get("x", "u", 1))
+
+    def test_shipping_charge_comes_from_the_matching_row(self):
+        rows = [
+            frappe._dict(from_value=0, to_value=1000, shipping_amount=100),
+            frappe._dict(from_value=1001, to_value=0, shipping_amount=500),
+        ]
+        rule = {"based_on": "Net Total", "conditions": rows, "amount": 0}
+        self.assertEqual(context.get_shipping_charge(rule, 10), 100)
+        self.assertEqual(context.get_shipping_charge(rule, 2000), 500)
+        self.assertIsNone(context.get_shipping_charge(dict(rule, conditions=rows[:1]), 2000))
+
+    def test_incomplete_return_policy_is_not_output(self):
+        settings = frappe._dict(return_policy="MerchantReturnFiniteReturnWindow", return_days=0)
+        self.assertEqual(organization.get_return_policy(settings, "IN"), {})
+        settings.return_days = 15
+        self.assertEqual(organization.get_return_policy(settings, "IN")["days"], 15)
+
+    def test_template_page_queries_do_not_grow_with_the_variants(self):
+        route = self.route("Website Item", {"published": 1, "has_variants": 1})
+        doc = context.get_route_context(route)["doc"]
+        context.get_catalog(doc)  # fills the document caches
+        with assert_max_queries(20):
+            context.get_catalog(doc)
+
+    def test_category_page_lists_its_products_or_sub_categories(self):
+        route = self.route("Item Group", {"show_in_website": 1, "lft": [">", 5]})
+        page = self.graph("Collection Page", route)[0]
+        self.assertTrue(page["mainEntity"]["itemListElement"])

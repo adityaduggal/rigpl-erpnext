@@ -348,7 +348,12 @@ def get_list_prices(item_codes: List[str], template: str, price_list: Optional[s
     item_price = frappe.qb.DocType("Item Price")
     rows = (
         frappe.qb.from_(item_price)
-        .select(item_price.item_code, item_price.price_list_rate, item_price.currency)
+        .select(
+            item_price.item_code,
+            item_price.price_list_rate,
+            item_price.currency,
+            item_price.valid_upto,
+        )
         .where(
             (item_price.price_list == price_list)
             & item_price.item_code.isin(item_codes + [template])

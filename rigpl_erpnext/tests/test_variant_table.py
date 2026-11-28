@@ -251,15 +251,19 @@ class TestVariantTable(FrappeTestCase):
         variant_item = frappe._dict(doctype="Website Item", has_variants=0)
 
         self.assertEqual(
-            item_page.update_website_context(frappe._dict(doc=template_item)),
+            item_page.website_item_context(frappe._dict(doc=template_item)),
             {"template": item_page.ITEM_TEMPLATE_PAGE},
         )
-        self.assertIsNone(item_page.update_website_context(frappe._dict(doc=variant_item)))
-        self.assertIsNone(item_page.update_website_context(frappe._dict(doc=frappe._dict(doctype="Web Page"))))
-        self.assertIsNone(item_page.update_website_context(frappe._dict()))
+        self.assertEqual(
+            item_page.website_item_context(frappe._dict(doc=variant_item)),
+            {"template": item_page.ITEM_PAGE},
+        )
 
-    def test_page_template_exists(self):
-        self.assertTrue(frappe.get_jenv().get_template(item_page.ITEM_TEMPLATE_PAGE))
+    def test_page_templates_exist_and_have_no_microdata(self):
+        for path in (item_page.ITEM_TEMPLATE_PAGE, item_page.ITEM_PAGE, item_page.ITEM_GROUP_PAGE):
+            self.assertTrue(frappe.get_jenv().get_template(path))
+            source = frappe.get_jenv().loader.get_source(frappe.get_jenv(), path)[0]
+            self.assertNotIn("itemscope", source)
 
     def test_cap_stock_hides_the_quantity_above_the_cap(self):
         self.assertEqual(catalog.cap_stock(0, 100, "{cap}+", "On request"), "On request")
@@ -465,7 +469,7 @@ class TestVariantTable(FrappeTestCase):
             doc=frappe._dict(doctype="Website Item", has_variants=0),
             shopping_cart=frappe._dict(product_info={"stock_qty": [[2500]]}, cart_settings=frappe._dict(enabled=1)),
         )
-        values = item_page.update_website_context(context)
+        values = item_page.website_item_context(context)
 
         self.assertEqual(values["shopping_cart"].product_info["stock_qty"], [["100+"]])
         self.assertEqual(values["shopping_cart"].cart_settings, context.shopping_cart.cart_settings)
@@ -517,7 +521,7 @@ class TestVariantTable(FrappeTestCase):
     def test_variant_breadcrumb_ends_with_its_template(self):
         self.make_template_with_variants()
         context = self.variant_page_context()
-        values = item_page.update_website_context(context)
+        values = item_page.website_item_context(context)
 
         self.assertEqual(
             values["parents"],
@@ -531,4 +535,4 @@ class TestVariantTable(FrappeTestCase):
 
     def test_variant_of_an_unpublished_template_keeps_erpnext_breadcrumb(self):
         self.make_template_with_variants(template_published=0)
-        self.assertIsNone(item_page.update_website_context(self.variant_page_context()))
+        self.assertNotIn("parents", item_page.website_item_context(self.variant_page_context()))

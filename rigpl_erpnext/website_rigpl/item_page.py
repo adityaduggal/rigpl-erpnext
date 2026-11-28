@@ -8,7 +8,10 @@ import frappe
 
 from rigpl_erpnext.website_rigpl.catalog import cap_product_info
 
+# our own pages have no microdata, so that the JSON-LD is the only product markup (D10)
 ITEM_TEMPLATE_PAGE = "rigpl_erpnext/templates/generators/rigpl_item_template.html"
+ITEM_PAGE = "rigpl_erpnext/templates/generators/rigpl_item.html"
+ITEM_GROUP_PAGE = "rigpl_erpnext/templates/generators/rigpl_item_group.html"
 
 
 def update_website_context(context) -> dict | None:
@@ -102,6 +105,7 @@ def write_schema_graph(context, values: dict, page: dict = None) -> None:
     errors = []
     blocks = get_page_blocks(context) if block_names else []
     variables = build_variables(page or dict(context, **values), values.get("title"))
+    variables.update(get_page_catalog(context))
     graph = build_graph(templates, variables, errors, blocks)
     log_errors(errors, get_route(context))
     if graph:
@@ -120,6 +124,17 @@ def get_page_blocks(context) -> list:
         return []
 
 
+def get_page_catalog(context) -> dict:
+    """A failure is logged and leaves the graph without product markup."""
+    try:
+        from rigpl_erpnext.website_rigpl.seo.context import get_catalog
+
+        return get_catalog(context.get("doc"))
+    except Exception:
+        log_seo_failure(context)
+        return {}
+
+
 def log_seo_failure(context) -> None:
     traceback = frappe.get_traceback()
     try:
@@ -132,15 +147,19 @@ def log_seo_failure(context) -> None:
         frappe.logger().error(traceback)
 
 
-def website_item_context(context) -> dict | None:
+def item_group_context(context) -> dict:
+    return {"template": ITEM_GROUP_PAGE}
+
+
+def website_item_context(context) -> dict:
     """A template Website Item shows its variant table instead of ERPNext's variant picker (#95).
-    Any other Website Item keeps ERPNext's page, with the stock capped (#127). A variant's
-    breadcrumb ends with its template (#104).
+    Any other Website Item shows ERPNext's page without microdata (#265), with the stock capped
+    (#127). A variant's breadcrumb ends with its template (#104).
     """
     if context.doc.get("has_variants"):
         return {"template": ITEM_TEMPLATE_PAGE}
 
-    values = {}
+    values = {"template": ITEM_PAGE}
     shopping_cart = context.get("shopping_cart")
     if shopping_cart and shopping_cart.get("product_info"):
         product_info = cap_product_info(shopping_cart["product_info"])
@@ -149,7 +168,7 @@ def website_item_context(context) -> dict | None:
         parents = add_template_breadcrumb(context.get("parents") or [], context.doc.variant_of)
         if parents:
             values["parents"] = parents
-    return values or None
+    return values
 
 
 def add_template_breadcrumb(parents: list, template: str) -> list | None:
@@ -163,4 +182,4 @@ def add_template_breadcrumb(parents: list, template: str) -> list | None:
     return list(parents) + [{"name": web_item.web_item_name or template, "route": web_item.route}]
 
 
-PAGE_HANDLERS = {"Website Item": website_item_context}
+PAGE_HANDLERS = {"Website Item": website_item_context, "Item Group": item_group_context}

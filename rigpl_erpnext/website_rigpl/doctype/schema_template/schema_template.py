@@ -43,6 +43,7 @@ class SchemaTemplate(Document):
         rule = find_page_rule(web_context)
         shown_title = meta.build_meta(web_context, rule, errors).get("title")
         variables = context.build_variables(web_context, shown_title)
+        variables.update(context.get_catalog(web_context.get("doc")))
         is_block = self.applies_to == builder.BLOCK_TEMPLATES
         blocks = context.get_blocks(web_context.get("doc")) if is_block else []
         graph_builder = builder.GraphBuilder(errors)
