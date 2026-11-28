@@ -417,3 +417,42 @@ class TestImages(SeedTestCase):
         web_context = frappe._dict(path="x", metatags={"image": "/files/a b.png"})
         tags = meta.build_meta(web_context, None, [])["metatags"]
         self.assertTrue(tags["image"].endswith("/files/a%20b.png"))
+
+
+class TestHeadings(SeedTestCase):
+    """One H1 on each page (#268)."""
+
+    def web_page(self, **values):
+        doc = frappe._dict(doctype="Web Page", title="Doc", content_type="HTML", route="x")
+        return frappe._dict(dict(doc=doc, title="Brand - Doc", title_prefix="Brand", path="x"), **values)
+
+    def headings(self, web_context, **values):
+        item_page.add_headings(web_context, values, dict(web_context))
+        return values
+
+    def test_title_tag_keeps_the_seo_title_and_the_page_shows_the_h1(self):
+        values = self.headings(self.web_page(main_section="<p>a</p>"), title="SEO Title")
+        self.assertEqual((values["seo_title"], values["title"]), ("SEO Title", "Doc"))
+
+    def test_page_without_h1_gets_a_hidden_one(self):
+        values = self.headings(self.web_page(main_section="<p>a</p>"))
+        self.assertEqual(values["main_section"], '<h1 class="sr-only">Doc</h1><p>a</p>')
+
+    def test_page_with_h1_gets_no_second_one(self):
+        for web_context in (
+            self.web_page(main_section="<H1>a</H1>"),
+            self.web_page(main_section="a", header="<h1>Doc</h1>"),
+        ):
+            self.assertNotIn("main_section", self.headings(web_context))
+
+    def test_hidden_header_does_not_count(self):
+        values = self.headings(self.web_page(main_section="a", header="<h1>Doc</h1>", no_header=1))
+        self.assertIn("sr-only", values["main_section"])
+
+    def test_page_without_document_keeps_its_own_browser_title(self):
+        values = self.headings(frappe._dict(title="Brand - Contact", title_prefix="Brand", path="contact"))
+        self.assertEqual((values.get("seo_title"), values["title"]), (None, "Contact"))
+
+    def test_title_tag_comes_from_seo_title(self):
+        self.assertEqual(frappe.get_hooks("base_template")[-1], "templates/rigpl_base.html")
+        self.assertTrue(frappe.get_jenv().get_template("templates/rigpl_base.html"))

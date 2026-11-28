@@ -464,4 +464,8 @@ HOME_RULE = dict(
 )
 
 # only an empty field of SEO Settings gets a value
-SETTINGS = {"site_name": "{{ site.brand }}"}
+SETTINGS = {
+    "site_name": "{{ site.brand }}",
+    "specs_heading": "Specifications",
+    "variants_heading": "Sizes, stock and prices",
+}

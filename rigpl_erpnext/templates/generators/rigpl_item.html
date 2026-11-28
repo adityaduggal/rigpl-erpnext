@@ -2,8 +2,6 @@
 {% extends "templates/web.html" %}
 {% from "erpnext/templates/includes/macros.html" import recommended_item_row %}
 
-{% block title %} {{ title }} {% endblock %}
-
 {% block breadcrumbs %}
 <div class="item-breadcrumbs small text-muted">
 	{% include "templates/includes/breadcrumbs.html" %}
@@ -18,7 +16,7 @@
 			<!-- Image, Description, Add to Cart -->
 			<div class="row mb-5">
 				{% include "templates/generators/item/item_image.html" %}
-				{% include "templates/generators/item/item_details.html" %}
+				{% include "templates/includes/rigpl_item_details.html" %}
 			</div>
 		</div>
 	</div>

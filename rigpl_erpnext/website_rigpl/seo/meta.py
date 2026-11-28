@@ -20,7 +20,7 @@ from .sandbox import abs_url, check_template, plain_text, render_text
 RULE_DOCTYPE = "SEO Rule"
 SETTINGS_DOCTYPE = "SEO Settings"
 RULES_CACHE_KEY = "rigpl_seo_rules"
-TEMPLATE_FIELDS = ("title", "description", "canonical", "robots", "og_type", "image", "image_alt")
+TEMPLATE_FIELDS = ("title", "description", "canonical", "robots", "og_type", "image", "image_alt", "h1")
 IMAGE_TAGS = ("image", "og:image", "twitter:image")
 SETTINGS_FIELDS = ("title", "description")
 DOCUMENT_FIELDS = {"title": "meta_title", "description": "meta_description", "image": "meta_image"}
@@ -50,6 +50,13 @@ def build_fallback_alt(web_context: dict, rule) -> str:
     else the H1 of the page."""
     page_meta = PageMeta(web_context, rule, [])
     text = plain_text(page_meta.rendered(rule, "image_alt")) if rule else ""
+    return text or page_meta.variables["page"]["h1"]
+
+
+def build_h1(web_context: dict, rule) -> str:
+    """The H1 text of a page: the H1 template of the rule, else the title of the document."""
+    page_meta = PageMeta(web_context, rule, [])
+    text = clean_title(page_meta.rendered(rule, "h1")) if rule else ""
     return text or page_meta.variables["page"]["h1"]
 
 

@@ -100,3 +100,17 @@ When you save a Web Page, Blog Post, Website Slideshow, Website Item, Item Group
 Only public files of this site are checked. `alt=""` marks a decorative image. A migrate, an import and a system save are never stopped.
 
 Do not rename a file that the website uses: its address changes. Add the `Alt:` comment.
+
+## Headings
+
+Each page has one H1 text. The page shows it as its heading and as the last breadcrumb. The browser tab and the search result show the **title**.
+
+| Value | Change it here |
+|---|---|
+| H1 | **H1 Template** of the SEO Rule. Empty: the title of the document. |
+| Headings of a template page | **SEO Settings** > Specifications Heading and Variants Heading |
+| Heading level of a RIGPL block | **Heading Level** in the block. Empty: 2. |
+
+A Web Page that shows no H1 gets one that only screen readers and search engines see. Switch on **Show Title**, or write an H1 in the page, to show it.
+
+The footer headings, the blog author name and the address on `/contact` come from Frappe templates. Their levels do not change.

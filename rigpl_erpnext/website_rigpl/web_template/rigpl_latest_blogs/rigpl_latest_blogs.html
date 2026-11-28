@@ -1,3 +1,4 @@
+{%- set level = heading_level if heading_level in ("2", "3", "4") else "2" -%}
 {%- set blogs = frappe.get_all("Blog Post",
 	fields=["title", "blogger", "blog_intro", "route"],
 	filters={"published": 1},
@@ -6,7 +7,7 @@
 
 <div class="rigpl-latest-blogs">
 	{%- if title -%}
-	<h2 class="section-title">{{ title | e }}</h2>
+	<h{{ level }} class="section-title">{{ title | e }}</h{{ level }}>
 	{%- endif -%}
 
 	<div class="row">
@@ -14,7 +15,7 @@
 		<div class="col-md-4 mt-4">
 			<div class="card h-100">
 				<div class="card-body">
-					<h5 class="card-title">{{ blog.title | e }}</h5>
+					<h{{ level | int + 1 }} class="card-title h5">{{ blog.title | e }}</h{{ level | int + 1 }}>
 					{%- if blog.blogger -%}
 					<p class="card-subtitle mb-2 text-muted">By {{ blog.blogger | e }}</p>
 					{%- endif -%}

@@ -257,3 +257,9 @@ The website hook fills `alt` at page render, only where an image has none. Nothi
 The check: a save blocks a new image that has no alt text from the first three sources, and warns for an image that the document had before (chosen over "block all" and "warn only"). A migrate, an import, a patch and a save that ignores permissions only warn. Files are not renamed.
 
 Code: `website_rigpl/seo/images.py`.
+
+## 14. Headings (#268, user, 2026-11-28)
+
+- `templates/rigpl_base.html`, set by the `base_template` hook, extends Frappe's base template and changes only the title tag to `seo_title`. `title` is the H1 and the last breadcrumb.
+- A Web Page with no H1 gets a hidden (`sr-only`) H1. Chosen over a visible H1 and over manual page edits.
+- `templates/includes/rigpl_item_details.html` is ERPNext's `item_details.html` with the name as H1 and no microdata. Compare at each upgrade. Chosen over a hidden H1.

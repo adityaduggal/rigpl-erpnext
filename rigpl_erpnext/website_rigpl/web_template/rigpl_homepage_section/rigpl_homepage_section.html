@@ -1,7 +1,8 @@
+{%- set level = heading_level if heading_level in ("2", "3", "4") else "2" -%}
 {%- if homepage_section and frappe.db.exists("Homepage Section", homepage_section) -%}
 {%- set section = frappe.get_doc("Homepage Section", homepage_section) -%}
 <div class="rigpl-homepage-section">
-	<h3>{{ section.name | e }}</h3>
+	<h{{ level }} class="h3">{{ section.name | e }}</h{{ level }}>
 
 	{%- if section.section_based_on == "Custom HTML" -%}
 	{{ section.section_html or "" }}
@@ -11,7 +12,7 @@
 		<div class="col-md-4 h-100 mt-4">
 			<div class="card">
 				<div class="card-body">
-					<h5 class="card-title">{{ card.title | e }}</h5>
+					<h{{ level | int + 1 }} class="card-title h5">{{ card.title | e }}</h{{ level | int + 1 }}>
 					<p class="card-subtitle mb-2 text-muted">{{ (card.subtitle or "") | e }}</p>
 					<p class="card-text">{{ (card.content or "") | striptags | truncate(140, True) | e }}</p>
 				</div>

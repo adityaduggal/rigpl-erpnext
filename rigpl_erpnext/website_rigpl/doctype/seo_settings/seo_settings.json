@@ -15,6 +15,8 @@
   "social_group",
   "catalog_section",
   "variant_limit",
+  "specs_heading",
+  "variants_heading",
   "price_valid_days",
   "handling_days_min",
   "handling_days_max",
@@ -94,6 +96,18 @@
    "description": "Above this number of variants, a variant has only its address and code. Empty: 200"
   },
   {
+   "fieldname": "specs_heading",
+   "fieldtype": "Data",
+   "label": "Specifications Heading",
+   "description": "The H2 above the common specifications of a template page. Empty: no heading"
+  },
+  {
+   "fieldname": "variants_heading",
+   "fieldtype": "Data",
+   "label": "Variants Heading",
+   "description": "The H2 above the variant table. Empty: no heading"
+  },
+  {
    "fieldname": "price_valid_days",
    "fieldtype": "Int",
    "label": "Price Valid Days",
@@ -155,7 +169,7 @@
   }
  ],
  "links": [],
- "modified": "2026-11-28 22:00:00.000000",
+ "modified": "2026-11-28 23:30:00.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "SEO Settings",

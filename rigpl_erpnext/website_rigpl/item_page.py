@@ -5,6 +5,7 @@ Add a handler to PAGE_HANDLERS for each doctype page that RIGPL changes (issue #
 from __future__ import annotations
 
 import frappe
+from frappe.utils import escape_html
 
 from rigpl_erpnext.website_rigpl.catalog import cap_product_info
 
@@ -22,7 +23,8 @@ def update_website_context(context) -> dict | None:
     page = dict(context, **values)
     add_image_alts(context, values)
     add_meta_tags(context, values)
-    # the visible breadcrumb ends with the title that the meta tags can change
+    # the page shows the H1, also as its last breadcrumb. The browser tab keeps the SEO title.
+    add_headings(context, values, page)
     add_schema_graph(context, values, page)
     return values or None
 
@@ -41,6 +43,46 @@ def add_image_alts(context, values: dict) -> None:
         fill_page(context, values, build_fallback_alt(page, find_page_rule(page)))
     except Exception:
         log_seo_failure(context)
+
+
+def add_headings(context, values: dict, page: dict) -> None:
+    """Gives the page one H1 text (#268). A failure is logged and leaves the page as it was."""
+    try:
+        write_headings(context, values, frappe._dict(page))
+    except Exception:
+        log_seo_failure(context)
+
+
+def write_headings(context, values: dict, page) -> None:
+    from rigpl_erpnext.website_rigpl.seo.context import PREVIEW_FLAG
+    from rigpl_erpnext.website_rigpl.seo.meta import build_h1
+
+    if frappe.flags.get(PREVIEW_FLAG):
+        return
+    h1 = build_h1(page, find_page_rule(page))
+    if not h1:
+        return
+    doc = context.get("doc")
+    # `templates/rigpl_base.html` writes `seo_title` into the title tag. A page with no routed
+    # document and no rule title keeps the title that its own template sets: /contact, /about.
+    has_route = bool(doc and doc.get("route"))
+    seo_title = values.get("title") or (context.get("title") if has_route else None)
+    if seo_title:
+        values["seo_title"] = seo_title
+    values["title"] = h1
+    if getattr(doc, "doctype", None) == "Web Page":
+        set_web_page_h1(context, values, doc, h1)
+
+
+def set_web_page_h1(context, values: dict, doc, h1: str) -> None:
+    """A Web Page that shows no H1 gets one that only screen readers and search engines see."""
+    header = "" if context.get("no_header") else context.get("header") or ""
+    if header and header == "<h1>{}</h1>".format(doc.get("title")):
+        header = values["header"] = "<h1>{}</h1>".format(escape_html(h1))
+    key = "page_builder_html" if doc.get("content_type") == "Page Builder" else "main_section"
+    body = values.get(key, context.get(key)) or ""
+    if "<h1" not in header.lower() + body.lower():
+        values[key] = '<h1 class="sr-only">{}</h1>{}'.format(escape_html(h1), body)
 
 
 def add_schema_graph(context, values: dict, page: dict = None) -> None:

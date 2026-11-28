@@ -25,7 +25,7 @@ SCHEMA = "https://schema.org/"
 
 
 def build_variables(web_context: dict, shown_title: str = None) -> dict:
-    """`shown_title` is the title of the visible page, when it is not the one of `web_context`."""
+    """`shown_title` is the H1 that the page shows, when it is not the title of `web_context`."""
     route = get_route(web_context)
     title = web_context.get("title") or ""
     doc = web_context.get("doc")
@@ -43,7 +43,7 @@ def build_variables(web_context: dict, shown_title: str = None) -> dict:
             "url": get_url(route),
             "title": title,
             "parents": to_plain(web_context.get("parents") or []),
-            "h1": remove_prefix(title, web_context.get("title_prefix")),
+            "h1": shown_title or remove_prefix(title, web_context.get("title_prefix")),
             "crumbs": get_crumbs(web_context, shown_title),
         },
         "doc": to_plain(doc) if doc else {},

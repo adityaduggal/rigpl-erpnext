@@ -1,0 +1,5 @@
+{#- Frappe's base template. Only the title tag differs: `seo_title` is the title of the browser tab,
+    `title` is the H1 and the last breadcrumb (#268). -#}
+{% extends "templates/base.html" %}
+
+{% block title %}{{ (seo_title or title or "") | striptags }}{% endblock %}

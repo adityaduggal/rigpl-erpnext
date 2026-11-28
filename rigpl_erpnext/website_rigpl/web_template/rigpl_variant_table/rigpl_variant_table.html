@@ -9,6 +9,10 @@
 	{%- endif -%}
 
 	{%- if table.common -%}
+	{%- set specs_heading = frappe.db.get_single_value("SEO Settings", "specs_heading") -%}
+	{%- if specs_heading -%}
+	<h2 class="h4">{{ specs_heading | e }}</h2>
+	{%- endif -%}
 	<div class="rigpl-variant-table rigpl-spec-table">
 		<table>
 			<caption class="sr-only">Common specifications</caption>
@@ -31,6 +35,10 @@
 	{%- endif -%}
 
 	{%- if table.rows -%}
+	{%- set variants_heading = frappe.db.get_single_value("SEO Settings", "variants_heading") -%}
+	{%- if variants_heading -%}
+	<h2 class="h4">{{ variants_heading | e }}</h2>
+	{%- endif -%}
 	<div class="rigpl-variant-toolbar">
 		<label class="rigpl-variant-filter">
 			<span class="sr-only">Filter items</span>

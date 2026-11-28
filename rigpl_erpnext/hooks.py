@@ -52,6 +52,9 @@ app_include_js = [
 # Home Pages
 # ----------
 website_generators = ["Carrier Tracking"]
+# the title tag shows the SEO title, the page shows its H1 (#268)
+base_template = "templates/rigpl_base.html"
+
 # application home page (will override Website Settings)
 # home_page = "login"
 

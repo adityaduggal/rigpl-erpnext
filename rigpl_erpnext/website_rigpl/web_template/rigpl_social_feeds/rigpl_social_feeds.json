@@ -50,10 +50,18 @@
    "fieldtype": "Data",
    "label": "Video Upload Date",
    "reqd": 0
+  },
+  {
+   "description": "The level of the section heading. Empty: 2",
+   "fieldname": "heading_level",
+   "fieldtype": "Select",
+   "label": "Heading Level",
+   "options": "\n2\n3\n4",
+   "reqd": 0
   }
  ],
  "idx": 0,
- "modified": "2026-11-28 12:00:00.000000",
+ "modified": "2026-11-28 23:30:00.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "RIGPL Social Feeds",

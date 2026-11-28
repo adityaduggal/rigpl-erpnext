@@ -1,6 +1,7 @@
+{%- set level = heading_level if heading_level in ("2", "3", "4") else "2" -%}
 <div class="rigpl-social-feeds">
 	{%- if title -%}
-	<h2 class="section-title">{{ title | e }}</h2>
+	<h{{ level }} class="section-title">{{ title | e }}</h{{ level }}>
 	{%- endif -%}
 
 	<div class="row">

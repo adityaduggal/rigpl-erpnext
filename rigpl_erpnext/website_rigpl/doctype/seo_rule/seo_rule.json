@@ -12,6 +12,7 @@
   "sample_route",
   "meta_section",
   "title_template",
+  "h1_template",
   "description_template",
   "canonical_template",
   "robots_template",
@@ -79,6 +80,12 @@
    "description": "Jinja text, for example {{ page.h1 }} | Brand"
   },
   {
+   "fieldname": "h1_template",
+   "fieldtype": "Small Text",
+   "label": "H1 Template",
+   "description": "Jinja text for the H1 and the last breadcrumb. Empty: the title of the document"
+  },
+  {
    "fieldname": "description_template",
    "fieldtype": "Small Text",
    "label": "Description Template",
@@ -134,7 +141,7 @@
   }
  ],
  "links": [],
- "modified": "2026-11-28 23:00:00.000000",
+ "modified": "2026-11-28 23:30:00.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "SEO Rule",

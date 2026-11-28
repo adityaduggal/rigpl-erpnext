@@ -1,6 +1,7 @@
+{%- set level = heading_level if heading_level in ("2", "3", "4") else "2" -%}
 <div class="rigpl-contact-strip text-center">
 	{%- if title -%}
-	<h5>{{ title | e }}</h5>
+	<h{{ level }} class="h5">{{ title | e }}</h{{ level }}>
 	{%- endif -%}
 	{%- if email -%}
 	<p>Email: <a class="text-underline text-dark" href="mailto:{{ email | e }}">{{ email | e }}</a></p>

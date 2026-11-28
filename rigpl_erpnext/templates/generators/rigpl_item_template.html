@@ -2,8 +2,6 @@
 {% extends "templates/web.html" %}
 {% from "erpnext/templates/includes/macros.html" import product_image %}
 
-{% block title %} {{ title }} {% endblock %}
-
 {% block breadcrumbs %}
 <div class="item-breadcrumbs small text-muted">
 	{% include "templates/includes/breadcrumbs.html" %}
@@ -17,7 +15,7 @@
 			<div class="row mb-5">
 				{% include "templates/generators/item/item_image.html" %}
 				<div class="col-md-7 h-100">
-					<h1 class="product-title">{{ doc.web_item_name | e }}</h1>
+					<h1 class="product-title">{{ title | e }}</h1>
 					<p class="product-code">Template: {{ doc.item_code | e }}</p>
 					{%- if doc.web_long_description or doc.description -%}
 					<div class="product-description">
