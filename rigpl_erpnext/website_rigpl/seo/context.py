@@ -349,7 +349,7 @@ def make_links(pairs: list) -> list:
 
 def get_blocks(doc) -> list:
     """The visible blocks of a Web Page for `block` (#269). Each block has its field values and
-    the public records that the fields link to: `products`, `slides` and `posts`."""
+    the public records that the fields link to: `products`, `slides`, `cards` and `posts`."""
     rows = (doc.get("page_blocks") if doc else None) or []
     pairs = [make_block(row) for row in rows if not row.get("hide_block")]
     products = get_products([name for _, links in pairs for name in links.get("Website Item", [])])
@@ -359,6 +359,8 @@ def get_blocks(doc) -> list:
         block["slides"] = [
             slide for name in links.get("Website Slideshow", []) for slide in get_slides(name)
         ]
+        cards = [card for name in links.get("Homepage Section", []) for card in get_cards(name)]
+        block["cards"] = [dict(card, position=position) for position, card in enumerate(cards, 1)]
     return [block for block, _ in pairs]
 
 
@@ -420,6 +422,24 @@ def get_slides(name: str) -> list:
             "url": abs_url(row.url),
         }
         for row in frappe.get_cached_doc("Website Slideshow", name).slideshow_items
+    ]
+
+
+def get_cards(name: str) -> list:
+    """The cards of a Homepage Section. A section with custom HTML shows no cards."""
+    if not frappe.db.exists("Homepage Section", name):
+        return []
+    section = frappe.get_cached_doc("Homepage Section", name)
+    if section.section_based_on == "Custom HTML":
+        return []
+    return [
+        {
+            "title": plain_text(row.title),
+            "description": plain_text(row.content),
+            "url": abs_url(row.route),
+            "image": get_public_url(row.image),
+        }
+        for row in section.section_cards
     ]
 
 

@@ -23,13 +23,13 @@ def linked_list(name, template):
     return dict(property=name, value_type="Template List", linked_template=template)
 
 
-def item_list(name, web_template, element_template, source):
+def item_list(template_name, web_template, element_template, source, name="block.get('title')"):
     """The `ItemList` of a block that has a list of records."""
     return schema(
-        name,
+        template_name,
         "ItemList",
         "Web Template",
-        [expression("name", "block.get('title')"), linked_list("itemListElement", element_template)],
+        [expression("name", name), linked_list("itemListElement", element_template)],
         web_template=web_template,
         id_expression="{{ page.url }}#itemlist-{{ block.idx }}",
         condition="block." + source,
@@ -357,6 +357,26 @@ SCHEMA_TEMPLATES = [
         iterate_over="block.posts",
     ),
     item_list("Latest Blogs List", "RIGPL Latest Blogs", "Blog List Item", "posts"),
+    schema(
+        "Section Card Item",
+        "ListItem",
+        "Component",
+        [
+            expression("position", "row.position"),
+            expression("name", "row.title"),
+            expression("url", "row.url"),
+            expression("description", "row.description"),
+            expression("image", "row.image"),
+        ],
+        iterate_over="block.cards",
+    ),
+    item_list(
+        "Homepage Section List",
+        "RIGPL Homepage Section",
+        "Section Card Item",
+        "cards",
+        name="block.homepage_section",
+    ),
     schema(
         "Slideshow Images",
         "ImageObject",

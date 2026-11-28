@@ -90,6 +90,7 @@ A **Web Template** template, and each Component template that it links to, reads
 | `block.<fieldname>` | The value of a field of the Web Template. An empty field can be absent: use `block.get("fieldname")`. |
 | `block.products` | The published Website Items that the block links to: `position`, `name`, `item_code`, `title`, `url`, `image`. |
 | `block.slides` | The slides of the linked Website Slideshow: `idx`, `image`, `heading`, `description`, `url`. |
+| `block.cards` | The cards of the linked Homepage Section: `position`, `title`, `description`, `url`, `image`. |
 | `block.posts` | For a Web Template with the field `blog_count`, the latest blog posts: `position`, `title`, `url`, `author`, `description`, `published_on`, `image`. |
 
 An image in a private file is empty.
@@ -156,13 +157,14 @@ Each value reads the database. When you change the source record, the pages chan
 | `Slideshow Images` | Web Template | `ImageObject` for each slide. |
 | `Item Card Group List`, `Item Cards List` | Web Template | `ItemList` of the products of the block. |
 | `Latest Blogs List` | Web Template | `ItemList` of `BlogPosting`. |
+| `Homepage Section List` | Web Template | `ItemList` of the cards of the section. No cards: no node. |
 | `Social Video` | Web Template | `VideoObject`. It needs **Video Title** and **Video Upload Date** in the block. |
 | `Contact Strip` | Web Template | `contactPoint` of the website `Organization`. |
-| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
+| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `Section Card Item`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
 
 On `/contact`, the Frappe page shows its own title in the breadcrumb. The last item of `BreadcrumbList` has the title of the browser tab.
 
-A block template is created only if the site has its Web Template. The block **RIGPL Homepage Section** has no template.
+A block template is created only if the site has its Web Template.
 
 The rule **Home page** is created for the home page of **Website Settings**. The **Meta Title** and **Meta Description** of the Web Page replace the values of the rule.
 

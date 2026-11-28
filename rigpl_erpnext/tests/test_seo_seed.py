@@ -476,3 +476,38 @@ class TestSocialFeeds(SeedTestCase):
         self.assertIn("max-height: 300px", html)
         self.assertIn("https://example.com/&#34;x.js", html)
         self.assertNotIn("platform.twitter.com/widgets.js", html)
+
+
+class TestHomepageSection(SeedTestCase):
+    """The cards of a Homepage Section block (#269)."""
+
+    def setUp(self):
+        delete_seed_records()
+        builder.clear_template_cache()
+        meta.clear_caches()
+        importer.create_missing_records()
+
+    def nodes(self, cards):
+        section = frappe.get_doc(
+            {"doctype": "Homepage Section", "section_cards": cards, "section_order": 1}
+        )
+        section.name = "_Test RIGPL Section"
+        section.flags.name_set = True
+        section.insert()
+        row = block_row("RIGPL Homepage Section", {"homepage_section": section.name})
+        template = frappe.get_doc("Schema Template", "Homepage Section List")
+        errors = []
+        built = builder.build_page_nodes(
+            [template], {"page": {"url": "u"}}, context.get_blocks(frappe._dict(page_blocks=[row])), errors
+        )
+        self.assertEqual(errors, [])
+        return built
+
+    def test_cards_make_an_item_list(self):
+        node = self.nodes([{"title": "One", "content": "<p>Text</p>", "route": "/a"}])[0]
+        element = node["itemListElement"][0]
+        self.assertEqual((node["name"], element["name"], element["description"]), ("_Test RIGPL Section", "One", "Text"))
+        self.assertTrue(element["url"].endswith("/a"))
+
+    def test_section_without_cards_makes_no_node(self):
+        self.assertEqual(self.nodes([]), [])
