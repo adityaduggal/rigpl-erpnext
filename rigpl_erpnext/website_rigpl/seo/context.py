@@ -8,6 +8,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import add_days, cint, flt, get_url, nowdate, set_request
 from frappe.website.context import get_context
+from frappe.website.utils import find_first_image, get_html_content_based_on_type
 
 from ..catalog import get_attribute_values, get_list_prices, get_stock_qty, get_variant_table
 from ..compat import get_ecommerce
@@ -51,22 +52,47 @@ def build_variables(web_context: dict, shown_title: str = None) -> dict:
         "variants": [],
         "common": [],
         "listing": [],
+        "post": {},
         "block": {},
         "nav": {"top_bar": get_top_bar(web_context)},
     }
 
 
 def get_catalog(doc) -> dict:
-    """`item`, `variants`, `common` and `listing` of a product or category page (#265).
-    The prices are the prices that a visitor who is not logged in sees (D9)."""
-    values = {"item": {}, "variants": [], "common": [], "listing": []}
+    """`item`, `variants`, `common` and `listing` of a product or category page (#265), and
+    `post` of a blog post (#270). The prices are the prices that a visitor who is not logged in
+    sees (D9)."""
+    values = {"item": {}, "variants": [], "common": [], "listing": [], "post": {}}
     doctype = doc.get("doctype") if doc else None
     if doctype == "Website Item" and doc.get("item_code"):
         reader = get_template_values if doc.get("has_variants") else get_product_values
         values.update(reader(doc))
     elif doctype == "Item Group":
         values["listing"] = get_listing(doc.get("name"))
+    elif doctype == "Blog Post":
+        values["post"] = get_post(doc)
     return values
+
+
+def get_post(doc) -> dict:
+    """The image of a blog post, as Frappe finds the meta image, and its author."""
+    image = doc.get("meta_image")
+    if not image and doc.get("content_type"):
+        image = find_first_image(get_html_content_based_on_type(doc, "content", doc.content_type))
+    return {"image": get_public_url(image), "author": get_author(doc.get("blogger"))}
+
+
+def get_author(blogger: str):
+    """None when the post has no Blogger. The user of the Blogger stays private."""
+    fields = ["full_name", "bio", "avatar"]
+    row = frappe.db.get_value("Blogger", blogger, fields, as_dict=True) if blogger else None
+    if not row:
+        return None
+    return {
+        "name": row.full_name,
+        "description": plain_text(row.bio),
+        "image": get_public_url(row.avatar),
+    }
 
 
 def get_template_values(doc) -> dict:

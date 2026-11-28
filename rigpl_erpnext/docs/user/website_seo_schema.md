@@ -65,6 +65,7 @@ There are two forms:
 | `item` | The product of a product page: `is_template`, `id`, `url`, `name`, `code`, `image`, `description`, `category`, `properties`, `varies_by`, `parent`, `offer`. Empty on other pages. |
 | `variants` | On a template page, one element for each row of the variant table: `id`, `sku`, `url`, `full`, `name`, `size`, `image`, `properties`, `offer`. |
 | `common` | On a template page, the specifications that all variants share: `name`, `value`. |
+| `post` | On a blog post: `image` (the **Meta Image**, else the first image of the post) and `author` (`name`, `description`, `image` of the **Blogger**). Empty on other pages. |
 | `listing` | On a category page, the first page of products, else the sub-categories: `position`, `name`, `url`. |
 
 An `offer` has `price`, `currency`, `availability`, `condition`, `url`, `valid_until` and `shipping`. There is no offer when a visitor who is not logged in sees no price.
@@ -151,7 +152,8 @@ Each value reads the database. When you change the source record, the pages chan
 | `Product Group` | Page Type | `ProductGroup` on a template product page, with one `Product` for each variant. |
 | `Product` | Page Type | `Product` on a variant page, with its `Offer`. |
 | `Collection Page` | Page Type | `CollectionPage` on an Item Group page. |
-| `Blog Posting` | Page Type | `BlogPosting` on a blog post. |
+| `Blog Posting` | Page Type | `BlogPosting` on a blog post, with the author `Post Author`. |
+| `About Page`, `Contact Page` | Page Type | The `WebPage` node of `/about` and of the contact pages gets the type `AboutPage` or `ContactPage`. |
 | `Breadcrumbs` | Breadcrumb | `BreadcrumbList` of the visible breadcrumb. The last item has the text that the page shows. |
 | `Top Bar` | Navigation | `SiteNavigationElement` for each link of the top bar. |
 | `Slideshow Images` | Web Template | `ImageObject` for each slide. |
@@ -160,7 +162,7 @@ Each value reads the database. When you change the source record, the pages chan
 | `Homepage Section List` | Web Template | `ItemList` of the cards of the section. No cards: no node. |
 | `Social Video` | Web Template | `VideoObject`. It needs **Video Title** and **Video Upload Date** in the block. |
 | `Contact Strip` | Web Template | `contactPoint` of the website `Organization`. |
-| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `Section Card Item`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
+| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `Section Card Item`, `Post Author`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
 
 On `/contact`, the Frappe page shows its own title in the breadcrumb. The last item of `BreadcrumbList` has the title of the browser tab.
 
@@ -185,7 +187,7 @@ The email and phone of the Company are public on the website.
 
 ## Switch on the Page Type templates
 
-A **Page Type** template shows on a page only when the **SEO Rule** of the page lists it in **Schema Templates**. The default rules do this.
+A **Page Type** template shows on a page only when the **SEO Rule** of the page lists it in **Schema Templates**. The default rules do this. A Page Type template with the **ID Expression** `{{ page.url }}#webpage` changes the type of the `WebPage` node.
 
 ## Check the result
 

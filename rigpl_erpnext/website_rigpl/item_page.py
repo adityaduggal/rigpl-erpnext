@@ -157,7 +157,8 @@ def write_schema_graph(context, values: dict, page: dict = None) -> None:
         return
     block_names = get_template_names(BLOCK_TEMPLATES)
     part_names = [name for part in PAGE_PARTS for name in get_template_names(part)]
-    names = get_template_names("Site") + part_names + get_page_template_names(context) + block_names
+    # a page template comes first: with the `@id` of `WebPage`, its type wins, for example AboutPage
+    names = get_page_template_names(context) + get_template_names("Site") + part_names + block_names
     if not names:
         return
     templates = [frappe.get_cached_doc(DOCTYPE, name) for name in names]

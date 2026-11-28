@@ -62,6 +62,8 @@ The system creates these rules one time after `migrate`. The button **Create Mis
 | `Item Group pages` | Item Group | the Item Group and the brand | `Collection Page` |
 | `Web Pages` | Web Page | the H1 and the brand | none |
 | `Blog posts` | Blog Post | the H1 | `Blog Posting` |
+| `About page` | route `about` | no change | `About Page` |
+| `Contact pages` | route `contact*` | no change | `Contact Page` |
 
 All have Priority `10`. The **Site Name** of SEO Settings becomes `{{ site.brand }}` if it is empty. To change a text, open the rule. To stop a rule, clear **Enabled**.
 

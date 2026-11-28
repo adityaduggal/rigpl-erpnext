@@ -36,6 +36,17 @@ def item_list(template_name, web_template, element_template, source, name="block
     )
 
 
+def content_page(name, schema_type):
+    """A `WebPage` subtype. It has the `@id` of the `WebPage` node, so both become one node."""
+    properties = [expression("url", "page.url"), expression("name", "page.h1")]
+    return schema(name, schema_type, "Page Type", properties, id_expression="{{ page.url }}#webpage")
+
+
+def route_rule(name, route_pattern, schema_template):
+    """A rule for a page that Frappe makes, which has no document type of its own."""
+    return dict(rule(name, None, [schema_template]), route_pattern=route_pattern, priority=20)
+
+
 def days_template(name, key):
     """The `QuantitativeValue` of a number of days of a shipping row."""
     properties = [
@@ -276,6 +287,20 @@ SCHEMA_TEMPLATES = [
         ],
         id_expression="{{ page.url }}#collection",
     ),
+    # blog and content pages (#270)
+    schema(
+        "Post Author",
+        "Person",
+        "Component",
+        [
+            expression("name", "row.name"),
+            expression("description", "row.description"),
+            expression("image", "row.image"),
+        ],
+        iterate_over="[post.author] if post.get('author') else []",
+    ),
+    content_page("About Page", "AboutPage"),
+    content_page("Contact Page", "ContactPage"),
     schema(
         "Blog Posting",
         "BlogPosting",
@@ -286,7 +311,8 @@ SCHEMA_TEMPLATES = [
             expression("datePublished", "doc.published_on"),
             expression("dateModified", "doc.modified"),
             expression("description", "(doc.get('blog_intro') or '') | striptags"),
-            expression("image", "doc.get('meta_image') | abs_url"),
+            expression("image", "post.get('image')"),
+            linked("author", "Post Author"),
             linked("publisher", "Company Ref"),
         ],
         id_expression="{{ page.url }}#article",
@@ -467,6 +493,8 @@ SEO_RULES = [
         og_type_template="article",
         twitter_card="summary_large_image",
     ),
+    route_rule("About page", "about", "About Page"),
+    route_rule("Contact pages", "contact*", "Contact Page"),
 ]
 
 # its Route Pattern is the home page of Website Settings, set when it is created

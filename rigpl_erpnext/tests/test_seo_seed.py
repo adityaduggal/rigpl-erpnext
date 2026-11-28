@@ -511,3 +511,39 @@ class TestHomepageSection(SeedTestCase):
 
     def test_section_without_cards_makes_no_node(self):
         self.assertEqual(self.nodes([]), [])
+
+
+class TestContentPages(SeedTestCase):
+    """Blog posts, About and Contact (#270)."""
+
+    def setUp(self):
+        delete_seed_records()
+        builder.clear_template_cache()
+        meta.clear_caches()
+        importer.create_missing_records()
+
+    def live_graph(self, route):
+        web_context = context.get_route_context(route)
+        values = {}
+        item_page.write_schema_graph(web_context, values, dict(web_context))
+        script = values["head_include"].split('ld+json">')[-1].split("</script>")[0]
+        return json.loads(script)["@graph"]
+
+    def test_about_and_contact_change_the_web_page_type(self):
+        for route, schema_type in (("about", "AboutPage"), ("contact", "ContactPage")):
+            pages = [n for n in self.live_graph(route) if n.get("@id", "").endswith("#webpage")]
+            self.assertEqual([n["@type"] for n in pages], [schema_type])
+
+    def test_blog_post_has_author_and_image(self):
+        filters = {"published": 1, "blogger": ["is", "set"]}
+        route = frappe.db.get_value("Blog Post", filters, "route")
+        if not route:
+            self.skipTest("The site has no published Blog Post")
+        post = [n for n in self.live_graph(route) if n["@type"] == "BlogPosting"][0]
+        self.assertEqual(post["author"]["@type"], "Person")
+        self.assertTrue(post["author"]["name"] and post["datePublished"] and post["dateModified"])
+
+    def test_private_avatar_and_user_are_not_output(self):
+        row = frappe._dict(full_name="A", bio="<p>B</p>", avatar="/private/files/a.png")
+        with patch.object(frappe.db, "get_value", return_value=row):
+            self.assertEqual(context.get_author("x"), {"name": "A", "description": "B", "image": ""})
