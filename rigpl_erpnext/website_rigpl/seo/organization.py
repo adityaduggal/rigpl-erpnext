@@ -21,10 +21,11 @@ MESSAGE_HOSTS = ("api.whatsapp.com", "wa.me")
 def get_organization() -> dict:
     settings = frappe.get_cached_doc("SEO Settings", "SEO Settings")
     website = frappe.get_cached_doc("Website Settings", "Website Settings")
-    name = settings.get("company") or frappe.db.get_single_value("Global Defaults", "default_company")
+    name = get_company_name()
     company = frappe.get_cached_doc("Company", name) if name else frappe._dict()
     established = company.get("date_of_establishment")
-    postal = get_address(settings.get("address") or find_company_address(name))
+    locations = get_location_names()
+    postal = get_address(locations[0] if locations else find_company_address(name))
     country = postal.get("country_code") or get_country_code(company.get("country"))
     return {
         "return_policy": get_return_policy(settings, country),
@@ -59,6 +60,25 @@ def get_return_policy(settings, country: str) -> dict:
 def get_country_code(country: Optional[str]) -> str:
     code = frappe.db.get_value("Country", country, "code", cache=True) if country else ""
     return (code or "").upper()
+
+
+def get_company_name() -> Optional[str]:
+    company = frappe.get_cached_doc("SEO Settings", "SEO Settings").get("company")
+    return company or frappe.db.get_single_value("Global Defaults", "default_company")
+
+
+def get_location_names() -> List[str]:
+    """The enabled Addresses of SEO Settings, the primary address first."""
+    settings = frappe.get_cached_doc("SEO Settings", "SEO Settings")
+    names = [row.address for row in settings.get("addresses") or []]
+    if not names:
+        return []
+    return frappe.get_all(
+        "Address",
+        filters={"name": ["in", names], "disabled": 0},
+        order_by="is_primary_address desc, name asc",
+        pluck="name",
+    )
 
 
 def find_company_address(company: Optional[str]) -> Optional[str]:

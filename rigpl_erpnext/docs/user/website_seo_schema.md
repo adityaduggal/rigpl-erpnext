@@ -66,6 +66,7 @@ There are two forms:
 | `variants` | On a template page, one element for each row of the variant table: `id`, `sku`, `url`, `full`, `name`, `size`, `image`, `properties`, `offer`. |
 | `common` | On a template page, the specifications that all variants share: `name`, `value`. |
 | `post` | On a blog post: `image` (the **Meta Image**, else the first image of the post) and `author` (`name`, `description`, `image` of the **Blogger**). Empty on other pages. |
+| `locations` | One element for each company address of SEO Settings: `id`, `city`, `address`, `telephone`, `latitude`, `longitude`, `hours`, `area_served`. |
 | `listing` | On a category page, the first page of products, else the sub-categories: `position`, `name`, `url`. |
 
 An `offer` has `price`, `currency`, `availability`, `condition`, `url`, `valid_until` and `shipping`. There is no offer when a visitor who is not logged in sees no price.
@@ -153,6 +154,7 @@ Each value reads the database. When you change the source record, the pages chan
 | `Product` | Page Type | `Product` on a variant page, with its `Offer`. |
 | `Collection Page` | Page Type | `CollectionPage` on an Item Group page. |
 | `Blog Posting` | Page Type | `BlogPosting` on a blog post, with the author `Post Author`. |
+| `Local Business` | Page Type | `LocalBusiness` for each company address, on the contact pages. |
 | `About Page`, `Contact Page` | Page Type | The `WebPage` node of `/about` and of the contact pages gets the type `AboutPage` or `ContactPage`. |
 | `Breadcrumbs` | Breadcrumb | `BreadcrumbList` of the visible breadcrumb. The last item has the text that the page shows. |
 | `Top Bar` | Navigation | `SiteNavigationElement` for each link of the top bar. |
@@ -163,7 +165,7 @@ Each value reads the database. When you change the source record, the pages chan
 | `Homepage Section List` | Web Template | `ItemList` of the cards of the section. No cards: no node. |
 | `Social Video` | Web Template | `VideoObject`. It needs **Video Title** and **Video Upload Date** in the block. |
 | `Contact Strip` | Web Template | `contactPoint` of the website `Organization`. |
-| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `FAQ Question`, `FAQ Answer`, `Section Card Item`, `Post Author`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
+| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `Location Address`, `Geo`, `Opening Hours`, `FAQ Question`, `FAQ Answer`, `Section Card Item`, `Post Author`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
 
 On `/contact`, the Frappe page shows its own title in the breadcrumb. The last item of `BreadcrumbList` has the title of the browser tab.
 
@@ -179,7 +181,7 @@ To see the property rows of a template, open it. Click **Preview** and type the 
 |---|---|
 | Company | **SEO Settings** > Company. Empty: the default company of Global Defaults. |
 | Legal name, email, phone, founding date | **Company** |
-| Address | **SEO Settings** > Address. Empty: the primary company address of the Company. |
+| Address | **SEO Settings** > Company Addresses: the primary one. Empty: the primary company address of the Company. |
 | Brand | **Website Settings** > Title Prefix |
 | Logo | **Website Settings** > Banner Image. A private file is not used. |
 | Social profiles | **Website Settings** > footer items under the label `Social`. WhatsApp links are not used. |
@@ -208,3 +210,31 @@ The save of SEO Settings writes the crawler rules into **Website Settings** > Ro
 A crawler that has its own lines follows only those lines. A crawler that is not listed follows the `User-agent: *` rules.
 
 Every page has the same `@id` and `sameAs` for the company. A page that has a document also has `dateModified`.
+
+## Locations
+
+Select each location in **SEO Settings** > **Company Addresses**. Only an enabled company address can be selected. The contact pages output one `LocalBusiness` for each.
+
+| Value | Change it here |
+|---|---|
+| Postal address and phone | **Address** (the first phone number) |
+| Coordinates | **Address** > Latitude and Longitude. `rohit_common` fills them from Google. Check that they are correct. |
+| Opening hours | A file on the Address, see below |
+| Weekly off day and holidays | **Company** > Default Holiday List. Holidays of the next 90 days are output. |
+| Area served | The row `area_served` of the file. Empty: the country of the address. |
+
+### Working hours file
+
+Attach a CSV file to the Address. Its name must be `working_hours_<address name>.csv`, for example `working_hours_BGH-653.csv`. A private file works. The newest file is used.
+
+```csv
+day,opens,closes
+Monday,09:00,17:30
+Saturday,09:00,13:00
+Sunday,,
+area_served,India;Nepal
+```
+
+A day with no times, or with no row, is closed. The weekly off day of the Holiday List is always closed. An upload with a bad row stops with the row number. With no file, the location has no opening hours.
+
+Keep the Holiday List of the next year ready: when the list ends, no holiday is output.

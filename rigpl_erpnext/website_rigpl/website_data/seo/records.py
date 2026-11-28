@@ -42,9 +42,9 @@ def content_page(name, schema_type):
     return schema(name, schema_type, "Page Type", properties, id_expression="{{ page.url }}#webpage")
 
 
-def route_rule(name, route_pattern, schema_template):
+def route_rule(name, route_pattern, *schema_templates):
     """A rule for a page that Frappe makes, which has no document type of its own."""
-    return dict(rule(name, None, [schema_template]), route_pattern=route_pattern, priority=20)
+    return dict(rule(name, None, schema_templates), route_pattern=route_pattern, priority=20)
 
 
 def days_template(name, key):
@@ -146,6 +146,57 @@ SCHEMA_TEMPLATES = [
             expression("dateModified", "doc.get('modified')"),
         ],
         id_expression="{{ page.url }}#webpage",
+    ),
+    # locations (#272)
+    schema(
+        "Location Address",
+        "PostalAddress",
+        "Component",
+        [
+            expression("streetAddress", "row.address.street"),
+            expression("addressLocality", "row.address.city"),
+            expression("addressRegion", "row.address.state"),
+            expression("postalCode", "row.address.pincode"),
+            expression("addressCountry", "row.address.country_code"),
+        ],
+    ),
+    schema(
+        "Geo",
+        "GeoCoordinates",
+        "Component",
+        [expression("latitude", "row.latitude"), expression("longitude", "row.longitude")],
+        condition="row.latitude and row.longitude",
+    ),
+    schema(
+        "Opening Hours",
+        "OpeningHoursSpecification",
+        "Component",
+        [
+            expression("dayOfWeek", "row.days"),
+            expression("opens", "row.opens"),
+            expression("closes", "row.closes"),
+            expression("validFrom", "row.valid_from"),
+            expression("validThrough", "row.valid_through"),
+        ],
+        iterate_over="row.hours",
+    ),
+    schema(
+        "Local Business",
+        "LocalBusiness",
+        "Page Type",
+        [
+            expression("name", "site.brand ~ (' - ' ~ row.city if row.city else '')"),
+            expression("url", "page.url"),
+            expression("image", "site.organization.logo"),
+            expression("telephone", "row.telephone"),
+            linked("address", "Location Address"),
+            linked("geo", "Geo"),
+            linked_list("openingHoursSpecification", "Opening Hours"),
+            expression("areaServed", "row.area_served"),
+            linked("parentOrganization", "Company Ref"),
+        ],
+        id_expression="{{ site.url }}/#location-{{ row.id }}",
+        iterate_over="locations",
     ),
     # FAQ block (#271): the markup is off until a manager enables FAQ Page (D7)
     schema(
@@ -523,7 +574,7 @@ SEO_RULES = [
         twitter_card="summary_large_image",
     ),
     route_rule("About page", "about", "About Page"),
-    route_rule("Contact pages", "contact*", "Contact Page"),
+    route_rule("Contact pages", "contact*", "Contact Page", "Local Business"),
 ]
 
 # its Route Pattern is the home page of Website Settings, set when it is created

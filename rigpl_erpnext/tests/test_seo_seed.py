@@ -8,7 +8,7 @@ from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.website_rigpl import item_page
 from rigpl_erpnext.website_rigpl.doctype.seo_settings.seo_settings import create_records
-from rigpl_erpnext.website_rigpl.seo import builder, context, images, meta, organization
+from rigpl_erpnext.website_rigpl.seo import builder, context, images, locations, meta, organization
 from rigpl_erpnext.website_rigpl.doctype.seo_settings import seo_settings
 from rigpl_erpnext.website_rigpl.website_data.seo import importer, records
 from rigpl_erpnext.website_rigpl.website_data.seo.records import HOME_RULE, SCHEMA_TEMPLATES, SEO_RULES
@@ -16,6 +16,21 @@ from rigpl_erpnext.www import llms
 
 TEMPLATE_NAMES = [record["template_name"] for record in SCHEMA_TEMPLATES]
 RULE_NAMES = [record["rule_name"] for record in SEO_RULES + [HOME_RULE]]
+
+
+def add_location(address):
+    """A row of SEO Settings > Company Addresses, without the save checks."""
+    frappe.get_doc(
+        {
+            "doctype": "SEO Location",
+            "name": frappe.generate_hash(length=10),
+            "parent": "SEO Settings",
+            "parenttype": "SEO Settings",
+            "parentfield": "addresses",
+            "address": address,
+        }
+    ).db_insert()
+    frappe.clear_document_cache("SEO Settings", "SEO Settings")
 
 
 def block_row(web_template, values, idx=1, hide_block=0):
@@ -52,7 +67,7 @@ class TestOrganization(SeedTestCase):
     def setUp(self):
         self.company = frappe.db.get_single_value("Global Defaults", "default_company")
         settings = frappe.get_doc("SEO Settings", "SEO Settings")
-        settings.update({"company": None, "address": None, "social_group": None})
+        settings.update({"company": None, "addresses": [], "social_group": None})
         settings.save()
 
     def tearDown(self):
@@ -85,8 +100,7 @@ class TestOrganization(SeedTestCase):
         # a set name skips the Address autoname rules of rohit_common
         address.name = "_Test RIGPL SEO-Office"
         address.db_insert()
-        frappe.db.set_value("SEO Settings", None, "address", address.name)
-        frappe.clear_document_cache("SEO Settings", "SEO Settings")
+        add_location(address.name)
         values = organization.get_organization()["address"]
         self.assertEqual((values["city"], values["country_code"]), ("Test City", "IN"))
 
@@ -602,3 +616,65 @@ class TestAIAssistants(SeedTestCase):
         )
         node = builder.build_page_nodes([template], {"page": {"url": "u"}}, blocks, [])[0]
         self.assertEqual(node["mainEntity"][0]["acceptedAnswer"]["text"], "A")
+
+
+HOURS = "day,opens,closes\nMonday,9:00,17:30\nTuesday,9:00,17:30\nSaturday,09:00,13:00\nSunday,,\n"
+
+
+class TestLocations(SeedTestCase):
+    """LocalBusiness from the company addresses (#272)."""
+
+    def test_parse_hours(self):
+        hours = locations.parse_hours(HOURS + "area_served,India; Nepal\n")
+        self.assertEqual(hours["days"]["Monday"], ("09:00", "17:30"))
+        self.assertNotIn("Sunday", hours["days"])
+        self.assertEqual(hours["area_served"], ["India", "Nepal"])
+
+    def test_bad_rows_name_the_row(self):
+        for text, message in (
+            ("a,b,c\n", "Row 1"),
+            ("day,opens,closes\nFunday,9:00,10:00\n", "Row 2"),
+            ("day,opens,closes\nMonday,9,10:00\n", "Row 2"),
+            ("day,opens,closes\nMonday,10:00,09:00\n", "Row 2"),
+            ("day,opens,closes\nMonday,9:00,10:00\nMonday,9:00,10:00\n", "Row 3"),
+        ):
+            with self.assertRaisesRegex(ValueError, message):
+                locations.parse_hours(text)
+
+    def test_weekly_off_and_holidays_are_closed(self):
+        days = locations.parse_hours(HOURS)["days"]
+        rows = locations.make_opening_hours(days, {"weekly_off": "Saturday", "dates": ["2030-01-01"]})
+        self.assertEqual(rows[0]["days"], ["Monday", "Tuesday"])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual((rows[1]["opens"], rows[1]["closes"], rows[1]["valid_from"]), ("00:00", "00:00", "2030-01-01"))
+        self.assertEqual(locations.make_opening_hours({}, {"dates": ["2030-01-01"]}), [])
+
+    def test_hours_file_name(self):
+        self.assertTrue(locations.is_hours_file("working_hours_BGH-1.csv", "BGH-1"))
+        self.assertTrue(locations.is_hours_file("working_hours_BGH-1a1b2c3.csv", "BGH-1"))
+        self.assertFalse(locations.is_hours_file("working_hours_BGH-2.csv", "BGH-1"))
+
+    def test_bad_hours_file_stops_the_upload(self):
+        file = frappe._dict(
+            attached_to_doctype="Address",
+            file_name="working_hours_x.csv",
+            get_content=lambda: "wrong",
+        )
+        with self.assertRaises(frappe.ValidationError):
+            locations.validate_hours_file(file)
+
+    def test_contact_page_has_each_location(self):
+        delete_seed_records()
+        builder.clear_template_cache()
+        meta.clear_caches()
+        importer.create_missing_records()
+        name = frappe.db.get_value("Address", {"is_your_company_address": 1, "disabled": 0})
+        if not name:
+            self.skipTest("The site has no company address")
+        frappe.db.delete("SEO Location", {"parent": "SEO Settings"})
+        add_location(name)
+        graph, errors, _ = frappe.get_doc("Schema Template", "Local Business").render_route("contact")
+        self.assertEqual(errors, [])
+        business = [n for n in graph["@graph"] if n["@type"] == "LocalBusiness"]
+        self.assertEqual(len(business), 1)
+        self.assertTrue(business[0]["name"] and business[0]["address"])

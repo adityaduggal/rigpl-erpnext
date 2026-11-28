@@ -161,7 +161,12 @@ doc_events = {
     "Additional Salary": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.employee_advance.validate_additional_salary"
     },
-    "Address": {"on_update": "rigpl_erpnext.rigpl_erpnext.validations.lead_share.address_on_update"},
+    "Address": {
+        "on_update": [
+            "rigpl_erpnext.rigpl_erpnext.validations.lead_share.address_on_update",
+            "rigpl_erpnext.website_rigpl.seo.locations.address_on_update",
+        ]
+    },
     "Attendance": {
         "validate": [
             "rigpl_erpnext.rigpl_erpnext.validations.attendance.validate",
@@ -173,6 +178,11 @@ doc_events = {
     "Bank Account": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.validate",
         "autoname": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.autoname",
+    },
+    "File": {
+        "validate": "rigpl_erpnext.website_rigpl.seo.locations.validate_hours_file",
+        "on_update": "rigpl_erpnext.website_rigpl.seo.locations.clear_hours_cache",
+        "on_trash": "rigpl_erpnext.website_rigpl.seo.locations.clear_hours_cache",
     },
     "Blog Post": {
         "validate": "rigpl_erpnext.website_rigpl.seo.images.validate_images",

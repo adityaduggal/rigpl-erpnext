@@ -2,6 +2,12 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("SEO Settings", {
+    setup(frm) {
+        frm.set_query("addresses", () => ({
+            filters: {is_your_company_address: 1, disabled: 0}
+        }));
+    },
+
     refresh(frm) {
         frm.add_custom_button(__("Help"), () => rigpl_erpnext.show_user_guide(
             "website_seo_rules", __("SEO Rules")));

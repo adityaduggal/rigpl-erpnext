@@ -11,7 +11,7 @@
   "description_limit",
   "organization_section",
   "company",
-  "address",
+  "addresses",
   "social_group",
   "catalog_section",
   "variant_limit",
@@ -76,11 +76,11 @@
    "description": "The source of site.organization. Empty: the default company"
   },
   {
-   "fieldname": "address",
-   "fieldtype": "Link",
-   "label": "Address",
-   "options": "Address",
-   "description": "Empty: the primary company address of the Company"
+   "fieldname": "addresses",
+   "fieldtype": "Table MultiSelect",
+   "label": "Company Addresses",
+   "options": "SEO Location",
+   "description": "Each address is one location (LocalBusiness) on the contact pages. The primary one is the address of the Organization. Empty: the primary company address, and no location"
   },
   {
    "fieldname": "social_group",
@@ -197,7 +197,7 @@
   }
  ],
  "links": [],
- "modified": "2026-11-28 23:59:30.000000",
+ "modified": "2026-11-28 23:59:50.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "SEO Settings",

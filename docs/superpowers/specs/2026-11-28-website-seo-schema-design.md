@@ -269,3 +269,11 @@ Code: `website_rigpl/seo/images.py`.
 - `www/llms.txt` and `www/llms.py`, as Frappe serves `robots.txt`.
 - AI crawlers: one text field with the denied user agents, instead of the allow/deny child table of 5.1. An allowed crawler already follows the `User-agent: *` rules, and its own group would remove them.
 - `website_rigpl/web_template/rigpl_faq` with the `FAQ Page` template, created disabled (D7).
+
+## 16. Locations (#272, user, 2026-11-28)
+
+- SEO Settings **Company Addresses** (Table MultiSelect, child DocType `SEO Location`) replaces the single `address` field and the location rows of 5.1.
+- Coordinates come from the Address fields that `rohit_common` fills. A listed address with no coordinates gives a warning.
+- Opening hours come from the file `working_hours_<address>.csv` on the Address, with an optional `area_served` row.
+- The weekly off day and holidays come from the default Holiday List of the Company.
+- Code: `website_rigpl/seo/locations.py`.

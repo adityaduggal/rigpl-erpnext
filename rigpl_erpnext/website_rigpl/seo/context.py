@@ -15,6 +15,7 @@ from frappe.website.utils import find_first_image, get_html_content_based_on_typ
 from ..catalog import get_attribute_values, get_list_prices, get_stock_qty, get_variant_table
 from ..compat import get_ecommerce
 from ...utils.item_attribute_utils import get_template_attributes
+from .locations import get_locations
 from .organization import get_organization, get_public_url
 from .sandbox import abs_url, plain_text
 
@@ -55,6 +56,7 @@ def build_variables(web_context: dict, shown_title: str = None) -> dict:
         "common": [],
         "listing": [],
         "post": {},
+        "locations": [],
         "block": {},
         "nav": {"top_bar": get_top_bar(web_context)},
     }
@@ -62,9 +64,10 @@ def build_variables(web_context: dict, shown_title: str = None) -> dict:
 
 def get_catalog(doc) -> dict:
     """`item`, `variants`, `common` and `listing` of a product or category page (#265), and
-    `post` of a blog post (#270). The prices are the prices that a visitor who is not logged in
-    sees (D9)."""
+    `post` of a blog post (#270), and the `locations` of the company (#272). The prices are the
+    prices that a visitor who is not logged in sees (D9)."""
     values = {"item": {}, "variants": [], "common": [], "listing": [], "post": {}}
+    values["locations"] = get_locations()
     doctype = doc.get("doctype") if doc else None
     if doctype == "Website Item" and doc.get("item_code"):
         reader = get_template_values if doc.get("has_variants") else get_product_values

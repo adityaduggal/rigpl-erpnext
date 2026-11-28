@@ -6,7 +6,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import escape_html
 
-from rigpl_erpnext.website_rigpl.seo import meta
+from rigpl_erpnext.website_rigpl.seo import locations, meta
 from rigpl_erpnext.website_rigpl.website_data.seo.importer import create_missing_records
 
 # SEO Settings owns only the lines between the markers of robots.txt
@@ -23,12 +23,27 @@ class SEOSettings(Document):
         meta.check_templates(
             self, ("site_name", "title_template", "description_template", "llms_body")
         )
+        self.check_addresses()
         for agent in get_crawlers(self.get("denied_ai_crawlers")):
             if not USER_AGENT.match(agent):
                 frappe.throw(
                     "Denied AI Crawlers: {} is not a user agent name".format(escape_html(agent)),
                     frappe.ValidationError,
                 )
+
+    def check_addresses(self):
+        names = [row.address for row in self.get("addresses") or []]
+        if not names:
+            return
+        filters = {"name": ["in", names], "is_your_company_address": 1, "disabled": 0}
+        valid = set(frappe.get_all("Address", filters=filters, pluck="name"))
+        wrong = [name for name in names if name not in valid]
+        if wrong:
+            frappe.throw(
+                "Not an enabled company address: {}".format(escape_html(", ".join(wrong))),
+                frappe.ValidationError,
+            )
+        locations.warn_missing_coordinates(names)
 
     def on_update(self):
         write_robots(get_crawlers(self.get("denied_ai_crawlers")))
