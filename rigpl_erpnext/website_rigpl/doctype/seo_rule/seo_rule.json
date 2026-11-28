@@ -17,6 +17,7 @@
   "robots_template",
   "og_type_template",
   "image_template",
+  "image_alt_template",
   "twitter_card",
   "schema_section",
   "schema_templates"
@@ -108,6 +109,12 @@
    "description": "Jinja text that gives an image URL or file path"
   },
   {
+   "fieldname": "image_alt_template",
+   "fieldtype": "Small Text",
+   "label": "Image Alt Template",
+   "description": "Jinja text for an image that has no alt text, no Alt: comment on its File and no readable file name. Empty: the H1"
+  },
+  {
    "fieldname": "twitter_card",
    "fieldtype": "Select",
    "label": "Twitter Card",
@@ -127,7 +134,7 @@
   }
  ],
  "links": [],
- "modified": "2026-11-28 14:00:00.000000",
+ "modified": "2026-11-28 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "SEO Rule",

@@ -20,7 +20,8 @@ from .sandbox import abs_url, check_template, plain_text, render_text
 RULE_DOCTYPE = "SEO Rule"
 SETTINGS_DOCTYPE = "SEO Settings"
 RULES_CACHE_KEY = "rigpl_seo_rules"
-TEMPLATE_FIELDS = ("title", "description", "canonical", "robots", "og_type", "image")
+TEMPLATE_FIELDS = ("title", "description", "canonical", "robots", "og_type", "image", "image_alt")
+IMAGE_TAGS = ("image", "og:image", "twitter:image")
 SETTINGS_FIELDS = ("title", "description")
 DOCUMENT_FIELDS = {"title": "meta_title", "description": "meta_description", "image": "meta_image"}
 DEFAULT_LIMITS = {"title": 60, "description": 160}
@@ -42,6 +43,14 @@ def find_rule(doctype: Optional[str], route: str):
 def build_meta(web_context: dict, rule, errors: List[BuildError]) -> dict:
     """The changed values of `title`, `canonical` and `metatags`."""
     return PageMeta(web_context, rule, errors).build()
+
+
+def build_fallback_alt(web_context: dict, rule) -> str:
+    """The alt text of an image that has no other source: the image alt template of the rule,
+    else the H1 of the page."""
+    page_meta = PageMeta(web_context, rule, [])
+    text = plain_text(page_meta.rendered(rule, "image_alt")) if rule else ""
+    return text or page_meta.variables["page"]["h1"]
 
 
 def get_rules() -> list:
@@ -103,6 +112,10 @@ class PageMeta:
         if site_name:
             self.tags["og:site_name"] = site_name
         self.set_route_meta()
+        # every image address is absolute and encoded (#267)
+        for key in IMAGE_TAGS:
+            if self.tags.get(key):
+                self.tags[key] = abs_url(self.tags[key])
         if self.tags != self.original:
             self.changes["metatags"] = frappe._dict(self.tags)
         return self.changes
@@ -174,8 +187,7 @@ class PageMeta:
             self.tags.update(dict.fromkeys(keys, description))
 
     def set_image(self, value: str) -> None:
-        keys = ("image", "og:image", "twitter:image")
-        self.tags.update(dict.fromkeys(keys, abs_url(value)))
+        self.tags.update(dict.fromkeys(IMAGE_TAGS, abs_url(value)))
         self.tags["twitter:card"] = "summary_large_image"
 
     def set_canonical(self, value: str) -> None:

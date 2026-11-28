@@ -78,3 +78,25 @@ Use **Website Route Meta**. Its name is the route, for example `news`. Add rows 
 ## Check the result
 
 Open the page on the website and view its source. Check `<title>`, `<meta name="description">` and the canonical link. After a change, reload the page. If it does not change, run **Clear Website Cache**.
+
+## Image alt text
+
+Every image on a page gets an alt text. The first source found wins:
+
+1. The alt text set in that place: the HTML `alt` attribute, the **Website Image Alt** of a Website Item, or the slide **Heading**.
+2. The newest comment on the **File** that starts with `Alt:`, for example `Alt: 4 flute carbide end mill`.
+3. The file name, if it has two or more words.
+4. The **Image Alt Template** of the SEO Rule. Empty: the H1 of the page.
+
+To set an alt text for an image everywhere, open its **File** and add the comment. Then run **Clear Website Cache** or save the page.
+
+## Image check
+
+When you save a Web Page, Blog Post, Website Slideshow, Website Item, Item Group, Website Settings, Contact Us Settings or About Us Settings:
+
+- A **new** image that has only source 4 stops the save.
+- An image that the document **had before** only shows a warning with a link to the File.
+
+Only public files of this site are checked. `alt=""` marks a decorative image. A migrate, an import and a system save are never stopped.
+
+Do not rename a file that the website uses: its address changes. Add the `Alt:` comment.

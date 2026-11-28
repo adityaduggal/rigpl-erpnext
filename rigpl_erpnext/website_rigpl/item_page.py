@@ -20,10 +20,27 @@ def update_website_context(context) -> dict | None:
     values = dict((handler(context) if handler else None) or {})
     # the graph reads the page before the meta tags, so that `page.h1` keeps the document title
     page = dict(context, **values)
+    add_image_alts(context, values)
     add_meta_tags(context, values)
     # the visible breadcrumb ends with the title that the meta tags can change
     add_schema_graph(context, values, page)
     return values or None
+
+
+def add_image_alts(context, values: dict) -> None:
+    """Gives each image of the page an alt text (#267).
+    A failure is logged and leaves the page as it was."""
+    try:
+        from rigpl_erpnext.website_rigpl.seo.context import PREVIEW_FLAG
+        from rigpl_erpnext.website_rigpl.seo.images import fill_page
+        from rigpl_erpnext.website_rigpl.seo.meta import build_fallback_alt
+
+        if frappe.flags.get(PREVIEW_FLAG):
+            return
+        page = frappe._dict(dict(context, **values))
+        fill_page(context, values, build_fallback_alt(page, find_page_rule(page)))
+    except Exception:
+        log_seo_failure(context)
 
 
 def add_schema_graph(context, values: dict, page: dict = None) -> None:

@@ -8,7 +8,7 @@ from rohit_common.utils.query_guard import assert_max_queries
 
 from rigpl_erpnext.website_rigpl import item_page
 from rigpl_erpnext.website_rigpl.doctype.seo_settings.seo_settings import create_records
-from rigpl_erpnext.website_rigpl.seo import builder, context, meta, organization
+from rigpl_erpnext.website_rigpl.seo import builder, context, images, meta, organization
 from rigpl_erpnext.website_rigpl.website_data.seo import importer
 from rigpl_erpnext.website_rigpl.website_data.seo.records import HOME_RULE, SCHEMA_TEMPLATES, SEO_RULES
 
@@ -340,3 +340,80 @@ class TestCatalog(SeedTestCase):
         route = self.route("Item Group", {"show_in_website": 1, "lft": [">", 5]})
         page = self.graph("Collection Page", route)[0]
         self.assertTrue(page["mainEntity"]["itemListElement"])
+
+
+class TestImages(SeedTestCase):
+    """Image alt text and the image check (#267)."""
+
+    def add_file(self, url, comment=None):
+        file = frappe.get_doc({"doctype": "File", "file_url": url, "file_name": url.rsplit("/", 1)[-1]})
+        file.name = frappe.generate_hash(length=10)
+        file.db_insert()
+        if comment:
+            file.add_comment("Comment", comment)
+
+    def page(self, html, **values):
+        return frappe.get_doc(
+            dict(
+                doctype="Web Page",
+                title="_Test RIGPL Images",
+                route="test-rigpl-images",
+                content_type="HTML",
+                main_section_html=html,
+                **values,
+            )
+        )
+
+    def test_readable_name(self):
+        self.assertEqual(
+            images.get_readable_name("/files/Carbide_End_Mills-1-145a048.jpg"), "Carbide End Mills 1 1"
+        )
+        for name in ("Untitled.jpg", "fVLyrOC.png", "334_Series.jpg", "C311.jpg"):
+            self.assertEqual(images.get_readable_name("/files/" + name), "")
+
+    def test_comment_wins_over_the_file_name(self):
+        url = "/files/_test rigpl carbide drill.png"
+        self.add_file(url, "<p>Alt: Step drill</p>")
+        self.assertEqual(images.get_file_alts(["http://x/files/_test%20rigpl%20carbide%20drill.png"]), {url: "Step drill"})
+
+    def test_only_images_without_alt_are_filled(self):
+        html = (
+            '<img src="/files/a.png" alt="Own"><img src="/files/a.png">'
+            '<img width="1" src="http://t/p"><script>var x = "<img src=1>";</script>'
+        )
+        filled = images.add_alt(html, {"/files/a.png": 'A "b"'}, "Page")
+        self.assertIn('<img src="/files/a.png" alt="Own">', filled)
+        self.assertIn('<img alt="A &quot;b&quot;" src="/files/a.png">', filled)
+        self.assertIn('<img alt="" width="1"', filled)
+        self.assertIn('"<img src=1>"', filled)
+
+    def test_item_gets_the_comment_text(self):
+        self.add_file("/files/_t1.png", "Alt: Tool")
+        doc = frappe._dict(doctype="Website Item", website_image="/files/_t1.png")
+        images.fill_page(frappe._dict(doc=doc), {}, "Page")
+        self.assertEqual(doc.website_image_alt, "Tool")
+
+    def test_new_image_without_alt_stops_the_save(self):
+        with self.assertRaises(frappe.ValidationError):
+            images.validate_images(self.page('<img src="/files/_x1.png">'))
+        for html in (
+            '<img src="/files/_x1.png" alt="Drill">',
+            '<img src="/files/_x1.png" alt="">',
+            '<img src="/files/carbide drill.png">',
+            '<img src="https://example.com/x.png">',
+        ):
+            images.validate_images(self.page(html))
+
+    def test_old_image_and_system_save_only_warn(self):
+        html = '<img src="/files/_x1.png">'
+        doc = self.page(html)
+        doc._doc_before_save = self.page(html)
+        images.validate_images(doc)
+        doc = self.page(html)
+        doc.flags.ignore_permissions = True
+        images.validate_images(doc)
+
+    def test_meta_image_address_is_encoded(self):
+        web_context = frappe._dict(path="x", metatags={"image": "/files/a b.png"})
+        tags = meta.build_meta(web_context, None, [])["metatags"]
+        self.assertTrue(tags["image"].endswith("/files/a%20b.png"))

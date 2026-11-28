@@ -241,3 +241,19 @@ Merchant listing `Offer`: `price`, `priceCurrency`, `availability` (`InStock`, o
 - Change a Schema Template in Desk, then run `bench --site <site> clear-website-cache`. The JSON-LD changes with no deploy.
 - Each page has one `@graph` script and no microdata `Product`.
 - The SEO Audit report shows: no title over 60 characters, no description over 160, one H1 per page, no image without alt text.
+
+## 13. Image alt text and image check (#267, user, 2026-11-28)
+
+Approaches for the custom alt text, with no new custom field:
+
+- A (chosen): a comment on the File that starts with `Alt:`. No URL change, edit history.
+- B: the `file_name` field. It also changes the download name and the File Attachment Rule check.
+- C: only the alt text of each place. The text repeats at each use.
+
+Order, first found wins: the alt text of the place, the File comment (by `file_url`), a file name of two or more words, the SEO Rule `image_alt_template`, the H1.
+
+The website hook fills `alt` at page render, only where an image has none. Nothing is saved. This covers the core Slideshow block, which writes no `alt`. It replaces "The RIGPL web templates get an `image_alt` field" of section 8: those templates write no image.
+
+The check: a save blocks a new image that has no alt text from the first three sources, and warns for an image that the document had before (chosen over "block all" and "warn only"). A migrate, an import, a patch and a save that ignores permissions only warn. Files are not renamed.
+
+Code: `website_rigpl/seo/images.py`.

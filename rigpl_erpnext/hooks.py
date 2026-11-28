@@ -172,6 +172,7 @@ doc_events = {
         "autoname": "rigpl_erpnext.rigpl_erpnext.validations.bank_account.autoname",
     },
     "Blog Post": {
+        "validate": "rigpl_erpnext.website_rigpl.seo.images.validate_images",
         "on_update": "rigpl_erpnext.website_rigpl.website_data.importer.clear_cache_on_blog_change",
         "on_trash": "rigpl_erpnext.website_rigpl.website_data.importer.clear_cache_on_blog_change",
     },
@@ -215,7 +216,10 @@ doc_events = {
         "on_update": "rigpl_erpnext.website_rigpl.item_sync.on_item_update",
     },
     "Item Group": {
-        "validate": "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate",
+        "validate": [
+            "rigpl_erpnext.rigpl_erpnext.validations.item_group.validate",
+            "rigpl_erpnext.website_rigpl.seo.images.validate_images",
+        ],
         "on_update": "rigpl_erpnext.rigpl_erpnext.validations.item_group.on_update",
     },
     "Item Price": {
@@ -317,9 +321,21 @@ doc_events = {
     "Warehouse": {
         "validate": "rigpl_erpnext.rigpl_erpnext.validations.warehouse.validate"
     },
-    "Web Page": {"validate": "rigpl_erpnext.website_rigpl.route_sync.web_page_validate"},
+    "About Us Settings": {"validate": "rigpl_erpnext.website_rigpl.seo.images.validate_images"},
+    "Contact Us Settings": {"validate": "rigpl_erpnext.website_rigpl.seo.images.validate_images"},
+    "Website Settings": {"validate": "rigpl_erpnext.website_rigpl.seo.images.validate_images"},
+    "Website Slideshow": {"validate": "rigpl_erpnext.website_rigpl.seo.images.validate_images"},
+    "Web Page": {
+        "validate": [
+            "rigpl_erpnext.website_rigpl.route_sync.web_page_validate",
+            "rigpl_erpnext.website_rigpl.seo.images.validate_images",
+        ]
+    },
     "Website Item": {
-        "validate": "rigpl_erpnext.website_rigpl.route_sync.website_item_validate",
+        "validate": [
+            "rigpl_erpnext.website_rigpl.route_sync.website_item_validate",
+            "rigpl_erpnext.website_rigpl.seo.images.validate_images",
+        ],
         "on_update": "rigpl_erpnext.website_rigpl.route_sync.website_item_on_update",
     },
     "Workstation": {
