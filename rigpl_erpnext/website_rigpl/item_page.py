@@ -78,6 +78,7 @@ def get_page_template_names(context) -> list:
 def write_schema_graph(context, values: dict) -> None:
     # imported here, so that an error in the engine cannot stop every website page
     from rigpl_erpnext.website_rigpl.seo.builder import (
+        BLOCK_TEMPLATES,
         DOCTYPE,
         build_graph,
         get_template_names,
@@ -88,16 +89,29 @@ def write_schema_graph(context, values: dict) -> None:
 
     if frappe.flags.get(PREVIEW_FLAG):
         return
-    names = get_template_names("Site") + get_page_template_names(context)
+    block_names = get_template_names(BLOCK_TEMPLATES)
+    names = get_template_names("Site") + get_page_template_names(context) + block_names
     if not names:
         return
     templates = [frappe.get_cached_doc(DOCTYPE, name) for name in names]
     errors = []
-    graph = build_graph(templates, build_variables(dict(context, **values)), errors)
+    blocks = get_page_blocks(context) if block_names else []
+    graph = build_graph(templates, build_variables(dict(context, **values)), errors, blocks)
     log_errors(errors, get_route(context))
     if graph:
         head_include = values.get("head_include", context.get("head_include")) or ""
         values["head_include"] = head_include + to_script(graph)
+
+
+def get_page_blocks(context) -> list:
+    """A failure is logged and leaves the graph without block markup."""
+    try:
+        from rigpl_erpnext.website_rigpl.seo.context import get_blocks
+
+        return get_blocks(context.get("doc"))
+    except Exception:
+        log_seo_failure(context)
+        return []
 
 
 def log_seo_failure(context) -> None:

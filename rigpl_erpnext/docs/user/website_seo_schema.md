@@ -6,7 +6,7 @@ Only the role **Website Manager** can open Schema Templates.
 
 ## Which templates a page outputs
 
-Each page outputs the enabled templates with **Applies To** = **Site**. A page also outputs the **Page Type** templates that its **SEO Rule** lists. A **Component** template appears only inside another template. The values **Web Template**, **Navigation** and **Breadcrumb** have no effect yet.
+Each page outputs the enabled templates with **Applies To** = **Site**. A page also outputs the **Page Type** templates that its **SEO Rule** lists. A **Web Template** template makes its nodes for each visible Web Page block of that Web Template. A **Component** template appears only inside another template. The values **Navigation** and **Breadcrumb** have no effect yet.
 
 ## Fields
 
@@ -56,7 +56,21 @@ There are two forms:
 | `doc` | The fields of the page document. It is empty on a page that has no document. |
 | `row` | The element of Iterate Over. |
 
-`item`, `variants`, `common`, `block` and `nav` are empty now.
+`item`, `variants`, `common` and `nav` are empty now.
+
+### Block values
+
+A **Web Template** template, and each Component template that it links to, reads `block`:
+
+| Name | Content |
+|---|---|
+| `block.idx` | The row number of the block on the page. Use it in the `@id`. |
+| `block.<fieldname>` | The value of a field of the Web Template. An empty field can be absent: use `block.get("fieldname")`. |
+| `block.products` | The published Website Items that the block links to: `position`, `name`, `item_code`, `title`, `url`, `image`. |
+| `block.slides` | The slides of the linked Website Slideshow: `idx`, `image`, `heading`, `description`, `url`. |
+| `block.posts` | For a Web Template with the field `blog_count`, the latest blog posts: `position`, `title`, `url`, `author`, `description`, `published_on`, `image`. |
+
+An image in a private file is empty.
 
 A name that does not exist is an error. For a field that can be absent, use `doc.get("fieldname")`. For a child table with the name `items`, use `doc.get("items")`.
 
@@ -114,7 +128,16 @@ Each value reads the database. When you change the source record, the pages chan
 | `Product Group` | Page Type | `ProductGroup` on a template product page. |
 | `Collection Page` | Page Type | `CollectionPage` on an Item Group page. |
 | `Blog Posting` | Page Type | `BlogPosting` on a blog post. |
-| `Company Address`, `Company Ref` | Component | Parts of the templates above. |
+| `Slideshow Images` | Web Template | `ImageObject` for each slide. |
+| `Item Card Group List`, `Item Cards List` | Web Template | `ItemList` of the products of the block. |
+| `Latest Blogs List` | Web Template | `ItemList` of `BlogPosting`. |
+| `Social Video` | Web Template | `VideoObject`. It needs **Video Title** and **Video Upload Date** in the block. |
+| `Contact Strip` | Web Template | `contactPoint` of the website `Organization`. |
+| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point` | Component | Parts of the templates above. |
+
+A block template is created only if the site has its Web Template. The block **RIGPL Homepage Section** has no template.
+
+The rule **Home page** is created for the home page of **Website Settings**. The **Meta Title** and **Meta Description** of the Web Page replace the values of the rule.
 
 To see the property rows of a template, open it. Click **Preview** and type the route of a page to see the result.
 

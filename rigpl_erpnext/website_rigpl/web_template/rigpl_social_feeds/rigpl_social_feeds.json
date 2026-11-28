@@ -36,10 +36,24 @@
    "fieldtype": "Data",
    "label": "YouTube Video ID",
    "reqd": 0
+  },
+  {
+   "description": "Search engines need the title and the upload date to list the video",
+   "fieldname": "video_title",
+   "fieldtype": "Data",
+   "label": "Video Title",
+   "reqd": 0
+  },
+  {
+   "description": "The date on YouTube, as YYYY-MM-DD",
+   "fieldname": "video_upload_date",
+   "fieldtype": "Data",
+   "label": "Video Upload Date",
+   "reqd": 0
   }
  ],
  "idx": 0,
- "modified": "2026-10-14 12:00:00.000000",
+ "modified": "2026-11-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "RIGPL Social Feeds",

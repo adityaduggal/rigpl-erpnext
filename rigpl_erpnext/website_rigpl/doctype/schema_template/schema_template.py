@@ -37,10 +37,13 @@ class SchemaTemplate(Document):
     def render_route(self, route: str) -> Tuple[Optional[dict], List[builder.BuildError], bool]:
         """The graph of this document, saved or not, for a route. The last value is False when
         `iterate_over` or `condition` gave no node to build."""
-        variables = context.build_variables(context.get_route_context(route))
+        web_context = context.get_route_context(route)
+        variables = context.build_variables(web_context)
+        is_block = self.applies_to == builder.BLOCK_TEMPLATES
+        blocks = context.get_blocks(web_context.get("doc")) if is_block else []
         errors = []
         graph_builder = builder.GraphBuilder(errors)
-        nodes = builder.merge_by_id(graph_builder.nodes(self, variables))
+        nodes = builder.merge_by_id(graph_builder.page_nodes(self, variables, blocks))
         return builder.make_graph(nodes), errors, self.name in graph_builder.reached
 
     def clean_properties(self):

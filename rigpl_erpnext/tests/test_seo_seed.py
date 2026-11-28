@@ -3,12 +3,21 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from rigpl_erpnext.website_rigpl.doctype.seo_settings.seo_settings import create_records
-from rigpl_erpnext.website_rigpl.seo import builder, meta, organization
+from rigpl_erpnext.website_rigpl.seo import builder, context, meta, organization
 from rigpl_erpnext.website_rigpl.website_data.seo import importer
-from rigpl_erpnext.website_rigpl.website_data.seo.records import SCHEMA_TEMPLATES, SEO_RULES
+from rigpl_erpnext.website_rigpl.website_data.seo.records import HOME_RULE, SCHEMA_TEMPLATES, SEO_RULES
 
 TEMPLATE_NAMES = [record["template_name"] for record in SCHEMA_TEMPLATES]
-RULE_NAMES = [record["rule_name"] for record in SEO_RULES]
+RULE_NAMES = [record["rule_name"] for record in SEO_RULES + [HOME_RULE]]
+
+
+def block_row(web_template, values, idx=1, hide_block=0):
+    return frappe._dict(
+        web_template=web_template,
+        web_template_values=frappe.as_json(values),
+        idx=idx,
+        hide_block=hide_block,
+    )
 
 
 def delete_seed_records():
@@ -134,3 +143,79 @@ class TestSeed(SeedTestCase):
         frappe.set_user("Guest")
         with self.assertRaises(frappe.PermissionError):
             create_records()
+
+
+class TestHomeBlocks(SeedTestCase):
+    """Web Page block markup (#269). Needs a home page with blocks and a published product."""
+
+    def setUp(self):
+        delete_seed_records()
+        builder.clear_template_cache()
+        meta.clear_caches()
+        importer.create_missing_records()
+
+    def published_item(self):
+        name = frappe.db.get_value("Website Item", {"published": 1})
+        if not name:
+            self.skipTest("The site has no published Website Item")
+        return name
+
+    def blocks(self, *rows):
+        return context.get_blocks(frappe._dict(page_blocks=list(rows)))
+
+    def test_linked_products_keep_order_and_skip_unpublished(self):
+        item = self.published_item()
+        row = block_row("Item Card Group", {"card_1_item": "_Test RIGPL No Item", "card_2_item": item})
+        products = self.blocks(row)[0]["products"]
+        self.assertEqual([(p["name"], p["position"]) for p in products], [(item, 1)])
+        self.assertTrue(products[0]["url"].startswith("http"))
+
+    def test_hidden_block_is_not_used(self):
+        row = block_row("RIGPL Contact Strip", {"phone": "1"}, hide_block=1)
+        self.assertEqual(self.blocks(row), [])
+
+    def test_slides_come_from_the_slideshow(self):
+        slideshow = frappe.get_doc(
+            {
+                "doctype": "Website Slideshow",
+                "slideshow_name": "_Test RIGPL SEO",
+                "slideshow_items": [{"image": "/files/a b.png", "heading": "<b>One</b>"}],
+            }
+        ).insert()
+        row = block_row("Slideshow", {"website_slideshow": slideshow.name})
+        slide = self.blocks(row)[0]["slides"][0]
+        self.assertTrue(slide["image"].endswith("/files/a%20b.png"))
+        self.assertEqual(slide["heading"], "One")
+
+    def test_blocks_of_one_type_get_their_own_node(self):
+        item = self.published_item()
+        values = {"card_1_item": item}
+        blocks = self.blocks(
+            block_row("Item Card Group", values, idx=1), block_row("Item Card Group", values, idx=2)
+        )
+        template = frappe.get_doc("Schema Template", "Item Card Group List")
+        errors = []
+        variables = {"page": {"url": "http://x"}}
+        nodes = builder.build_page_nodes([template], variables, blocks, errors)
+        self.assertEqual([n["@id"] for n in nodes], ["http://x#itemlist-1", "http://x#itemlist-2"])
+        self.assertEqual(errors, [])
+
+    def test_video_needs_title_and_upload_date(self):
+        template = frappe.get_doc("Schema Template", "Social Video")
+        blocks = self.blocks(block_row("RIGPL Social Feeds", {"youtube_video_id": "abc"}))
+        errors = []
+        self.assertEqual(builder.build_page_nodes([template], {"page": {}}, blocks, errors), [])
+        self.assertEqual(errors, [])
+
+    def test_contact_strip_joins_the_organization(self):
+        templates = [frappe.get_doc("Schema Template", name) for name in ("Company", "Contact Strip")]
+        blocks = self.blocks(block_row("RIGPL Contact Strip", {"phone": "+91 1"}))
+        variables = context.build_variables({"path": "x"})
+        nodes = builder.build_page_nodes(templates, variables, blocks, [])
+        self.assertEqual(len(nodes), 1)
+        self.assertEqual(nodes[0]["contactPoint"]["telephone"], "+91 1")
+
+    def test_home_page_blocks_build_without_errors(self):
+        for name in builder.get_template_names("Web Template"):
+            graph, errors, _ = frappe.get_doc("Schema Template", name).render_route("")
+            self.assertEqual(errors, [], name)

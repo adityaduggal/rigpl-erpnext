@@ -15,6 +15,7 @@ import frappe
 from .sandbox import evaluate
 
 DOCTYPE = "Schema Template"
+BLOCK_TEMPLATES = "Web Template"
 NAMES_CACHE_KEY = "rigpl_schema_templates"
 ERROR_CACHE_KEY = "rigpl_schema_error"
 LOG_ONCE_SECONDS = 3600
@@ -36,14 +37,22 @@ def clear_template_cache(path=None) -> None:
     frappe.cache().delete_value(NAMES_CACHE_KEY)
 
 
-def build_graph(templates: list, variables: dict, errors: List[BuildError]) -> Optional[dict]:
-    return make_graph(build_nodes(templates, variables, errors))
+def build_graph(
+    templates: list, variables: dict, errors: List[BuildError], blocks: list = ()
+) -> Optional[dict]:
+    return make_graph(build_page_nodes(templates, variables, blocks, errors))
 
 
 def build_nodes(templates: list, variables: dict, errors: List[BuildError]) -> List[dict]:
+    return build_page_nodes(templates, variables, [], errors)
+
+
+def build_page_nodes(
+    templates: list, variables: dict, blocks: list, errors: List[BuildError]
+) -> List[dict]:
     builder = GraphBuilder(errors)
     enabled = [t for t in templates if t.enabled]
-    return merge_by_id([node for t in enabled for node in builder.nodes(t, variables)])
+    return merge_by_id([node for t in enabled for node in builder.page_nodes(t, variables, blocks)])
 
 
 def make_graph(nodes: List[dict]) -> Optional[dict]:
@@ -83,6 +92,17 @@ class GraphBuilder:
         self.errors = errors
         # templates that passed `iterate_over` and `condition` at least one time
         self.reached = set()
+
+    def page_nodes(self, template, variables: dict, blocks: list) -> List[dict]:
+        """A Web Template template makes its nodes for each block of that Web Template."""
+        if template.applies_to != BLOCK_TEMPLATES:
+            return self.nodes(template, variables)
+        return [
+            node
+            for block in blocks
+            if block["web_template"] == template.web_template
+            for node in self.nodes(template, dict(variables, block=block))
+        ]
 
     def nodes(self, template, variables: dict, chain: tuple = ()) -> List[dict]:
         chain = chain + (template.name,)

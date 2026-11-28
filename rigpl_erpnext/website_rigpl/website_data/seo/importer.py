@@ -11,7 +11,7 @@ from frappe.modules.patch_handler import update_patch_log
 
 from rigpl_erpnext.website_rigpl.seo import meta
 
-from .records import SCHEMA_TEMPLATES, SEO_RULES, SETTINGS
+from .records import HOME_RULE, SCHEMA_TEMPLATES, SEO_RULES, SETTINGS
 
 SEED_PATCH = "rigpl_erpnext.patches.manual.seed_seo_records"
 SEED_ERROR_TITLE = "RIGPL SEO seed failed"
@@ -40,12 +40,27 @@ def seed_seo_once():
 def create_missing_records() -> List[str]:
     """The names of the new records."""
     created = insert_missing("Schema Template", "template_name", SCHEMA_TEMPLATES)
-    created += insert_missing("SEO Rule", "rule_name", SEO_RULES)
+    created += insert_missing("SEO Rule", "rule_name", SEO_RULES + get_home_rules())
     fill_settings()
     return created
 
 
+def get_home_rules() -> list:
+    """The rule of the home page. Empty if the home page of Website Settings is no Web Page."""
+    route = frappe.db.get_single_value("Website Settings", "home_page")
+    if not route or not frappe.db.exists("Web Page", {"route": route, "published": 1}):
+        return []
+    return [dict(HOME_RULE, route_pattern=route)]
+
+
+def has_web_template(record: dict) -> bool:
+    """False for a block template whose Web Template the site does not have."""
+    name = record.get("web_template")
+    return not name or bool(frappe.db.exists("Web Template", name))
+
+
 def insert_missing(doctype: str, name_field: str, records: list) -> List[str]:
+    records = [record for record in records if has_web_template(record)]
     names = [record[name_field] for record in records]
     existing = set(frappe.get_all(doctype, filters={"name": ["in", names]}, pluck="name"))
     created = []
