@@ -1,18 +1,63 @@
 # Copyright (c) 2026, Rohit Industries Group Private Limited and contributors
 # For license information, please see license.txt
+import re
+
 import frappe
 from frappe.model.document import Document
+from frappe.utils import escape_html
 
 from rigpl_erpnext.website_rigpl.seo import meta
 from rigpl_erpnext.website_rigpl.website_data.seo.importer import create_missing_records
 
+# SEO Settings owns only the lines between the markers of robots.txt
+ROBOTS_BEGIN = "# BEGIN RIGPL SEO"
+ROBOTS_END = "# END RIGPL SEO"
+ROBOTS_SECTION = re.compile(
+    r"\n*^{}$.*?^{}$\n?".format(ROBOTS_BEGIN, ROBOTS_END), re.MULTILINE | re.DOTALL
+)
+USER_AGENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._/-]*$")
+
 
 class SEOSettings(Document):
     def validate(self):
-        meta.check_templates(self, ("site_name", "title_template", "description_template"))
+        meta.check_templates(
+            self, ("site_name", "title_template", "description_template", "llms_body")
+        )
+        for agent in get_crawlers(self.get("denied_ai_crawlers")):
+            if not USER_AGENT.match(agent):
+                frappe.throw(
+                    "Denied AI Crawlers: {} is not a user agent name".format(escape_html(agent)),
+                    frappe.ValidationError,
+                )
 
     def on_update(self):
+        write_robots(get_crawlers(self.get("denied_ai_crawlers")))
         meta.clear_caches()
+
+
+def get_crawlers(text: str) -> list:
+    return list(dict.fromkeys(line.strip() for line in (text or "").splitlines() if line.strip()))
+
+
+def make_robots(text: str, crawlers: list) -> str:
+    """`text` with the section of the denied crawlers. The other lines stay as they are."""
+    # a Code or Text field can have Windows line ends
+    kept = ROBOTS_SECTION.sub("\n", (text or "").replace("\r\n", "\n")).rstrip("\n")
+    if not crawlers:
+        return kept
+    rules = "\n\n".join("User-agent: {}\nDisallow: /".format(agent) for agent in crawlers)
+    section = "\n".join((ROBOTS_BEGIN, rules, ROBOTS_END))
+    return "{}\n\n{}\n".format(kept, section) if kept else section + "\n"
+
+
+def write_robots(crawlers: list) -> None:
+    old = frappe.db.get_single_value("Website Settings", "robots_txt") or ""
+    if not crawlers and ROBOTS_BEGIN not in old:
+        return
+    new = make_robots(old, crawlers)
+    if new != old:
+        frappe.db.set_value("Website Settings", None, "robots_txt", new)
+        frappe.clear_document_cache("Website Settings", "Website Settings")
 
 
 @frappe.whitelist()

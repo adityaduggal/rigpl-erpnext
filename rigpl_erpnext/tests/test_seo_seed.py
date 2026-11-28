@@ -9,8 +9,10 @@ from rohit_common.utils.query_guard import assert_max_queries
 from rigpl_erpnext.website_rigpl import item_page
 from rigpl_erpnext.website_rigpl.doctype.seo_settings.seo_settings import create_records
 from rigpl_erpnext.website_rigpl.seo import builder, context, images, meta, organization
-from rigpl_erpnext.website_rigpl.website_data.seo import importer
+from rigpl_erpnext.website_rigpl.doctype.seo_settings import seo_settings
+from rigpl_erpnext.website_rigpl.website_data.seo import importer, records
 from rigpl_erpnext.website_rigpl.website_data.seo.records import HOME_RULE, SCHEMA_TEMPLATES, SEO_RULES
+from rigpl_erpnext.www import llms
 
 TEMPLATE_NAMES = [record["template_name"] for record in SCHEMA_TEMPLATES]
 RULE_NAMES = [record["rule_name"] for record in SEO_RULES + [HOME_RULE]]
@@ -547,3 +549,56 @@ class TestContentPages(SeedTestCase):
         row = frappe._dict(full_name="A", bio="<p>B</p>", avatar="/private/files/a.png")
         with patch.object(frappe.db, "get_value", return_value=row):
             self.assertEqual(context.get_author("x"), {"name": "A", "description": "B", "image": ""})
+
+
+class TestAIAssistants(SeedTestCase):
+    """llms.txt, AI crawlers and FAQ markup (#271)."""
+
+    def settings(self, **values):
+        settings = frappe.get_doc("SEO Settings", "SEO Settings")
+        settings.update(values)
+        settings.save()
+
+    def test_denied_crawlers_keep_the_other_robots_lines(self):
+        text = "User-agent: *\nDisallow: /desk"
+        denied = seo_settings.make_robots(text, ["GPTBot"])
+        self.assertIn("User-agent: GPTBot\nDisallow: /", denied)
+        self.assertTrue(denied.startswith(text))
+        self.assertEqual(seo_settings.make_robots(denied, ["GPTBot"]), denied)
+        self.assertEqual(seo_settings.make_robots(denied, []), text)
+
+    def test_save_writes_the_robots_section(self):
+        self.settings(denied_ai_crawlers="GPTBot\nGPTBot\n")
+        robots = frappe.db.get_single_value("Website Settings", "robots_txt")
+        self.assertEqual(robots.count("User-agent: GPTBot"), 1)
+
+    def test_bad_crawler_name_stops_the_save(self):
+        with self.assertRaises(frappe.ValidationError):
+            self.settings(denied_ai_crawlers="x: y")
+
+    def test_llms_txt_follows_the_setting(self):
+        self.settings(llms_enabled=1, llms_body="# {{ site.brand }} test")
+        text = llms.get_context({})["llms_txt"]
+        self.assertTrue(text.endswith(" test"))
+        self.settings(llms_enabled=0)
+        with self.assertRaises(frappe.PageDoesNotExistError):
+            llms.get_context({})
+
+    def test_default_llms_body_renders(self):
+        self.settings(llms_enabled=1, llms_body=records.LLMS_BODY)
+        self.assertIn("## Product categories", llms.get_context({})["llms_txt"])
+
+    def test_faq_markup_is_off_until_enabled(self):
+        delete_seed_records()
+        builder.clear_template_cache()
+        importer.create_missing_records()
+        if not frappe.db.exists("Web Template", "RIGPL FAQ"):
+            self.skipTest("Run migrate to get the Web Template")
+        template = frappe.get_doc("Schema Template", "FAQ Page")
+        self.assertFalse(template.enabled)
+        template.enabled = 1
+        blocks = context.get_blocks(
+            frappe._dict(page_blocks=[block_row("RIGPL FAQ", {"questions": [{"question": "Q", "answer": "A"}]})])
+        )
+        node = builder.build_page_nodes([template], {"page": {"url": "u"}}, blocks, [])[0]
+        self.assertEqual(node["mainEntity"][0]["acceptedAnswer"]["text"], "A")

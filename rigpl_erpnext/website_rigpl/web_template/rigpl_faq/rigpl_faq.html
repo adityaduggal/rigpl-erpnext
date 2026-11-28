@@ -1,0 +1,15 @@
+{%- set level = heading_level if heading_level in ("2", "3", "4") else "2" -%}
+<div class="rigpl-faq">
+	{%- if title -%}
+	<h{{ level }} class="section-title">{{ title | e }}</h{{ level }}>
+	{%- endif -%}
+
+	{%- for row in questions or [] -%}
+		{%- if row.question and row.answer -%}
+		<div class="mt-4">
+			<h{{ level | int + 1 }} class="h5">{{ row.question | e }}</h{{ level | int + 1 }}>
+			<p>{{ row.answer | e }}</p>
+		</div>
+		{%- endif -%}
+	{%- endfor -%}
+</div>

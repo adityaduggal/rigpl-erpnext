@@ -159,10 +159,11 @@ Each value reads the database. When you change the source record, the pages chan
 | `Slideshow Images` | Web Template | `ImageObject` for each slide. |
 | `Item Card Group List`, `Item Cards List` | Web Template | `ItemList` of the products of the block. |
 | `Latest Blogs List` | Web Template | `ItemList` of `BlogPosting`. |
+| `FAQ Page` | Web Template | `FAQPage` of a **RIGPL FAQ** block. It is created disabled: tick **Enabled** to output it. |
 | `Homepage Section List` | Web Template | `ItemList` of the cards of the section. No cards: no node. |
 | `Social Video` | Web Template | `VideoObject`. It needs **Video Title** and **Video Upload Date** in the block. |
 | `Contact Strip` | Web Template | `contactPoint` of the website `Organization`. |
-| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `Section Card Item`, `Post Author`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
+| `Company Address`, `Company Ref`, `Product List Item`, `Blog List Item`, `Block Blog Post`, `Block Blog Author`, `Block Contact Point`, `Breadcrumb Item`, `FAQ Question`, `FAQ Answer`, `Section Card Item`, `Post Author`, `Return Policy`, `Product Brand`, `Property Value`, `Product Offer`, `Variant Product`, `Parent Product Group`, `Shipping Details`, `Shipping Region`, `Shipping Charge`, `Delivery Time`, `Handling Time`, `Transit Time`, `Category Listing`, `Listing Item` | Component | Parts of the templates above. |
 
 On `/contact`, the Frappe page shows its own title in the breadcrumb. The last item of `BreadcrumbList` has the title of the browser tab.
 
@@ -193,3 +194,17 @@ A **Page Type** template shows on a page only when the **SEO Rule** of the page 
 
 1. Open the template and click **Preview**. Type a route.
 2. Open the page on the website and view its source. Search for `application/ld+json`.
+
+## AI assistants
+
+| Value | Change it here |
+|---|---|
+| `/llms.txt` on or off | **SEO Settings** > Publish llms.txt |
+| The text of `/llms.txt` | **SEO Settings** > llms.txt Body. It reads `site`, `categories` (`name`, `url`, `description`) and the latest `posts`. |
+| AI crawlers that must not read the website | **SEO Settings** > Denied AI Crawlers, one name on each line, for example `GPTBot` |
+
+The save of SEO Settings writes the crawler rules into **Website Settings** > Robots.txt, between `# BEGIN RIGPL SEO` and `# END RIGPL SEO`. Do not edit those lines. The other lines stay yours.
+
+A crawler that has its own lines follows only those lines. A crawler that is not listed follows the `User-agent: *` rules.
+
+Every page has the same `@id` and `sameAs` for the company. A page that has a document also has `dateModified`.

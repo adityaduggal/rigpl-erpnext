@@ -263,3 +263,9 @@ Code: `website_rigpl/seo/images.py`.
 - `templates/rigpl_base.html`, set by the `base_template` hook, extends Frappe's base template and changes only the title tag to `seo_title`. `title` is the H1 and the last breadcrumb.
 - A Web Page with no H1 gets a hidden (`sr-only`) H1. Chosen over a visible H1 and over manual page edits.
 - `templates/includes/rigpl_item_details.html` is ERPNext's `item_details.html` with the name as H1 and no microdata. Compare at each upgrade. Chosen over a hidden H1.
+
+## 15. AI assistants (#271, user, 2026-11-28)
+
+- `www/llms.txt` and `www/llms.py`, as Frappe serves `robots.txt`.
+- AI crawlers: one text field with the denied user agents, instead of the allow/deny child table of 5.1. An allowed crawler already follows the `User-agent: *` rules, and its own group would remove them.
+- `website_rigpl/web_template/rigpl_faq` with the `FAQ Page` template, created disabled (D7).

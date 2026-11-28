@@ -140,8 +140,37 @@ SCHEMA_TEMPLATES = [
         "WebPage",
         "WebPage",
         "Site",
-        [expression("url", "page.url"), expression("name", "page.h1")],
+        [
+            expression("url", "page.url"),
+            expression("name", "page.h1"),
+            expression("dateModified", "doc.get('modified')"),
+        ],
         id_expression="{{ page.url }}#webpage",
+    ),
+    # FAQ block (#271): the markup is off until a manager enables FAQ Page (D7)
+    schema(
+        "FAQ Answer",
+        "Answer",
+        "Component",
+        [expression("text", "row.answer | plain_text")],
+    ),
+    schema(
+        "FAQ Question",
+        "Question",
+        "Component",
+        [expression("name", "row.question"), linked("acceptedAnswer", "FAQ Answer")],
+        iterate_over="block.get('questions') or []",
+        condition="row.get('question') and row.get('answer')",
+    ),
+    schema(
+        "FAQ Page",
+        "FAQPage",
+        "Web Template",
+        [linked_list("mainEntity", "FAQ Question")],
+        web_template="RIGPL FAQ",
+        id_expression="{{ page.url }}#faq-{{ block.idx }}",
+        condition="block.get('questions')",
+        enabled=0,
     ),
     # products and categories (#265, #266)
     schema("Product Brand", "Brand", "Component", [expression("name", "site.brand")]),
@@ -511,9 +540,42 @@ HOME_RULE = dict(
     priority=20,
 )
 
+# Markdown, as llmstxt.org describes it. Each fact comes from the database.
+LLMS_BODY = """# {{ site.brand }}
+
+> {{ site.organization.legal_name }}{% if site.organization.founding_date %}, founded {{ site.organization.founding_date }}{% endif %}.
+
+## Company
+
+- Website: {{ site.url }}
+{%- if site.organization.email %}
+- Email: {{ site.organization.email }}
+{%- endif %}
+{%- if site.organization.telephone %}
+- Phone: {{ site.organization.telephone }}
+{%- endif %}
+{%- if site.organization.address %}
+- Address: {{ site.organization.address.street }}, {{ site.organization.address.city }}, {{ site.organization.address.state }} {{ site.organization.address.pincode }}, {{ site.organization.address.country_code }}
+{%- endif %}
+{%- for url in site.organization.same_as %}
+- Profile: {{ url }}
+{%- endfor %}
+
+## Product categories
+
+{% for category in categories -%}
+- [{{ category.name }}]({{ category.url }}){% if category.description %}: {{ category.description | truncate(160) }}{% endif %}
+{% endfor %}
+## Latest articles
+
+{% for post in posts -%}
+- [{{ post.title }}]({{ post.url }}){% if post.description %}: {{ post.description | truncate(160) }}{% endif %}
+{% endfor %}"""
+
 # only an empty field of SEO Settings gets a value
 SETTINGS = {
     "site_name": "{{ site.brand }}",
     "specs_heading": "Specifications",
     "variants_heading": "Sizes, stock and prices",
+    "llms_body": LLMS_BODY,
 }

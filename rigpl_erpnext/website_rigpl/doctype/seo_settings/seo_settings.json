@@ -26,7 +26,11 @@
   "return_policy",
   "return_days",
   "return_fees",
-  "return_method"
+  "return_method",
+  "ai_section",
+  "llms_enabled",
+  "llms_body",
+  "denied_ai_crawlers"
  ],
  "fields": [
   {
@@ -166,10 +170,34 @@
    "fieldtype": "Select",
    "label": "Return Method",
    "options": "\nReturnByMail\nReturnInStore\nReturnAtKiosk"
+  },
+  {
+   "fieldname": "ai_section",
+   "fieldtype": "Section Break",
+   "label": "AI Assistants"
+  },
+  {
+   "fieldname": "llms_enabled",
+   "fieldtype": "Check",
+   "label": "Publish llms.txt",
+   "description": "Off: /llms.txt shows the 404 page"
+  },
+  {
+   "fieldname": "llms_body",
+   "fieldtype": "Code",
+   "label": "llms.txt Body",
+   "options": "Jinja",
+   "description": "Jinja text of /llms.txt. It reads site, categories and posts"
+  },
+  {
+   "fieldname": "denied_ai_crawlers",
+   "fieldtype": "Small Text",
+   "label": "Denied AI Crawlers",
+   "description": "One user agent on each line, for example GPTBot. Each one gets Disallow: / in robots.txt. A crawler that is not listed follows the other rules of robots.txt"
   }
  ],
  "links": [],
- "modified": "2026-11-28 23:30:00.000000",
+ "modified": "2026-11-28 23:59:30.000000",
  "modified_by": "Administrator",
  "module": "Website-RIGPL",
  "name": "SEO Settings",

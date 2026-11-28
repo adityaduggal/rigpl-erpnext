@@ -4,6 +4,8 @@ into it, so no object with a write method reaches the sandbox.
 """
 from __future__ import annotations
 
+from html import unescape
+
 import frappe
 from frappe.model.document import Document
 from frappe.utils import add_days, cint, flt, get_url, nowdate, set_request
@@ -335,6 +337,27 @@ def get_listing(item_group: str) -> list:
         )
     links = {row.route: row.name for row in rows if row.route}
     return make_links([(name, abs_url(route)) for route, name in links.items()])
+
+
+def get_listing_variables() -> dict:
+    """`categories` and `posts` for `/llms.txt` (#271)."""
+    groups = frappe.get_all(
+        "Item Group",
+        filters={"show_in_website": 1, "route": ["is", "set"]},
+        fields=["name", "route", "description"],
+        order_by="weightage desc, name asc",
+    )
+    categories = [
+        {
+            "name": group.name,
+            "url": abs_url(group.route),
+            # Markdown needs the characters, not the HTML entities
+            "description": unescape(plain_text((group.description or "").replace("><", "> <"))),
+        }
+        for group in groups
+    ]
+    posts = [dict(post, description=unescape(post["description"])) for post in get_posts(12)]
+    return {"categories": categories, "posts": posts}
 
 
 def get_crumbs(web_context: dict, shown_title: str = None) -> list:

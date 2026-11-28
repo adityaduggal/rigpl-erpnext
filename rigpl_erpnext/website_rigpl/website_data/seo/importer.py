@@ -67,7 +67,8 @@ def insert_missing(doctype: str, name_field: str, records: list) -> List[str]:
     for record in records:
         if record[name_field] in existing:
             continue
-        doc = frappe.get_doc(dict(record, doctype=doctype, enabled=1))
+        # a record is enabled, unless its definition says no
+        doc = frappe.get_doc(dict({"enabled": 1}, **record, doctype=doctype))
         # migrate must not render website pages
         doc.flags.skip_route_check = True
         doc.insert(ignore_permissions=True)
